@@ -6,8 +6,8 @@ import { TimeTravelSlider } from "./TimeTravelSlider";
 import { calculateProjectedBalance } from "@/utils/finance-projections";
 import { formatCurrency } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { TrendingUp, ArrowUpRight, ArrowDownRight, Wallet, History, Zap } from "lucide-react";
-import { addDays } from "date-fns";
+import { TrendingUp, ArrowUpRight, ArrowDownRight, Wallet, History, Zap, ShieldCheck, AlertCircle } from "lucide-react";
+import { addDays, endOfMonth, differenceInDays } from "date-fns";
 
 interface RealtimeDashboardProps {
   initialBalance: number;
@@ -26,22 +26,42 @@ export default function RealtimeDashboard({
 }: RealtimeDashboardProps) {
   const [days, setDays] = useState(0);
 
+  // 1. Cálculo da Projeção (Viagem no Tempo)
   const projectedBalance = useMemo(() => {
     const targetDate = addDays(new Date(), days);
-    
-    // Mapear orçamentos para o formato que a função espera
     const formattedBudgets = initialBudgets.map(b => ({
       amount_cents: b.limit,
       spent_this_month: b.spent
     }));
+    return calculateProjectedBalance(initialBalance, targetDate, initialRecurring || [], formattedBudgets);
+  }, [initialBalance, initialRecurring, days, initialBudgets]);
 
-    return calculateProjectedBalance(
+  // 2. Visão Prática: "Quanto me sobra este mês?"
+  const monthlyOutlook = useMemo(() => {
+    const endOfCurrentMonth = endOfMonth(new Date());
+    const daysUntilEnd = differenceInDays(endOfCurrentMonth, new Date());
+    
+    const formattedBudgets = initialBudgets.map(b => ({
+      amount_cents: b.limit,
+      spent_this_month: b.spent
+    }));
+    
+    // Projeção até o fim do mês atual
+    const balanceAtMonthEnd = calculateProjectedBalance(
       initialBalance, 
-      targetDate, 
+      endOfCurrentMonth, 
       initialRecurring || [], 
       formattedBudgets
     );
-  }, [initialBalance, initialRecurring, days, initialBudgets]);
+    
+    const plannedExpenses = initialBalance - balanceAtMonthEnd;
+    
+    return {
+      balanceAtMonthEnd,
+      plannedExpenses: Math.abs(plannedExpenses),
+      isHealthy: balanceAtMonthEnd >= 0
+    };
+  }, [initialBalance, initialRecurring, initialBudgets]);
 
   const isFuture = days > 0;
   const balanceDifference = projectedBalance - initialBalance;
@@ -50,46 +70,78 @@ export default function RealtimeDashboard({
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
       {/* Left Column: Summary & Controls */}
       <div className="lg:col-span-8 space-y-8">
-        {/* Main Balance Card */}
+        
+        {/* Simplified Cockpit Header */}
         <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-10 relative overflow-hidden group">
           <div className={cn(
             "absolute -top-24 -left-24 w-64 h-64 blur-[100px] rounded-full transition-colors duration-1000",
             isFuture ? "bg-violet-600/20" : "bg-emerald-600/10"
           )} />
           
-          <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-white/40 font-bold text-xs uppercase tracking-[0.2em]">
-                <Wallet className="w-4 h-4" />
-                {isFuture ? "Patrimônio Projetado" : "Liquidez Disponível"}
+          <div className="relative z-10 flex flex-col gap-8">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-white/40 font-bold text-xs uppercase tracking-[0.2em]">
+                  <Wallet className="w-4 h-4" />
+                  {isFuture ? "Patrimônio Projetado" : "Liquidez Atual"}
+                </div>
+                <motion.h1 
+                  key={projectedBalance}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={cn(
+                    "text-6xl md:text-7xl font-black tracking-tighter tabular-nums",
+                    isFuture ? "text-violet-400 drop-shadow-[0_0_30px_rgba(139,92,246,0.3)]" : "text-white"
+                  )}
+                >
+                  {formatCurrency(projectedBalance)}
+                </motion.h1>
               </div>
-              <motion.h1 
-                key={projectedBalance}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={cn(
-                  "text-6xl md:text-7xl font-black tracking-tighter tabular-nums",
-                  isFuture ? "text-violet-400 drop-shadow-[0_0_30px_rgba(139,92,246,0.3)]" : "text-white"
-                )}
-              >
-                {formatCurrency(projectedBalance)}
-              </motion.h1>
+
+              {isFuture && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-2xl border font-bold text-sm",
+                    balanceDifference >= 0 
+                      ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
+                      : "bg-red-500/10 border-red-500/20 text-red-400"
+                  )}
+                >
+                  {balanceDifference >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                  {formatCurrency(Math.abs(balanceDifference))}
+                </motion.div>
+              )}
             </div>
 
-            {isFuture && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-2xl border font-bold text-sm",
-                  balanceDifference >= 0 
-                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
-                    : "bg-red-500/10 border-red-500/20 text-red-400"
-                )}
-              >
-                {balanceDifference >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                {formatCurrency(Math.abs(balanceDifference))}
-              </motion.div>
+            {/* Practical Insights Bar (Previsão do Mês) */}
+            {!isFuture && (
+              <div className="flex flex-wrap gap-4 pt-6 border-t border-white/5">
+                <div className="flex items-center gap-3 bg-white/2 px-4 py-3 rounded-2xl border border-white/5">
+                  <ArrowDownRight className="w-4 h-4 text-red-400/60" />
+                  <div>
+                    <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Gastos Previstos</p>
+                    <p className="text-sm font-bold text-white/80">{formatCurrency(monthlyOutlook.plannedExpenses)}</p>
+                  </div>
+                </div>
+
+                <div className={cn(
+                  "flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all",
+                  monthlyOutlook.isHealthy ? "bg-emerald-500/5 border-emerald-500/10" : "bg-red-500/5 border-red-500/10"
+                )}>
+                  {monthlyOutlook.isHealthy ? <ShieldCheck className="w-4 h-4 text-emerald-400" /> : <AlertCircle className="w-4 h-4 text-red-400" />}
+                  <div>
+                    <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Sobra Livre</p>
+                    <p className={cn(
+                      "text-sm font-black",
+                      monthlyOutlook.isHealthy ? "text-emerald-400" : "text-red-400"
+                    )}>
+                      {formatCurrency(monthlyOutlook.balanceAtMonthEnd)}
+                    </p>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -120,7 +172,7 @@ export default function RealtimeDashboard({
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
               <History className="w-5 h-5 text-white/20" />
-              Atividade Recente
+              Recentes
             </h3>
             <button className="text-[10px] font-black text-white/20 uppercase tracking-widest hover:text-white transition-colors">Ver Tudo</button>
           </div>
@@ -131,28 +183,25 @@ export default function RealtimeDashboard({
                 <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4">
                   <Zap className="w-6 h-6 text-white/10" />
                 </div>
-                <p className="text-white/20 text-xs font-medium">Nenhuma transação<br/>registrada hoje.</p>
+                <p className="text-white/20 text-[10px] font-bold uppercase">Sem registros hoje.</p>
               </div>
             ) : (
               initialTransactions.map((tx) => (
                 <div key={tx.id} className="flex items-center justify-between group">
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
                     <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center border transition-all",
-                      tx.type === "EXPENSE" ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                      "w-10 h-10 rounded-xl flex items-center justify-center border transition-all text-xs",
+                      tx.type === "EXPENSE" ? "bg-red-500/5 border-red-500/10 text-red-400" : "bg-emerald-500/5 border-emerald-500/10 text-emerald-400"
                     )}>
-                      {tx.type === "EXPENSE" ? <ArrowDownRight className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                      {tx.type === "EXPENSE" ? "S" : "E"}
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-white group-hover:text-violet-400 transition-colors">{tx.description}</p>
-                      <p className="text-[10px] text-white/20 font-bold uppercase tracking-tighter">Hoje</p>
+                      <p className="text-xs font-bold text-white group-hover:text-violet-400 transition-colors truncate max-w-[120px]">{tx.description}</p>
+                      <p className="text-[8px] text-white/20 font-black uppercase tracking-tighter">Hoje</p>
                     </div>
                   </div>
-                  <span className={cn(
-                    "text-sm font-black tabular-nums",
-                    tx.type === "EXPENSE" ? "text-white" : "text-emerald-400"
-                  )}>
-                    {tx.type === "EXPENSE" ? "-" : "+"}{formatCurrency(tx.amount)}
+                  <span className="text-xs font-black tabular-nums text-white/80">
+                    {formatCurrency(tx.amount)}
                   </span>
                 </div>
               ))
@@ -161,7 +210,7 @@ export default function RealtimeDashboard({
 
           <div className="mt-8 pt-8 border-t border-white/5">
             <div className="flex items-center justify-between p-4 bg-violet-600 rounded-3xl shadow-xl shadow-violet-600/20 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all">
-              <span className="text-xs font-black text-white uppercase tracking-widest">Vesper Insights</span>
+              <span className="text-[10px] font-black text-white uppercase tracking-widest">Vesper Insights</span>
               <TrendingUp className="w-4 h-4 text-white" />
             </div>
           </div>
@@ -171,7 +220,6 @@ export default function RealtimeDashboard({
   );
 }
 
-// Helper para evitar erro de 'cn' não definido se não for importado
 function cn(...inputs: any[]) {
   return inputs.filter(Boolean).join(" ");
 }

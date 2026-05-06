@@ -11,7 +11,8 @@ import {
   Settings,
   PieChart,
   LogOut,
-  User as UserIcon
+  User as UserIcon,
+  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -21,6 +22,7 @@ const menuItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Transações", href: "/transactions", icon: ArrowLeftRight },
   { name: "Contas", href: "/accounts", icon: Wallet },
+  { name: "Assinaturas", href: "/subscriptions", icon: Zap },
   { name: "Metas", href: "/goals", icon: Target },
   { name: "Relatórios", href: "/reports", icon: PieChart },
   { name: "Configurações", href: "/settings", icon: Settings },

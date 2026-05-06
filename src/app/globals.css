@@ -17,31 +17,50 @@
     font-family: Arial, Helvetica, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
   }
 }
 
-/* Custom Scrollbar - Vesper Style */
-*::-webkit-scrollbar {
-  width: 6px !important;
-  height: 6px !important;
+/* 
+   Scrollbar Liquid Glass - Ultra Fina e Elegante
+   Aparece apenas no hover ou scroll para não poluir o design.
+*/
+::-webkit-scrollbar {
+  width: 5px !important;
+  height: 5px !important;
 }
 
-*::-webkit-scrollbar-track {
+::-webkit-scrollbar-track {
   background: transparent !important;
 }
 
-*::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15) !important;
-  border-radius: 10px !important;
-  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-radius: 20px !important;
+  transition: all 0.3s ease;
 }
 
-*::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25) !important;
+*:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5) !important; /* Brilho Violeta no Hover */
 }
 
 /* Firefox */
 * {
-  scrollbar-width: thin !important;
-  scrollbar-color: rgba(255, 255, 255, 0.15) transparent !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+/* Classes Utilitárias de Vidro */
+.glass {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  display: block;
 }
