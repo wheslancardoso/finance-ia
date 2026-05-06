@@ -84,6 +84,7 @@ input[type="date"] {
   position: relative;
   appearance: none;
   -webkit-appearance: none;
+  color-scheme: dark; /* Força o calendário nativo a ser escuro */
 }
 
 /* Garante que o texto fique legível e bonito */
