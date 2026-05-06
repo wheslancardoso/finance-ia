@@ -5,6 +5,7 @@ import GlassCard from "@/components/GlassCard";
 import { Wallet, Receipt, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { formatCurrency, cn } from "@/lib/utils";
+import { SpendingChart } from "@/components/SpendingChart";
 
 interface Transaction {
   id: string;
@@ -85,6 +86,8 @@ export default function RealtimeDashboard({
               {formatCurrency(balance)}
             </h1>
           </div>
+
+          <SpendingChart />
         </div>
 
         <div className="w-full h-[1px] bg-white/10" />

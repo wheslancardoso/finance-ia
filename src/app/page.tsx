@@ -19,8 +19,12 @@ export default async function Home() {
     type: tx.type || "EXPENSE",
   }));
 
-  // Initial balance fixed as per previous requirement (4500 cents)
-  const initialBalance = 4500;
+  // Buscar saldo real das contas
+  const { data: accounts } = await supabase
+    .from("accounts")
+    .select("balance_cents");
+
+  const initialBalance = accounts?.reduce((acc, curr) => acc + (curr.balance_cents || 0), 0) || 0;
 
   return (
     <div className="p-8 md:p-12 max-w-7xl mx-auto w-full space-y-8">

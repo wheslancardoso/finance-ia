@@ -30,7 +30,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
       suppressHydrationWarning
     >
-      <body className="min-h-full bg-black text-white font-sans selection:bg-violet-500/30">
+      <body className="min-h-full bg-black text-white font-sans selection:bg-violet-500/30" suppressHydrationWarning>
         <div className="flex min-h-screen">
           <Sidebar />
           <main className="flex-1 md:pl-64 min-h-screen relative">
