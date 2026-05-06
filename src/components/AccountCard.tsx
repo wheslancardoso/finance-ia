@@ -87,7 +87,10 @@ export function AccountCard({ account }: AccountCardProps) {
 
       <div className="mt-6 pt-6 border-t border-white/5 flex items-center justify-between">
         <div className="flex -space-x-2">
-          <div className="w-6 h-6 rounded-full border-2 border-black bg-violet-500/20" />
+          <div 
+            className="w-6 h-6 rounded-full border-2 border-black transition-colors" 
+            style={{ backgroundColor: `${colorHex}40` }}
+          />
         </div>
         <span className="text-[10px] text-white/20 font-bold uppercase tracking-tighter">
           Atualizado agora
