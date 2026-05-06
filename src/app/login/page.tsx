@@ -51,7 +51,7 @@ export default function LoginPage() {
 
       setMessage({ 
         type: "success", 
-        text: "Conta criada! Verifique seu e-mail ou tente entrar novamente." 
+        text: "Conta criada com sucesso! Tente entrar agora." 
       });
     } else {
       setMessage({ type: "error", text: signInError.message });

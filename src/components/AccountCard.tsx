@@ -3,7 +3,7 @@
 import React from "react";
 import GlassCard from "./GlassCard";
 import { cn, formatCurrency } from "@/lib/utils";
-import { CreditCard, Wallet, Banknote } from "lucide-react";
+import { CreditCard, Wallet, Banknote, CalendarDays } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { useAccountModal } from "@/context/AccountModalContext";
@@ -14,10 +14,24 @@ interface AccountCardProps {
 }
 
 export function AccountCard({ account }: AccountCardProps) {
-  const { id, name, type, color_hex: colorHex, balance_cents: balance } = account;
+  const { 
+    id, 
+    name, 
+    type, 
+    color_hex: colorHex, 
+    balance_cents: balance, 
+    credit_limit_cents: limit,
+    closing_day,
+    due_day
+  } = account;
   const router = useRouter();
   const { openEdit } = useAccountModal();
   const isCreditCard = type === "CREDIT_CARD";
+
+  // No caso de cartão, o 'balance' representa o gasto acumulado (fatura)
+  const spent = Math.abs(balance);
+  const available = (limit || 0) - spent;
+  const percentage = limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
 
   async function handleDelete() {
     if (!confirm(`Tem certeza que deseja excluir a conta "${name}"? Todas as transações vinculadas serão apagadas.`)) return;
@@ -34,7 +48,6 @@ export function AccountCard({ account }: AccountCardProps) {
 
   return (
     <GlassCard className="relative overflow-hidden group">
-      {/* Dynamic Glow background based on colorHex */}
       <div 
         className="absolute -top-12 -right-12 w-24 h-24 blur-[60px] opacity-20 transition-opacity group-hover:opacity-40"
         style={{ backgroundColor: colorHex }}
@@ -65,35 +78,64 @@ export function AccountCard({ account }: AccountCardProps) {
         </div>
         
         <ActionMenu 
-          onEdit={() => {
-            console.log("AccountCard: triggering openEdit for", account.id);
-            openEdit(account);
-          }}
+          onEdit={() => openEdit(account)}
           onDelete={handleDelete}
           className="relative z-10"
         />
       </div>
 
-      <div className="space-y-1">
-        <p className="text-white/40 text-sm font-medium">
-          {isCreditCard ? "Limite Utilizado" : "Saldo Atual"}
-        </p>
-        <div className="flex items-baseline gap-2">
-          <h2 className="text-3xl font-bold text-white tracking-tight tabular-nums">
-            {formatCurrency(balance)}
-          </h2>
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <p className="text-white/40 text-sm font-medium">
+            {isCreditCard ? "Fatura Atual" : "Saldo Atual"}
+          </p>
+          <div className="flex items-baseline gap-2">
+            <h2 className={cn(
+              "text-3xl font-bold tracking-tight tabular-nums",
+              isCreditCard ? "text-amber-500" : "text-white"
+            )}>
+              {formatCurrency(balance)}
+            </h2>
+          </div>
         </div>
+
+        {isCreditCard && limit > 0 && (
+          <div className="space-y-2">
+            <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-white/40">
+              <span>Limite Utilizado</span>
+              <span>{percentage.toFixed(0)}%</span>
+            </div>
+            <div className="relative h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+              <div 
+                className="absolute top-0 left-0 h-full rounded-full bg-violet-500 transition-all duration-1000"
+                style={{ width: `${percentage}%`, backgroundColor: colorHex }}
+              />
+            </div>
+            <div className="flex justify-between text-[10px] font-medium text-white/20">
+              <span>Disponível: {formatCurrency(available)}</span>
+              <span>Total: {formatCurrency(limit)}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-6 pt-6 border-t border-white/5 flex items-center justify-between">
-        <div className="flex -space-x-2">
-          <div 
-            className="w-6 h-6 rounded-full border-2 border-black transition-colors" 
-            style={{ backgroundColor: `${colorHex}40` }}
-          />
-        </div>
+        {isCreditCard ? (
+          <div className="flex items-center gap-4">
+            <div className="flex flex-col">
+              <span className="text-[8px] font-bold text-white/20 uppercase tracking-widest">Fecha dia</span>
+              <span className="text-xs font-bold text-white/60">{closing_day || "--"}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[8px] font-bold text-white/20 uppercase tracking-widest">Vence dia</span>
+              <span className="text-xs font-bold text-white/60">{due_day || "--"}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colorHex }} />
+        )}
         <span className="text-[10px] text-white/20 font-bold uppercase tracking-tighter">
-          Atualizado agora
+          Vesper Sync
         </span>
       </div>
     </GlassCard>
