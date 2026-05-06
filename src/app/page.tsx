@@ -23,16 +23,16 @@ export default async function Home() {
   const initialBalance = 4500;
 
   return (
-    <main className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-[#030303] py-12">
-      {/* Dynamic Background Blobs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-purple-600/30 blur-[120px] animate-pulse" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-600/20 blur-[120px]" />
-      <div className="absolute top-[20%] right-[10%] w-[30%] h-[30%] rounded-full bg-indigo-600/20 blur-[100px]" />
+    <div className="p-8 md:p-12 max-w-7xl mx-auto w-full space-y-8">
+      <header className="flex flex-col gap-1">
+        <h2 className="text-3xl font-bold tracking-tight text-white">Dashboard</h2>
+        <p className="text-white/40">Bem-vindo de volta ao seu centro de comando financeiro.</p>
+      </header>
 
       <RealtimeDashboard 
         initialBalance={initialBalance} 
         initialTransactions={initialTransactions} 
       />
-    </main>
+    </div>
   );
 }

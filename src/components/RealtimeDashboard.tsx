@@ -69,7 +69,7 @@ export default function RealtimeDashboard({
   }, []);
 
   return (
-    <div className="z-10 w-full max-w-lg px-6">
+    <div className="z-10 w-full space-y-8">
       <GlassCard className="flex flex-col gap-8">
         {/* Header & Balance */}
         <div className="flex flex-col items-center gap-6">
