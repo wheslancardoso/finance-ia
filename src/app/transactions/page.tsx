@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { TransactionItem } from "@/components/TransactionItem";
 import GlassCard from "@/components/GlassCard";
 import { formatCurrency, cn } from "@/lib/utils";
+import { getFamilyGroup } from "@/utils/supabase/auth-helpers";
 import { 
   Search, 
   Filter, 
@@ -12,8 +13,17 @@ import {
 
 export default async function TransactionsPage() {
   const supabase = await createClient();
+  const familyGroupId = await getFamilyGroup();
 
-  // Buscar todas as transações com detalhes de categoria e conta
+  // 1. Buscar IDs das contas do grupo
+  const { data: accounts } = await supabase
+    .from("accounts")
+    .select("id")
+    .eq("family_group_id", familyGroupId);
+
+  const accountIds = accounts?.map(a => a.id) || [];
+
+  // 2. Buscar transações vinculadas a essas contas
   const { data: transactions } = await supabase
     .from("transactions")
     .select(`
@@ -21,9 +31,10 @@ export default async function TransactionsPage() {
       categories (name, color_hex, icon_name),
       accounts (name, color_hex)
     `)
+    .in("account_id", accountIds)
     .order("date", { ascending: false });
 
-  // Agrupar transações por data (simplificado para o exemplo)
+  // Agrupar transações por data
   const groupedTransactions: Record<string, any[]> = {};
   
   transactions?.forEach((tx) => {
@@ -76,7 +87,7 @@ export default async function TransactionsPage() {
           </div>
         ))}
 
-        {transactions?.length === 0 && (
+        {(transactions?.length === 0 || !transactions) && (
           <div className="py-24 text-center space-y-4">
              <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Search className="w-10 h-10 text-white/10" />

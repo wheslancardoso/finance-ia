@@ -1,45 +1,20 @@
 import { createClient } from "@/utils/supabase/server";
 import RealtimeDashboard from "@/components/RealtimeDashboard";
+import { getFamilyGroup } from "@/utils/supabase/auth-helpers";
 import { redirect } from "next/navigation";
 
 export default async function Home() {
   const supabase = await createClient();
-  
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
     redirect("/login");
   }
 
-  // 1. Buscar o grupo familiar do usuário
-  let { data: familyMember } = await supabase
-    .from("family_members")
-    .select("family_group_id")
-    .eq("user_id", user.id)
-    .single();
+  const familyGroupId = await getFamilyGroup();
 
-  let familyGroupId = familyMember?.family_group_id;
-
-  // 2. Se não tiver grupo, criar um inicial
   if (!familyGroupId) {
-    // Criar o grupo
-    const { data: newGroup, error: groupError } = await supabase
-      .from("family_groups")
-      .insert({ name: "Minha Família" })
-      .select()
-      .single();
-
-    if (!groupError && newGroup) {
-      familyGroupId = newGroup.id;
-      // Vincular o usuário como admin
-      await supabase
-        .from("family_members")
-        .insert({
-          family_group_id: familyGroupId,
-          user_id: user.id,
-          role: "admin"
-        });
-    }
+    return <div>Erro ao carregar seu grupo familiar.</div>;
   }
 
   // 3. Buscar contas do grupo

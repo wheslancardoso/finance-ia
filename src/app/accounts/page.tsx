@@ -2,14 +2,17 @@ import { createClient } from "@/utils/supabase/server";
 import { AccountCard } from "@/components/AccountCard";
 import { Plus } from "lucide-react";
 import { AccountsHeader } from "@/components/AccountsHeader";
+import { getFamilyGroup } from "@/utils/supabase/auth-helpers";
 
 export default async function AccountsPage() {
   const supabase = await createClient();
-  
-  // Buscar contas do banco de dados
+  const familyGroupId = await getFamilyGroup();
+
+  // Buscar contas do banco de dados filtrando pelo grupo
   const { data: accounts } = await supabase
     .from("accounts")
     .select("*")
+    .eq("family_group_id", familyGroupId)
     .order("created_at", { ascending: true });
 
   const hasAccounts = accounts && accounts.length > 0;
