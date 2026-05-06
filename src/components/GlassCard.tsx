@@ -16,7 +16,7 @@ export default function GlassCard({ children, className }: GlassCardProps) {
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 400, damping: 17 }}
       className={cn(
-        "relative overflow-hidden",
+        "relative",
         "backdrop-blur-xl bg-white/10",
         "border border-white/20",
         "rounded-[2rem] shadow-2xl",

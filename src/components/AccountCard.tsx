@@ -3,19 +3,34 @@
 import React from "react";
 import GlassCard from "./GlassCard";
 import { cn, formatCurrency } from "@/lib/utils";
-import { CreditCard, Wallet, Banknote, MoreVertical } from "lucide-react";
-import { motion } from "framer-motion";
+import { CreditCard, Wallet, Banknote } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
+import { useRouter } from "next/navigation";
+import { useAccountModal } from "@/context/AccountModalContext";
+import { ActionMenu } from "./ActionMenu";
 
 interface AccountCardProps {
-  name: string;
-  type: string;
-  balance: number;
-  colorHex: string;
-  currencyCode?: string;
+  account: any;
 }
 
-export function AccountCard({ name, type, balance, colorHex }: AccountCardProps) {
+export function AccountCard({ account }: AccountCardProps) {
+  const { id, name, type, color_hex: colorHex, balance_cents: balance } = account;
+  const router = useRouter();
+  const { openEdit } = useAccountModal();
   const isCreditCard = type === "CREDIT_CARD";
+
+  async function handleDelete() {
+    if (!confirm(`Tem certeza que deseja excluir a conta "${name}"? Todas as transações vinculadas serão apagadas.`)) return;
+
+    const supabase = createClient();
+    const { error } = await supabase.from("accounts").delete().eq("id", id);
+
+    if (!error) {
+      router.refresh();
+    } else {
+      alert("Erro ao excluir conta");
+    }
+  }
 
   return (
     <GlassCard className="relative overflow-hidden group">
@@ -48,9 +63,15 @@ export function AccountCard({ name, type, balance, colorHex }: AccountCardProps)
             </span>
           </div>
         </div>
-        <button className="text-white/20 hover:text-white/60 transition-colors">
-          <MoreVertical className="w-5 h-5" />
-        </button>
+        
+        <ActionMenu 
+          onEdit={() => {
+            console.log("AccountCard: triggering openEdit for", account.id);
+            openEdit(account);
+          }}
+          onDelete={handleDelete}
+          className="relative z-10"
+        />
       </div>
 
       <div className="space-y-1">
@@ -66,7 +87,6 @@ export function AccountCard({ name, type, balance, colorHex }: AccountCardProps)
 
       <div className="mt-6 pt-6 border-t border-white/5 flex items-center justify-between">
         <div className="flex -space-x-2">
-          {/* Mock avatars for shared accounts or status dots */}
           <div className="w-6 h-6 rounded-full border-2 border-black bg-violet-500/20" />
         </div>
         <span className="text-[10px] text-white/20 font-bold uppercase tracking-tighter">
