@@ -50,13 +50,37 @@ export function AddTransactionModal() {
 
   async function loadData() {
     const supabase = createClient();
-    const { data: catData } = await supabase.from("categories").select("id, name");
-    const { data: accData } = await supabase.from("accounts").select("id, name");
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    // Buscar o grupo familiar do usuário
+    const { data: familyMember } = await supabase
+      .from("family_members")
+      .select("family_group_id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!familyMember) return;
+
+    const familyGroupId = familyMember.family_group_id;
+
+    // Buscar contas e categorias DO GRUPO
+    const { data: catData } = await supabase
+      .from("categories")
+      .select("id, name")
+      .eq("family_group_id", familyGroupId);
+
+    const { data: accData } = await supabase
+      .from("accounts")
+      .select("id, name")
+      .eq("family_group_id", familyGroupId);
 
     if (catData) setCategories(catData);
     if (accData) setAccounts(accData);
-    if (accData?.length) setAccountId(accData[0].id);
-    if (catData?.length) setCategoryId(catData[0].id);
+    
+    if (accData?.length && !accountId) setAccountId(accData[0].id);
+    if (catData?.length && !categoryId) setCategoryId(catData[0].id);
   }
 
   async function handleSubmit(e: React.FormEvent) {

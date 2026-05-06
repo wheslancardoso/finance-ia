@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Lock, ArrowRight, Github, Chrome, Sparkles } from "lucide-react";
+import { Mail, Lock, ArrowRight, Globe, Sparkles, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -153,13 +153,13 @@ export default function LoginPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <button className="flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/5 py-3 rounded-2xl text-white/60 hover:text-white transition-all text-sm font-medium">
-                <Github className="w-5 h-5" />
-                Github
-              </button>
-              <button className="flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/5 py-3 rounded-2xl text-white/60 hover:text-white transition-all text-sm font-medium">
-                <Chrome className="w-5 h-5" />
+              <button className="flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 py-3 rounded-2xl text-white/60 hover:text-white transition-all text-sm font-medium">
+                <Globe className="w-5 h-5" />
                 Google
+              </button>
+              <button className="flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 py-3 rounded-2xl text-white/60 hover:text-white transition-all text-sm font-medium">
+                <UserPlus className="w-5 h-5" />
+                Outros
               </button>
             </div>
           </div>

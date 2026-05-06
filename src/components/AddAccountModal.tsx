@@ -45,9 +45,30 @@ export function AddAccountModal() {
     setLoading(true);
 
     const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      alert("Sessão expirada. Faça login novamente.");
+      setLoading(false);
+      return;
+    }
+
+    // Buscar o grupo familiar do usuário
+    const { data: familyMember } = await supabase
+      .from("family_members")
+      .select("family_group_id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!familyMember) {
+      alert("Erro ao identificar seu grupo familiar.");
+      setLoading(false);
+      return;
+    }
+
     const balanceCents = Math.round(parseFloat(balance.replace(",", ".")) * 100);
 
-    const payload = {
+    const payload: any = {
       name,
       type,
       balance_cents: balanceCents,
@@ -62,6 +83,7 @@ export function AddAccountModal() {
         .eq("id", accountToEdit.id);
       error = err;
     } else {
+      payload.family_group_id = familyMember.family_group_id;
       const { error: err } = await supabase.from("accounts").insert([payload]);
       error = err;
     }
