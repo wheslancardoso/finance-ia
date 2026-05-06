@@ -55,7 +55,7 @@ export default function LoginPage() {
             <Sparkles className="w-8 h-8 text-violet-500" />
           </div>
           <h1 className="text-4xl font-bold text-white tracking-tight mb-2">
-            Liquid <span className="text-violet-500">Glass</span>
+            Ves<span className="text-violet-500">per</span>
           </h1>
           <p className="text-white/40 font-medium">Controle financeiro em estado de fluxo.</p>
         </div>

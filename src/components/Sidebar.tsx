@@ -51,10 +51,10 @@ export function Sidebar() {
       {/* Brand */}
       <div className="flex items-center gap-3 mb-12 px-2">
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/20 flex items-center justify-center">
-          <span className="text-white font-bold text-xl">L</span>
+          <span className="text-white font-bold text-xl">V</span>
         </div>
         <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 tracking-tight">
-          Liquid Finance
+          Vesper
         </h1>
       </div>
 
