@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Wallet, Palette, Landmark } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 import { useAccountModal } from "@/context/AccountModalContext";
@@ -12,6 +12,7 @@ import { useAccountModal } from "@/context/AccountModalContext";
 export function AddAccountModal() {
   const { isOpen, accountToEdit, closeModal } = useAccountModal();
   const router = useRouter();
+  const pathname = usePathname();
   const [loading, setLoading] = useState(false);
 
   // Form State

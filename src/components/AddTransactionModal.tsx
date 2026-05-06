@@ -6,7 +6,7 @@ import { X, Plus, Wallet, Tag, Calendar, PencilLine } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 import { useTransactionModal } from "@/context/TransactionModalContext";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 interface Category {
   id: string;
@@ -21,6 +21,7 @@ interface Account {
 export function AddTransactionModal() {
   const { isOpen, transactionToEdit, closeModal, openAdd } = useTransactionModal();
   const router = useRouter();
+  const pathname = usePathname();
   
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);

@@ -17,9 +17,7 @@ export const metadata: Metadata = {
   description: "Controle financeiro de alta fidelidade com design Liquid Glass.",
 };
 
-import { Sidebar } from "@/components/Sidebar";
-import { AddTransactionModal } from "@/components/AddTransactionModal";
-import { AddAccountModal } from "@/components/AddAccountModal";
+import { AppShell } from "@/components/AppShell";
 import { TransactionModalProvider } from "@/context/TransactionModalContext";
 import { AccountModalProvider } from "@/context/AccountModalContext";
 
@@ -37,19 +35,9 @@ export default function RootLayout({
       <body className="min-h-full bg-black text-white font-sans selection:bg-violet-500/30" suppressHydrationWarning>
         <TransactionModalProvider>
           <AccountModalProvider>
-            <div className="flex min-h-screen">
-              <Sidebar />
-              <main className="flex-1 md:pl-64 min-h-screen relative">
-                {/* Background elements */}
-                <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
-                  <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-violet-600/20 blur-[120px] rounded-full animate-pulse" />
-                  <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-fuchsia-600/20 blur-[120px] rounded-full" />
-                </div>
-                {children}
-              </main>
-            </div>
-            <AddTransactionModal />
-            <AddAccountModal />
+            <AppShell>
+              {children}
+            </AppShell>
           </AccountModalProvider>
         </TransactionModalProvider>
       </body>
