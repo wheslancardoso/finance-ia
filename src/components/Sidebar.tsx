@@ -1,18 +1,21 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { 
   LayoutDashboard, 
   ArrowLeftRight, 
   Wallet, 
   Target, 
   Settings,
-  PieChart
+  PieChart,
+  LogOut,
+  User as UserIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { createClient } from "@/utils/supabase/client";
 
 const menuItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -25,6 +28,23 @@ const menuItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setUserEmail(data.user.email ?? "Usuário");
+      }
+    });
+  }, []);
+
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 border-r border-white/10 bg-black/20 backdrop-blur-2xl z-50 flex flex-col p-6 hidden md:flex">
@@ -73,17 +93,25 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Bottom Profile / Status */}
-      <div className="pt-6 border-t border-white/10 mt-auto">
+      {/* Bottom Profile / Logout */}
+      <div className="pt-6 border-t border-white/10 mt-auto space-y-4">
         <div className="flex items-center gap-3 px-2">
-          <div className="w-10 h-10 rounded-full bg-white/10 border border-white/10 flex items-center justify-center overflow-hidden">
-             <div className="w-full h-full bg-gradient-to-tr from-violet-600/40 to-fuchsia-600/40 animate-pulse" />
+          <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
+             <UserIcon className="w-5 h-5 text-white/20" />
           </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-white">Usuário</span>
-            <span className="text-xs text-white/40">Plano Pro</span>
+          <div className="flex flex-col overflow-hidden">
+            <span className="text-sm font-medium text-white truncate">{userEmail || "Carregando..."}</span>
+            <span className="text-[10px] text-violet-400 font-bold uppercase tracking-widest">Plano Pro</span>
           </div>
         </div>
+
+        <button 
+          onClick={handleSignOut}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300 group"
+        >
+          <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+          <span className="font-medium">Sair da Conta</span>
+        </button>
       </div>
     </aside>
   );
