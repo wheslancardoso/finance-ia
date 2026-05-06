@@ -22,7 +22,7 @@ interface Budget {
 export function calculateProjectedBalance(
   currentBalance: number,
   targetDate: Date,
-  recurringItems: RecurringItem[],
+  recurringItems: RecurringItem[] = [],
   budgets: Budget[] = []
 ): number {
   let projected = currentBalance;

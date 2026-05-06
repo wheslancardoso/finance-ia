@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Plus, Wallet, Tag, PencilLine, CreditCard, Layers, Sparkles, TrendingUp } from "lucide-react";
+import { X, Plus, Wallet, Tag, PencilLine, CreditCard, Layers, Sparkles, TrendingUp, Calendar } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useTransactionModal } from "@/context/TransactionModalContext";
@@ -37,6 +37,8 @@ export function AddTransactionModal() {
   const [accountId, setAccountId] = useState("");
   const [type, setType] = useState<"EXPENSE" | "INCOME">("EXPENSE");
   const [installments, setInstallments] = useState(1);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -158,6 +160,7 @@ export function AddTransactionModal() {
 
   const selectedAccount = accounts.find(a => a.id === accountId);
   const isCreditCard = selectedAccount?.type === "CREDIT_CARD";
+  const numericAmount = parseFloat(amount.replace(",", ".")) || 0;
 
   return (
     <>
@@ -183,9 +186,8 @@ export function AddTransactionModal() {
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-[#0A0A0A]/90 backdrop-blur-3xl border border-white/10 rounded-[40px] p-8 shadow-2xl overflow-hidden"
+              className="relative w-full max-w-lg bg-[#0A0A0A]/95 backdrop-blur-3xl border border-white/10 rounded-[40px] p-8 shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar"
             >
-              {/* Top Accent Line */}
               <div className={cn(
                 "absolute top-0 left-0 w-full h-[2px] transition-colors duration-500",
                 type === "EXPENSE" ? "bg-red-500/50" : "bg-emerald-500/50"
@@ -194,9 +196,9 @@ export function AddTransactionModal() {
               <div className="flex justify-between items-center mb-10">
                 <div className="space-y-1">
                   <h2 className="text-2xl font-bold text-white tracking-tight">
-                    {transactionToEdit ? "Ajustar Registro" : "Novo Lançamento"}
+                    {transactionToEdit ? "Editar Gasto" : "Novo Lançamento"}
                   </h2>
-                  <p className="text-white/20 text-[10px] font-bold uppercase tracking-[0.2em]">Fluxo de Caixa Vesper</p>
+                  <p className="text-white/20 text-[10px] font-bold uppercase tracking-[0.2em]">Centro de Comando Vesper</p>
                 </div>
                 <button onClick={closeModal} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all border border-white/5">
                   <X className="w-5 h-5" />
@@ -204,7 +206,6 @@ export function AddTransactionModal() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-8">
-                {/* Type Toggle - Agilidade */}
                 <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 w-full">
                   {(["EXPENSE", "INCOME"] as const).map((t) => (
                     <button
@@ -223,10 +224,9 @@ export function AddTransactionModal() {
                   ))}
                 </div>
 
-                {/* Amount Section - FOCO TOTAL */}
-                <div className="text-center space-y-2">
+                <div className="text-center space-y-4">
                   <div className="flex items-center justify-center gap-3">
-                    <span className="text-2xl font-bold text-white/20">R$</span>
+                    <span className="text-2xl font-bold text-white/10">R$</span>
                     <input
                       autoFocus
                       type="text"
@@ -241,7 +241,6 @@ export function AddTransactionModal() {
                     />
                   </div>
                   
-                  {/* Contexto Nubank: Mostrar Saldo da Conta Selecionada */}
                   <AnimatePresence mode="wait">
                     {selectedAccount && (
                       <motion.div 
@@ -259,37 +258,32 @@ export function AddTransactionModal() {
                 </div>
 
                 <div className="space-y-6">
-                  {/* Description Input */}
                   <div className="relative group">
-                    <label className="absolute -top-2.5 left-5 bg-[#0A0A0A] px-2 text-[9px] font-black text-white/20 uppercase tracking-widest group-focus-within:text-violet-400 transition-colors z-10">Descrição</label>
+                    <label className="absolute -top-2.5 left-5 bg-[#0A0A0A] px-2 text-[9px] font-black text-white/20 uppercase tracking-widest group-focus-within:text-violet-400 transition-colors z-10">O que você comprou?</label>
                     <div className="relative">
                       <PencilLine className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/10" />
                       <input
-                        placeholder="O que você comprou/recebeu?"
+                        placeholder="Ex: Almoço, Netflix, Aluguel"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="w-full bg-white/[0.02] border border-white/10 rounded-[22px] py-5 pl-14 pr-4 text-white text-lg font-medium outline-none focus:border-white/20 focus:bg-white/[0.05] transition-all placeholder:text-white/5"
+                        className="w-full bg-white/[0.02] border border-white/10 rounded-[22px] py-5 px-14 text-white text-lg font-medium outline-none focus:border-white/20 focus:bg-white/[0.05] transition-all placeholder:text-white/5"
                         required
                       />
                     </div>
                   </div>
 
-                  {/* Dropdowns Visualizados como Selectors */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-4">Conta</label>
+                      <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-4">Origem</label>
                       <div className="relative">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                          {isCreditCard ? <CreditCard className="w-4 h-4 text-violet-400" /> : <Wallet className="w-4 h-4 text-white/20" />}
-                        </div>
                         <select
                           value={accountId}
                           onChange={(e) => setAccountId(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-violet-500/50 appearance-none font-bold"
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-4 pr-4 text-sm text-white outline-none focus:border-violet-500/50 appearance-none font-bold"
                         >
                           {accounts.map(acc => (
-                            <option key={acc.id} value={acc.id} className="bg-black text-white">
-                              {acc.type === "CREDIT_CARD" ? `💳 ${acc.name}` : acc.name}
+                            <option key={acc.id} value={acc.id} className="bg-black">
+                              {acc.type === "CREDIT_CARD" ? "💳" : "💰"} {acc.name}
                             </option>
                           ))}
                         </select>
@@ -299,60 +293,63 @@ export function AddTransactionModal() {
                     <div className="space-y-2">
                       <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-4">Categoria</label>
                       <div className="relative">
-                        <Tag className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 pointer-events-none" />
                         <select
                           value={categoryId}
                           onChange={(e) => setCategoryId(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-violet-500/50 appearance-none font-bold"
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-4 pr-4 text-sm text-white outline-none focus:border-violet-500/50 appearance-none font-bold"
                         >
                           {categories.map(cat => (
-                            <option key={cat.id} value={cat.id} className="bg-black text-white">{cat.name}</option>
+                            <option key={cat.id} value={cat.id} className="bg-black">{cat.name}</option>
                           ))}
                         </select>
                       </div>
                     </div>
                   </div>
 
-                  {/* Parcelamento Smart */}
+                  {/* Parcelamento Ultra UX - Lista de 1x a 12x */}
                   {type === "EXPENSE" && (
-                    <div className="p-6 bg-white/[0.03] border border-white/10 rounded-[32px] space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
-                            <Layers className="w-5 h-5 text-white/20" />
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Parcelar Gasto</p>
-                            <p className="text-[8px] text-white/20 font-bold uppercase">Projetar no futuro</p>
-                          </div>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between px-2">
+                        <div className="flex items-center gap-2">
+                          <Layers className="w-4 h-4 text-white/20" />
+                          <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Parcelas</span>
                         </div>
-                        <div className="flex items-center gap-1.5 bg-black/40 rounded-xl p-1.5 border border-white/5">
-                          {[1, 2, 3, 6, 12].map(num => (
+                        {installments > 1 && (
+                          <span className="text-[10px] font-bold text-violet-400 bg-violet-400/10 px-2 py-0.5 rounded-full border border-violet-400/20">
+                            Fim em {format(addMonths(new Date(), installments - 1), "MMM 'de' yy", { locale: ptBR })}
+                          </span>
+                        )}
+                      </div>
+
+                      <div 
+                        ref={scrollRef}
+                        className="flex gap-2 overflow-x-auto pb-4 scroll-smooth custom-scrollbar mask-fade-right"
+                      >
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map((num) => {
+                          const isActive = installments === num;
+                          const perInstallment = numericAmount / num;
+                          return (
                             <button
                               key={num}
                               type="button"
                               onClick={() => setInstallments(num)}
                               className={cn(
-                                "w-9 h-9 rounded-lg text-[10px] font-black transition-all",
-                                installments === num 
-                                  ? "bg-violet-600 text-white shadow-lg shadow-violet-600/40" 
-                                  : "text-white/20 hover:text-white/40"
+                                "flex-shrink-0 w-24 p-3 rounded-[24px] border transition-all flex flex-col items-center gap-1",
+                                isActive 
+                                  ? "bg-violet-600 border-violet-500 shadow-lg shadow-violet-600/30 scale-105 z-10" 
+                                  : "bg-white/2 border-white/5 hover:bg-white/5 opacity-60"
                               )}
                             >
-                              {num}x
+                              <span className={cn("text-[10px] font-black uppercase", isActive ? "text-white" : "text-white/40")}>
+                                {num}x
+                              </span>
+                              <span className={cn("text-[11px] font-bold tabular-nums", isActive ? "text-white" : "text-white/60")}>
+                                {perInstallment.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 }).replace('R$', '')}
+                              </span>
                             </button>
-                          ))}
-                        </div>
+                          );
+                        })}
                       </div>
-                      
-                      {installments > 1 && (
-                        <div className="flex items-center gap-2 p-3 bg-violet-500/5 rounded-xl border border-violet-500/10">
-                          <Sparkles className="w-3 h-3 text-violet-400" />
-                          <p className="text-[10px] text-violet-400/80 font-bold italic">
-                            {installments} parcelas de {((parseFloat(amount.replace(",", ".")) || 0) / installments).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} agendadas.
-                          </p>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -367,7 +364,7 @@ export function AddTransactionModal() {
                       : "bg-emerald-500 text-white hover:bg-emerald-400 shadow-emerald-500/20"
                   )}
                 >
-                  {loading ? "Processando..." : transactionToEdit ? "Atualizar" : "Confirmar Lançamento"}
+                  {loading ? "Processando..." : transactionToEdit ? "Salvar Alterações" : "Ativar Registro"}
                 </button>
               </form>
             </motion.div>

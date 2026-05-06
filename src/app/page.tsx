@@ -26,11 +26,10 @@ export default async function Home() {
 
   const accountIds = accounts?.map(a => a.id) || [];
   
-  // O saldo disponível no dashboard geralmente considera apenas dinheiro "na mão" (corrente, investimentos, dinheiro)
   const initialBalance = accounts?.filter(a => a.type !== "CREDIT_CARD")
     .reduce((acc, curr) => acc + (curr.balance_cents || 0), 0) || 0;
 
-  // 2. Buscar transações recentes (as 3 últimas que JÁ aconteceram ou estão para hoje)
+  // 2. Buscar transações recentes
   const { data: transactions } = await supabase
     .from("transactions")
     .select("*")
@@ -59,15 +58,13 @@ export default async function Home() {
     `)
     .eq("family_group_id", familyGroupId);
 
-  const budgetedCategoryIds = budgetsData?.map(b => b.category_id) || [];
-  
   const { data: spentData } = await supabase
     .from("transactions")
     .select("category_id, amount_cents")
     .in("account_id", accountIds)
     .eq("transaction_type", "EXPENSE")
     .gte("date", monthStart)
-    .lte("date", new Date().toISOString()); // Apenas o que já foi gasto de fato
+    .lte("date", new Date().toISOString());
 
   const budgets = (budgetsData || []).map(b => {
     const totalSpent = (spentData || [])
@@ -82,12 +79,17 @@ export default async function Home() {
   });
 
   // 4. Buscar Transações Futuras e Recorrentes (Para o Time Travel)
-  // Pegamos transações futuras (parcelas) e as recorrências
   const { data: futureTransactions } = await supabase
     .from("transactions")
     .select("amount_cents, transaction_type, date")
     .in("account_id", accountIds)
-    .gt("date", new Date().toISOString());
+    .gt("date", new Date().toISOString())
+    .order("date", { ascending: true });
+
+  // Encontrar a data da última transação futura (Fim das Dívidas)
+  const lastFutureDate = futureTransactions?.length 
+    ? futureTransactions[futureTransactions.length - 1].date 
+    : null;
 
   const { data: recurring } = await supabase
     .from("recurring_transactions")
@@ -95,12 +97,11 @@ export default async function Home() {
     .eq("family_group_id", familyGroupId)
     .eq("status", "active");
 
-  // Combinar para a projeção
   const projectionItems = [
     ...(futureTransactions || []).map(ft => ({
       amount_cents: ft.amount_cents,
       transaction_type: ft.transaction_type,
-      frequency: "once" as any, // Transação única no futuro
+      frequency: "once" as any,
       next_date: ft.date
     })),
     ...(recurring || []).map(r => ({
@@ -115,7 +116,7 @@ export default async function Home() {
     <div className="p-8 md:p-12 max-w-7xl mx-auto w-full space-y-8">
       <header className="flex flex-col gap-1">
         <h2 className="text-3xl font-bold tracking-tight text-white">Dashboard</h2>
-        <p className="text-white/40">Bem-vindo de volta, {user.email?.split("@")[0]}.</p>
+        <p className="text-white/40">Bem-vindo de volta ao Centro de Comando.</p>
       </header>
 
       <RealtimeDashboard 
@@ -123,6 +124,7 @@ export default async function Home() {
         initialTransactions={initialTransactions}
         initialBudgets={budgets}
         initialRecurring={projectionItems as any}
+        lastFutureTransactionDate={lastFutureDate}
       />
     </div>
   );

@@ -1,240 +1,177 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import GlassCard from "@/components/GlassCard";
-import { Wallet, Receipt, ArrowUpRight, ArrowDownLeft, Sparkles, Zap } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
-import { formatCurrency, cn } from "@/lib/utils";
-import { SpendingChart } from "@/components/SpendingChart";
-import { SpendingCapacity } from "@/components/SpendingCapacity";
-import { TimeTravelSlider } from "@/components/TimeTravelSlider";
+import React, { useState, useMemo } from "react";
+import { SpendingCapacity } from "./SpendingCapacity";
+import { TimeTravelSlider } from "./TimeTravelSlider";
 import { calculateProjectedBalance } from "@/utils/finance-projections";
+import { formatCurrency } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
+import { TrendingUp, ArrowUpRight, ArrowDownRight, Wallet, History, Zap } from "lucide-react";
 import { addDays } from "date-fns";
-
-interface Transaction {
-  id: string;
-  created_at: string;
-  description: string;
-  amount: number;
-  type: string;
-}
-
-interface Budget {
-  category: string;
-  spent: number;
-  limit: number;
-}
-
-interface RecurringItem {
-  amount_cents: number;
-  transaction_type: "INCOME" | "EXPENSE";
-  frequency: "daily" | "weekly" | "monthly" | "yearly";
-  next_date: string;
-}
 
 interface RealtimeDashboardProps {
   initialBalance: number;
-  initialTransactions: Transaction[];
-  initialBudgets: Budget[];
-  initialRecurring: RecurringItem[];
+  initialTransactions: any[];
+  initialBudgets: any[];
+  initialRecurring: any[];
+  lastFutureTransactionDate?: string | null;
 }
 
-export default function RealtimeDashboard({
-  initialBalance,
-  initialTransactions,
+export default function RealtimeDashboard({ 
+  initialBalance, 
+  initialTransactions, 
   initialBudgets,
   initialRecurring,
+  lastFutureTransactionDate
 }: RealtimeDashboardProps) {
-  const [balance, setBalance] = useState(initialBalance);
-  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
-  const [budgets] = useState<Budget[]>(initialBudgets);
-  const [recurring] = useState<RecurringItem[]>(initialRecurring);
-  
-  // Estado para a Viagem no Tempo
-  const [travelDays, setTravelDays] = useState(0);
+  const [days, setDays] = useState(0);
 
-  // Cálculo do Saldo Projetado
-  const displayedBalance = useMemo(() => {
-    if (travelDays === 0) return balance;
+  const projectedBalance = useMemo(() => {
+    const targetDate = addDays(new Date(), days);
     
+    // Mapear orçamentos para o formato que a função espera
+    const formattedBudgets = initialBudgets.map(b => ({
+      amount_cents: b.limit,
+      spent_this_month: b.spent
+    }));
+
     return calculateProjectedBalance(
-      balance,
-      addDays(new Date(), travelDays),
-      recurring,
-      budgets.map(b => ({ amount_cents: b.limit, spent_this_month: b.spent }))
+      initialBalance, 
+      targetDate, 
+      initialRecurring || [], 
+      formattedBudgets
     );
-  }, [balance, travelDays, recurring, budgets]);
+  }, [initialBalance, initialRecurring, days, initialBudgets]);
 
-  useEffect(() => {
-    const supabase = createClient();
-
-    const channel = supabase
-      .channel("realtime_dashboard_updates")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "transactions" },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            const newTx = payload.new as any;
-            const formattedTx: Transaction = {
-              id: newTx.id,
-              created_at: newTx.created_at,
-              description: newTx.description,
-              amount: newTx.amount_cents || 0,
-              type: newTx.transaction_type,
-            };
-
-            setTransactions((prev) => [formattedTx, ...prev].slice(0, 3));
-            
-            const amount = formattedTx.amount;
-            const type = formattedTx.type.toUpperCase();
-            if (type === "INCOME") {
-              setBalance((prev) => prev + amount);
-            } else {
-              setBalance((prev) => prev - amount);
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+  const isFuture = days > 0;
+  const balanceDifference = projectedBalance - initialBalance;
 
   return (
-    <div className="z-10 w-full space-y-8 pb-20">
-      {/* 1. Time Travel Slider - DESTAQUE */}
-      <TimeTravelSlider currentDays={travelDays} onDateChange={setTravelDays} />
-
-      {/* 2. Card de Saldo Central */}
-      <GlassCard className="flex flex-col gap-8 relative overflow-hidden">
-        {travelDays > 0 && (
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-violet-500 to-transparent animate-pulse" />
-        )}
-        
-        <div className="flex flex-col items-center gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      {/* Left Column: Summary & Controls */}
+      <div className="lg:col-span-8 space-y-8">
+        {/* Main Balance Card */}
+        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-10 relative overflow-hidden group">
           <div className={cn(
-            "w-16 h-16 rounded-2xl flex items-center justify-center border shadow-inner transition-all duration-500",
-            travelDays > 0 
-              ? "bg-violet-500/20 border-violet-500/40 text-violet-400" 
-              : "bg-white/10 border-white/20 text-white"
-          )}>
-            {travelDays > 0 ? <Zap className="w-8 h-8" /> : <Wallet className="w-8 h-8" />}
-          </div>
+            "absolute -top-24 -left-24 w-64 h-64 blur-[100px] rounded-full transition-colors duration-1000",
+            isFuture ? "bg-violet-600/20" : "bg-emerald-600/10"
+          )} />
           
-          <div className="text-center space-y-2">
-            <p className="text-white/60 text-sm font-medium tracking-wider uppercase">
-              {travelDays > 0 ? "Saldo Projetado" : "Saldo Disponível"}
-            </p>
-            <h1 className={cn(
-              "text-5xl font-bold tracking-tight tabular-nums transition-all duration-500",
-              travelDays > 0 ? "text-violet-400 drop-shadow-[0_0_15px_rgba(139,92,246,0.3)]" : "text-white"
-            )}>
-              {formatCurrency(displayedBalance)}
-            </h1>
-          </div>
-        </div>
-
-        <div className="pt-4 space-y-4">
-          <div className="px-2">
-            <span className="text-[10px] text-white/20 font-bold uppercase tracking-[0.2em]">
-              Tendência de Gastos
-            </span>
-          </div>
-          <SpendingChart />
-        </div>
-      </GlassCard>
-
-      {/* 3. Seção de Capacidade de Gasto */}
-      {budgets.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 px-2">
-            <Sparkles className="w-4 h-4 text-violet-400" />
-            <h2 className="text-sm font-bold text-white/60 uppercase tracking-widest">
-              Vesper Intelligence: Limites Ativos
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {budgets.map((budget, index) => (
-              <SpendingCapacity
-                key={index}
-                category={budget.category}
-                spent={budget.spent}
-                limit={budget.limit}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 4. Atividade Recente */}
-      <GlassCard className="space-y-6">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between text-white/80 font-medium">
-            <div className="flex items-center gap-2">
-              <Receipt className="w-4 h-4" />
-              <h2 className="uppercase text-xs font-bold tracking-widest text-white/40">Atividade Recente</h2>
-            </div>
-            <span className="text-[10px] text-green-400/80 flex items-center gap-1 font-bold uppercase tracking-tighter">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              Live Feed
-            </span>
-          </div>
-
-          <div className="grid gap-3">
-            {transactions.length === 0 ? (
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center">
-                <p className="text-white/40 text-sm italic">
-                  Aguardando movimentações...
-                </p>
+          <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-white/40 font-bold text-xs uppercase tracking-[0.2em]">
+                <Wallet className="w-4 h-4" />
+                {isFuture ? "Patrimônio Projetado" : "Liquidez Disponível"}
               </div>
-            ) : (
-              transactions.map((tx) => {
-                const isIncome = tx.type?.toUpperCase() === "INCOME";
-                return (
-                  <div
-                    key={tx.id}
-                    className="group bg-white/2 border border-white/5 rounded-2xl p-4 flex items-center justify-between transition-all hover:bg-white/5 hover:border-white/10"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center border",
-                        isIncome 
-                          ? "bg-green-500/10 border-green-500/20 text-green-400" 
-                          : "bg-red-500/10 border-red-500/20 text-red-400"
-                      )}>
-                        {isIncome ? (
-                          <ArrowUpRight className="w-5 h-5" />
-                        ) : (
-                          <ArrowDownLeft className="w-5 h-5" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-white font-medium line-clamp-1">{tx.description}</p>
-                        <p className="text-white/40 text-[10px] font-bold uppercase" suppressHydrationWarning>
-                          {new Date(tx.created_at).toLocaleDateString("pt-BR")}
-                        </p>
-                      </div>
-                    </div>
-                    <p className={cn(
-                      "font-bold tabular-nums",
-                      isIncome ? "text-green-400" : "text-white"
-                    )}>
-                      {isIncome ? "+" : "-"} {formatCurrency(tx.amount)}
-                    </p>
-                  </div>
-                );
-              })
+              <motion.h1 
+                key={projectedBalance}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={cn(
+                  "text-6xl md:text-7xl font-black tracking-tighter tabular-nums",
+                  isFuture ? "text-violet-400 drop-shadow-[0_0_30px_rgba(139,92,246,0.3)]" : "text-white"
+                )}
+              >
+                {formatCurrency(projectedBalance)}
+              </motion.h1>
+            </div>
+
+            {isFuture && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-2xl border font-bold text-sm",
+                  balanceDifference >= 0 
+                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
+                    : "bg-red-500/10 border-red-500/20 text-red-400"
+                )}
+              >
+                {balanceDifference >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                {formatCurrency(Math.abs(balanceDifference))}
+              </motion.div>
             )}
           </div>
         </div>
 
-        <div className="w-full flex justify-end text-[10px] text-white/5 font-bold uppercase tracking-widest">
-          v0.3.0-alpha
+        {/* Time Travel Control */}
+        <TimeTravelSlider 
+          onDateChange={setDays} 
+          currentDays={days} 
+          lastFutureTransactionDate={lastFutureTransactionDate}
+        />
+
+        {/* Budget Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {initialBudgets.map((budget, i) => (
+            <SpendingCapacity 
+              key={i}
+              category={budget.category}
+              spent={budget.spent}
+              limit={budget.limit}
+            />
+          ))}
         </div>
-      </GlassCard>
+      </div>
+
+      {/* Right Column: Activity */}
+      <div className="lg:col-span-4 space-y-8">
+        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-8 flex flex-col h-full">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <History className="w-5 h-5 text-white/20" />
+              Atividade Recente
+            </h3>
+            <button className="text-[10px] font-black text-white/20 uppercase tracking-widest hover:text-white transition-colors">Ver Tudo</button>
+          </div>
+
+          <div className="space-y-6 flex-1">
+            {initialTransactions.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center py-12">
+                <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                  <Zap className="w-6 h-6 text-white/10" />
+                </div>
+                <p className="text-white/20 text-xs font-medium">Nenhuma transação<br/>registrada hoje.</p>
+              </div>
+            ) : (
+              initialTransactions.map((tx) => (
+                <div key={tx.id} className="flex items-center justify-between group">
+                  <div className="flex items-center gap-4">
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center border transition-all",
+                      tx.type === "EXPENSE" ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                    )}>
+                      {tx.type === "EXPENSE" ? <ArrowDownRight className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white group-hover:text-violet-400 transition-colors">{tx.description}</p>
+                      <p className="text-[10px] text-white/20 font-bold uppercase tracking-tighter">Hoje</p>
+                    </div>
+                  </div>
+                  <span className={cn(
+                    "text-sm font-black tabular-nums",
+                    tx.type === "EXPENSE" ? "text-white" : "text-emerald-400"
+                  )}>
+                    {tx.type === "EXPENSE" ? "-" : "+"}{formatCurrency(tx.amount)}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="mt-8 pt-8 border-t border-white/5">
+            <div className="flex items-center justify-between p-4 bg-violet-600 rounded-3xl shadow-xl shadow-violet-600/20 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all">
+              <span className="text-xs font-black text-white uppercase tracking-widest">Vesper Insights</span>
+              <TrendingUp className="w-4 h-4 text-white" />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
+}
+
+// Helper para evitar erro de 'cn' não definido se não for importado
+function cn(...inputs: any[]) {
+  return inputs.filter(Boolean).join(" ");
 }
