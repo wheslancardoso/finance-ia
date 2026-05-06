@@ -24,7 +24,12 @@ O Vesper não é um gerenciador financeiro comum; é uma ferramenta de **estrat�
 - **Crédito:** Gerenciamento de limites, dia de fechamento e dia de vencimento.
 - **Visual:** Cards com barras de progresso de limite e cores customizáveis.
 
-### 3. Motor de Transações
+### 3. Gestão de Metas (Objetivos)
+- **Fábrica de Sonhos:** Modal para criação de metas com valor alvo, valor inicial e prazos.
+- **Visualização de Progresso:** Barras de progresso dinâmicas com cálculo de porcentagem e valor restante.
+- **Personalização:** Cores customizáveis para cada objetivo.
+
+### 4. Motor de Transações
 - **Fricção Zero:** Modais otimizados para poucos cliques.
 - **Parcelamento Inteligente:** Seletor de 1x a 12x com cálculo de valor por parcela e data de término em tempo real.
 - **Assinaturas:** Página dedicada para gerenciar custos fixos (`/subscriptions`), permitindo pausar/ativar serviços.

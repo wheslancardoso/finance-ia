@@ -21,6 +21,7 @@ import { AppShell } from "@/components/AppShell";
 import { TransactionModalProvider } from "@/context/TransactionModalContext";
 import { AccountModalProvider } from "@/context/AccountModalContext";
 import { SubscriptionModalProvider } from "@/context/SubscriptionModalContext";
+import { GoalModalProvider } from "@/context/GoalModalContext";
 
 export default function RootLayout({
   children,
@@ -37,9 +38,11 @@ export default function RootLayout({
         <TransactionModalProvider>
           <AccountModalProvider>
             <SubscriptionModalProvider>
-              <AppShell>
-                {children}
-              </AppShell>
+              <GoalModalProvider>
+                <AppShell>
+                  {children}
+                </AppShell>
+              </GoalModalProvider>
             </SubscriptionModalProvider>
           </AccountModalProvider>
         </TransactionModalProvider>

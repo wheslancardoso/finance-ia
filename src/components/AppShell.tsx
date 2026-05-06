@@ -5,6 +5,7 @@ import { Sidebar } from "./Sidebar";
 import { AddTransactionModal } from "./AddTransactionModal";
 import { AddAccountModal } from "./AddAccountModal";
 import { AddSubscriptionModal } from "./AddSubscriptionModal";
+import { AddGoalModal } from "./AddGoalModal";
 import { cn } from "@/lib/utils";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -34,6 +35,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <AddTransactionModal />
           <AddAccountModal />
           <AddSubscriptionModal />
+          <AddGoalModal />
         </>
       )}
     </div>
