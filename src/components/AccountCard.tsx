@@ -7,13 +7,17 @@ import { CreditCard, Wallet, Banknote, CalendarDays } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { useAccountModal } from "@/context/AccountModalContext";
+import { useFinancialData } from "@/context/FinancialDataContext";
 import { ActionMenu } from "./ActionMenu";
 
 interface AccountCardProps {
   account: any;
 }
 
-export function AccountCard({ account }: AccountCardProps) {
+export function AccountCard({ account: initialAccount }: AccountCardProps) {
+  const { accounts } = useFinancialData();
+  const liveAccount = accounts.find(a => a.id === initialAccount.id) || initialAccount;
+  
   const { 
     id, 
     name, 
@@ -22,8 +26,10 @@ export function AccountCard({ account }: AccountCardProps) {
     balance_cents: balance, 
     credit_limit_cents: limit,
     closing_day,
-    due_day
-  } = account;
+    due_day,
+    current_invoice_cents
+  } = liveAccount;
+
   const router = useRouter();
   const { openEdit } = useAccountModal();
   const isCreditCard = type === "CREDIT_CARD";
@@ -94,7 +100,7 @@ export function AccountCard({ account }: AccountCardProps) {
               "text-3xl font-bold tracking-tight tabular-nums",
               isCreditCard ? "text-amber-500" : "text-white"
             )}>
-              {formatCurrency(balance)}
+              {formatCurrency(isCreditCard ? (current_invoice_cents || 0) : balance)}
             </h2>
           </div>
         </div>

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { createClient } from "@/utils/supabase/client";
 import { useAccountModal } from "./AccountModalContext";
 import { db } from "@/lib/db";
+import { addMonths, format } from "date-fns";
 
 interface Category {
   id: string;
@@ -17,6 +18,9 @@ interface Account {
   type: string;
   balance_cents: number;
   credit_limit_cents?: number;
+  current_invoice_cents?: number;
+  closing_day?: number;
+  due_day?: number;
 }
 
 interface FinancialDataContextType {
@@ -76,7 +80,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     // Buscar Contas
     const { data: accData } = await supabase
       .from("accounts")
-      .select("id, name, type, balance_cents, credit_limit_cents")
+      .select("id, name, type, balance_cents, credit_limit_cents, closing_day, due_day")
       .eq("family_group_id", familyGroupId);
 
     if (catData) {
@@ -86,9 +90,47 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     }
     
     if (accData) {
-      setAccounts(accData);
+      // Calcular Fatura Atual para cada cartão
+      const accountsWithInvoice = await Promise.all(accData.map(async (acc) => {
+        if (acc.type === "CREDIT_CARD") {
+          // Determinar qual é a fatura "aberta" no momento (UTC)
+          const now = new Date();
+          let invY = now.getUTCFullYear();
+          let invM = now.getUTCMonth();
+          
+          if (now.getUTCDate() > (acc.closing_day || 1)) {
+            invM++;
+            if (invM > 11) { invM = 0; invY++; }
+          }
+          const invoiceStr = `${invY}-${String(invM + 1).padStart(2, '0')}-01`;
+
+          const { data: txs } = await supabase
+            .from("transactions")
+            .select("amount_cents, date")
+            .eq("account_id", acc.id);
+          
+          const total = txs?.reduce((sum, tx) => {
+            const txDate = new Date(tx.date);
+            let tY = txDate.getUTCFullYear();
+            let tM = txDate.getUTCMonth();
+            
+            if (txDate.getUTCDate() > (acc.closing_day || 1)) {
+              tM++;
+              if (tM > 11) { tM = 0; tY++; }
+            }
+            
+            const txInvoiceStr = `${tY}-${String(tM + 1).padStart(2, '0')}-01`;
+            return txInvoiceStr === invoiceStr ? sum + tx.amount_cents : sum;
+          }, 0) || 0;
+          
+          return { ...acc, current_invoice_cents: total };
+        }
+        return acc;
+      }));
+
+      setAccounts(accountsWithInvoice as Account[]);
       // Atualizar Banco Local
-      await db.accounts.bulkPut(accData.map(a => ({ ...a, family_group_id: familyGroupId })));
+      await db.accounts.bulkPut(accountsWithInvoice.map(a => ({ ...a, family_group_id: familyGroupId })));
     }
     
     setLastFetched(Date.now());

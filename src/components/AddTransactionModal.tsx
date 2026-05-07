@@ -106,12 +106,21 @@ export function AddTransactionModal() {
     } else {
       const transactionsToInsert = [];
       const startDate = new Date(transactionDate);
+      
+      // Obter o dia de fechamento da conta para calcular a fatura correta
+      const account = accounts.find(a => a.id === accountId);
+      const closingDay = account?.closing_day || 1;
 
       for (let i = 0; i < installments; i++) {
         // Para compras parceladas, adicionamos 1 mês para cada parcela subsequente
         const installmentDate = addMonths(startDate, i);
-        
         const dayStr = format(installmentDate, 'yyyy-MM-dd');
+        
+        // Lógica de Fatura: Se a data da parcela for após o dia de fechamento, cai na próxima fatura
+        let invoiceDate = new Date(installmentDate.getFullYear(), installmentDate.getMonth(), 1);
+        if (installmentDate.getDate() > closingDay) {
+          invoiceDate = addMonths(invoiceDate, 1);
+        }
         
         transactionsToInsert.push({
           ...basePayload,
@@ -120,6 +129,7 @@ export function AddTransactionModal() {
           date: new Date(`${dayStr}T${transactionTime}:00`).toISOString(),
           installment_current: i + 1,
           installment_total: installments,
+          credit_card_invoice_date: format(invoiceDate, 'yyyy-MM-dd'),
         });
       }
 

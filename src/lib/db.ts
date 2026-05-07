@@ -13,6 +13,9 @@ export interface Account {
   type: string;
   balance_cents: number;
   credit_limit_cents?: number;
+  current_invoice_cents?: number;
+  closing_day?: number;
+  due_day?: number;
   family_group_id: string;
 }
 
