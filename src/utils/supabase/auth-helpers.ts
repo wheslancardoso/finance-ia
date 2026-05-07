@@ -6,16 +6,30 @@ export async function getFamilyGroup() {
 
   if (!user) return null;
 
-  // Buscar o grupo familiar do usuário
-  let { data: familyMember } = await supabase
-    .from("family_members")
-    .select("family_group_id")
-    .eq("user_id", user.id)
+  // 1. Garantir que o Perfil do usuário existe
+  let { data: profile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", user.id)
     .single();
 
-  let familyGroupId = familyMember?.family_group_id;
+  if (!profile) {
+    await supabase.from("profiles").insert({
+      id: user.id,
+      full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
+      avatar_url: user.user_metadata?.avatar_url
+    });
+  }
 
-  // Se não tiver grupo, criar um inicial
+  // 2. Buscar os grupos familiares do usuário
+  let { data: members } = await supabase
+    .from("family_members")
+    .select("family_group_id")
+    .eq("user_id", user.id);
+
+  let familyGroupId = members && members.length > 0 ? members[0].family_group_id : null;
+
+  // 3. Se não tiver grupo, criar um inicial
   if (!familyGroupId) {
     const { data: newGroup, error: groupError } = await supabase
       .from("family_groups")

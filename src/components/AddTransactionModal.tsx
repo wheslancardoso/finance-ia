@@ -7,11 +7,13 @@ import { createClient } from "@/utils/supabase/client";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useTransactionModal } from "@/context/TransactionModalContext";
 import { usePathname, useRouter } from "next/navigation";
-import { addMonths } from "date-fns";
+import { addMonths, format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface Category {
   id: string;
   name: string;
+  type: "EXPENSE" | "INCOME" | "TRANSFER";
 }
 
 interface Account {
@@ -74,7 +76,7 @@ export function AddTransactionModal() {
 
     const { data: catData } = await supabase
       .from("categories")
-      .select("id, name")
+      .select("id, name, type")
       .eq("family_group_id", familyGroupId);
 
     const { data: accData } = await supabase
@@ -86,7 +88,12 @@ export function AddTransactionModal() {
     if (accData) setAccounts(accData);
     
     if (accData?.length && !accountId) setAccountId(accData[0].id);
-    if (catData?.length && !categoryId) setCategoryId(catData[0].id);
+    
+    // Auto-select first category of the current type if not set
+    if (catData?.length && !categoryId) {
+      const firstOfType = catData.find(c => c.type === type);
+      if (firstOfType) setCategoryId(firstOfType.id);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -161,6 +168,14 @@ export function AddTransactionModal() {
   const selectedAccount = accounts.find(a => a.id === accountId);
   const isCreditCard = selectedAccount?.type === "CREDIT_CARD";
   const numericAmount = parseFloat(amount.replace(",", ".")) || 0;
+
+  const filteredCategories = categories.filter(c => c.type === type);
+
+  // Sync category when type changes
+  useEffect(() => {
+    const firstOfType = categories.find(c => c.type === type);
+    if (firstOfType) setCategoryId(firstOfType.id);
+  }, [type, categories]);
 
   return (
     <>
@@ -259,11 +274,13 @@ export function AddTransactionModal() {
 
                 <div className="space-y-6">
                   <div className="relative group">
-                    <label className="absolute -top-2.5 left-5 bg-[#0A0A0A] px-2 text-[9px] font-black text-white/20 uppercase tracking-widest group-focus-within:text-violet-400 transition-colors z-10">O que você comprou?</label>
+                    <label className="absolute -top-2.5 left-5 bg-[#0A0A0A] px-2 text-[9px] font-black text-white/20 uppercase tracking-widest group-focus-within:text-violet-400 transition-colors z-10">
+                      {type === "EXPENSE" ? "O que você comprou?" : "Descrição do Recebimento"}
+                    </label>
                     <div className="relative">
                       <PencilLine className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/10" />
                       <input
-                        placeholder="Ex: Almoço, Netflix, Aluguel"
+                        placeholder={type === "EXPENSE" ? "Ex: Almoço, Netflix, Aluguel" : "Ex: Salário, Freela, Venda..."}
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         className="w-full bg-white/[0.02] border border-white/10 rounded-[22px] py-5 px-14 text-white text-lg font-medium outline-none focus:border-white/20 focus:bg-white/[0.05] transition-all placeholder:text-white/5"
@@ -298,7 +315,7 @@ export function AddTransactionModal() {
                           onChange={(e) => setCategoryId(e.target.value)}
                           className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-4 pr-4 text-sm text-white outline-none focus:border-violet-500/50 appearance-none font-bold"
                         >
-                          {categories.map(cat => (
+                          {filteredCategories.map(cat => (
                             <option key={cat.id} value={cat.id} className="bg-black">{cat.name}</option>
                           ))}
                         </select>

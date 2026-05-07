@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { useAccountModal } from "@/context/AccountModalContext";
 
 export function AddAccountModal() {
-  const { isOpen, accountToEdit, closeModal } = useAccountModal();
+  const { isOpen, accountToEdit, closeModal, familyGroupId } = useAccountModal();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -63,11 +63,11 @@ export function AddAccountModal() {
       return;
     }
 
-    const { data: familyMember } = await supabase
-      .from("family_members")
-      .select("family_group_id")
-      .eq("user_id", user.id)
-      .single();
+    if (!familyGroupId && !accountToEdit) {
+      alert("Erro: ID do grupo familiar não encontrado. Tente atualizar a página.");
+      setLoading(false);
+      return;
+    }
 
     const balanceCents = Math.round(parseFloat(balance.replace(",", ".")) * 100);
     const limitCents = creditLimit ? Math.round(parseFloat(creditLimit.replace(",", ".")) * 100) : 0;
@@ -87,7 +87,7 @@ export function AddAccountModal() {
       const { error: err } = await supabase.from("accounts").update(payload).eq("id", accountToEdit.id);
       error = err;
     } else {
-      payload.family_group_id = familyMember?.family_group_id;
+      payload.family_group_id = familyGroupId;
       const { error: err } = await supabase.from("accounts").insert([payload]);
       error = err;
     }
@@ -96,7 +96,8 @@ export function AddAccountModal() {
       closeModal();
       router.refresh();
     } else {
-      alert("Erro ao salvar conta");
+      console.error("Erro Supabase:", error);
+      alert("Erro ao salvar conta no banco de dados.");
     }
     setLoading(false);
   }

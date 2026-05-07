@@ -3,6 +3,7 @@ import RealtimeDashboard from "@/components/RealtimeDashboard";
 import { getFamilyGroup } from "@/utils/supabase/auth-helpers";
 import { redirect } from "next/navigation";
 import { startOfMonth } from "date-fns";
+import { SyncFamilyGroup } from "@/components/SyncFamilyGroup";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -114,6 +115,7 @@ export default async function Home() {
 
   return (
     <div className="p-8 md:p-12 max-w-7xl mx-auto w-full space-y-8">
+      <SyncFamilyGroup familyGroupId={familyGroupId} />
       <header className="flex flex-col gap-1">
         <h2 className="text-3xl font-bold tracking-tight text-white">Dashboard</h2>
         <p className="text-white/40">Bem-vindo de volta ao Centro de Comando.</p>

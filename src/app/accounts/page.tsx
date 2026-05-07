@@ -3,6 +3,7 @@ import { AccountCard } from "@/components/AccountCard";
 import { Plus } from "lucide-react";
 import { AccountsHeader } from "@/components/AccountsHeader";
 import { getFamilyGroup } from "@/utils/supabase/auth-helpers";
+import { SyncFamilyGroup } from "@/components/SyncFamilyGroup";
 
 export default async function AccountsPage() {
   const supabase = await createClient();
@@ -20,6 +21,7 @@ export default async function AccountsPage() {
   return (
     <div className="p-8 md:p-12 max-w-7xl mx-auto w-full space-y-12">
       <AccountsHeader />
+      <SyncFamilyGroup familyGroupId={familyGroupId} />
 
       {!hasAccounts ? (
         <div className="py-24 flex flex-col items-center text-center border-2 border-dashed border-white/5 rounded-[32px]">
