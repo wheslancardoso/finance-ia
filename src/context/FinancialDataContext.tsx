@@ -80,7 +80,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     // Buscar Contas
     const { data: accData } = await supabase
       .from("accounts")
-      .select("id, name, type, balance_cents, credit_limit_cents, closing_day, due_day")
+      .select("id, name, type, balance_cents, credit_limit_cents, closing_day, due_day, color_hex")
       .eq("family_group_id", familyGroupId);
 
     if (catData) {
