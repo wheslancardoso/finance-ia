@@ -22,6 +22,7 @@ import { TransactionModalProvider } from "@/context/TransactionModalContext";
 import { AccountModalProvider } from "@/context/AccountModalContext";
 import { SubscriptionModalProvider } from "@/context/SubscriptionModalContext";
 import { GoalModalProvider } from "@/context/GoalModalContext";
+import { FinancialDataProvider } from "@/context/FinancialDataContext";
 
 export default function RootLayout({
   children,
@@ -37,13 +38,15 @@ export default function RootLayout({
       <body className="min-h-full bg-black text-white font-sans selection:bg-violet-500/30" suppressHydrationWarning>
         <TransactionModalProvider>
           <AccountModalProvider>
-            <SubscriptionModalProvider>
-              <GoalModalProvider>
-                <AppShell>
-                  {children}
-                </AppShell>
-              </GoalModalProvider>
-            </SubscriptionModalProvider>
+            <FinancialDataProvider>
+              <SubscriptionModalProvider>
+                <GoalModalProvider>
+                  <AppShell>
+                    {children}
+                  </AppShell>
+                </GoalModalProvider>
+              </SubscriptionModalProvider>
+            </FinancialDataProvider>
           </AccountModalProvider>
         </TransactionModalProvider>
       </body>

@@ -30,21 +30,35 @@ export default async function Home() {
   const initialBalance = accounts?.filter(a => a.type !== "CREDIT_CARD")
     .reduce((acc, curr) => acc + (curr.balance_cents || 0), 0) || 0;
 
-  // 2. Buscar transações recentes
+  // 2. Buscar transações recentes com mais detalhes
   const { data: transactions } = await supabase
     .from("transactions")
-    .select("*")
+    .select(`
+      id,
+      description,
+      amount_cents,
+      transaction_type,
+      date,
+      installment_current,
+      installment_total,
+      categories (name, color_hex),
+      accounts (name, type)
+    `)
     .in("account_id", accountIds)
     .lte("date", new Date().toISOString())
     .order("date", { ascending: false })
-    .limit(3);
+    .limit(10);
 
   const initialTransactions = (transactions || []).map((tx: any) => ({
     id: tx.id,
-    created_at: tx.date || tx.created_at,
+    date: tx.date,
     description: tx.description,
     amount: tx.amount_cents || 0,
     type: tx.transaction_type || "EXPENSE",
+    installment_current: tx.installment_current,
+    installment_total: tx.installment_total,
+    category: tx.categories,
+    account: tx.accounts,
   }));
 
   // 3. Buscar Orçamentos e Gastos Reais

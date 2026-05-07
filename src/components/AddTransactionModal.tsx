@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Plus, Wallet, Tag, PencilLine, CreditCard, Layers, Sparkles, TrendingUp, Calendar, ChevronDown } from "lucide-react";
+import { X, Plus, Wallet, Tag, PencilLine, CreditCard, Layers, Sparkles, TrendingUp, Calendar, ChevronDown, Clock } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useTransactionModal } from "@/context/TransactionModalContext";
@@ -10,6 +10,7 @@ import { useAccountModal } from "@/context/AccountModalContext";
 import { usePathname, useRouter } from "next/navigation";
 import { addMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useFinancialData } from "@/context/FinancialDataContext";
 
 interface Category {
   id: string;
@@ -31,9 +32,9 @@ export function AddTransactionModal() {
   const router = useRouter();
   const pathname = usePathname();
   
+  const { categories, accounts, refreshData } = useFinancialData();
+  
   const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
 
   // Form State
   const [amount, setAmount] = useState("");
@@ -43,6 +44,7 @@ export function AddTransactionModal() {
   const [type, setType] = useState<"EXPENSE" | "INCOME">("EXPENSE");
   const [installments, setInstallments] = useState(1);
   const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
+  const [transactionTime, setTransactionTime] = useState(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
   
   // Custom Select States
   const [openCategory, setOpenCategory] = useState(false);
@@ -52,9 +54,6 @@ export function AddTransactionModal() {
 
   useEffect(() => {
     if (isOpen) {
-      if (familyGroupId) {
-        loadData();
-      }
       if (transactionToEdit) {
         setAmount((transactionToEdit.amount_cents / 100).toString().replace(".", ","));
         setDescription(transactionToEdit.description);
@@ -62,75 +61,14 @@ export function AddTransactionModal() {
         setAccountId(transactionToEdit.account_id);
         setType(transactionToEdit.transaction_type);
         setInstallments(1);
-        setTransactionDate(new Date(transactionToEdit.date).toISOString().split('T')[0]);
+        const dateObj = new Date(transactionToEdit.date);
+        setTransactionDate(dateObj.toISOString().split('T')[0]);
+        setTransactionTime(dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       } else {
         resetForm();
       }
     }
-  }, [isOpen, familyGroupId]);
-
-  async function loadData() {
-    if (!familyGroupId) return;
-    
-    const supabase = createClient();
-
-    let { data: catData } = await supabase
-      .from("categories")
-      .select("id, name, type")
-      .or(`family_group_id.eq.${familyGroupId},family_group_id.is.null`);
-
-    console.log("DEBUG - CATEGORIAS BUSCADAS:", catData);
-
-    // Se não houver categorias, vamos semear as padrões automaticamente
-    if (catData && catData.length === 0) {
-      console.log("Semeando categorias padrão para o grupo:", familyGroupId);
-      const defaultCategories = [
-        { name: "Salário", type: "INCOME", color_hex: "#10B981" },
-        { name: "Investimentos", type: "INCOME", color_hex: "#3B82F6" },
-        { name: "Alimentação", type: "EXPENSE", color_hex: "#EF4444" },
-        { name: "Lazer", type: "EXPENSE", color_hex: "#F59E0B" },
-        { name: "Saúde", type: "EXPENSE", color_hex: "#EC4899" },
-        { name: "Transporte", type: "EXPENSE", color_hex: "#6366F1" },
-        { name: "Moradia", type: "EXPENSE", color_hex: "#8B5CF6" },
-        { name: "Outros", type: "EXPENSE", color_hex: "#9CA3AF" },
-      ];
-
-      const { data: seeded, error: seedError } = await supabase
-        .from("categories")
-        .insert(defaultCategories.map(c => ({ ...c, family_group_id: familyGroupId })))
-        .select();
-      
-      if (seedError) {
-        console.error("Erro ao semear categorias:", seedError);
-      }
-
-      if (seeded && seeded.length > 0) {
-        catData = seeded;
-      }
-    }
-
-    const { data: accData } = await supabase
-      .from("accounts")
-      .select("id, name, type, balance_cents, credit_limit_cents")
-      .eq("family_group_id", familyGroupId);
-
-    // Fallback: Se ainda estiver vazio, garante pelo menos uma categoria para não quebrar a UI
-    const finalCategories = (catData && catData.length > 0) 
-      ? catData 
-      : [{ id: "fallback-id", name: "Geral", type: "EXPENSE" }, { id: "fallback-inc", name: "Geral", type: "INCOME" }];
-
-    setCategories(finalCategories);
-    
-    if (accData) {
-      setAccounts(accData);
-      if (accData.length && !accountId) setAccountId(accData[0].id);
-    }
-    
-    // Auto-select removed - leave it empty by default
-    if (catData?.length && !categoryId) {
-      // setCategoryId(firstOfType.id); // Linha removida para não pre-selecionar
-    }
-  }
+  }, [isOpen, transactionToEdit]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -161,7 +99,7 @@ export function AddTransactionModal() {
           ...basePayload,
           amount_cents: totalAmountCents,
           description,
-          date: new Date(transactionDate).toISOString(),
+          date: new Date(`${transactionDate}T${transactionTime}:00`).toISOString(),
         })
         .eq("id", transactionToEdit.id);
       if (error) errorOccurred = true;
@@ -173,11 +111,13 @@ export function AddTransactionModal() {
         // Para compras parceladas, adicionamos 1 mês para cada parcela subsequente
         const installmentDate = addMonths(startDate, i);
         
+        const dayStr = format(installmentDate, 'yyyy-MM-dd');
+        
         transactionsToInsert.push({
           ...basePayload,
           amount_cents: installmentAmountCents,
           description: description,
-          date: installmentDate.toISOString(),
+          date: new Date(`${dayStr}T${transactionTime}:00`).toISOString(),
           installment_current: i + 1,
           installment_total: installments,
         });
@@ -191,6 +131,8 @@ export function AddTransactionModal() {
     }
 
     if (!errorOccurred) {
+      // Atualizar cache global para refletir novos saldos e categorias
+      await refreshData();
       closeModal();
       router.refresh();
     } else {
@@ -203,19 +145,38 @@ export function AddTransactionModal() {
     setAmount("");
     setDescription("");
     setInstallments(1);
+    setTransactionTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
   }
 
   const selectedAccount = accounts.find(a => a.id === accountId);
+  const showInstallments = type === "EXPENSE" && selectedAccount?.type === "CREDIT_CARD";
+
+  // Reset installments if hidden
+  useEffect(() => {
+    if (!showInstallments) {
+      setInstallments(1);
+    }
+  }, [showInstallments]);
+
   const isCreditCard = selectedAccount?.type === "CREDIT_CARD";
   const numericAmount = parseFloat(amount.replace(",", ".")) || 0;
 
   const filteredCategories = categories.filter(c => c.type === type);
 
-  // Sync category when type changes
+  // Sync category when type changes - ONLY if not editing
   useEffect(() => {
-    const firstOfType = categories.find(c => c.type === type);
-    if (firstOfType) setCategoryId(firstOfType.id);
-  }, [type, categories]);
+    if (!transactionToEdit && categories.length > 0) {
+      const firstOfType = categories.find(c => c.type === type);
+      if (firstOfType) setCategoryId(firstOfType.id);
+    }
+  }, [type, categories, transactionToEdit]);
+
+  console.log("DEBUG - UI RENDER:", {
+    categoriesCount: categories.length,
+    filteredCount: filteredCategories.length,
+    currentType: type,
+    currentCategoryId: categoryId
+  });
 
   return (
     <>
@@ -433,40 +394,56 @@ export function AddTransactionModal() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-4">Data da Compra</label>
-                      <div className="relative">
-                        <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                      <div className="flex justify-between items-center px-4">
+                        <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-4">Quando</label>
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                          <input
+                            type="date"
+                            value={transactionDate}
+                            onChange={(e) => setTransactionDate(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-violet-500/50 font-bold"
+                            required
+                          />
+                        </div>
+                        <div className="relative w-32">
+                          <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                          <input
+                            type="time"
+                            value={transactionTime}
+                            onChange={(e) => setTransactionTime(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-violet-500/50 font-bold"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {showInstallments && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center px-4">
+                          <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Parcelas</label>
+                          {installments === 1 && (
+                            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">À Vista</span>
+                          )}
+                        </div>
                         <input
-                          type="date"
-                          value={transactionDate}
-                          onChange={(e) => setTransactionDate(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-violet-500/50 font-bold"
+                          type="number"
+                          min="1"
+                          max="99"
+                          value={installments}
+                          onChange={(e) => setInstallments(parseInt(e.target.value) || 1)}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-sm text-white outline-none focus:border-violet-500/50 font-bold tabular-nums no-spinner"
                           required
                         />
                       </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center px-4">
-                        <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Parcelas</label>
-                        {installments === 1 && (
-                          <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">À Vista</span>
-                        )}
-                      </div>
-                      <input
-                        type="number"
-                        min="1"
-                        max="99"
-                        value={installments}
-                        onChange={(e) => setInstallments(parseInt(e.target.value) || 1)}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-sm text-white outline-none focus:border-violet-500/50 font-bold tabular-nums no-spinner"
-                        required
-                      />
-                    </div>
+                    )}
                   </div>
 
                   {/* Parcelamento Ultra UX - Lista de 1x a 12x */}
-                  {type === "EXPENSE" && installments > 1 && (
+                  {showInstallments && installments > 1 && (
                     <div className="space-y-4 pt-2">
                       <div className="flex items-center justify-between px-2">
                         <div className="flex items-center gap-2">

@@ -12,8 +12,10 @@ import {
   PieChart,
   LogOut,
   User as UserIcon,
-  Zap
+  Zap,
+  RefreshCcw
 } from "lucide-react";
+import { useFinancialData } from "@/context/FinancialDataContext";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { createClient } from "@/utils/supabase/client";
@@ -31,6 +33,7 @@ const menuItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { refreshData, loading } = useFinancialData();
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,14 +53,23 @@ export function Sidebar() {
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 border-r border-white/10 bg-black/20 backdrop-blur-2xl z-50 flex flex-col p-6 hidden md:flex">
-      {/* Brand */}
-      <div className="flex items-center gap-3 mb-12 px-2">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/20 flex items-center justify-center">
-          <span className="text-white font-bold text-xl">V</span>
+      <div className="flex items-center justify-between mb-12 px-2">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/20 flex items-center justify-center">
+            <span className="text-white font-bold text-xl">V</span>
+          </div>
+          <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 tracking-tight">
+            Vesper
+          </h1>
         </div>
-        <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 tracking-tight">
-          Vesper
-        </h1>
+        <button 
+          onClick={() => refreshData()}
+          disabled={loading}
+          className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/20 hover:text-white/60 hover:bg-white/10 transition-all active:scale-95 group"
+          title="Sincronizar Dados"
+        >
+          <RefreshCcw className={cn("w-3.5 h-3.5 transition-all", loading && "animate-spin text-violet-400")} />
+        </button>
       </div>
 
       {/* Navigation */}

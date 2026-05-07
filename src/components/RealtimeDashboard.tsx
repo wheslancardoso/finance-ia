@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { SpendingCapacity } from "./SpendingCapacity";
+import { TransactionTimeline } from "./TransactionTimeline";
 import { TimeTravelSlider } from "./TimeTravelSlider";
 import { calculateProjectedBalance } from "@/utils/finance-projections";
 import { formatCurrency } from "@/lib/utils";
@@ -205,35 +206,8 @@ export default function RealtimeDashboard({
             <button className="text-[10px] font-black text-white/20 uppercase tracking-widest hover:text-white transition-colors">Ver Tudo</button>
           </div>
 
-          <div className="space-y-6 flex-1">
-            {initialTransactions.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center py-12">
-                <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                  <Zap className="w-6 h-6 text-white/10" />
-                </div>
-                <p className="text-white/20 text-[10px] font-bold uppercase">Sem registros hoje.</p>
-              </div>
-            ) : (
-              initialTransactions.map((tx) => (
-                <div key={tx.id} className="flex items-center justify-between group">
-                  <div className="flex items-center gap-3">
-                    <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center border transition-all text-xs",
-                      tx.type === "EXPENSE" ? "bg-red-500/5 border-red-500/10 text-red-400" : "bg-emerald-500/5 border-emerald-500/10 text-emerald-400"
-                    )}>
-                      {tx.type === "EXPENSE" ? "S" : "E"}
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-white group-hover:text-violet-400 transition-colors truncate max-w-[120px]">{tx.description}</p>
-                      <p className="text-[8px] text-white/20 font-black uppercase tracking-tighter">Hoje</p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-black tabular-nums text-white/80">
-                    {formatCurrency(tx.amount)}
-                  </span>
-                </div>
-              ))
-            )}
+          <div className="flex-1">
+            <TransactionTimeline transactions={initialTransactions} />
           </div>
 
           <div className="mt-8 pt-8 border-t border-white/5">

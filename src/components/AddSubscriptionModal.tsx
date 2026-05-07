@@ -8,14 +8,14 @@ import { cn } from "@/lib/utils";
 import { useSubscriptionModal } from "@/context/SubscriptionModalContext";
 import { useAccountModal } from "@/context/AccountModalContext";
 import { useRouter } from "next/navigation";
+import { useFinancialData } from "@/context/FinancialDataContext";
 
 export function AddSubscriptionModal() {
   const { isOpen, closeModal } = useSubscriptionModal();
   const { familyGroupId } = useAccountModal();
   const router = useRouter();
+  const { categories, accounts, refreshData } = useFinancialData();
   const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [accounts, setAccounts] = useState<any[]>([]);
 
   // Form State
   const [description, setDescription] = useState("");
@@ -30,37 +30,12 @@ export function AddSubscriptionModal() {
   const [openAccount, setOpenAccount] = useState(false);
 
   useEffect(() => {
-    if (isOpen && familyGroupId) {
-      loadData();
-    }
-  }, [isOpen, familyGroupId]);
-
-  async function loadData() {
-    const supabase = createClient();
-    
-    const { data: cats } = await supabase
-      .from("categories")
-      .select("id, name, type")
-      .or(`family_group_id.eq.${familyGroupId},family_group_id.is.null`);
-
-    console.log("DEBUG SUBS - CATEGORIAS:", cats);
-
-    const { data: accs } = await supabase.from("accounts")
-      .select("id, name, type")
-      .eq("family_group_id", familyGroupId);
-
-    if (cats) setCategories(cats);
-    if (accs) setAccounts(accs);
-    
-    // Auto-select removed
-    
-    if (accs?.length) {
-      // Se já houver um accountId selecionado que não está na nova lista, resetamos
-      if (!accs.find(a => a.id === accountId)) {
-        setAccountId(accs[0].id);
+    if (isOpen && accounts.length > 0) {
+      if (!accountId || !accounts.find(a => a.id === accountId)) {
+        setAccountId(accounts[0].id);
       }
     }
-  }
+  }, [isOpen, accounts]);
 
   // Sync category when type changes
   useEffect(() => {
@@ -104,6 +79,7 @@ export function AddSubscriptionModal() {
     });
 
     if (!error) {
+      await refreshData();
       closeModal();
       setDescription("");
       setAmount("");
@@ -260,8 +236,8 @@ export function AddSubscriptionModal() {
                     <span className="flex items-center gap-2">
                       {accounts.find(a => a.id === accountId) ? (
                         <>
-                          {accounts.find(a => a.id === accountId).type === "CREDIT_CARD" ? "💳" : "💰"}
-                          {accounts.find(a => a.id === accountId).name}
+                          {accounts.find(a => a.id === accountId)?.type === "CREDIT_CARD" ? "💳" : "💰"}
+                          {accounts.find(a => a.id === accountId)?.name}
                         </>
                       ) : "Selecione"}
                     </span>

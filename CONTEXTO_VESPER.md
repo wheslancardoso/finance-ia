@@ -41,20 +41,30 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 
 ---
 
+## ⚡ Funcionalidades Recentes (Maio/2026)
+*   **Financial Data Cache**: Implementação de cache global para contas e categorias (10 min). Modais abrem instantaneamente.
+*   **Transaction Timeline**: Linha do tempo vertical estilo "Liquid Glass" com agrupamento cronológico e ícones dinâmicos.
+*   **Transaction Time**: Suporte a horário nas transações para ordenação precisa.
+*   **Auto-Sync (DB Triggers)**: Atualização automática de saldos de contas via Gatilhos no Supabase (Insert/Update/Delete).
+
+---
+
 ## 🗺️ Roadmap de Implementação (Ordem de Batalha)
 
-### Fase 1: Ajustes de Fluxo (Atual)
-- [x] Correção de Autenticação (Login/Signup explícito).
-- [x] Padronização Visual de Inputs (Sem spinners, tabular-nums).
-- [ ] **Ajuste do Modal Universal:** Garantir que Entradas e Saídas funcionem com a mesma fluidez.
+### Fase 1: Fundação & Fricção Zero (CONCLUÍDA ✅)
+- [x] Autenticação e Layout Base (AppShell).
+- [x] Modais de Transação, Assinatura e Metas com Design Liquid Glass.
+- [x] Timeline Cronológica Dinâmica.
+- [x] Sistema de Cache Global e Sincronização.
 
-### Fase 2: Centro de Configurações & Renda
-- [ ] **Configurações:** Tela para gerenciar Categorias, Grupo Familiar e **Meta de Renda**.
-- [ ] **Fluxo Recorrente:** Expandir a página de Assinaturas para incluir Projeção de Salário.
+### Fase 2: O Centro de Comando (Foco Atual 🎯)
+- [ ] **Lógica de Sobra Livre**: Implementar o cálculo real `(Saldo + Entradas) - (Saídas + Metas)` no Dashboard.
+- [ ] **Projeção de Fluxo**: Integrar a página de Assinaturas/Fluxos para gerar transações automáticas futuras.
+- [ ] **Interface de Cartão**: Exibir faturas (fechamento/vencimento) com base no limite disponível.
 
-### Fase 3: Inteligência & Relatórios
-- [ ] **Relatórios de Evolução:** Gráficos de Mix de Renda e Evolução Patrimonial.
-- [ ] **Integração IA:** Categorização automática via vLLM.
+### Fase 3: Inteligência & Expansão
+- [ ] **Relatórios de Evolução**: Gráficos de barra de Mix de Renda e Evolução de Patrimônio.
+- [ ] **Integração n8n/IA**: Automação de importação de extratos e categorização inteligente.
 
 ---
 *Vesper Finance - Construído para clareza absoluta e fricção zero.*
