@@ -1,60 +1,60 @@
-# 🌌 Vesper Finance | Centro de Comando
+# 🌌 Manifesto Vesper Finance | Centro de Comando
 
-Este documento serve como o **Estado da Arte** do projeto para continuidade em outros ambientes.
-
-## 🚀 Visão Geral
-O Vesper não é um gerenciador financeiro comum; é uma ferramenta de **estratégia e baixa fricção**. O design segue a estética **Liquid Glass** (Glassmorphism, Neons, Transparências) e o fluxo de UX é inspirado na agilidade do **Nubank**.
-
-## 🛠️ Stack Tecnológica
-- **Framework:** Next.js 16 (App Router) + Turbopack.
-- **Styling:** Tailwind CSS v4 (Sintaxe nativa com `@theme`).
-- **Backend/DB:** Supabase (PostgreSQL + RLS).
-- **Animações:** Framer Motion (Transições fluidas e micro-interações).
-- **Datas:** `date-fns` (Motor de projeções e parcelamentos).
-
-## 💎 Funcionalidades Implementadas
-
-### 1. Centro de Comando (Dashboard)
-- **Sobra Livre:** Cálculo em tempo real de quanto sobrará no mês após pagar todas as contas fixas e orçamentos planejados.
-- **Viagem no Tempo:** Slider que projeta o saldo até **365 dias** no futuro.
-- **Radar de Dívidas:** Identificação automática da data de término do último parcelamento.
-
-### 2. Gestão de Ativos e Crédito
-- **Contas:** Suporte a Corrente, Investimento, Dinheiro e Cartão de Crédito.
-- **Crédito:** Gerenciamento de limites, dia de fechamento e dia de vencimento.
-- **Visual:** Cards com barras de progresso de limite e cores customizáveis.
-
-### 3. Gestão de Metas (Objetivos)
-- **Fábrica de Sonhos:** Modal para criação de metas com valor alvo, valor inicial e prazos.
-- **Visualização de Progresso:** Barras de progresso dinâmicas com cálculo de porcentagem e valor restante.
-- **Personalização:** Cores customizáveis para cada objetivo.
-
-### 4. Motor de Transações
-- **Fricção Zero:** Modais otimizados para poucos cliques.
-- **Parcelamento Inteligente:** Seletor de 1x a 12x com cálculo de valor por parcela e data de término em tempo real.
-- **Assinaturas:** Página dedicada para gerenciar custos fixos (`/subscriptions`), permitindo pausar/ativar serviços.
-
-### 4. Estética Premium
-- **Liquid Glass:** Backgrounds dinâmicos, blur intenso e bordas de cristal.
-- **Custom Scrollbars:** Barras de rolagem ultra-finas e discretas integradas ao tema.
-
-## 🗄️ Estrutura do Banco (Supabase)
-As migrações principais estão na pasta `scratch/`:
-- `migration_credit_cards.sql`: Campos de limite e datas de fatura.
-- `migration_recurring.sql`: Tabela de assinaturas e contas fixas.
-- `migration_budgets.sql`: Sistema de orçamentos por categoria.
-
-## 🔑 Variáveis de Ambiente Necessárias
-No arquivo `.env.local`:
-```env
-NEXT_PUBLIC_SUPABASE_URL=seu_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_key
-```
-
-## 🎯 Próximos Passos Sugeridos
-1. **IA de Categorização:** Integrar vLLM para classificar gastos automaticamente via descrição.
-2. **Integração WhatsApp:** Conectar via n8n/Evolution API para lançamentos por voz/texto.
-3. **Relatórios de Longo Prazo:** Gráficos de evolução patrimonial baseados na Viagem no Tempo.
+O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia financeira de baixa fricção**. Este documento alinha as funcionalidades e a filosofia do projeto para garantir que ele permaneça prático, fluido e útil.
 
 ---
-*Vesper Finance - Construído para quem busca clareza absoluta.*
+
+## 💎 Filosofia de Design: "Liquid Glass"
+*   **Fricção Zero:** Se leva mais de 5 segundos para registrar algo, o fluxo está errado.
+*   **Visual Imersivo:** Glassmorphism, Neons, Blur intenso e micro-animações. O dinheiro deve parecer vivo.
+*   **Foco no Futuro:** O passado é apenas histórico; o Vesper foca em quanto você terá amanhã.
+
+---
+
+## 🚀 Os 4 Pilares de Funcionalidade
+
+### 1. Centro de Comando (Dashboard Estratégico)
+*   **Sobra Livre:** O número mais importante. Cálculo em tempo real: `(Saldo Atual + Entradas Previstas) - (Saídas Previstas + Orçamentos)`.
+*   **Time Travel (Viagem no Tempo):** Slider dinâmico para projetar o saldo em até 365 dias.
+*   **Radar de Status:** Visualização rápida de cartões (limite) e metas (progresso).
+
+### 2. Modal Universal (Entrada Rápida)
+*   **Single Door:** Um único ponto de entrada para Saídas, Entradas e Parcelamentos.
+*   **Inteligência de Parcelas:** Cálculo instantâneo de fim de dívida e valor por parcela.
+*   **Aparência:** Estilo "Glass" limpo, sem spinners nativos de input (scrollbar de números escondida).
+
+### 3. Fluxo de Renda e Gastos Recorrentes
+*   **Recorrência Inteligente:** Unificação de Salários (Income) e Contas Fixas/Assinaturas (Expense).
+*   **Previsibilidade:** O sistema assume que esses valores ocorrerão e já os abate/soma no Time Travel automaticamente.
+*   **Configuração de Renda:** Seção para definir "Meta de Ganho" (Fixo + Variável).
+
+### 4. Fábrica de Sonhos (Gestão de Objetivos)
+*   **Lifestyle Goals:** Em vez de "Poupança", focamos em "Sonhos" (Carro, Viagem, Reserva).
+*   **Integração de Saldo:** O valor guardado em metas pode ser visualizado como "Comprometido", afetando a Sobra Livre.
+
+---
+
+## 🛠️ Stack Tecnológica & Arquitetura
+*   **Frontend:** Next.js 16 (App Router) + Turbopack + Tailwind v4.
+*   **Backend:** Supabase (Auth + DB + RLS para compartilhamento familiar).
+*   **Interações:** Framer Motion para transições de estado de fluxo.
+
+---
+
+## 🗺️ Roadmap de Implementação (Ordem de Batalha)
+
+### Fase 1: Ajustes de Fluxo (Atual)
+- [x] Correção de Autenticação (Login/Signup explícito).
+- [x] Padronização Visual de Inputs (Sem spinners, tabular-nums).
+- [ ] **Ajuste do Modal Universal:** Garantir que Entradas e Saídas funcionem com a mesma fluidez.
+
+### Fase 2: Centro de Configurações & Renda
+- [ ] **Configurações:** Tela para gerenciar Categorias, Grupo Familiar e **Meta de Renda**.
+- [ ] **Fluxo Recorrente:** Expandir a página de Assinaturas para incluir Projeção de Salário.
+
+### Fase 3: Inteligência & Relatórios
+- [ ] **Relatórios de Evolução:** Gráficos de Mix de Renda e Evolução Patrimonial.
+- [ ] **Integração IA:** Categorização automática via vLLM.
+
+---
+*Vesper Finance - Construído para clareza absoluta e fricção zero.*

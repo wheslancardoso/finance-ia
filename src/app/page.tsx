@@ -21,7 +21,7 @@ export default async function Home() {
   // 1. Buscar contas do grupo (incluindo cartões)
   const { data: accounts } = await supabase
     .from("accounts")
-    .select("id, balance_cents, type")
+    .select("id, name, balance_cents, type, color_hex")
     .eq("family_group_id", familyGroupId);
 
   const accountIds = accounts?.map(a => a.id) || [];
@@ -125,6 +125,7 @@ export default async function Home() {
         initialBudgets={budgets}
         initialRecurring={projectionItems as any}
         lastFutureTransactionDate={lastFutureDate}
+        accounts={accounts || []}
       />
     </div>
   );

@@ -211,7 +211,7 @@ export function AddAccountModal() {
                           max="31"
                           value={closingDay}
                           onChange={(e) => setClosingDay(parseInt(e.target.value))}
-                          className="w-full bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-white font-bold outline-none"
+                          className="w-full bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-white font-bold outline-none tabular-nums no-spinner"
                           required
                         />
                       </div>
@@ -223,7 +223,7 @@ export function AddAccountModal() {
                           max="31"
                           value={dueDay}
                           onChange={(e) => setDueDay(parseInt(e.target.value))}
-                          className="w-full bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-white font-bold outline-none"
+                          className="w-full bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-white font-bold outline-none tabular-nums no-spinner"
                           required
                         />
                       </div>

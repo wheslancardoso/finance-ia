@@ -8,6 +8,8 @@ import { formatCurrency } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { TrendingUp, ArrowUpRight, ArrowDownRight, Wallet, History, Zap, ShieldCheck, AlertCircle } from "lucide-react";
 import { addDays, endOfMonth, differenceInDays } from "date-fns";
+import { QuickSyncModal } from "./QuickSyncModal";
+import { cn } from "@/lib/utils";
 
 interface RealtimeDashboardProps {
   initialBalance: number;
@@ -15,6 +17,7 @@ interface RealtimeDashboardProps {
   initialBudgets: any[];
   initialRecurring: any[];
   lastFutureTransactionDate?: string | null;
+  accounts: any[];
 }
 
 export default function RealtimeDashboard({ 
@@ -22,9 +25,17 @@ export default function RealtimeDashboard({
   initialTransactions, 
   initialBudgets,
   initialRecurring,
-  lastFutureTransactionDate
+  lastFutureTransactionDate,
+  accounts
 }: RealtimeDashboardProps) {
   const [days, setDays] = useState(0);
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<any>(null);
+
+  const handleQuickSync = (account: any) => {
+    setSelectedAccount(account);
+    setSyncModalOpen(true);
+  };
 
   // 1. Cálculo da Projeção (Viagem no Tempo)
   const projectedBalance = useMemo(() => {
@@ -114,6 +125,23 @@ export default function RealtimeDashboard({
                 </motion.div>
               )}
             </div>
+
+            {/* Quick Account Sync Bar */}
+            {!isFuture && (
+              <div className="flex flex-wrap gap-3">
+                {accounts.filter(a => a.type !== "CREDIT_CARD").map(acc => (
+                  <button 
+                    key={acc.id}
+                    onClick={() => handleQuickSync(acc)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group"
+                  >
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: acc.color_hex }} />
+                    <span className="text-[10px] font-bold text-white/60 group-hover:text-white transition-colors">{acc.name}</span>
+                    <span className="text-[10px] font-black text-white tabular-nums">{formatCurrency(acc.balance_cents)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Practical Insights Bar (Previsão do Mês) */}
             {!isFuture && (
@@ -216,10 +244,14 @@ export default function RealtimeDashboard({
           </div>
         </div>
       </div>
+
+      {selectedAccount && (
+        <QuickSyncModal 
+          isOpen={syncModalOpen}
+          onClose={() => setSyncModalOpen(false)}
+          account={selectedAccount}
+        />
+      )}
     </div>
   );
-}
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
 }

@@ -146,3 +146,16 @@ input:focus, select:focus, textarea:focus {
 input, select, button {
   transition: all 0.2s ease-in-out;
 }
+
+/* Remover botões de incremento/decremento de inputs numéricos */
+.no-spinner::-webkit-inner-spin-button,
+.no-spinner::-webkit-outer-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.no-spinner {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}

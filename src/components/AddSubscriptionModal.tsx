@@ -164,7 +164,7 @@ export function AddSubscriptionModal() {
                     max="31"
                     value={day}
                     onChange={(e) => setDay(parseInt(e.target.value))}
-                    className="w-full bg-white/5 border border-white/5 rounded-2xl py-4 px-5 text-white outline-none focus:border-violet-500/50 transition-all font-bold"
+                    className="w-full bg-white/5 border border-white/5 rounded-2xl py-4 px-5 text-white outline-none focus:border-violet-500/50 transition-all font-bold tabular-nums no-spinner"
                     required
                   />
                 </div>
