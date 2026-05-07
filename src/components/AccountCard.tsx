@@ -84,7 +84,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
         </div>
         
         <ActionMenu 
-          onEdit={() => openEdit(account)}
+          onEdit={() => openEdit(liveAccount)}
           onDelete={handleDelete}
           className="relative z-10"
         />
