@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   
   const router = useRouter();
@@ -22,42 +23,54 @@ export default function LoginPage() {
     setLoading(true);
     setMessage(null);
 
-    // 1. Tentar Login
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      if (isSignUp) {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          }
+        });
 
-    if (!signInError) {
-      router.push("/");
-      router.refresh();
-      return;
-    }
+        if (signUpError) {
+          setMessage({ type: "error", text: signUpError.message });
+        } else {
+          setMessage({ 
+            type: "success", 
+            text: "Conta criada com sucesso! Verifique seu e-mail para confirmar (se necessário) e tente entrar." 
+          });
+          setIsSignUp(false);
+          setPassword(""); // Limpar senha após cadastro
+        }
+      } else {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-    // 2. Se o erro for "Invalid login credentials", pode ser que o usuário não exista
-    // Nota: Por segurança, o Supabase às vezes retorna o mesmo erro para usuário inexistente ou senha errada.
-    // Vamos tentar o SignUp se o erro indicar que não foi possível logar.
-    if (signInError.message.includes("Invalid login credentials")) {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (signUpError) {
-        setMessage({ type: "error", text: signUpError.message });
-        setLoading(false);
-        return;
+        if (signInError) {
+          let errorMsg = signInError.message;
+          
+          // Traduzindo e tratando mensagens comuns do Supabase
+          if (errorMsg.includes("Invalid login credentials")) {
+            errorMsg = "E-mail ou senha incorretos. Verifique seus dados.";
+          } else if (errorMsg.includes("Email not confirmed")) {
+            errorMsg = "Seu e-mail ainda não foi confirmado. Por favor, verifique sua caixa de entrada.";
+          }
+          
+          setMessage({ type: "error", text: errorMsg });
+        } else {
+          // Usar window.location para garantir que o middleware capture a nova sessão
+          window.location.href = "/";
+          return;
+        }
       }
-
-      setMessage({ 
-        type: "success", 
-        text: "Conta criada com sucesso! Tente entrar agora." 
-      });
-    } else {
-      setMessage({ type: "error", text: signInError.message });
+    } catch (err: any) {
+      setMessage({ type: "error", text: "Ocorreu um erro inesperado. Tente novamente." });
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   async function handleForgotPassword() {
@@ -171,7 +184,7 @@ export default function LoginPage() {
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  Entrar no Vesper
+                  {isSignUp ? "Criar conta no Vesper" : "Entrar no Vesper"}
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </>
               )}
@@ -179,6 +192,19 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-8 pt-8 border-t border-white/5 space-y-4">
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setMessage(null);
+                }}
+                className="text-sm text-white/40 hover:text-white transition-colors"
+              >
+                {isSignUp ? "Já tem uma conta? Faça login" : "Não tem conta? Crie uma agora"}
+              </button>
+            </div>
+
             <p className="text-center text-xs text-white/20 font-bold uppercase tracking-[0.2em]">
               Ou acesse com
             </p>
