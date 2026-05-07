@@ -52,6 +52,8 @@ export function AddTransactionModal() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const [editAllInstallments, setEditAllInstallments] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       if (transactionToEdit) {
@@ -64,6 +66,13 @@ export function AddTransactionModal() {
         const dateObj = new Date(transactionToEdit.date);
         setTransactionDate(dateObj.toISOString().split('T')[0]);
         setTransactionTime(dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+        
+        // Se for uma parcela, habilitar opção de editar todas por padrão
+        if (transactionToEdit.installment_total > 1) {
+          setEditAllInstallments(true);
+        } else {
+          setEditAllInstallments(false);
+        }
       } else {
         resetForm();
       }
@@ -82,41 +91,61 @@ export function AddTransactionModal() {
 
     const supabase = createClient();
     const totalAmountCents = Math.round(parseFloat(amount.replace(",", ".")) * 100);
-    const installmentAmountCents = Math.floor(totalAmountCents / installments);
+    
+    // Se estivermos editando todas as parcelas, o valor inserido é o valor de CADA parcela (ou o total?)
+    // Vamos assumir que o usuário edita o valor da parcela individual se for o caso, 
+    // mas se for "Editar Todas", o valor inserido se aplica a todas.
+    const installmentAmountCents = Math.floor(totalAmountCents / (transactionToEdit ? 1 : installments));
 
     const basePayload = {
       account_id: accountId,
-      category_id: categoryId || null, // Se estiver vazio, envia nulo
+      category_id: categoryId || null,
       transaction_type: type,
     };
 
     let errorOccurred = false;
 
     if (transactionToEdit) {
-      const { error } = await supabase
-        .from("transactions")
-        .update({
-          ...basePayload,
-          amount_cents: totalAmountCents,
-          description,
-          date: new Date(`${transactionDate}T${transactionTime}:00`).toISOString(),
-        })
-        .eq("id", transactionToEdit.id);
-      if (error) errorOccurred = true;
+      // Logica de Edição
+      if (editAllInstallments && transactionToEdit.installment_total > 1) {
+        // Editar TODAS as parcelas do grupo
+        const { error } = await supabase
+          .from("transactions")
+          .update({
+            account_id: accountId,
+            category_id: categoryId || null,
+            description,
+            amount_cents: totalAmountCents, // Aplica o novo valor a todas as parcelas
+          })
+          .eq("description", transactionToEdit.description)
+          .eq("installment_total", transactionToEdit.installment_total)
+          .eq("account_id", transactionToEdit.account_id);
+        
+        if (error) errorOccurred = true;
+      } else {
+        // Editar apenas ESTA parcela
+        const { error } = await supabase
+          .from("transactions")
+          .update({
+            ...basePayload,
+            amount_cents: totalAmountCents,
+            description,
+            date: new Date(`${transactionDate}T${transactionTime}:00`).toISOString(),
+          })
+          .eq("id", transactionToEdit.id);
+        if (error) errorOccurred = true;
+      }
     } else {
       const transactionsToInsert = [];
       const startDate = new Date(transactionDate);
       
-      // Obter o dia de fechamento da conta para calcular a fatura correta
       const account = accounts.find(a => a.id === accountId);
       const closingDay = account?.closing_day || 1;
 
       for (let i = 0; i < installments; i++) {
-        // Para compras parceladas, adicionamos 1 mês para cada parcela subsequente
         const installmentDate = addMonths(startDate, i);
         const dayStr = format(installmentDate, 'yyyy-MM-dd');
         
-        // Lógica de Fatura: Se a data da parcela for após o dia de fechamento, cai na próxima fatura
         let invoiceDate = new Date(installmentDate.getFullYear(), installmentDate.getMonth(), 1);
         if (installmentDate.getDate() > closingDay) {
           invoiceDate = addMonths(invoiceDate, 1);
@@ -490,17 +519,50 @@ export function AddTransactionModal() {
                   )}
                 </div>
 
+                {transactionToEdit && transactionToEdit.installment_total > 1 && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="p-6 rounded-[28px] bg-violet-500/5 border border-violet-500/20 space-y-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-violet-500/10 flex items-center justify-center">
+                          <Layers className="w-5 h-5 text-violet-400" />
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-bold text-white">Série de Parcelas</p>
+                          <p className="text-[10px] text-white/40 font-medium tracking-tight">Aplicar mudanças em todas as parcelas?</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEditAllInstallments(!editAllInstallments)}
+                        className={cn(
+                          "w-12 h-6 rounded-full transition-all duration-300 relative",
+                          editAllInstallments ? "bg-violet-500" : "bg-white/10"
+                        )}
+                      >
+                        <motion.div 
+                          animate={{ x: editAllInstallments ? 24 : 4 }}
+                          className="absolute top-1 left-0 w-4 h-4 rounded-full bg-white shadow-sm"
+                        />
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
                 <button
                   disabled={loading || !amount || !description}
                   type="submit"
                   className={cn(
                     "w-full font-black text-xs uppercase tracking-[0.4em] py-6 rounded-[24px] transition-all shadow-2xl active:scale-[0.98] mt-4",
                     type === "EXPENSE" 
-                      ? "bg-white text-black hover:bg-white/90" 
+                      ? "bg-white text-black hover:bg-white/90 shadow-white/5" 
                       : "bg-emerald-500 text-white hover:bg-emerald-400 shadow-emerald-500/20"
                   )}
                 >
-                  {loading ? "Processando..." : transactionToEdit ? "Salvar Alterações" : "Ativar Registro"}
+                  {loading ? "Processando..." : transactionToEdit ? (editAllInstallments ? "Atualizar Série" : "Salvar Parcela") : "Ativar Registro"}
                 </button>
               </form>
             </motion.div>

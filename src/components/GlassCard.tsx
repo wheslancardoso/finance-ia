@@ -4,14 +4,15 @@ import { motion } from "framer-motion";
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-interface GlassCardProps {
+interface GlassCardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
   className?: string;
 }
 
-export default function GlassCard({ children, className }: GlassCardProps) {
+export default function GlassCard({ children, className, ...props }: GlassCardProps) {
   return (
     <motion.div
+      {...props}
       whileHover={{ scale: 1.02, translateY: -5 }}
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 400, damping: 17 }}

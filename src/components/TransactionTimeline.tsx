@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
+import { InstallmentTimelineModal } from "./InstallmentTimelineModal";
+
 interface Transaction {
   id: string;
   date: string;
@@ -29,11 +31,13 @@ interface Transaction {
   type: "EXPENSE" | "INCOME" | "TRANSFER";
   installment_current?: number;
   installment_total?: number;
+  account_id?: string;
   category?: {
     name: string;
     color_hex: string;
   };
   account?: {
+    id: string;
     name: string;
     type: string;
   };
@@ -58,6 +62,9 @@ const getIcon = (categoryName: string, type: string) => {
 };
 
 export function TransactionTimeline({ transactions }: TransactionTimelineProps) {
+  const [selectedTx, setSelectedTx] = React.useState<Transaction | null>(null);
+  const [isTimelineOpen, setIsTimelineOpen] = React.useState(false);
+
   // Agrupar transações por data
   const groups = transactions.reduce((acc: { [key: string]: Transaction[] }, tx) => {
     const dateKey = format(new Date(tx.date), "yyyy-MM-dd");
@@ -117,7 +124,18 @@ export function TransactionTimeline({ transactions }: TransactionTimelineProps) 
                     transition={{ delay: (groupIndex * 0.1) + (txIndex * 0.05) }}
                     className="group relative"
                   >
-                    <div className="bg-white/[0.03] hover:bg-white/[0.06] backdrop-blur-xl border border-white/5 hover:border-white/10 p-4 rounded-3xl transition-all duration-300 flex items-center justify-between shadow-lg hover:shadow-violet-500/5">
+                    <div 
+                      onClick={() => {
+                        if (isInstallment) {
+                          setSelectedTx(tx);
+                          setIsTimelineOpen(true);
+                        }
+                      }}
+                      className={cn(
+                        "bg-white/[0.03] hover:bg-white/[0.06] backdrop-blur-xl border border-white/5 hover:border-white/10 p-4 rounded-3xl transition-all duration-300 flex items-center justify-between shadow-lg hover:shadow-violet-500/5",
+                        isInstallment && "cursor-pointer"
+                      )}
+                    >
                       <div className="flex items-center gap-4">
                         {/* Ícone com Glow */}
                         <div 
@@ -173,6 +191,14 @@ export function TransactionTimeline({ transactions }: TransactionTimelineProps) 
           </div>
         );
       })}
+
+      {selectedTx && (
+        <InstallmentTimelineModal 
+          isOpen={isTimelineOpen}
+          onClose={() => setIsTimelineOpen(false)}
+          transaction={selectedTx}
+        />
+      )}
     </div>
   );
 }
