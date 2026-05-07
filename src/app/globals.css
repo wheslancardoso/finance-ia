@@ -8,50 +8,38 @@
 :root {
   --background: #050505;
   --foreground: #ffffff;
-}
-
-@layer base {
-  body {
-    color: var(--foreground);
-    background: var(--background);
-    font-family: Arial, Helvetica, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    overflow-x: hidden;
-  }
+  color-scheme: dark; /* Força o navegador a usar temas escuros em elementos nativos */
 }
 
 /* 
-   Scrollbar Liquid Glass - Ultra Fina e Elegante
-   Aparece apenas no hover ou scroll para não poluir o design.
+   Scrollbar Command Center - Estilo Liquid Glass
 */
 ::-webkit-scrollbar {
-  width: 5px !important;
-  height: 5px !important;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent !important;
+  background: rgba(0, 0, 0, 0.2);
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border-radius: 20px !important;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 100px;
+  border: 3px solid #050505;
   transition: all 0.3s ease;
 }
 
-*:hover::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15) !important;
-}
-
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.5) !important; /* Brilho Violeta no Hover */
+  background: rgba(139, 92, 246, 0.8); /* Violeta Intenso */
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.5);
 }
 
 /* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  scrollbar-color: rgba(139, 92, 246, 0.3) rgba(0, 0, 0, 0.2);
 }
 
 /* Classes Utilitárias de Vidro */

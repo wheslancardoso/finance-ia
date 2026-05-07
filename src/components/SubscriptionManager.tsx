@@ -36,15 +36,15 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
     <div className="space-y-12">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
-          <h1 className="text-4xl font-black text-white tracking-tighter">Assinaturas</h1>
-          <p className="text-white/40 font-bold text-xs uppercase tracking-[0.2em]">Gestão de Custos Fixos</p>
+          <h1 className="text-4xl font-black text-white tracking-tighter">Fluxos Recorrentes</h1>
+          <p className="text-white/40 font-bold text-xs uppercase tracking-[0.2em]">Gestão de Receitas e Gastos Fixos</p>
         </div>
         <button 
           onClick={openModal}
           className="flex items-center gap-3 bg-white text-black px-8 py-4 rounded-[22px] font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-white/10"
         >
           <Plus className="w-5 h-5" />
-          Nova Assinatura
+          Novo Fluxo
         </button>
       </header>
 
@@ -57,17 +57,22 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
             <div className="flex justify-between items-start mb-6">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl flex items-center justify-center border border-white/10 text-xl bg-white/5">
-                  {sub.categories?.icon || "📦"}
+                  {sub.categories?.icon || (sub.transaction_type === 'INCOME' ? "💰" : "📦")}
                 </div>
                 <div>
                   <h4 className="text-white font-bold text-lg leading-tight">{sub.description}</h4>
                   <p className="text-[10px] text-white/30 font-bold uppercase tracking-tighter">
-                    {sub.categories?.name} • Mensal
+                    {sub.categories?.name} • {sub.transaction_type === 'INCOME' ? 'Receita' : 'Gasto'}
                   </p>
                 </div>
               </div>
               <div className="text-right">
-                <span className="text-white font-black text-lg tabular-nums">{formatCurrency(sub.amount_cents)}</span>
+                <span className={cn(
+                  "font-black text-lg tabular-nums",
+                  sub.transaction_type === 'INCOME' ? "text-emerald-400" : "text-white"
+                )}>
+                  {sub.transaction_type === 'INCOME' ? "+" : ""}{formatCurrency(sub.amount_cents)}
+                </span>
               </div>
             </div>
 
@@ -75,7 +80,7 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
               <div className="flex items-center justify-between p-3 bg-white/2 rounded-2xl border border-white/5">
                 <div className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase">
                   <Calendar className="w-3 h-3" />
-                  {format(new Date(sub.next_date), "dd 'de' MMM", { locale: ptBR })}
+                  Próximo: {format(new Date(sub.next_date), "dd 'de' MMM", { locale: ptBR })}
                 </div>
                 <div className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase">
                   <CreditCard className="w-3 h-3" />
@@ -109,7 +114,7 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
           <div className="w-14 h-14 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
             <Plus className="w-8 h-8" />
           </div>
-          <p className="text-xs font-black uppercase tracking-widest">Nova Assinatura</p>
+          <p className="text-xs font-black uppercase tracking-widest">Novo Fluxo</p>
         </button>
       </div>
     </div>

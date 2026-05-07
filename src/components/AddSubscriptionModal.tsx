@@ -2,14 +2,16 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Zap, Wallet, Tag, CreditCard } from "lucide-react";
+import { X, Zap, Wallet, Tag, CreditCard, ChevronDown } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 import { useSubscriptionModal } from "@/context/SubscriptionModalContext";
+import { useAccountModal } from "@/context/AccountModalContext";
 import { useRouter } from "next/navigation";
 
 export function AddSubscriptionModal() {
   const { isOpen, closeModal } = useSubscriptionModal();
+  const { familyGroupId } = useAccountModal();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
@@ -21,34 +23,50 @@ export function AddSubscriptionModal() {
   const [categoryId, setCategoryId] = useState("");
   const [accountId, setAccountId] = useState("");
   const [day, setDay] = useState(new Date().getDate());
+  const [type, setType] = useState<"EXPENSE" | "INCOME">("EXPENSE");
+  
+  // Custom Select States
+  const [openCategory, setOpenCategory] = useState(false);
+  const [openAccount, setOpenAccount] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && familyGroupId) {
       loadData();
     }
-  }, [isOpen]);
+  }, [isOpen, familyGroupId]);
 
   async function loadData() {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    
+    const { data: cats } = await supabase
+      .from("categories")
+      .select("id, name, type")
+      .or(`family_group_id.eq.${familyGroupId},family_group_id.is.null`);
 
-    const { data: familyMember } = await supabase
-      .from("family_members")
-      .select("family_group_id")
-      .eq("user_id", user.id)
-      .single();
+    console.log("DEBUG SUBS - CATEGORIAS:", cats);
 
-    if (!familyMember) return;
-
-    const { data: cats } = await supabase.from("categories").select("id, name");
-    const { data: accs } = await supabase.from("accounts").select("id, name, type").eq("family_group_id", familyMember.family_group_id);
+    const { data: accs } = await supabase.from("accounts")
+      .select("id, name, type")
+      .eq("family_group_id", familyGroupId);
 
     if (cats) setCategories(cats);
     if (accs) setAccounts(accs);
-    if (cats?.length) setCategoryId(cats[0].id);
-    if (accs?.length) setAccountId(accs[0].id);
+    
+    // Auto-select removed
+    
+    if (accs?.length) {
+      // Se já houver um accountId selecionado que não está na nova lista, resetamos
+      if (!accs.find(a => a.id === accountId)) {
+        setAccountId(accs[0].id);
+      }
+    }
   }
+
+  // Sync category when type changes
+  useEffect(() => {
+    const firstOfType = categories.find(c => c.type === type);
+    if (firstOfType) setCategoryId(firstOfType.id);
+  }, [type, categories]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -58,13 +76,11 @@ export function AddSubscriptionModal() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     
-    const { data: familyMember } = await supabase
-      .from("family_members")
-      .select("family_group_id")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!familyMember) return;
+    if (!familyGroupId) {
+      alert("Grupo familiar não identificado. Recarregue a página.");
+      setLoading(false);
+      return;
+    }
 
     const amountCents = Math.round(parseFloat(amount.replace(",", ".")) * 100);
     
@@ -76,12 +92,12 @@ export function AddSubscriptionModal() {
     }
 
     const { error } = await supabase.from("recurring_transactions").insert({
-      family_group_id: familyMember.family_group_id,
+      family_group_id: familyGroupId,
       account_id: accountId,
       category_id: categoryId,
       description,
       amount_cents: amountCents,
-      transaction_type: "EXPENSE",
+      transaction_type: type,
       frequency: "monthly",
       next_date: nextDate.toISOString(),
       status: "active"
@@ -93,10 +109,12 @@ export function AddSubscriptionModal() {
       setAmount("");
       router.refresh();
     } else {
-      alert("Erro ao salvar assinatura");
+      alert("Erro ao salvar fluxo recorrente");
     }
     setLoading(false);
   }
+
+  const filteredCategories = categories.filter(c => c.type === type);
 
   return (
     <AnimatePresence>
@@ -118,10 +136,13 @@ export function AddSubscriptionModal() {
           >
             <div className="flex justify-between items-center mb-8">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center text-violet-400">
+                <div className={cn(
+                  "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                  type === "EXPENSE" ? "bg-violet-500/20 text-violet-400" : "bg-emerald-500/20 text-emerald-400"
+                )}>
                   <Zap className="w-5 h-5" />
                 </div>
-                <h2 className="text-xl font-bold text-white">Nova Assinatura</h2>
+                <h2 className="text-xl font-bold text-white">Fluxo Recorrente</h2>
               </div>
               <button onClick={closeModal} className="text-white/20 hover:text-white transition-colors">
                 <X className="w-6 h-6" />
@@ -129,11 +150,30 @@ export function AddSubscriptionModal() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Toggle Tipo */}
+              <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5">
+                {(["EXPENSE", "INCOME"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setType(t)}
+                    className={cn(
+                      "flex-1 py-3 rounded-xl text-[10px] font-black transition-all uppercase tracking-widest",
+                      type === t
+                        ? "bg-white/10 text-white shadow-inner"
+                        : "text-white/20 hover:text-white/40"
+                    )}
+                  >
+                    {t === "EXPENSE" ? "Gasto Fixo" : "Receita Fixa"}
+                  </button>
+                ))}
+              </div>
+
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">O que é?</label>
+                <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">Descrição</label>
                 <input
                   autoFocus
-                  placeholder="Ex: Netflix, Internet, Spotify"
+                  placeholder={type === "EXPENSE" ? "Ex: Netflix, Internet, Aluguel" : "Ex: Salário, Pro-labore, Pensão"}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full bg-white/5 border border-white/5 rounded-2xl py-4 px-5 text-white outline-none focus:border-violet-500/50 transition-all font-medium"
@@ -150,14 +190,17 @@ export function AddSubscriptionModal() {
                       placeholder="0,00"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
-                      className="w-full bg-white/5 border border-white/5 rounded-2xl py-4 pl-10 pr-4 text-white outline-none focus:border-violet-500/50 transition-all font-bold tabular-nums"
+                      className={cn(
+                        "w-full bg-white/5 border border-white/5 rounded-2xl py-4 pl-10 pr-4 outline-none transition-all font-bold tabular-nums",
+                        type === "EXPENSE" ? "text-white focus:border-violet-500/50" : "text-emerald-400 focus:border-emerald-500/50"
+                      )}
                       required
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">Dia de Cobrança</label>
+                  <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">Dia do Fluxo</label>
                   <input
                     type="number"
                     min="1"
@@ -170,32 +213,105 @@ export function AddSubscriptionModal() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">Conta de Origem</label>
-                <select
-                  value={accountId}
-                  onChange={(e) => setAccountId(e.target.value)}
-                  className="w-full bg-white/5 border border-white/5 rounded-2xl py-4 px-5 text-white outline-none focus:border-violet-500/50 appearance-none font-bold"
-                >
-                  {accounts.map(acc => (
-                    <option key={acc.id} value={acc.id} className="bg-black">
-                      {acc.type === "CREDIT_CARD" ? "💳" : "💰"} {acc.name}
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                {/* Categoria Custom Select */}
+                <div className="space-y-2 relative">
+                  <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">Categoria</label>
+                  <div 
+                    onClick={() => setOpenCategory(!openCategory)}
+                    className="w-full bg-white/5 border border-white/5 rounded-2xl py-4 px-5 text-white font-bold cursor-pointer flex justify-between items-center hover:border-white/10 transition-all"
+                  >
+                    <span>{categories.find(c => c.id === categoryId)?.name || "Selecione"}</span>
+                    <ChevronDown className={cn("w-4 h-4 transition-transform", openCategory && "rotate-180")} />
+                  </div>
+                  
+                  <AnimatePresence>
+                    {openCategory && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="absolute z-50 left-0 right-0 top-full mt-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl"
+                      >
+                        {filteredCategories.map(cat => (
+                          <div
+                            key={cat.id}
+                            onClick={() => {
+                              setCategoryId(cat.id);
+                              setOpenCategory(false);
+                            }}
+                            className="px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-medium text-white/80 hover:text-white transition-colors border-b border-white/5 last:border-0"
+                          >
+                            {cat.name}
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Conta Custom Select */}
+                <div className="space-y-2 relative">
+                  <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">Conta</label>
+                  <div 
+                    onClick={() => setOpenAccount(!openAccount)}
+                    className="w-full bg-white/5 border border-white/5 rounded-2xl py-4 px-5 text-white font-bold cursor-pointer flex justify-between items-center hover:border-white/10 transition-all"
+                  >
+                    <span className="flex items-center gap-2">
+                      {accounts.find(a => a.id === accountId) ? (
+                        <>
+                          {accounts.find(a => a.id === accountId).type === "CREDIT_CARD" ? "💳" : "💰"}
+                          {accounts.find(a => a.id === accountId).name}
+                        </>
+                      ) : "Selecione"}
+                    </span>
+                    <ChevronDown className={cn("w-4 h-4 transition-transform", openAccount && "rotate-180")} />
+                  </div>
+
+                  <AnimatePresence>
+                    {openAccount && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="absolute z-50 left-0 right-0 top-full mt-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl"
+                      >
+                        {accounts.map(acc => (
+                          <div
+                            key={acc.id}
+                            onClick={() => {
+                              setAccountId(acc.id);
+                              setOpenAccount(false);
+                            }}
+                            className="px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-medium text-white/80 hover:text-white transition-colors border-b border-white/5 last:border-0 flex items-center gap-3"
+                          >
+                            <span>{acc.type === "CREDIT_CARD" ? "💳" : "💰"}</span>
+                            {acc.name}
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
               <button
                 disabled={loading || !amount || !description}
                 type="submit"
-                className="w-full bg-white text-black font-black text-xs uppercase tracking-[0.3em] py-5 rounded-2xl hover:bg-white/90 active:scale-[0.98] transition-all shadow-xl shadow-white/5"
+                className={cn(
+                  "w-full font-black text-xs uppercase tracking-[0.3em] py-5 rounded-2xl active:scale-[0.98] transition-all shadow-xl",
+                  type === "EXPENSE" 
+                    ? "bg-white text-black hover:bg-white/90 shadow-white/5" 
+                    : "bg-emerald-500 text-white hover:bg-emerald-400 shadow-emerald-500/20"
+                )}
               >
-                {loading ? "Salvando..." : "Confirmar Assinatura"}
+                {loading ? "Salvando..." : "Confirmar Fluxo"}
               </button>
             </form>
           </motion.div>
         </div>
       )}
     </AnimatePresence>
+
   );
 }

@@ -211,7 +211,16 @@ export function AddAccountModal() {
                           min="1"
                           max="31"
                           value={closingDay}
-                          onChange={(e) => setClosingDay(parseInt(e.target.value))}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 1;
+                            setClosingDay(val);
+                            
+                            // Cálculo automático: Fechamento + 7 dias
+                            let calculatedDue = val + 7;
+                            if (calculatedDue > 31) calculatedDue -= 31;
+                            if (calculatedDue === 0) calculatedDue = 1;
+                            setDueDay(calculatedDue);
+                          }}
                           className="w-full bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-white font-bold outline-none tabular-nums no-spinner"
                           required
                         />
@@ -223,7 +232,7 @@ export function AddAccountModal() {
                           min="1"
                           max="31"
                           value={dueDay}
-                          onChange={(e) => setDueDay(parseInt(e.target.value))}
+                          onChange={(e) => setDueDay(parseInt(e.target.value) || 1)}
                           className="w-full bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-white font-bold outline-none tabular-nums no-spinner"
                           required
                         />

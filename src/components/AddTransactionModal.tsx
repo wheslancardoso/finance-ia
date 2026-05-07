@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Plus, Wallet, Tag, PencilLine, CreditCard, Layers, Sparkles, TrendingUp, Calendar } from "lucide-react";
+import { X, Plus, Wallet, Tag, PencilLine, CreditCard, Layers, Sparkles, TrendingUp, Calendar, ChevronDown } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useTransactionModal } from "@/context/TransactionModalContext";
+import { useAccountModal } from "@/context/AccountModalContext";
 import { usePathname, useRouter } from "next/navigation";
 import { addMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -21,10 +22,12 @@ interface Account {
   name: string;
   type: string;
   balance_cents: number;
+  credit_limit_cents?: number;
 }
 
 export function AddTransactionModal() {
   const { isOpen, transactionToEdit, closeModal, openAdd } = useTransactionModal();
+  const { familyGroupId } = useAccountModal();
   const router = useRouter();
   const pathname = usePathname();
   
@@ -39,12 +42,19 @@ export function AddTransactionModal() {
   const [accountId, setAccountId] = useState("");
   const [type, setType] = useState<"EXPENSE" | "INCOME">("EXPENSE");
   const [installments, setInstallments] = useState(1);
+  const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  // Custom Select States
+  const [openCategory, setOpenCategory] = useState(false);
+  const [openAccount, setOpenAccount] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen) {
-      loadData();
+      if (familyGroupId) {
+        loadData();
+      }
       if (transactionToEdit) {
         setAmount((transactionToEdit.amount_cents / 100).toString().replace(".", ","));
         setDescription(transactionToEdit.description);
@@ -52,47 +62,73 @@ export function AddTransactionModal() {
         setAccountId(transactionToEdit.account_id);
         setType(transactionToEdit.transaction_type);
         setInstallments(1);
+        setTransactionDate(new Date(transactionToEdit.date).toISOString().split('T')[0]);
       } else {
         resetForm();
       }
     }
-  }, [isOpen]);
+  }, [isOpen, familyGroupId]);
 
   async function loadData() {
+    if (!familyGroupId) return;
+    
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) return;
-
-    const { data: familyMember } = await supabase
-      .from("family_members")
-      .select("family_group_id")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!familyMember) return;
-
-    const familyGroupId = familyMember.family_group_id;
-
-    const { data: catData } = await supabase
+    let { data: catData } = await supabase
       .from("categories")
       .select("id, name, type")
-      .eq("family_group_id", familyGroupId);
+      .or(`family_group_id.eq.${familyGroupId},family_group_id.is.null`);
+
+    console.log("DEBUG - CATEGORIAS BUSCADAS:", catData);
+
+    // Se não houver categorias, vamos semear as padrões automaticamente
+    if (catData && catData.length === 0) {
+      console.log("Semeando categorias padrão para o grupo:", familyGroupId);
+      const defaultCategories = [
+        { name: "Salário", type: "INCOME", color_hex: "#10B981" },
+        { name: "Investimentos", type: "INCOME", color_hex: "#3B82F6" },
+        { name: "Alimentação", type: "EXPENSE", color_hex: "#EF4444" },
+        { name: "Lazer", type: "EXPENSE", color_hex: "#F59E0B" },
+        { name: "Saúde", type: "EXPENSE", color_hex: "#EC4899" },
+        { name: "Transporte", type: "EXPENSE", color_hex: "#6366F1" },
+        { name: "Moradia", type: "EXPENSE", color_hex: "#8B5CF6" },
+        { name: "Outros", type: "EXPENSE", color_hex: "#9CA3AF" },
+      ];
+
+      const { data: seeded, error: seedError } = await supabase
+        .from("categories")
+        .insert(defaultCategories.map(c => ({ ...c, family_group_id: familyGroupId })))
+        .select();
+      
+      if (seedError) {
+        console.error("Erro ao semear categorias:", seedError);
+      }
+
+      if (seeded && seeded.length > 0) {
+        catData = seeded;
+      }
+    }
 
     const { data: accData } = await supabase
       .from("accounts")
-      .select("id, name, type, balance_cents")
+      .select("id, name, type, balance_cents, credit_limit_cents")
       .eq("family_group_id", familyGroupId);
 
-    if (catData) setCategories(catData);
-    if (accData) setAccounts(accData);
+    // Fallback: Se ainda estiver vazio, garante pelo menos uma categoria para não quebrar a UI
+    const finalCategories = (catData && catData.length > 0) 
+      ? catData 
+      : [{ id: "fallback-id", name: "Geral", type: "EXPENSE" }, { id: "fallback-inc", name: "Geral", type: "INCOME" }];
+
+    setCategories(finalCategories);
     
-    if (accData?.length && !accountId) setAccountId(accData[0].id);
+    if (accData) {
+      setAccounts(accData);
+      if (accData.length && !accountId) setAccountId(accData[0].id);
+    }
     
-    // Auto-select first category of the current type if not set
+    // Auto-select removed - leave it empty by default
     if (catData?.length && !categoryId) {
-      const firstOfType = catData.find(c => c.type === type);
-      if (firstOfType) setCategoryId(firstOfType.id);
+      // setCategoryId(firstOfType.id); // Linha removida para não pre-selecionar
     }
   }
 
@@ -100,8 +136,8 @@ export function AddTransactionModal() {
     e.preventDefault();
     setLoading(true);
 
-    if (!accountId || !categoryId || !amount) {
-      alert("Por favor, preencha todos os campos corretamente.");
+    if (!accountId || !amount) {
+      alert("Por favor, preencha a conta e o valor.");
       setLoading(false);
       return;
     }
@@ -112,7 +148,7 @@ export function AddTransactionModal() {
 
     const basePayload = {
       account_id: accountId,
-      category_id: categoryId,
+      category_id: categoryId || null, // Se estiver vazio, envia nulo
       transaction_type: type,
     };
 
@@ -125,29 +161,33 @@ export function AddTransactionModal() {
           ...basePayload,
           amount_cents: totalAmountCents,
           description,
+          date: new Date(transactionDate).toISOString(),
         })
         .eq("id", transactionToEdit.id);
       if (error) errorOccurred = true;
     } else {
       const transactionsToInsert = [];
-      const now = new Date();
+      const startDate = new Date(transactionDate);
 
       for (let i = 0; i < installments; i++) {
-        const installmentDate = addMonths(now, i);
-        const installmentDesc = installments > 1 
-          ? `${description} (${i + 1}/${installments})`
-          : description;
-
+        // Para compras parceladas, adicionamos 1 mês para cada parcela subsequente
+        const installmentDate = addMonths(startDate, i);
+        
         transactionsToInsert.push({
           ...basePayload,
           amount_cents: installmentAmountCents,
-          description: installmentDesc,
+          description: description,
           date: installmentDate.toISOString(),
+          installment_current: i + 1,
+          installment_total: installments,
         });
       }
 
       const { error } = await supabase.from("transactions").insert(transactionsToInsert);
-      if (error) errorOccurred = true;
+      if (error) {
+        console.error("Erro ao inserir parcelas:", error);
+        errorOccurred = true;
+      }
     }
 
     if (!errorOccurred) {
@@ -265,8 +305,16 @@ export function AddTransactionModal() {
                         className="flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest text-white/30"
                       >
                         <Wallet className="w-3 h-3" />
-                        <span>Saldo em {selectedAccount.name}:</span>
-                        <span className="text-white/60">{formatCurrency(selectedAccount.balance_cents)}</span>
+                        <span>
+                          {selectedAccount.type === "CREDIT_CARD" ? "Limite Disponível:" : `Saldo em ${selectedAccount.name}:`}
+                        </span>
+                        <span className="text-white/60">
+                          {formatCurrency(
+                            selectedAccount.type === "CREDIT_CARD"
+                              ? (selectedAccount.credit_limit_cents || 0) + selectedAccount.balance_cents
+                              : selectedAccount.balance_cents
+                          )}
+                        </span>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -290,80 +338,164 @@ export function AddTransactionModal() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
+                    {/* Conta Custom Select */}
+                    <div className="space-y-2 relative">
                       <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-4">Origem</label>
+                      <div 
+                        onClick={() => setOpenAccount(!openAccount)}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-sm text-white font-bold cursor-pointer flex justify-between items-center hover:border-white/20 transition-all"
+                      >
+                        <span className="flex items-center gap-2 truncate">
+                          {(() => {
+                            const acc = accounts.find(a => a.id === accountId);
+                            return acc ? (
+                              <>
+                                {acc.type === "CREDIT_CARD" ? "💳" : "💰"}
+                                {acc.name}
+                              </>
+                            ) : "Selecione";
+                          })()}
+                        </span>
+                        <ChevronDown className={cn("w-4 h-4 transition-transform", openAccount && "rotate-180")} />
+                      </div>
+
+                      <AnimatePresence>
+                        {openAccount && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="absolute z-50 left-0 right-0 top-full mt-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl"
+                          >
+                            {accounts.map(acc => (
+                              <div
+                                key={acc.id}
+                                onClick={() => {
+                                  setAccountId(acc.id);
+                                  setOpenAccount(false);
+                                }}
+                                className="px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-medium text-white/80 hover:text-white transition-colors border-b border-white/5 last:border-0 flex items-center gap-3"
+                              >
+                                <span>{acc.type === "CREDIT_CARD" ? "💳" : "💰"}</span>
+                                {acc.name}
+                              </div>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Categoria Custom Select */}
+                    <div className="space-y-2 relative">
+                      <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-4">Categoria</label>
+                      <div 
+                        onClick={() => setOpenCategory(!openCategory)}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-sm text-white font-bold cursor-pointer flex justify-between items-center hover:border-white/20 transition-all"
+                      >
+                        <span className="truncate">{categories.find(c => c.id === categoryId)?.name || "Selecione"}</span>
+                        <ChevronDown className={cn("w-4 h-4 transition-transform", openCategory && "rotate-180")} />
+                      </div>
+
+                      <AnimatePresence>
+                        {openCategory && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="absolute z-50 left-0 right-0 top-full mt-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl"
+                          >
+                            <div
+                              onClick={() => {
+                                setCategoryId("");
+                                setOpenCategory(false);
+                              }}
+                              className="px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-bold text-white/40 hover:text-white transition-colors border-b border-white/5 italic"
+                            >
+                              Nenhuma (Deixar Vazio)
+                            </div>
+                            {filteredCategories.map(cat => (
+                              <div
+                                key={cat.id}
+                                onClick={() => {
+                                  setCategoryId(cat.id);
+                                  setOpenCategory(false);
+                                }}
+                                className="px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-medium text-white/80 hover:text-white transition-colors border-b border-white/5 last:border-0"
+                              >
+                                {cat.name}
+                              </div>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-4">Data da Compra</label>
                       <div className="relative">
-                        <select
-                          value={accountId}
-                          onChange={(e) => setAccountId(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-4 pr-4 text-sm text-white outline-none focus:border-violet-500/50 appearance-none font-bold"
-                        >
-                          {accounts.map(acc => (
-                            <option key={acc.id} value={acc.id} className="bg-black">
-                              {acc.type === "CREDIT_CARD" ? "💳" : "💰"} {acc.name}
-                            </option>
-                          ))}
-                        </select>
+                        <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                        <input
+                          type="date"
+                          value={transactionDate}
+                          onChange={(e) => setTransactionDate(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-violet-500/50 font-bold"
+                          required
+                        />
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-4">Categoria</label>
-                      <div className="relative">
-                        <select
-                          value={categoryId}
-                          onChange={(e) => setCategoryId(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-4 pr-4 text-sm text-white outline-none focus:border-violet-500/50 appearance-none font-bold"
-                        >
-                          {filteredCategories.map(cat => (
-                            <option key={cat.id} value={cat.id} className="bg-black">{cat.name}</option>
-                          ))}
-                        </select>
+                      <div className="flex justify-between items-center px-4">
+                        <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Parcelas</label>
+                        {installments === 1 && (
+                          <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">À Vista</span>
+                        )}
                       </div>
+                      <input
+                        type="number"
+                        min="1"
+                        max="99"
+                        value={installments}
+                        onChange={(e) => setInstallments(parseInt(e.target.value) || 1)}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-sm text-white outline-none focus:border-violet-500/50 font-bold tabular-nums no-spinner"
+                        required
+                      />
                     </div>
                   </div>
 
                   {/* Parcelamento Ultra UX - Lista de 1x a 12x */}
-                  {type === "EXPENSE" && (
-                    <div className="space-y-4">
+                  {type === "EXPENSE" && installments > 1 && (
+                    <div className="space-y-4 pt-2">
                       <div className="flex items-center justify-between px-2">
                         <div className="flex items-center gap-2">
                           <Layers className="w-4 h-4 text-white/20" />
-                          <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Parcelas</span>
+                          <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Projeção</span>
                         </div>
-                        {installments > 1 && (
-                          <span className="text-[10px] font-bold text-violet-400 bg-violet-400/10 px-2 py-0.5 rounded-full border border-violet-400/20">
-                            Fim em {format(addMonths(new Date(), installments - 1), "MMM 'de' yy", { locale: ptBR })}
-                          </span>
-                        )}
+                        <span className="text-[10px] font-bold text-violet-400 bg-violet-400/10 px-2 py-0.5 rounded-full border border-violet-400/20">
+                          Termina em {format(addMonths(new Date(transactionDate), installments - 1), "MMM 'de' yy", { locale: ptBR })}
+                        </span>
                       </div>
 
                       <div 
                         ref={scrollRef}
                         className="flex gap-2 overflow-x-auto pb-4 scroll-smooth custom-scrollbar mask-fade-right"
                       >
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map((num) => {
-                          const isActive = installments === num;
-                          const perInstallment = numericAmount / num;
+                        {Array.from({ length: Math.min(installments, 12) }, (_, i) => {
+                          const date = addMonths(new Date(transactionDate), i);
                           return (
-                            <button
-                              key={num}
-                              type="button"
-                              onClick={() => setInstallments(num)}
-                              className={cn(
-                                "flex-shrink-0 w-24 p-3 rounded-[24px] border transition-all flex flex-col items-center gap-1",
-                                isActive 
-                                  ? "bg-violet-600 border-violet-500 shadow-lg shadow-violet-600/30 scale-105 z-10" 
-                                  : "bg-white/2 border-white/5 hover:bg-white/5 opacity-60"
-                              )}
+                            <div
+                              key={i}
+                              className="flex-shrink-0 w-24 p-3 rounded-[20px] border border-white/5 bg-white/2 flex flex-col items-center gap-1 opacity-60"
                             >
-                              <span className={cn("text-[10px] font-black uppercase", isActive ? "text-white" : "text-white/40")}>
-                                {num}x
+                              <span className="text-[9px] font-black text-white/40 uppercase">
+                                {i + 1}ª Parcela
                               </span>
-                              <span className={cn("text-[11px] font-bold tabular-nums", isActive ? "text-white" : "text-white/60")}>
-                                {perInstallment.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 }).replace('R$', '')}
+                              <span className="text-[10px] font-bold text-white">
+                                {format(date, "MMM/yy", { locale: ptBR })}
                               </span>
-                            </button>
+                            </div>
                           );
                         })}
                       </div>
