@@ -36,6 +36,7 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 
 ## 🛠️ Stack Tecnológica & Arquitetura
 *   **Frontend:** Next.js 16 (App Router) + Turbopack + Tailwind v4.
+*   **Database (Local-First):** Dexie.js (IndexedDB) para persistência offline e latência zero.
 *   **Backend:** Supabase (Auth + DB + RLS para compartilhamento familiar).
 *   **Interações:** Framer Motion para transições de estado de fluxo.
 
@@ -55,7 +56,7 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 - [x] Autenticação e Layout Base (AppShell).
 - [x] Modais de Transação, Assinatura e Metas com Design Liquid Glass.
 - [x] Timeline Cronológica Dinâmica.
-- [x] Sistema de Cache Global e Sincronização.
+- [x] Sistema de Cache Global e Persistência Local-First (Dexie).
 
 ### Fase 2: O Centro de Comando (Foco Atual 🎯)
 - [ ] **Lógica de Sobra Livre**: Implementar o cálculo real `(Saldo + Entradas) - (Saídas + Metas)` no Dashboard.

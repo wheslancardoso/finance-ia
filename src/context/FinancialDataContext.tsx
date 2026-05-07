@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useAccountModal } from "./AccountModalContext";
+import { db } from "@/lib/db";
 
 interface Category {
   id: string;
@@ -41,7 +42,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     if (!familyGroupId) return;
 
     setLoading(true);
-    console.log("CACHE - BUSCANDO DADOS DO BANCO...");
+    console.log("LOCAL-FIRST: BUSCANDO ATUALIZAÇÕES DO SUPABASE...");
     const supabase = createClient();
 
     // Buscar Categorias (Incluindo Globais)
@@ -52,7 +53,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
     // Se não houver categorias, vamos semear as padrões automaticamente
     if (catData && catData.length === 0) {
-      console.log("CACHE - SEMEANDO CATEGORIAS PADRÃO...");
+      console.log("LOCAL-FIRST: SEMEANDO CATEGORIAS PADRÃO...");
       const defaultCategories = [
         { name: "Salário", type: "INCOME", color_hex: "#10B981" },
         { name: "Investimentos", type: "INCOME", color_hex: "#3B82F6" },
@@ -80,14 +81,36 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
     if (catData) {
       setCategories(catData);
+      // Atualizar Banco Local
+      await db.categories.bulkPut(catData.map(c => ({ ...c, family_group_id: familyGroupId })));
     }
     
     if (accData) {
       setAccounts(accData);
+      // Atualizar Banco Local
+      await db.accounts.bulkPut(accData.map(a => ({ ...a, family_group_id: familyGroupId })));
     }
     
     setLastFetched(Date.now());
     setLoading(false);
+  }, [familyGroupId]);
+
+  // Carregar dados locais IMEDIATAMENTE
+  useEffect(() => {
+    async function loadLocalData() {
+      if (!familyGroupId) return;
+      
+      const localAccounts = await db.accounts.where('family_group_id').equals(familyGroupId).toArray();
+      const localCategories = await db.categories.where('family_group_id').equals(familyGroupId).toArray();
+
+      if (localAccounts.length > 0 || localCategories.length > 0) {
+        console.log("LOCAL-FIRST: DADOS CARREGADOS DO BANCO LOCAL");
+        setAccounts(localAccounts as Account[]);
+        setCategories(localCategories as Category[]);
+      }
+    }
+
+    loadLocalData();
   }, [familyGroupId]);
 
   // Carregar dados inicialmente se o cache expirar

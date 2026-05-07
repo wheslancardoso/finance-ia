@@ -392,10 +392,10 @@ export function AddTransactionModal() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
+                  <div className={cn("grid gap-4", showInstallments ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2")}>
+                    <div className={cn("space-y-2", showInstallments && "sm:col-span-2")}>
                       <div className="flex justify-between items-center px-4">
-                        <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-4">Quando</label>
+                        <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Quando</label>
                       </div>
                       <div className="flex gap-2">
                         <div className="relative flex-1">
@@ -408,7 +408,7 @@ export function AddTransactionModal() {
                             required
                           />
                         </div>
-                        <div className="relative w-32">
+                        <div className="relative w-28 shrink-0">
                           <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
                           <input
                             type="time"
@@ -422,7 +422,7 @@ export function AddTransactionModal() {
                     </div>
 
                     {showInstallments && (
-                      <div className="space-y-2">
+                      <div className="space-y-2 sm:col-span-1">
                         <div className="flex justify-between items-center px-4">
                           <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Parcelas</label>
                           {installments === 1 && (
