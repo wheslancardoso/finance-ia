@@ -11,7 +11,7 @@ interface GoalsManagerProps {
 }
 
 export function GoalsManager({ initialGoals }: GoalsManagerProps) {
-  const { openModal, openContribution } = useGoalModal();
+  const { openModal, openContribution, openDetail } = useGoalModal();
 
   return (
     <div className="space-y-10">
@@ -100,7 +100,10 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
                   </div>
 
                   <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between">
-                    <button className="text-[10px] font-bold text-white/40 hover:text-white uppercase tracking-widest transition-colors">
+                    <button 
+                      onClick={() => openDetail(goal)}
+                      className="text-[10px] font-bold text-white/40 hover:text-white uppercase tracking-widest transition-colors"
+                    >
                       Detalhes
                     </button>
                     <button 
