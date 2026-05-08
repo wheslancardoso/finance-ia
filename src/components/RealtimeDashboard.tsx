@@ -197,7 +197,7 @@ export default function RealtimeDashboard({
 
       {/* Right Column: Activity */}
       <div className="lg:col-span-4 space-y-8">
-        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-8 flex flex-col h-full">
+        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-8 flex flex-col">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
               <History className="w-5 h-5 text-white/20" />
@@ -206,7 +206,7 @@ export default function RealtimeDashboard({
             <button className="text-[10px] font-black text-white/20 uppercase tracking-widest hover:text-white transition-colors">Ver Tudo</button>
           </div>
 
-          <div className="flex-1">
+          <div className="max-h-[580px] overflow-y-auto custom-scrollbar pr-4 -mr-4">
             <TransactionTimeline transactions={initialTransactions} />
           </div>
 

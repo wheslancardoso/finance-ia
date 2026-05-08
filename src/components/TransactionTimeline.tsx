@@ -50,8 +50,14 @@ interface TransactionTimelineProps {
   transactions: Transaction[];
 }
 
-const getIcon = (categoryName: string, type: string) => {
+const getIcon = (description: string, categoryName: string, type: string) => {
+  const desc = description.toLowerCase();
   const name = categoryName?.toLowerCase() || "";
+  
+  // Marketplaces & Lojas
+  if (desc.includes("amazon") || desc.includes("shopee") || desc.includes("mercado livre") || desc.includes("magalu")) return ShoppingBag;
+  
+  // Categorias
   if (name.includes("alimento") || name.includes("comer") || name.includes("restaurante")) return Utensils;
   if (name.includes("transporte") || name.includes("uber") || name.includes("carro")) return Car;
   if (name.includes("lazer") || name.includes("game") || name.includes("diversão")) return Gamepad;
@@ -90,7 +96,7 @@ export function TransactionTimeline({ transactions }: TransactionTimelineProps) 
   }
 
   return (
-    <div className="relative pl-8 space-y-12 pb-8">
+    <div className="relative pl-8 space-y-8 pb-4">
       {/* Linha Vertical de Neon */}
       <div className="absolute left-[11px] top-2 bottom-0 w-[2px] bg-gradient-to-b from-violet-500/50 via-violet-500/20 to-transparent" />
 
@@ -114,9 +120,9 @@ export function TransactionTimeline({ transactions }: TransactionTimelineProps) 
               </h4>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {groups[dateKey].map((tx, txIndex) => {
-                const Icon = getIcon(tx.category?.name || "", tx.type);
+                const Icon = getIcon(tx.description, tx.category?.name || "", tx.type);
                 const isInstallment = tx.installment_total && tx.installment_total > 1;
 
                 return (
@@ -135,14 +141,14 @@ export function TransactionTimeline({ transactions }: TransactionTimelineProps) 
                         }
                       }}
                       className={cn(
-                        "bg-white/[0.03] hover:bg-white/[0.06] backdrop-blur-xl border border-white/5 hover:border-white/10 p-4 rounded-3xl transition-all duration-300 flex items-center justify-between shadow-lg hover:shadow-violet-500/5",
+                        "bg-white/[0.03] hover:bg-white/[0.06] backdrop-blur-xl border border-white/5 hover:border-white/10 p-3 rounded-3xl transition-all duration-300 flex items-center justify-between shadow-lg hover:shadow-violet-500/5",
                         isInstallment && "cursor-pointer"
                       )}
                     >
                       <div className="flex items-center gap-4">
                         {/* Ícone com Glow */}
                         <div 
-                          className="w-12 h-12 rounded-2xl flex items-center justify-center relative overflow-hidden transition-transform group-hover:scale-110"
+                          className="w-10 h-10 rounded-2xl flex items-center justify-center relative overflow-hidden transition-transform group-hover:scale-110"
                           style={{ backgroundColor: `${tx.category?.color_hex || '#333'}15` }}
                         >
                           <div 
@@ -150,7 +156,7 @@ export function TransactionTimeline({ transactions }: TransactionTimelineProps) 
                             style={{ backgroundColor: tx.category?.color_hex || '#333' }}
                           />
                           <Icon 
-                            className="w-5 h-5 relative z-10" 
+                            className="w-4 h-4 relative z-10" 
                             style={{ color: tx.category?.color_hex || '#fff' }} 
                           />
                         </div>
