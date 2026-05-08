@@ -125,54 +125,63 @@ export function AddTransactionModal() {
         // Logica de Edição
         if (transactionToEdit.installment_total > 1) {
           // Sempre editar a série quando for parcelado
-          
-          // Se o número de parcelas mudou, ou se quisermos garantir consistência total,
-          // a melhor estratégia é deletar a série antiga e criar uma nova
-          // MAS o usuário pediu para editar data, valor, hora e número de parcelas.
-          
           const installmentsChanged = installments !== transactionToEdit.installment_total;
-          const dateChanged = finalDateISO !== transactionToEdit.date;
+          const dateChanged = new Date(finalDateISO).getTime() !== new Date(transactionToEdit.date).getTime();
           const amountChanged = totalAmountCents !== transactionToEdit.amount_cents;
 
           if (installmentsChanged || dateChanged || amountChanged) {
+            console.log("AddTransactionModal: Mudança estrutural detectada", { installmentsChanged, dateChanged, amountChanged });
+            
             // Se mudou algo estrutural, deletamos e recriamos
-            await supabase
+            const { error: deleteError } = await supabase
               .from("transactions")
               .delete()
               .eq("description", transactionToEdit.description)
               .eq("installment_total", transactionToEdit.installment_total)
-              .eq("account_id", transactionToEdit.account_id);
+              .eq("account_id", transactionToEdit.account_id)
+              .eq("family_group_id", familyGroupId);
 
-            // Inserir nova série
-            const transactionsToInsert = [];
-            const startDate = new Date(transactionDate);
-            const account = accounts.find(a => a.id === accountId);
-            const closingDay = account?.closing_day || 1;
+            if (deleteError) {
+              console.error("AddTransactionModal: Erro ao deletar série antiga:", deleteError);
+              errorOccurred = true;
+            } else {
+              // Inserir nova série
+              const transactionsToInsert = [];
+              const startDate = new Date(transactionDate);
+              const account = accounts.find(a => a.id === accountId);
+              const closingDay = account?.closing_day || 1;
 
-            for (let i = 0; i < installments; i++) {
-              const installmentDate = addMonths(startDate, i);
-              const dayStr = format(installmentDate, 'yyyy-MM-dd');
-              
-              let invoiceDate = new Date(installmentDate.getFullYear(), installmentDate.getMonth(), 1);
-              if (installmentDate.getDate() > closingDay) {
-                invoiceDate = addMonths(invoiceDate, 1);
+              for (let i = 0; i < installments; i++) {
+                const installmentDate = addMonths(startDate, i);
+                const dayStr = format(installmentDate, 'yyyy-MM-dd');
+                
+                let invoiceDate = new Date(installmentDate.getFullYear(), installmentDate.getMonth(), 1);
+                if (installmentDate.getDate() > closingDay) {
+                  invoiceDate = addMonths(invoiceDate, 1);
+                }
+                
+                transactionsToInsert.push({
+                  ...basePayload,
+                  family_group_id: familyGroupId,
+                  amount_cents: totalAmountCents, // Valor de cada parcela
+                  description: description,
+                  date: new Date(`${dayStr}T${transactionTime}:00`).toISOString(),
+                  installment_current: i + 1,
+                  installment_total: installments,
+                  credit_card_invoice_date: format(invoiceDate, 'yyyy-MM-dd'),
+                });
               }
-              
-              transactionsToInsert.push({
-                ...basePayload,
-                amount_cents: totalAmountCents, // Valor de cada parcela
-                description: description,
-                date: new Date(`${dayStr}T${transactionTime}:00`).toISOString(),
-                installment_current: i + 1,
-                installment_total: installments,
-                credit_card_invoice_date: format(invoiceDate, 'yyyy-MM-dd'),
-              });
-            }
 
-            const { error: insertError } = await supabase.from("transactions").insert(transactionsToInsert);
-            if (insertError) errorOccurred = true;
+              console.log("AddTransactionModal: Re-inserindo série", transactionsToInsert);
+              const { error: insertError } = await supabase.from("transactions").insert(transactionsToInsert);
+              if (insertError) {
+                console.error("AddTransactionModal: Erro ao re-inserir série:", insertError);
+                errorOccurred = true;
+              }
+            }
           } else {
             // Se apenas mudou descrição ou categoria, atualizamos em massa
+            console.log("AddTransactionModal: Atualizando apenas campos não estruturais");
             const { error: groupError } = await supabase
               .from("transactions")
               .update({
@@ -181,22 +190,33 @@ export function AddTransactionModal() {
                 description: description,
               })
               .eq("description", transactionToEdit.description)
-              .eq("installment_total", transactionToEdit.installment_total);
+              .eq("installment_total", transactionToEdit.installment_total)
+              .eq("account_id", transactionToEdit.account_id)
+              .eq("family_group_id", familyGroupId);
             
-            if (groupError) errorOccurred = true;
+            if (groupError) {
+              console.error("AddTransactionModal: Erro ao atualizar grupo:", groupError);
+              errorOccurred = true;
+            }
           }
         } else {
           // Editar apenas ESTA transação normal
+          console.log("AddTransactionModal: Atualizando transação simples");
           const { error } = await supabase
             .from("transactions")
             .update({
               ...basePayload,
+              family_group_id: familyGroupId,
               amount_cents: totalAmountCents,
               description,
               date: finalDateISO,
             })
             .eq("id", transactionToEdit.id);
-          if (error) errorOccurred = true;
+          
+          if (error) {
+            console.error("AddTransactionModal: Erro ao atualizar transação simples:", error);
+            errorOccurred = true;
+          }
         }
       } else {
         const transactionsToInsert = [];
@@ -216,6 +236,7 @@ export function AddTransactionModal() {
           
           transactionsToInsert.push({
             ...basePayload,
+            family_group_id: familyGroupId,
             amount_cents: installmentAmountCents,
             description: description,
             date: new Date(`${dayStr}T${transactionTime}:00`).toISOString(),
