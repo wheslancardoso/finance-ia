@@ -36,7 +36,10 @@ export function Sidebar() {
   const { refreshData, loading } = useFinancialData();
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) {
@@ -64,11 +67,11 @@ export function Sidebar() {
         </div>
         <button 
           onClick={() => refreshData()}
-          disabled={loading}
-          className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/20 hover:text-white/60 hover:bg-white/10 transition-all active:scale-95 group"
+          disabled={mounted ? loading : false}
+          className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/20 hover:text-white/60 hover:bg-white/10 transition-all active:scale-95 group disabled:opacity-50"
           title="Sincronizar Dados"
         >
-          <RefreshCcw className={cn("w-3.5 h-3.5 transition-all", loading && "animate-spin text-violet-400")} />
+          <RefreshCcw className={cn("w-3.5 h-3.5 transition-all", (mounted && loading) && "animate-spin text-violet-400")} />
         </button>
       </div>
 
