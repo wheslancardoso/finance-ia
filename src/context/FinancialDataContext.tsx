@@ -247,10 +247,10 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
             
             const amountSigned = isIncome ? -tx.amount_cents : tx.amount_cents;
 
-            if (txInvoiceStr === openInvoiceStr) {
+            if (txInvoiceStr === openInvoiceStr && !tx.is_paid) {
               openInvoice += amountSigned;
             }
-            if (txInvoiceStr === closedInvoiceStr) {
+            if (txInvoiceStr === closedInvoiceStr && !tx.is_paid) {
               closedInvoice += amountSigned;
               if (!tx.is_legacy_debt && !isIncome) {
                 ceilingImpact += tx.amount_cents;

@@ -39,7 +39,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
 
   // Detectar status da fatura
   const today = new Date().getDate();
-  const isClosed = isCreditCard && today >= (closing_day || 31);
+  const hasClosedInvoice = isCreditCard && today >= (closing_day || 31) && (liveAccount.closed_invoice_cents || 0) > 0;
 
   // No caso de cartão, o 'balance' representa o gasto acumulado (fatura)
   const spent = Math.abs(balance);
@@ -101,11 +101,15 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
       <div className="space-y-4">
         {isCreditCard ? (() => {
           const today = new Date().getDate();
-          const isClosed = today >= (closing_day || 31);
-          const invoiceAmount = isClosed 
-            ? (liveAccount.closed_invoice_cents || 0) 
+          const dateIsClosed = today >= (closing_day || 31);
+          const closedAmount = liveAccount.closed_invoice_cents || 0;
+          
+          // Se a fatura fechada foi paga (=0), mostra a aberta
+          const showClosed = dateIsClosed && closedAmount > 0;
+          const invoiceAmount = showClosed 
+            ? closedAmount 
             : (liveAccount.open_invoice_cents || 0);
-          const invoiceMonth = isClosed
+          const invoiceMonth = showClosed
             ? (liveAccount.closed_invoice_month || "---")
             : (liveAccount.open_invoice_month || "---");
           
@@ -114,10 +118,10 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
               <div className="flex items-center gap-2">
                 <div className={cn(
                   "w-1.5 h-1.5 rounded-full",
-                  isClosed ? "bg-red-400" : "bg-emerald-400 animate-pulse"
+                  showClosed ? "bg-red-400" : "bg-emerald-400 animate-pulse"
                 )} />
                 <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">
-                  Fatura {isClosed ? "Fechada" : "Aberta"} — {invoiceMonth}
+                  Fatura {showClosed ? "Fechada" : "Aberta"} — {invoiceMonth}
                 </p>
               </div>
               <h2 className="text-3xl font-bold tracking-tight tabular-nums text-amber-500">
@@ -169,7 +173,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
         ) : (
           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colorHex }} />
         )}
-        {isCreditCard && isClosed ? (
+        {isCreditCard && hasClosedInvoice ? (
           <button
             onClick={() => setPayModalOpen(true)}
             className="px-4 py-2 rounded-xl bg-white/10 border border-white/10 text-[9px] font-black text-white/70 uppercase tracking-widest hover:bg-white/20 hover:text-white transition-all"
