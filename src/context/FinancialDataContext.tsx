@@ -194,7 +194,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
           const { data: txs } = await supabase
             .from("transactions")
-            .select("id, amount_cents, date, is_legacy_debt, is_paid")
+            .select("id, amount_cents, date, is_legacy_debt, is_paid, transaction_type")
             .eq("account_id", acc.id);
           
           let totalInvoice = 0;
@@ -206,7 +206,11 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
             
             // Apenas transações NÃO pagas ocupam o limite do cartão
             if (!tx.is_paid) {
-              totalSpentOnCard += tx.amount_cents;
+              if (tx.transaction_type === "INCOME") {
+                totalSpentOnCard -= tx.amount_cents;
+              } else {
+                totalSpentOnCard += tx.amount_cents;
+              }
             }
 
             let tY = txDate.getUTCFullYear();
@@ -223,8 +227,12 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
             const txInvoiceStr = `${tY}-${String(tM + 1).padStart(2, '0')}-01`;
             
             if (txInvoiceStr === invoiceStr) {
-              totalInvoice += tx.amount_cents;
-              if (!tx.is_legacy_debt) {
+              if (tx.transaction_type === "INCOME") {
+                totalInvoice -= tx.amount_cents;
+              } else {
+                totalInvoice += tx.amount_cents;
+              }
+              if (!tx.is_legacy_debt && tx.transaction_type !== "INCOME") {
                 ceilingImpact += tx.amount_cents;
               }
             }
