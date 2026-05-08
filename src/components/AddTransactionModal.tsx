@@ -31,9 +31,9 @@ export function AddTransactionModal() {
   const { familyGroupId } = useAccountModal();
   const router = useRouter();
   const pathname = usePathname();
-  
+
   const { categories, accounts, refreshData } = useFinancialData();
-  
+
   const [loading, setLoading] = useState(false);
 
   // Form State
@@ -45,7 +45,7 @@ export function AddTransactionModal() {
   const [installments, setInstallments] = useState(1);
   const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
   const [transactionTime, setTransactionTime] = useState(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
-  
+
   // Custom Select States
   const [openCategory, setOpenCategory] = useState(false);
   const [openAccount, setOpenAccount] = useState(false);
@@ -85,7 +85,7 @@ export function AddTransactionModal() {
         const dateObj = new Date(transactionToEdit.date);
         setTransactionDate(dateObj.toISOString().split('T')[0]);
         setTransactionTime(dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
-        
+
         // Se for uma parcela, o comportamento agora é sempre editar a série a partir da primeira
         if (transactionToEdit.installment_total > 1) {
           setInstallments(transactionToEdit.installment_total);
@@ -113,7 +113,7 @@ export function AddTransactionModal() {
 
       const supabase = createClient();
       const totalAmountCents = Math.round(parseFloat(amount.replace(",", ".")) * 100);
-      
+
       // Se estivermos editando todas as parcelas, o valor inserido se aplica a cada uma delas.
       // Se for uma nova transação, dividimos o total pelas parcelas.
       const installmentAmountCents = transactionToEdit ? totalAmountCents : Math.floor(totalAmountCents / installments);
@@ -149,15 +149,14 @@ export function AddTransactionModal() {
 
           if (installmentsChanged || dateChanged || amountChanged) {
             console.log("AddTransactionModal: Mudança estrutural detectada", { installmentsChanged, dateChanged, amountChanged });
-            
+
             // Se mudou algo estrutural, deletamos e recriamos
             const { error: deleteError } = await supabase
               .from("transactions")
               .delete()
               .eq("description", transactionToEdit.description)
               .eq("installment_total", transactionToEdit.installment_total)
-              .eq("account_id", transactionToEdit.account_id)
-              .eq("family_group_id", familyGroupId);
+              .eq("account_id", transactionToEdit.account_id);
 
             if (deleteError) {
               console.error("AddTransactionModal: Erro ao deletar série antiga:", deleteError);
@@ -166,27 +165,18 @@ export function AddTransactionModal() {
               // Inserir nova série
               const transactionsToInsert = [];
               const startDate = new Date(transactionDate);
-              const account = accounts.find(a => a.id === accountId);
-              const closingDay = account?.closing_day || 1;
 
               for (let i = 0; i < installments; i++) {
                 const installmentDate = addMonths(startDate, i);
                 const dayStr = format(installmentDate, 'yyyy-MM-dd');
-                
-                let invoiceDate = new Date(installmentDate.getFullYear(), installmentDate.getMonth(), 1);
-                if (installmentDate.getDate() > closingDay) {
-                  invoiceDate = addMonths(invoiceDate, 1);
-                }
-                
+
                 transactionsToInsert.push({
                   ...basePayload,
-                  family_group_id: familyGroupId,
-                  amount_cents: totalAmountCents, // Valor de cada parcela
+                  amount_cents: totalAmountCents,
                   description: description,
                   date: new Date(`${dayStr}T${transactionTime}:00`).toISOString(),
                   installment_current: i + 1,
                   installment_total: installments,
-                  credit_card_invoice_date: format(invoiceDate, 'yyyy-MM-dd'),
                 });
               }
 
@@ -209,9 +199,8 @@ export function AddTransactionModal() {
               })
               .eq("description", transactionToEdit.description)
               .eq("installment_total", transactionToEdit.installment_total)
-              .eq("account_id", transactionToEdit.account_id)
-              .eq("family_group_id", familyGroupId);
-            
+              .eq("account_id", transactionToEdit.account_id);
+
             if (groupError) {
               console.error("AddTransactionModal: Erro ao atualizar grupo:", groupError);
               errorOccurred = true;
@@ -224,13 +213,12 @@ export function AddTransactionModal() {
             .from("transactions")
             .update({
               ...basePayload,
-              family_group_id: familyGroupId,
               amount_cents: totalAmountCents,
               description,
               date: finalDateISO,
             })
             .eq("id", transactionToEdit.id);
-          
+
           if (error) {
             console.error("AddTransactionModal: Erro ao atualizar transação simples:", error);
             errorOccurred = true;
@@ -239,28 +227,18 @@ export function AddTransactionModal() {
       } else {
         const transactionsToInsert = [];
         const startDate = new Date(transactionDate);
-        
-        const account = accounts.find(a => a.id === accountId);
-        const closingDay = account?.closing_day || 1;
 
         for (let i = 0; i < installments; i++) {
           const installmentDate = addMonths(startDate, i);
           const dayStr = format(installmentDate, 'yyyy-MM-dd');
-          
-          let invoiceDate = new Date(installmentDate.getFullYear(), installmentDate.getMonth(), 1);
-          if (installmentDate.getDate() > closingDay) {
-            invoiceDate = addMonths(invoiceDate, 1);
-          }
-          
+
           transactionsToInsert.push({
             ...basePayload,
-            family_group_id: familyGroupId,
             amount_cents: installmentAmountCents,
             description: description,
             date: new Date(`${dayStr}T${transactionTime}:00`).toISOString(),
             installment_current: i + 1,
             installment_total: installments,
-            credit_card_invoice_date: format(invoiceDate, 'yyyy-MM-dd'),
           });
         }
 
@@ -401,10 +379,10 @@ export function AddTransactionModal() {
                       )}
                     />
                   </div>
-                  
+
                   <AnimatePresence mode="wait">
                     {selectedAccount && (
-                      <motion.div 
+                      <motion.div
                         key={selectedAccount.id}
                         initial={{ opacity: 0, y: 5 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -426,7 +404,7 @@ export function AddTransactionModal() {
                   </AnimatePresence>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-2">
                   <div className="relative group">
                     <label className="absolute -top-2.5 left-5 bg-[#0A0A0A] px-2 text-[9px] font-black text-white/20 uppercase tracking-widest group-focus-within:text-violet-400 transition-colors z-10">
                       {type === "EXPENSE" ? "O que você comprou?" : "Descrição do Recebimento"}
@@ -447,7 +425,7 @@ export function AddTransactionModal() {
                     {/* Conta Custom Select */}
                     <div className="space-y-2 relative" ref={accountDropdownRef}>
                       <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-4">Origem</label>
-                      <div 
+                      <div
                         onClick={() => {
                           if (accounts.length === 0) return;
                           setOpenAccount(!openAccount);
@@ -509,7 +487,7 @@ export function AddTransactionModal() {
                     {/* Categoria Custom Select */}
                     <div className="space-y-2 relative" ref={categoryDropdownRef}>
                       <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-4">Categoria</label>
-                      <div 
+                      <div
                         onClick={() => {
                           if (categories.length === 0) return;
                           setOpenCategory(!openCategory);
@@ -674,8 +652,8 @@ export function AddTransactionModal() {
                   type="submit"
                   className={cn(
                     "w-full font-black text-xs uppercase tracking-[0.4em] py-6 rounded-[24px] transition-all shadow-2xl active:scale-[0.98] mt-2",
-                    type === "EXPENSE" 
-                      ? "bg-white text-black hover:bg-white/90 shadow-white/5" 
+                    type === "EXPENSE"
+                      ? "bg-white text-black hover:bg-white/90 shadow-white/5"
                       : "bg-emerald-500 text-white hover:bg-emerald-400 shadow-emerald-500/20"
                   )}
                 >
