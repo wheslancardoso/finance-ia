@@ -80,8 +80,9 @@ export default function RealtimeDashboard({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-      {/* 1. Header: Liquidez Atual (Full Width) */}
-      <div className="lg:col-span-12">
+      {/* Coluna Esquerda: Header + Slider */}
+      <div className="lg:col-span-8 space-y-8">
+        {/* Header: Liquidez Atual */}
         <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-10 relative overflow-hidden group">
           <div className={cn(
             "absolute -top-24 -left-24 w-64 h-64 blur-[100px] rounded-full transition-colors duration-1000",
@@ -172,10 +173,8 @@ export default function RealtimeDashboard({
             )}
           </div>
         </div>
-      </div>
 
-      {/* 2. Middle Row: Slider (col-8) & Recentes (col-4) */}
-      <div className="lg:col-span-8 h-full">
+        {/* Time Travel Slider */}
         <TimeTravelSlider 
           onDateChange={setDays} 
           currentDays={days} 
@@ -183,30 +182,24 @@ export default function RealtimeDashboard({
         />
       </div>
 
-      <div className="lg:col-span-4 self-stretch">
-        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] p-6 flex flex-col h-full overflow-hidden shadow-2xl">
-          <div className="flex items-center justify-between mb-6 shrink-0">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <History className="w-5 h-5 text-white/20" />
+      {/* Coluna Direita: Recentes — não ultrapassa o fim do Slider */}
+      <div className="lg:col-span-4">
+        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] p-6 flex flex-col overflow-hidden shadow-2xl max-h-[calc(100vh-200px)] lg:max-h-none lg:h-fit">
+          <div className="flex items-center justify-between mb-4 shrink-0">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2 uppercase tracking-widest">
+              <History className="w-4 h-4 text-white/20" />
               Recentes
             </h3>
             <button className="text-[10px] font-black text-white/20 uppercase tracking-widest hover:text-white transition-colors">Ver Tudo</button>
           </div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 -mr-2">
+          <div className="overflow-y-auto custom-scrollbar pr-2 -mr-2 max-h-[500px]">
             <TransactionTimeline transactions={initialTransactions} />
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-white/5 shrink-0">
-            <div className="flex items-center justify-between p-4 bg-violet-600 rounded-2xl shadow-xl shadow-violet-600/20 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all">
-              <span className="text-[10px] font-black text-white uppercase tracking-widest">Vesper Insights</span>
-              <TrendingUp className="w-4 h-4 text-white" />
-            </div>
           </div>
         </div>
       </div>
 
-      {/* 3. Bottom Row: Budget Grid */}
+      {/* Budget Grid */}
       <div className="lg:col-span-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {initialBudgets.map((budget, i) => (
