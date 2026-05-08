@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import GlassCard from "./GlassCard";
 import { cn, formatCurrency } from "@/lib/utils";
 import { CreditCard, Wallet, Banknote, CalendarDays } from "lucide-react";
@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useAccountModal } from "@/context/AccountModalContext";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { ActionMenu } from "./ActionMenu";
+import { PayInvoiceModal } from "./PayInvoiceModal";
 
 interface AccountCardProps {
   account: any;
@@ -33,6 +34,11 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
   const router = useRouter();
   const { openEdit } = useAccountModal();
   const isCreditCard = type === "CREDIT_CARD";
+  const [payModalOpen, setPayModalOpen] = useState(false);
+
+  // Detectar status da fatura
+  const today = new Date().getDate();
+  const isClosed = isCreditCard && today >= (closing_day || 31);
 
   // No caso de cartão, o 'balance' representa o gasto acumulado (fatura)
   const spent = Math.abs(balance);
@@ -161,10 +167,27 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
         ) : (
           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colorHex }} />
         )}
-        <span className="text-[10px] text-white/20 font-bold uppercase tracking-tighter">
-          Vesper Sync
-        </span>
+        {isCreditCard && isClosed ? (
+          <button
+            onClick={() => setPayModalOpen(true)}
+            className="px-4 py-2 rounded-xl bg-white/10 border border-white/10 text-[9px] font-black text-white/70 uppercase tracking-widest hover:bg-white/20 hover:text-white transition-all"
+          >
+            Pagar Fatura
+          </button>
+        ) : (
+          <span className="text-[10px] text-white/20 font-bold uppercase tracking-tighter">
+            Vesper Sync
+          </span>
+        )}
       </div>
+
+      {isCreditCard && (
+        <PayInvoiceModal
+          isOpen={payModalOpen}
+          onClose={() => setPayModalOpen(false)}
+          creditCardAccount={liveAccount}
+        />
+      )}
     </GlassCard>
   );
 }
