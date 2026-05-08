@@ -84,5 +84,10 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 - [ ] **Relatórios de Evolução**: Mix de Renda e Evolução de Patrimônio.
 - [ ] **Port Android**: Iniciar desenvolvimento do HUD mobile em Kotlin/Compose.
 
+### Fase 4: Modo Crise & Recuperação (Recurso Avançado)
+- [ ] **Dashboard de Recuperação**: Implementar cálculo do "Mês Zero" e gráfico de timeline de quitação de dívidas.
+- [ ] **Teto de Sobrevivência**: Divisão inteligente da Sobra Livre em orçamentos semanais/diários base-zero.
+- [ ] **Guardião de Compras (n8n + IA)**: Integrar etapa de avaliação e fricção no WhatsApp, onde a IA simula o impacto de um gasto variável antes de autorizar o registro.
+
 ---
 *Vesper Finance - Construído para clareza absoluta e fricção zero.*

@@ -68,6 +68,29 @@ A continuidade da experiência através de múltiplos dispositivos é o teste de
 
 A acessibilidade deve ser tratada como um componente central, transcendendo o mero cumprimento de normas legais. O contraste de cores otimizado, o suporte nativo a leitores de tela e a formulação empática das mensagens de erro garantem uma plataforma verdadeiramente inclusiva, sinalizando um produto de qualidade superior e amadurecimento técnico.10
 
+## **Engenharia Comportamental em Situações de Estresse: O Módulo de Recuperação ("Modo Crise")**
+
+A documentação clássica de gestão financeira assume um cenário basal de estabilidade. Contudo, para perfis de usuários atravessando processos de recuperação pós-desemprego ou consolidação de dívidas de longo prazo, a interface e a lógica de negócios devem migrar da "gestão passiva" para a **"sobrevivência e contenção ativa"**. O "Modo Crise" representa uma reconfiguração da plataforma focada na consciência financeira extrema.
+
+### **1. Dashboard de Recuperação e a Timeline do "Mês Zero"**
+Usuários endividados sofrem de fadiga de horizonte (a incapacidade de ver o fim das dívidas). O sistema implementará um gráfico de projeção algorítmica que cruza o passivo atual com o fluxo de caixa mensal.
+*   **A Mecânica do "Mês Zero":** A tela principal abandona o foco no patrimônio líquido positivo e exibe a data projetada da quitação total (ex: "Jan/2027"). 
+*   **Feedback em Tempo Real:** Toda transação executada via WhatsApp afeta o eixo X do gráfico. Um gasto não essencial estende a data da liberdade financeira, enquanto um aporte em dívidas puxa a linha do tempo para mais perto.
+
+### **2. Teto de Sobrevivência Dinâmico (Orçamento Base-Zero Constrito)**
+Para estancar sangramentos financeiros, o modelo de orçamento tradicional falha. O aplicativo adotará uma lógica de limitação diária de oxigênio financeiro.
+*   **Cálculo Algorítmico:** O sistema isola os gastos fixos incontornáveis e as parcelas das dívidas. O saldo residual (a "Sobra Livre") não é tratado como dinheiro livre, mas como o "Teto de Sobrevivência".
+*   **Divisão Temporal Agressiva:** Se a margem livre do usuário é de R$ 300 no mês, a interface a converte em orçamentos semanais fechados (R$ 75/semana). Gasto variável passa a ser visualizado em janelas muito curtas para forçar a avaliação de impacto no curtíssimo prazo.
+
+### **3. O "Guardião de Compras" via Agente WhatsApp (n8n)**
+A inovação definitiva em contenção de impulsos. Através dos webhooks do n8n integrados aos LLMs, o WhatsApp deixa de ser apenas um receptor de despesas e passa a atuar como uma barreira cognitiva antes da transação.
+*   **Simulação de Fricção:** O usuário é encorajado a enviar uma mensagem antes da compra (ex: *"Vou comprar uma jaqueta de R$ 200"*).
+*   **Avaliação de Impacto de IA:** O agente não apenas registra, mas responde com o impacto sistêmico: *"Se você aprovar essa compra, o seu Teto de Sobrevivência semanal estourará em R$ 125, adiando o seu Mês Zero para Fev/2027. Autoriza o lançamento?"*. Isso insere uma etapa de "desconforto racional" que comprovadamente reduz o consumo impulsivo.
+
+### **4. Gamificação de "Fundos de Quitação" Antecipada**
+Em vez de focar exclusivamente no corte de despesas, o módulo reverte a psicologia da escassez para a psicologia da vitória tática.
+*   **Transformação de Sobras:** Dinheiro economizado no Teto de Sobrevivência semanal é automaticamente movido visualmente para uma meta de "Fundo de Ataque", cujo único propósito algorítmico é acumular capital para negociar o pagamento de dívidas com desconto de juros.
+
 ## **Decisões Arquiteturais de Software e Modelagem de Dados**
 
 O alicerce que garantirá o funcionamento do design comportamental projetado é a infraestrutura de engenharia. A seleção da arquitetura afeta diretamente o orçamento de desenvolvimento, a facilidade de manutenção a longo prazo e a performance perceptível nas pontas dos dedos do usuário. Um dos erros clássicos identificados no desenvolvimento de produtos por instituições legadas é a alocação desproporcional do orçamento exclusivamente no backend, resultando em motores de processamento formidáveis enclausurados em interfaces de usuário lentas e pouco fluidas.2

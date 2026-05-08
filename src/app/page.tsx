@@ -4,6 +4,7 @@ import { getFamilyGroup } from "@/utils/supabase/auth-helpers";
 import { redirect } from "next/navigation";
 import { startOfMonth } from "date-fns";
 import { SyncFamilyGroup } from "@/components/SyncFamilyGroup";
+import SurvivalHUD from "@/components/SurvivalHUD";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -134,6 +135,8 @@ export default async function Home() {
         <h2 className="text-3xl font-bold tracking-tight text-white">Dashboard</h2>
         <p className="text-white/40">Bem-vindo de volta ao Centro de Comando.</p>
       </header>
+
+      <SurvivalHUD />
 
       <RealtimeDashboard 
         initialBalance={initialBalance} 

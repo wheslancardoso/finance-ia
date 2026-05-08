@@ -30,6 +30,10 @@ interface FinancialDataContextType {
   loading: boolean;
   refreshData: () => Promise<void>;
   lastFetched: number | null;
+  monthlyIncomeCents: number;
+  setMonthlyIncomeCents: (val: number) => void;
+  fixedExpensesCents: number;
+  setFixedExpensesCents: (val: number) => void;
 }
 
 const FinancialDataContext = createContext<FinancialDataContextType | undefined>(undefined);
@@ -41,7 +45,27 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastFetched, setLastFetched] = useState<number | null>(null);
+  
+  // Modo Crise: Variáveis Base
+  const [monthlyIncomeCents, setMonthlyIncomeCentsState] = useState(0);
+  const [fixedExpensesCents, setFixedExpensesCentsState] = useState(0);
+
   const { familyGroupId } = useAccountModal();
+
+  // Persistência local rápida (Local-First MVP)
+  const setMonthlyIncomeCents = useCallback((val: number) => {
+    setMonthlyIncomeCentsState(val);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("vesper_monthly_income", val.toString());
+    }
+  }, []);
+
+  const setFixedExpensesCents = useCallback((val: number) => {
+    setFixedExpensesCentsState(val);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("vesper_fixed_expenses", val.toString());
+    }
+  }, []);
 
   const refreshData = useCallback(async () => {
     if (!familyGroupId) return;
@@ -152,6 +176,15 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         setCategories(localCategories as Category[]);
         setLoading(false);
       }
+      
+      // Carregar Configurações do Modo Crise do LocalStorage
+      if (typeof window !== "undefined") {
+        const storedIncome = localStorage.getItem("vesper_monthly_income");
+        if (storedIncome) setMonthlyIncomeCentsState(parseInt(storedIncome, 10));
+        
+        const storedExpenses = localStorage.getItem("vesper_fixed_expenses");
+        if (storedExpenses) setFixedExpensesCentsState(parseInt(storedExpenses, 10));
+      }
     }
 
     loadLocalData();
@@ -170,7 +203,11 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   }, [familyGroupId, lastFetched, refreshData]);
 
   return (
-    <FinancialDataContext.Provider value={{ categories, accounts, loading, refreshData, lastFetched }}>
+    <FinancialDataContext.Provider value={{ 
+      categories, accounts, loading, refreshData, lastFetched,
+      monthlyIncomeCents, setMonthlyIncomeCents,
+      fixedExpensesCents, setFixedExpensesCents
+    }}>
       {children}
     </FinancialDataContext.Provider>
   );
