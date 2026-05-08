@@ -57,11 +57,12 @@ export function AddTransactionModal() {
   useEffect(() => {
     if (isOpen) {
       if (transactionToEdit) {
-        setAmount((transactionToEdit.amount_cents / 100).toString().replace(".", ","));
+        const valCents = transactionToEdit.amount_cents || (transactionToEdit.amount ? transactionToEdit.amount : 0);
+        setAmount((valCents / 100).toString().replace(".", ","));
         setDescription(transactionToEdit.description);
         setCategoryId(transactionToEdit.category_id);
         setAccountId(transactionToEdit.account_id);
-        setType(transactionToEdit.transaction_type);
+        setType(transactionToEdit.transaction_type || transactionToEdit.type || "EXPENSE");
         setInstallments(1);
         const dateObj = new Date(transactionToEdit.date);
         setTransactionDate(dateObj.toISOString().split('T')[0]);
@@ -83,101 +84,132 @@ export function AddTransactionModal() {
     e.preventDefault();
     setLoading(true);
 
-    if (!accountId || !amount) {
-      alert("Por favor, preencha a conta e o valor.");
-      setLoading(false);
-      return;
-    }
-
-    const supabase = createClient();
-    const totalAmountCents = Math.round(parseFloat(amount.replace(",", ".")) * 100);
-    
-    // Se estivermos editando todas as parcelas, o valor inserido é o valor de CADA parcela (ou o total?)
-    // Vamos assumir que o usuário edita o valor da parcela individual se for o caso, 
-    // mas se for "Editar Todas", o valor inserido se aplica a todas.
-    const installmentAmountCents = Math.floor(totalAmountCents / (transactionToEdit ? 1 : installments));
-
-    const basePayload = {
-      account_id: accountId,
-      category_id: categoryId || null,
-      transaction_type: type,
-    };
-
-    let errorOccurred = false;
-
-    if (transactionToEdit) {
-      // Logica de Edição
-      if (editAllInstallments && transactionToEdit.installment_total > 1) {
-        // Editar TODAS as parcelas do grupo
-        const { error } = await supabase
-          .from("transactions")
-          .update({
-            account_id: accountId,
-            category_id: categoryId || null,
-            description,
-            amount_cents: totalAmountCents, // Aplica o novo valor a todas as parcelas
-          })
-          .eq("description", transactionToEdit.description)
-          .eq("installment_total", transactionToEdit.installment_total)
-          .eq("account_id", transactionToEdit.account_id);
-        
-        if (error) errorOccurred = true;
-      } else {
-        // Editar apenas ESTA parcela
-        const { error } = await supabase
-          .from("transactions")
-          .update({
-            ...basePayload,
-            amount_cents: totalAmountCents,
-            description,
-            date: new Date(`${transactionDate}T${transactionTime}:00`).toISOString(),
-          })
-          .eq("id", transactionToEdit.id);
-        if (error) errorOccurred = true;
+    try {
+      if (!accountId || !amount) {
+        alert("Por favor, preencha a conta e o valor.");
+        setLoading(false);
+        return;
       }
-    } else {
-      const transactionsToInsert = [];
-      const startDate = new Date(transactionDate);
+
+      const supabase = createClient();
+      const totalAmountCents = Math.round(parseFloat(amount.replace(",", ".")) * 100);
       
-      const account = accounts.find(a => a.id === accountId);
-      const closingDay = account?.closing_day || 1;
+      // Se estivermos editando todas as parcelas, o valor inserido se aplica a cada uma delas.
+      // Se for uma nova transação, dividimos o total pelas parcelas.
+      const installmentAmountCents = transactionToEdit ? totalAmountCents : Math.floor(totalAmountCents / installments);
 
-      for (let i = 0; i < installments; i++) {
-        const installmentDate = addMonths(startDate, i);
-        const dayStr = format(installmentDate, 'yyyy-MM-dd');
-        
-        let invoiceDate = new Date(installmentDate.getFullYear(), installmentDate.getMonth(), 1);
-        if (installmentDate.getDate() > closingDay) {
-          invoiceDate = addMonths(invoiceDate, 1);
+      const basePayload = {
+        account_id: accountId,
+        category_id: categoryId || null,
+        transaction_type: type,
+      };
+
+      let errorOccurred = false;
+
+      // Formatar a data/hora
+      let finalDateISO: string;
+      try {
+        const dateStr = `${transactionDate}T${transactionTime}:00`;
+        const dateObj = new Date(dateStr);
+        if (isNaN(dateObj.getTime())) throw new Error("Data inválida");
+        finalDateISO = dateObj.toISOString();
+      } catch (err) {
+        alert("Data ou hora inválida.");
+        setLoading(false);
+        return;
+      }
+
+      if (transactionToEdit) {
+        // Logica de Edição
+        if (editAllInstallments && transactionToEdit.installment_total > 1) {
+          // 1. Editar TODAS as parcelas do grupo (campos comuns)
+          // Usamos a descrição original para encontrar todas as parcelas da série
+          const { error: groupError } = await supabase
+            .from("transactions")
+            .update({
+              account_id: accountId,
+              category_id: categoryId || null,
+              description: description, // Novo nome
+              amount_cents: totalAmountCents,
+            })
+            .eq("description", transactionToEdit.description)
+            .eq("installment_total", transactionToEdit.installment_total);
+          
+          if (groupError) {
+            console.error("Erro ao atualizar grupo:", groupError);
+            errorOccurred = true;
+          }
+
+          // 2. Editar a DATA da parcela específica
+          const { error: dateError } = await supabase
+            .from("transactions")
+            .update({ date: finalDateISO })
+            .eq("id", transactionToEdit.id);
+          
+          if (dateError) {
+            console.error("Erro ao atualizar data individual:", dateError);
+            errorOccurred = true;
+          }
+        } else {
+          // Editar apenas ESTA parcela (com todos os campos)
+          const { error } = await supabase
+            .from("transactions")
+            .update({
+              ...basePayload,
+              amount_cents: totalAmountCents,
+              description,
+              date: finalDateISO,
+            })
+            .eq("id", transactionToEdit.id);
+          if (error) errorOccurred = true;
         }
+      } else {
+        const transactionsToInsert = [];
+        const startDate = new Date(transactionDate);
         
-        transactionsToInsert.push({
-          ...basePayload,
-          amount_cents: installmentAmountCents,
-          description: description,
-          date: new Date(`${dayStr}T${transactionTime}:00`).toISOString(),
-          installment_current: i + 1,
-          installment_total: installments,
-          credit_card_invoice_date: format(invoiceDate, 'yyyy-MM-dd'),
-        });
+        const account = accounts.find(a => a.id === accountId);
+        const closingDay = account?.closing_day || 1;
+
+        for (let i = 0; i < installments; i++) {
+          const installmentDate = addMonths(startDate, i);
+          const dayStr = format(installmentDate, 'yyyy-MM-dd');
+          
+          let invoiceDate = new Date(installmentDate.getFullYear(), installmentDate.getMonth(), 1);
+          if (installmentDate.getDate() > closingDay) {
+            invoiceDate = addMonths(invoiceDate, 1);
+          }
+          
+          transactionsToInsert.push({
+            ...basePayload,
+            amount_cents: installmentAmountCents,
+            description: description,
+            date: new Date(`${dayStr}T${transactionTime}:00`).toISOString(),
+            installment_current: i + 1,
+            installment_total: installments,
+            credit_card_invoice_date: format(invoiceDate, 'yyyy-MM-dd'),
+          });
+        }
+
+        const { error } = await supabase.from("transactions").insert(transactionsToInsert);
+        if (error) {
+          console.error("Erro ao inserir parcelas:", error);
+          errorOccurred = true;
+        }
       }
 
-      const { error } = await supabase.from("transactions").insert(transactionsToInsert);
-      if (error) {
-        console.error("Erro ao inserir parcelas:", error);
-        errorOccurred = true;
+      if (!errorOccurred) {
+        await refreshData();
+        closeModal();
+        router.refresh();
+      } else {
+        alert("Erro ao salvar transação no banco de dados.");
       }
+    } catch (err) {
+      console.error("Erro no handleSubmit:", err);
+      alert("Ocorreu um erro inesperado ao salvar.");
+    } finally {
+      setLoading(false);
     }
-
-    if (!errorOccurred) {
-      // Atualizar cache global para refletir novos saldos e categorias
-      await refreshData();
-      closeModal();
-      router.refresh();
-    } else {
-      alert("Erro ao salvar transação");
-    }
-    setLoading(false);
   }
 
   function resetForm() {

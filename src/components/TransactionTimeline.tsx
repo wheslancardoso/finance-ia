@@ -28,7 +28,10 @@ interface Transaction {
   date: string;
   description: string;
   amount: number;
+  amount_cents?: number;
   type: "EXPENSE" | "INCOME" | "TRANSFER";
+  transaction_type: "EXPENSE" | "INCOME" | "TRANSFER";
+  category_id?: string;
   installment_current?: number;
   installment_total?: number;
   account_id?: string;
@@ -180,7 +183,7 @@ export function TransactionTimeline({ transactions }: TransactionTimelineProps) 
                           {tx.type === "INCOME" ? "+" : "-"} {formatCurrency(tx.amount)}
                         </p>
                         <p className="text-[8px] font-bold text-white/10 uppercase tracking-widest group-hover:text-white/20 transition-colors">
-                          {format(new Date(tx.date), "HH:mm")}
+                          {format(new Date(tx.date), "dd/MM - HH:mm")}
                         </p>
                       </div>
                     </div>

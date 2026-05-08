@@ -3,13 +3,14 @@
 import React from "react";
 import GlassCard from "./GlassCard";
 import { formatCurrency, cn } from "@/lib/utils";
-import { ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { ArrowUpRight, ArrowDownLeft, Layers } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { useTransactionModal } from "@/context/TransactionModalContext";
 import { ActionMenu } from "./ActionMenu";
 import { InstallmentTimelineModal } from "./InstallmentTimelineModal";
-import { Layers } from "lucide-react";
 
 interface TransactionItemProps {
   transaction: any;
@@ -107,7 +108,7 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
               {isIncome ? "+" : "-"} {formatCurrency(tx.amount_cents)}
             </p>
             <p className="text-[10px] text-white/20 font-medium">
-              {new Date(tx.date).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}
+              {format(new Date(tx.date), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
             </p>
           </div>
 
