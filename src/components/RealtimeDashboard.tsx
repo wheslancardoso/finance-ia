@@ -80,9 +80,8 @@ export default function RealtimeDashboard({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-      {/* Left Column: Top Sections */}
-      <div className="lg:col-span-8 flex flex-col gap-8">
-        {/* Simplified Cockpit Header */}
+      {/* 1. Header: Liquidez Atual (Full Width) */}
+      <div className="lg:col-span-12">
         <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-10 relative overflow-hidden group">
           <div className={cn(
             "absolute -top-24 -left-24 w-64 h-64 blur-[100px] rounded-full transition-colors duration-1000",
@@ -143,7 +142,7 @@ export default function RealtimeDashboard({
               </div>
             )}
 
-            {/* Practical Insights Bar (Previsão do Mês) */}
+            {/* Practical Insights Bar */}
             {!isFuture && (
               <div className="flex flex-wrap gap-4 pt-6 border-t border-white/5">
                 <div className="flex items-center gap-3 bg-white/2 px-4 py-3 rounded-2xl border border-white/5">
@@ -173,8 +172,10 @@ export default function RealtimeDashboard({
             )}
           </div>
         </div>
+      </div>
 
-        {/* Time Travel Control */}
+      {/* 2. Middle Row: Slider (col-8) & Recentes (col-4) */}
+      <div className="lg:col-span-8 h-full">
         <TimeTravelSlider 
           onDateChange={setDays} 
           currentDays={days} 
@@ -182,10 +183,9 @@ export default function RealtimeDashboard({
         />
       </div>
 
-      {/* Right Column: Activity (Matches Header + Slider) */}
-      <div className="lg:col-span-4 flex flex-col self-stretch">
-        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-8 flex flex-col h-full overflow-hidden">
-          <div className="flex items-center justify-between mb-8 shrink-0">
+      <div className="lg:col-span-4 self-stretch">
+        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] p-6 flex flex-col h-full overflow-hidden shadow-2xl">
+          <div className="flex items-center justify-between mb-6 shrink-0">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
               <History className="w-5 h-5 text-white/20" />
               Recentes
@@ -193,12 +193,12 @@ export default function RealtimeDashboard({
             <button className="text-[10px] font-black text-white/20 uppercase tracking-widest hover:text-white transition-colors">Ver Tudo</button>
           </div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 -mr-4">
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 -mr-2">
             <TransactionTimeline transactions={initialTransactions} />
           </div>
 
-          <div className="mt-8 pt-8 border-t border-white/5 shrink-0">
-            <div className="flex items-center justify-between p-4 bg-violet-600 rounded-3xl shadow-xl shadow-violet-600/20 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all">
+          <div className="mt-6 pt-6 border-t border-white/5 shrink-0">
+            <div className="flex items-center justify-between p-4 bg-violet-600 rounded-2xl shadow-xl shadow-violet-600/20 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all">
               <span className="text-[10px] font-black text-white uppercase tracking-widest">Vesper Insights</span>
               <TrendingUp className="w-4 h-4 text-white" />
             </div>
@@ -206,7 +206,7 @@ export default function RealtimeDashboard({
         </div>
       </div>
 
-      {/* Budget Grid - Foundation */}
+      {/* 3. Bottom Row: Budget Grid */}
       <div className="lg:col-span-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {initialBudgets.map((budget, i) => (
