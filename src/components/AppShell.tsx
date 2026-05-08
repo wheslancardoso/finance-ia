@@ -6,6 +6,7 @@ import { AddTransactionModal } from "./AddTransactionModal";
 import { AddAccountModal } from "./AddAccountModal";
 import { AddSubscriptionModal } from "./AddSubscriptionModal";
 import { AddGoalModal } from "./AddGoalModal";
+import { ContributionModal } from "./ContributionModal";
 import { SyncFamilyGroup } from "./SyncFamilyGroup";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <AddAccountModal />
           <AddSubscriptionModal />
           <AddGoalModal />
+          <ContributionModal />
         </>
       )}
     </div>

@@ -4,7 +4,10 @@ import React, { createContext, useContext, useState, ReactNode } from "react";
 
 interface GoalModalContextType {
   isOpen: boolean;
+  isContributionOpen: boolean;
+  selectedGoal: any | null;
   openModal: () => void;
+  openContribution: (goal: any) => void;
   closeModal: () => void;
 }
 
@@ -12,12 +15,36 @@ const GoalModalContext = createContext<GoalModalContextType | undefined>(undefin
 
 export function GoalModalProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isContributionOpen, setIsContributionOpen] = useState(false);
+  const [selectedGoal, setSelectedGoal] = useState<any | null>(null);
 
-  const openModal = () => setIsOpen(true);
-  const closeModal = () => setIsOpen(false);
+  const openModal = () => {
+    setSelectedGoal(null);
+    setIsOpen(true);
+  };
+
+  const openContribution = (goal: any) => {
+    setSelectedGoal(goal);
+    setIsContributionOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsOpen(false);
+    setIsContributionOpen(false);
+    setSelectedGoal(null);
+  };
 
   return (
-    <GoalModalContext.Provider value={{ isOpen, openModal, closeModal }}>
+    <GoalModalContext.Provider 
+      value={{ 
+        isOpen, 
+        isContributionOpen, 
+        selectedGoal, 
+        openModal, 
+        openContribution, 
+        closeModal 
+      }}
+    >
       {children}
     </GoalModalContext.Provider>
   );

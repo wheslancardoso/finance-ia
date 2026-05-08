@@ -11,7 +11,7 @@ interface GoalsManagerProps {
 }
 
 export function GoalsManager({ initialGoals }: GoalsManagerProps) {
-  const { openModal } = useGoalModal();
+  const { openModal, openContribution } = useGoalModal();
 
   return (
     <div className="space-y-10">
@@ -103,7 +103,10 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
                     <button className="text-[10px] font-bold text-white/40 hover:text-white uppercase tracking-widest transition-colors">
                       Detalhes
                     </button>
-                    <button className="bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl text-[10px] font-bold text-white uppercase tracking-widest transition-all">
+                    <button 
+                      onClick={() => openContribution(goal)}
+                      className="bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl text-[10px] font-bold text-white uppercase tracking-widest transition-all"
+                    >
                       Aportar
                     </button>
                   </div>

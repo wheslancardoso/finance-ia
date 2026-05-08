@@ -12,62 +12,73 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 
 ---
 
-## 🚀 Funcionalidades Implementadas (Blueprint para Android)
+## 🚀 Os 4 Pilares de Funcionalidade (Visão Geral)
 
-### 1. Gestão de Contas & Cartões (Engine Central)
-*   **Contas Correntes:** Saldo real sincronizado via Supabase Triggers.
-*   **Cartões de Crédito Inteligentes:**
-    *   Gestão de limite total vs. disponível.
-    *   **Cálculo Automático de Fatura:** Lógica baseada em `closing_day` e `due_day`. O sistema identifica automaticamente a fatura aberta no momento (UTC) e soma as transações correspondentes.
-*   **Filtros Dinâmicos:** Interface estilo "Tabs" no histórico para isolar transações por conta específica com um clique.
+### 1. Centro de Comando (Dashboard Estratégico)
+*   **Sobra Livre:** O número mais importante. Cálculo em tempo real: `(Saldo Atual + Entradas Previstas) - (Saídas Previstas + Metas)`.
+*   **Time Travel (Viagem no Tempo):** Slider dinâmico para projetar o saldo em até 365 dias (Baseado em fluxos recorrentes).
+*   **Radar de Status:** Visualização rápida de cartões (limite comprometido) e metas (progresso visual).
 
-### 2. Fluxo de Transações (Entrada Rápida)
-*   **Single Door Entry:** Modal universal para Entradas, Saídas e Transferências.
-*   **Parcelamento Nativo:**
-    *   Projeção automática de datas para parcelas futuras.
-    *   **Installment Timeline:** Visualização em modal de toda a série de parcelas de uma compra.
-    *   Exclusão inteligente (apenas uma parcela ou a série completa).
-*   **Categorias Inteligentes:** Sistema de categorias globais (semeadas automaticamente) e customizadas por família.
+### 2. Modal Universal (Entrada Rápida)
+*   **Single Door:** Um único ponto de entrada para Saídas, Entradas e Transferências.
+*   **Inteligência de Parcelas:** Cálculo instantâneo de fim de dívida e valor por parcela.
+*   **Aparência:** Estilo "Glass" limpo, sem spinners nativos de input, focado em velocidade de preenchimento.
 
-### 3. Sincronização & Performance (Local-First)
-*   **Persistência Offline (Dexie.js):** Contas e categorias são armazenadas localmente no IndexedDB.
-*   **Cache Estratégico:** Os dados financeiros são cacheados globalmente (FinancialDataContext), garantindo que modais e dashboards carreguem sem spinners.
-*   **Sincronização em Background:** O app prioriza a UI local e sincroniza com o Supabase de forma transparente.
+### 3. Fluxo de Renda e Gastos Recorrentes
+*   **Recorrência Inteligente:** Unificação de Salários (Income) e Contas Fixas/Assinaturas (Expense).
+*   **Previsibilidade:** O sistema assume que esses valores ocorrerão e já os abate/soma no Time Travel automaticamente.
+*   **Meta de Ganho:** Seção para definir objetivos de renda (Fixo + Variável).
 
-### 4. Centro de Comando (Dashboard)
-*   **Quick Sync:** Botão de sincronização rápida para ajuste de saldo manual com log automático.
-*   **Status de Cartões:** Visualização rápida do comprometimento do limite.
+### 4. Fábrica de Sonhos (Gestão de Objetivos)
+*   **Lifestyle Goals:** Em vez de "Poupança", focamos em "Sonhos" (Carro, Viagem, Reserva).
+*   **Aportes Dinâmicos:** Possibilidade de "alimentar" a meta com um clique, vendo o progresso imediato.
+*   **Comprometimento:** O valor guardado em metas afeta a Sobra Livre, tratando o sonho como um "gasto obrigatório" para o futuro.
 
 ---
 
-## 🛠️ Stack Tecnológica
-*   **Web:** Next.js 16 (App Router) + Tailwind v4 + Framer Motion.
-*   **Local DB:** Dexie.js (IndexedDB).
+## 🛠️ Detalhamento Técnico (Blueprint Android)
+
+### 1. Engine de Contas & Cartões
+*   **Saldo Real:** Gerenciado por Triggers no DB para precisão absoluta.
+*   **Lógica de Faturas:** Identificação automática da fatura aberta via `closing_day`.
+*   **Filtros por Conta:** Sistema de Tabs no histórico para isolar fluxos de cartões específicos.
+
+### 2. Sincronização & Performance
+*   **Local-First (Dexie):** Persistência no IndexedDB para uso offline e latência zero na abertura de modais.
+*   **Global Cache:** `FinancialDataContext` centraliza todas as contas e categorias com expiração inteligente.
+
+### 3. Parcelamento & Histórico
+*   **Timeline de Parcelas:** Visualização em modal de toda a série de pagamentos futuros de uma compra.
+*   **Exclusão em Cascata:** Opção de deletar uma parcela única ou toda a série recorrente.
+
+---
+
+## ⚡ Stack Tecnológica
+*   **Web:** Next.js 16 + Tailwind v4 + Framer Motion + Dexie.js.
 *   **Backend:** Supabase (Auth, PostgreSQL, Realtime, Triggers).
-*   **Android (Futuro):** Kotlin + Jetpack Compose + Room (Local DB) + Retrofit/Supabase SDK.
+*   **Android (Alvo):** Kotlin + Jetpack Compose + Room (Local DB) + Supabase SDK.
 
 ---
 
 ## ⚡ Ajustes Recentes (Maio/2026)
-*   **Account Filter Strip**: Implementação de seletor de contas horizontal no histórico com indicadores de saldo.
-*   **Dynamic Invoice Logic**: Correção do cálculo de faturas para respeitar o fuso horário e dias de fechamento.
-*   **Automatic Category Seeding**: Novos usuários ganham automaticamente um set de categorias (Salário, Alimentação, Lazer, etc).
-*   **Z-Index & Layout Fixes**: Estilização de inputs de data nativos e correções de sobreposição em modais "Glass".
+*   **Account Filter Strip**: Seletor horizontal no histórico.
+*   **Goal Contributions**: Implementação de funcionalidade de aporte em metas.
+*   **Auto Category Seeding**: Semeio automático de categorias para novos grupos familiares.
 
 ---
 
-## 🗺️ Roadmap de Implementação (Ordem de Batalha)
+## 🗺️ Roadmap de Implementação
 
 ### Fase 1: Fundação & Fricção Zero (CONCLUÍDA ✅)
-- [x] Autenticação e Layout Base (AppShell).
+- [x] Autenticação e Layout Base.
 - [x] Modais de Transação e Histórico Filtrável.
-- [x] Sistema de Cache Global e Persistência Local-First.
-- [x] Lógica de Faturas de Cartão e Limites Dinâmicos.
+- [x] Lógica de Faturas e Limites Dinâmicos.
+- [x] Sincronização Local-First e Cache Global.
 
 ### Fase 2: O Centro de Comando (Foco Atual 🎯)
-- [ ] **Fábrica de Sonhos (Goals)**: Finalizar o módulo de metas com aportes e retiradas afetando o saldo livre.
-- [ ] **Lógica de Sobra Livre**: Implementar o cálculo real `(Saldo + Entradas) - (Saídas + Metas)`.
-- [ ] **Time Travel (Slider)**: Slider para projeção de saldo futuro baseado em fluxos recorrentes.
+- [x] **Gestão de Metas**: Criação e Aportes básicos (Iniciado).
+- [ ] **Lógica de Sobra Livre**: Implementar o cálculo real no Dashboard.
+- [ ] **Time Travel (Slider)**: Slider para projeção de saldo futuro.
 
 ### Fase 3: Inteligência & Expansão
 - [ ] **Relatórios de Evolução**: Mix de Renda e Evolução de Patrimônio.
