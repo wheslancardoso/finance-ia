@@ -91,34 +91,33 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
       </div>
 
       <div className="space-y-4">
-        {isCreditCard ? (
-          <div className="space-y-3">
-            {/* Fatura Fechada (destaque) */}
+        {isCreditCard ? (() => {
+          const today = new Date().getDate();
+          const isClosed = today >= (closing_day || 31);
+          const invoiceAmount = isClosed 
+            ? (liveAccount.closed_invoice_cents || 0) 
+            : (liveAccount.open_invoice_cents || 0);
+          const invoiceMonth = isClosed
+            ? (liveAccount.closed_invoice_month || "---")
+            : (liveAccount.open_invoice_month || "---");
+          
+          return (
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                <div className={cn(
+                  "w-1.5 h-1.5 rounded-full",
+                  isClosed ? "bg-red-400" : "bg-emerald-400 animate-pulse"
+                )} />
                 <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">
-                  Fechada — {liveAccount.closed_invoice_month || "---"}
+                  Fatura {isClosed ? "Fechada" : "Aberta"} — {invoiceMonth}
                 </p>
               </div>
               <h2 className="text-3xl font-bold tracking-tight tabular-nums text-amber-500">
-                {formatCurrency(current_invoice_cents || 0)}
+                {formatCurrency(invoiceAmount)}
               </h2>
             </div>
-            {/* Fatura Aberta */}
-            <div className="flex items-center justify-between px-3 py-2 bg-white/3 rounded-xl border border-white/5">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">
-                  Aberta — {liveAccount.open_invoice_month || "---"}
-                </span>
-              </div>
-              <span className="text-sm font-bold text-white/50 tabular-nums">
-                {formatCurrency(liveAccount.open_invoice_cents || 0)}
-              </span>
-            </div>
-          </div>
-        ) : (
+          );
+        })() : (
           <div className="space-y-1">
             <p className="text-white/40 text-sm font-medium">Saldo Atual</p>
             <h2 className="text-3xl font-bold tracking-tight tabular-nums text-white">

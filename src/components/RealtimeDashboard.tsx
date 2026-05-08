@@ -51,14 +51,13 @@ export default function RealtimeDashboard({
   // 2. Visão Prática: "Quanto me sobra este mês?"
   const monthlyOutlook = useMemo(() => {
     const endOfCurrentMonth = endOfMonth(new Date());
-    const daysUntilEnd = differenceInDays(endOfCurrentMonth, new Date());
     
     const formattedBudgets = initialBudgets.map(b => ({
       amount_cents: b.limit,
       spent_this_month: b.spent
     }));
     
-    // Projeção até o fim do mês atual
+    // Projeção até o fim do mês atual (recorrências + orçamentos)
     const balanceAtMonthEnd = calculateProjectedBalance(
       initialBalance, 
       endOfCurrentMonth, 
@@ -66,14 +65,21 @@ export default function RealtimeDashboard({
       formattedBudgets
     );
     
-    const plannedExpenses = initialBalance - balanceAtMonthEnd;
+    // Somar faturas fechadas dos cartões de crédito
+    const totalClosedInvoices = accounts
+      .filter(a => a.type === "CREDIT_CARD")
+      .reduce((sum, a) => sum + (a.closed_invoice_cents || 0), 0);
+    
+    const recurringExpenses = Math.abs(initialBalance - balanceAtMonthEnd);
+    const plannedExpenses = recurringExpenses + totalClosedInvoices;
+    const finalBalance = balanceAtMonthEnd - totalClosedInvoices;
     
     return {
-      balanceAtMonthEnd,
-      plannedExpenses: Math.abs(plannedExpenses),
-      isHealthy: balanceAtMonthEnd >= 0
+      balanceAtMonthEnd: finalBalance,
+      plannedExpenses,
+      isHealthy: finalBalance >= 0
     };
-  }, [initialBalance, initialRecurring, initialBudgets]);
+  }, [initialBalance, initialRecurring, initialBudgets, accounts]);
 
   const isFuture = days > 0;
   const balanceDifference = projectedBalance - initialBalance;
