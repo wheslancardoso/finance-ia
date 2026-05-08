@@ -115,8 +115,24 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
           {/* Action Menu */}
           <div onClick={(e) => e.stopPropagation()}>
             <ActionMenu 
-              onEdit={() => {
+              onEdit={async () => {
                 console.log("TransactionItem: triggering openEdit for", tx.id);
+                if (isInstallment && tx.installment_current !== 1) {
+                  const supabase = createClient();
+                  const { data, error } = await supabase
+                    .from("transactions")
+                    .select("*, categories(*), accounts(*)")
+                    .eq("description", tx.description)
+                    .eq("installment_total", tx.installment_total)
+                    .eq("account_id", tx.account_id)
+                    .eq("installment_current", 1)
+                    .single();
+                  
+                  if (!error && data) {
+                    openEdit(data);
+                    return;
+                  }
+                }
                 openEdit(tx);
               }}
               onDelete={handleDelete}

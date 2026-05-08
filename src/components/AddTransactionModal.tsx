@@ -68,10 +68,12 @@ export function AddTransactionModal() {
         setTransactionDate(dateObj.toISOString().split('T')[0]);
         setTransactionTime(dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
         
-        // Se for uma parcela, habilitar opção de editar todas por padrão
+        // Se for uma parcela, o comportamento agora é sempre editar a série a partir da primeira
         if (transactionToEdit.installment_total > 1) {
+          setInstallments(transactionToEdit.installment_total);
           setEditAllInstallments(true);
         } else {
+          setInstallments(1);
           setEditAllInstallments(false);
         }
       } else {
@@ -121,37 +123,70 @@ export function AddTransactionModal() {
 
       if (transactionToEdit) {
         // Logica de Edição
-        if (editAllInstallments && transactionToEdit.installment_total > 1) {
-          // 1. Editar TODAS as parcelas do grupo (campos comuns)
-          // Usamos a descrição original para encontrar todas as parcelas da série
-          const { error: groupError } = await supabase
-            .from("transactions")
-            .update({
-              account_id: accountId,
-              category_id: categoryId || null,
-              description: description, // Novo nome
-              amount_cents: totalAmountCents,
-            })
-            .eq("description", transactionToEdit.description)
-            .eq("installment_total", transactionToEdit.installment_total);
+        if (transactionToEdit.installment_total > 1) {
+          // Sempre editar a série quando for parcelado
           
-          if (groupError) {
-            console.error("Erro ao atualizar grupo:", groupError);
-            errorOccurred = true;
-          }
+          // Se o número de parcelas mudou, ou se quisermos garantir consistência total,
+          // a melhor estratégia é deletar a série antiga e criar uma nova
+          // MAS o usuário pediu para editar data, valor, hora e número de parcelas.
+          
+          const installmentsChanged = installments !== transactionToEdit.installment_total;
+          const dateChanged = finalDateISO !== transactionToEdit.date;
+          const amountChanged = totalAmountCents !== transactionToEdit.amount_cents;
 
-          // 2. Editar a DATA da parcela específica
-          const { error: dateError } = await supabase
-            .from("transactions")
-            .update({ date: finalDateISO })
-            .eq("id", transactionToEdit.id);
-          
-          if (dateError) {
-            console.error("Erro ao atualizar data individual:", dateError);
-            errorOccurred = true;
+          if (installmentsChanged || dateChanged || amountChanged) {
+            // Se mudou algo estrutural, deletamos e recriamos
+            await supabase
+              .from("transactions")
+              .delete()
+              .eq("description", transactionToEdit.description)
+              .eq("installment_total", transactionToEdit.installment_total)
+              .eq("account_id", transactionToEdit.account_id);
+
+            // Inserir nova série
+            const transactionsToInsert = [];
+            const startDate = new Date(transactionDate);
+            const account = accounts.find(a => a.id === accountId);
+            const closingDay = account?.closing_day || 1;
+
+            for (let i = 0; i < installments; i++) {
+              const installmentDate = addMonths(startDate, i);
+              const dayStr = format(installmentDate, 'yyyy-MM-dd');
+              
+              let invoiceDate = new Date(installmentDate.getFullYear(), installmentDate.getMonth(), 1);
+              if (installmentDate.getDate() > closingDay) {
+                invoiceDate = addMonths(invoiceDate, 1);
+              }
+              
+              transactionsToInsert.push({
+                ...basePayload,
+                amount_cents: totalAmountCents, // Valor de cada parcela
+                description: description,
+                date: new Date(`${dayStr}T${transactionTime}:00`).toISOString(),
+                installment_current: i + 1,
+                installment_total: installments,
+                credit_card_invoice_date: format(invoiceDate, 'yyyy-MM-dd'),
+              });
+            }
+
+            const { error: insertError } = await supabase.from("transactions").insert(transactionsToInsert);
+            if (insertError) errorOccurred = true;
+          } else {
+            // Se apenas mudou descrição ou categoria, atualizamos em massa
+            const { error: groupError } = await supabase
+              .from("transactions")
+              .update({
+                account_id: accountId,
+                category_id: categoryId || null,
+                description: description,
+              })
+              .eq("description", transactionToEdit.description)
+              .eq("installment_total", transactionToEdit.installment_total);
+            
+            if (groupError) errorOccurred = true;
           }
         } else {
-          // Editar apenas ESTA parcela (com todos os campos)
+          // Editar apenas ESTA transação normal
           const { error } = await supabase
             .from("transactions")
             .update({
@@ -551,38 +586,7 @@ export function AddTransactionModal() {
                   )}
                 </div>
 
-                {transactionToEdit && transactionToEdit.installment_total > 1 && (
-                  <motion.div 
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    className="p-6 rounded-[28px] bg-violet-500/5 border border-violet-500/20 space-y-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-violet-500/10 flex items-center justify-center">
-                          <Layers className="w-5 h-5 text-violet-400" />
-                        </div>
-                        <div className="space-y-0.5">
-                          <p className="text-xs font-bold text-white">Série de Parcelas</p>
-                          <p className="text-[10px] text-white/40 font-medium tracking-tight">Aplicar mudanças em todas as parcelas?</p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setEditAllInstallments(!editAllInstallments)}
-                        className={cn(
-                          "w-12 h-6 rounded-full transition-all duration-300 relative",
-                          editAllInstallments ? "bg-violet-500" : "bg-white/10"
-                        )}
-                      >
-                        <motion.div 
-                          animate={{ x: editAllInstallments ? 24 : 4 }}
-                          className="absolute top-1 left-0 w-4 h-4 rounded-full bg-white shadow-sm"
-                        />
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
+                {/* Toggle de edição em massa removido pois agora é o padrão via primeira parcela */}
 
                 <button
                   disabled={loading || !amount || !description}
