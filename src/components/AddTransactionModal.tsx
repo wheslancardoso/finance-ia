@@ -76,7 +76,11 @@ export function AddTransactionModal() {
     if (isOpen) {
       if (transactionToEdit) {
         const valCents = transactionToEdit.amount_cents || (transactionToEdit.amount ? transactionToEdit.amount : 0);
-        setAmount((valCents / 100).toString().replace(".", ","));
+        // Para parceladas, mostra o valor TOTAL da compra (parcela × total)
+        const displayCents = transactionToEdit.installment_total > 1
+          ? valCents * transactionToEdit.installment_total
+          : valCents;
+        setAmount((displayCents / 100).toString().replace(".", ","));
         setDescription(transactionToEdit.description);
         setCategoryId(transactionToEdit.category_id);
         setAccountId(transactionToEdit.account_id);
@@ -114,9 +118,9 @@ export function AddTransactionModal() {
       const supabase = createClient();
       const totalAmountCents = Math.round(parseFloat(amount.replace(",", ".")) * 100);
 
-      // Se estivermos editando todas as parcelas, o valor inserido se aplica a cada uma delas.
-      // Se for uma nova transação, dividimos o total pelas parcelas.
-      const installmentAmountCents = transactionToEdit ? totalAmountCents : Math.floor(totalAmountCents / installments);
+      // O valor inserido é sempre o TOTAL da compra.
+      // Dividimos pelo número de parcelas para obter o valor de cada parcela.
+      const installmentAmountCents = Math.floor(totalAmountCents / installments);
 
       const basePayload = {
         account_id: accountId,
@@ -172,7 +176,7 @@ export function AddTransactionModal() {
 
                 transactionsToInsert.push({
                   ...basePayload,
-                  amount_cents: totalAmountCents,
+                  amount_cents: installmentAmountCents,
                   description: description,
                   date: new Date(`${dayStr}T${transactionTime}:00`).toISOString(),
                   installment_current: i + 1,
