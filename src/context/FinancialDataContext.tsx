@@ -260,7 +260,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
           
           return { 
             ...acc, 
-            current_invoice_cents: closedInvoice,
+            current_invoice_cents: closedInvoice > 0 ? closedInvoice : openInvoice,
             closed_invoice_cents: closedInvoice,
             closed_invoice_month: closedMonthLabel,
             open_invoice_cents: openInvoice,

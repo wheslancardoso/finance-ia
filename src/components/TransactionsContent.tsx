@@ -119,7 +119,9 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
                 "text-xs font-black tabular-nums truncate w-full mt-0.5",
                 isSelected ? "text-white" : "text-white/60"
               )}>
-                {isCredit ? "Fatura: " : ""}
+                {isCredit 
+                  ? `${(acc.closed_invoice_cents || 0) > 0 ? "Fechada" : "Aberta"}: ` 
+                  : ""}
                 {formatCurrency(isCredit ? (acc.current_invoice_cents || 0) : (acc.balance_cents || 0))}
               </p>
             </button>

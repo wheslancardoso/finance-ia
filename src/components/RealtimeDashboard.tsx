@@ -84,12 +84,16 @@ export default function RealtimeDashboard({
       }
     });
 
-    // --- FATURAS FECHADAS (pendentes, não pagas) dos cartões ---
-    const totalClosedInvoices = liveAccounts
-      .filter(a => a.type === "CREDIT_CARD")
-      .reduce((sum, a) => sum + Math.max(0, a.closed_invoice_cents || 0), 0);
+    // --- TOTAL DE DÍVIDA NOS CARTÕES (fechadas + abertas, somente não pagas) ---
+    const totalCreditCardDebt = liveAccounts
+      .filter((a: any) => a.type === "CREDIT_CARD")
+      .reduce((sum: number, a: any) => {
+        const closed = Math.max(0, a.closed_invoice_cents || 0);
+        const open = Math.max(0, a.open_invoice_cents || 0);
+        return sum + closed + open;
+      }, 0);
 
-    const plannedExpenses = futureThisMonth + recurringThisMonth + totalClosedInvoices;
+    const plannedExpenses = futureThisMonth + recurringThisMonth + totalCreditCardDebt;
     const sobraLivre = initialBalance - plannedExpenses;
     
     return {
