@@ -28,7 +28,11 @@ export default function SurvivalHUD() {
   const totalCreditCardImpact = useMemo(() => {
     return accounts
       .filter((acc) => acc.type === "CREDIT_CARD")
-      .reduce((sum, acc) => sum + (acc.ceiling_impact_cents || 0), 0);
+      .reduce((sum, acc) => {
+        const closed = acc.closed_invoice_cents || 0;
+        const open = acc.open_invoice_cents || 0;
+        return sum + closed + open;
+      }, 0);
   }, [accounts]);
 
   const survivalCeilingCents = useMemo(() => {
@@ -211,9 +215,11 @@ export default function SurvivalHUD() {
             <span className="text-white/20">-</span>
             <span title="Custo Fixo" className="text-white/40">{(fixedExpensesCents / 100).toFixed(0)}</span>
             <span className="text-white/20">-</span>
-            <span title="Débitos/Pix" className="text-amber-400/70">{(currentMonthExpensesCents / 100).toFixed(0)}</span>
+            <span title="Débitos/Pix" className="text-orange-400/70">{(currentMonthExpensesCents / 100).toFixed(0)}</span>
             <span className="text-white/20">-</span>
-            <span title="Faturas Abertas (Gasto Novo)" className="text-red-400/70">{(totalCreditCardImpact / 100).toFixed(0)}</span>
+            <span title="Faturas Fechadas (Dívida Imediata)" className="text-red-500/70">{(accounts.filter(a => a.type === 'CREDIT_CARD').reduce((s, a) => s + (a.closed_invoice_cents || 0), 0) / 100).toFixed(0)}</span>
+            <span className="text-white/20">-</span>
+            <span title="Próxima Fatura (Comprometido no Cartão)" className="text-amber-500/70">{(accounts.filter(a => a.type === 'CREDIT_CARD').reduce((s, a) => s + (a.open_invoice_cents || 0), 0) / 100).toFixed(0)}</span>
           </div>
         </div>
 

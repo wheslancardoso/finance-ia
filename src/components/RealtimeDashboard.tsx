@@ -72,6 +72,10 @@ export default function RealtimeDashboard({
     // --- RECORRENTES até fim do mês ---
     let recurringThisMonth = 0;
     (initialRecurring || []).filter(item => (item as any).frequency !== "once").forEach(item => {
+      // Evitar contagem dupla: Se a recorrente for em cartão, ela já vai aparecer na fatura aberta/fechada conforme o tempo passa
+      const isCreditCard = accounts.find(a => a.id === (item as any).account_id)?.type === "CREDIT_CARD";
+      if (isCreditCard) return;
+
       let occDate = new Date(item.next_date);
       while (occDate <= endOfCurrentMonth) {
         if (occDate > now) {
@@ -85,24 +89,28 @@ export default function RealtimeDashboard({
       }
     });
 
-    // --- TOTAL DE DÍVIDA NOS CARTÕES (fechadas + abertas, somente não pagas) ---
-    const totalCreditCardDebt = liveAccounts
+    // --- TOTAL DE DÍVIDA NOS CARTÕES ---
+    const cardBreakdown = liveAccounts
       .filter((a: any) => a.type === "CREDIT_CARD")
-      .reduce((sum: number, a: any) => {
-        const closed = Math.max(0, a.closed_invoice_cents || 0);
-        const open = Math.max(0, a.open_invoice_cents || 0);
-        return sum + closed + open;
-      }, 0);
+      .reduce((acc: any, a: any) => {
+        acc.closed += Math.max(0, a.closed_invoice_cents || 0);
+        acc.open += Math.max(0, a.open_invoice_cents || 0);
+        return acc;
+      }, { closed: 0, open: 0 });
 
-    const plannedExpenses = futureThisMonth + recurringThisMonth + totalCreditCardDebt;
+    const plannedExpenses = futureThisMonth + recurringThisMonth + cardBreakdown.closed + cardBreakdown.open;
+    const scheduledOnly = futureThisMonth + recurringThisMonth;
     const sobraLivre = initialBalance - plannedExpenses;
     
     return {
       balanceAtMonthEnd: sobraLivre,
       plannedExpenses,
+      immediateCardDebt: cardBreakdown.closed,
+      upcomingCardDebt: cardBreakdown.open,
+      scheduledOnly,
       isHealthy: sobraLivre >= 0
     };
-  }, [initialBalance, initialRecurring, liveAccounts]);
+  }, [initialBalance, initialRecurring, liveAccounts, accounts]);
 
   const isFuture = days > 0;
   const balanceDifference = projectedBalance - initialBalance;
@@ -175,11 +183,33 @@ export default function RealtimeDashboard({
             {/* Practical Insights Bar */}
             {!isFuture && (
               <div className="flex flex-wrap gap-4 pt-6 border-t border-white/5">
-                <div className="flex items-center gap-3 bg-white/2 px-4 py-3 rounded-2xl border border-white/5">
+                <div className="flex items-center gap-3 bg-white/2 px-4 py-3 rounded-2xl border border-white/5 group relative cursor-help">
                   <ArrowDownRight className="w-4 h-4 text-red-400/60" />
                   <div>
                     <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Gastos Previstos</p>
                     <p className="text-sm font-bold text-white/80">{formatCurrency(monthlyOutlook.plannedExpenses)}</p>
+                  </div>
+                  
+                  {/* Tooltip Breakdown */}
+                  <div className="absolute bottom-full left-0 mb-4 w-64 p-4 bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-50">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] text-white/40 uppercase font-bold">Dívida Imediata (Faturas)</span>
+                        <span className="text-xs font-bold text-red-400">{formatCurrency(monthlyOutlook.immediateCardDebt)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] text-white/40 uppercase font-bold">Agendados (Pix/Débito)</span>
+                        <span className="text-xs font-bold text-violet-400">{formatCurrency(monthlyOutlook.scheduledOnly)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] text-white/40 uppercase font-bold">Próxima Fatura (Abertas)</span>
+                        <span className="text-xs font-bold text-amber-400">{formatCurrency(monthlyOutlook.upcomingCardDebt)}</span>
+                      </div>
+                      <div className="pt-2 border-t border-white/5 flex justify-between items-center">
+                        <span className="text-[10px] text-white/60 uppercase font-black">Total</span>
+                        <span className="text-sm font-black text-white">{formatCurrency(monthlyOutlook.plannedExpenses)}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

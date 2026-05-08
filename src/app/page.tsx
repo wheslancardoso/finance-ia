@@ -105,6 +105,11 @@ export default async function Home() {
     .eq("is_paid", false)
     .order("date", { ascending: true });
 
+  // Encontrar a data da última transação futura (Fim das Dívidas)
+  const lastFutureDate = futureTransactions?.length
+    ? futureTransactions[futureTransactions.length - 1].date
+    : null;
+
   const { data: recurring } = await supabase
     .from("recurring_transactions")
     .select("*")

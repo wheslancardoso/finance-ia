@@ -164,27 +164,33 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
     const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59)).toISOString();
     
-    const { data: monthTxs } = await supabase
-      .from("transactions")
-      .select("amount_cents, transaction_type, account_id, is_legacy_debt")
-      .eq("family_group_id", familyGroupId)
-      .gte("date", monthStart)
-      .lte("date", monthEnd);
-      
-    if (monthTxs && accData) {
-      // Filtrar as transações que NÃO são de Cartão de Crédito
-      const nonCreditCardAccIds = accData.filter(a => a.type !== "CREDIT_CARD").map(a => a.id);
-      
-      const extraInc = monthTxs
-        .filter(tx => tx.transaction_type === "INCOME")
-        .reduce((sum, tx) => sum + tx.amount_cents, 0);
+    if (accData && accData.length > 0) {
+      const accountIds = accData.map(a => a.id);
+      const { data: monthTxs } = await supabase
+        .from("transactions")
+        .select("amount_cents, transaction_type, account_id, is_legacy_debt")
+        .in("account_id", accountIds)
+        .gte("date", monthStart)
+        .lte("date", monthEnd);
         
-      const monthExp = monthTxs
-        .filter(tx => tx.transaction_type === "EXPENSE" && nonCreditCardAccIds.includes(tx.account_id) && !tx.is_legacy_debt)
-        .reduce((sum, tx) => sum + tx.amount_cents, 0);
+      if (monthTxs) {
+        // Filtrar as transações que NÃO são de Cartão de Crédito
+        const nonCreditCardAccIds = accData.filter(a => a.type !== "CREDIT_CARD").map(a => a.id);
         
-      setExtraIncomeCents(extraInc);
-      setCurrentMonthExpensesCents(monthExp);
+        const extraInc = monthTxs
+          .filter(tx => tx.transaction_type === "INCOME")
+          .reduce((sum, tx) => sum + tx.amount_cents, 0);
+          
+        const monthExp = monthTxs
+          .filter(tx => tx.transaction_type === "EXPENSE" && nonCreditCardAccIds.includes(tx.account_id) && !tx.is_legacy_debt)
+          .reduce((sum, tx) => sum + tx.amount_cents, 0);
+          
+        setExtraIncomeCents(extraInc);
+        setCurrentMonthExpensesCents(monthExp);
+      }
+    } else {
+      setExtraIncomeCents(0);
+      setCurrentMonthExpensesCents(0);
     }
     
     if (accData) {
