@@ -115,25 +115,35 @@ export function AddTransactionModal() {
     e.preventDefault();
     setLoading(true);
 
+    // IMPORTANTE: Capturar valores do estado AGORA, antes de qualquer await.
+    // O refreshData() causa re-render que pode resetar o estado de installments.
+    const capturedInstallments = installments < 1 ? 1 : installments;
+    const capturedAmount = amount;
+    const capturedAccountId = accountId;
+    const capturedCategoryId = categoryId;
+    const capturedType = type;
+    const capturedDescription = description;
+    const capturedIsLegacyDebt = isLegacyDebt;
+
     try {
-      if (!accountId || !amount) {
+      if (!capturedAccountId || !capturedAmount) {
         alert("Por favor, preencha a conta e o valor.");
         setLoading(false);
         return;
       }
 
       const supabase = createClient();
-      const totalAmountCents = Math.round(parseFloat(amount.replace(",", ".")) * 100);
+      const totalAmountCents = Math.round(parseFloat(capturedAmount.replace(",", ".")) * 100);
 
       // O valor inserido é sempre o TOTAL da compra.
       // Dividimos pelo número de parcelas para obter o valor de cada parcela.
-      const installmentAmountCents = Math.floor(totalAmountCents / installments);
+      const installmentAmountCents = Math.floor(totalAmountCents / capturedInstallments);
 
       const basePayload = {
-        account_id: accountId,
-        category_id: categoryId || null,
-        transaction_type: type,
-        is_legacy_debt: isLegacyDebt,
+        account_id: capturedAccountId,
+        category_id: capturedCategoryId || null,
+        transaction_type: capturedType,
+        is_legacy_debt: capturedIsLegacyDebt,
       };
 
       let errorOccurred = false;
@@ -154,7 +164,7 @@ export function AddTransactionModal() {
       if (transactionToEdit) {
         // --- LOGICA DE SINCRONIZAÇÃO COM METAS (Aportes) ---
         const isOldAporte = transactionToEdit.description?.startsWith("Aporte: ");
-        const isNewAporte = description.startsWith("Aporte: ");
+        const isNewAporte = capturedDescription.startsWith("Aporte: ");
 
         if (isOldAporte) {
           const oldGoalName = transactionToEdit.description.replace("Aporte: ", "");
@@ -173,7 +183,7 @@ export function AddTransactionModal() {
         }
 
         if (isNewAporte) {
-          const newGoalName = description.replace("Aporte: ", "");
+          const newGoalName = capturedDescription.replace("Aporte: ", "");
           const { data: newGoal } = await supabase
             .from("goals")
             .select("*")
@@ -192,7 +202,7 @@ export function AddTransactionModal() {
         // Logica de Edição Existente
         if (transactionToEdit.installment_total > 1) {
           // Sempre editar a série quando for parcelado
-          const installmentsChanged = installments !== transactionToEdit.installment_total;
+          const installmentsChanged = capturedInstallments !== transactionToEdit.installment_total;
           // Compara a data da primeira parcela (o form já mostra a data corrigida da 1ª parcela)
           const originalFirstDate = addMonths(new Date(transactionToEdit.date), -(transactionToEdit.installment_current - 1));
           const dateChanged = new Date(finalDateISO).toISOString().split('T')[0] !== originalFirstDate.toISOString().split('T')[0];
@@ -219,17 +229,17 @@ export function AddTransactionModal() {
               const [startYear, startMonth, startDay] = transactionDate.split('-').map(Number);
               const startDate = new Date(startYear, startMonth - 1, startDay);
 
-              for (let i = 0; i < installments; i++) {
+              for (let i = 0; i < capturedInstallments; i++) {
                 const installmentDate = addMonths(startDate, i);
                 const dayStr = format(installmentDate, 'yyyy-MM-dd');
 
                 transactionsToInsert.push({
                   ...basePayload,
                   amount_cents: installmentAmountCents,
-                  description: description,
+                  description: capturedDescription,
                   date: new Date(`${dayStr}T${transactionTime}:00`).toISOString(),
                   installment_current: i + 1,
-                  installment_total: installments,
+                  installment_total: capturedInstallments,
                 });
               }
 
@@ -246,10 +256,10 @@ export function AddTransactionModal() {
             const { error: groupError } = await supabase
               .from("transactions")
               .update({
-                account_id: accountId,
-                category_id: categoryId || null,
-                description: description,
-                is_legacy_debt: isLegacyDebt,
+                account_id: capturedAccountId,
+                category_id: capturedCategoryId || null,
+                description: capturedDescription,
+                is_legacy_debt: capturedIsLegacyDebt,
               })
               .eq("description", transactionToEdit.description)
               .eq("installment_total", transactionToEdit.installment_total)
@@ -268,7 +278,7 @@ export function AddTransactionModal() {
             .update({
               ...basePayload,
               amount_cents: totalAmountCents,
-              description,
+              description: capturedDescription,
               date: finalDateISO,
             })
             .eq("id", transactionToEdit.id);
@@ -283,17 +293,17 @@ export function AddTransactionModal() {
         const [startYear, startMonth, startDay] = transactionDate.split('-').map(Number);
         const startDate = new Date(startYear, startMonth - 1, startDay);
 
-        for (let i = 0; i < installments; i++) {
+        for (let i = 0; i < capturedInstallments; i++) {
           const installmentDate = addMonths(startDate, i);
           const dayStr = format(installmentDate, 'yyyy-MM-dd');
 
           transactionsToInsert.push({
             ...basePayload,
             amount_cents: installmentAmountCents,
-            description: description,
+            description: capturedDescription,
             date: new Date(`${dayStr}T${transactionTime}:00`).toISOString(),
             installment_current: i + 1,
-            installment_total: installments,
+            installment_total: capturedInstallments,
           });
         }
 
@@ -330,12 +340,13 @@ export function AddTransactionModal() {
   const selectedAccount = accounts.find(a => a.id === accountId);
   const showInstallments = type === "EXPENSE" && selectedAccount?.type === "CREDIT_CARD";
 
-  // Reset installments if hidden
+  // Reset installments if hidden — mas NÃO durante loading (submit em andamento)
+  // nem durante edição de transação parcelada (evita race condition com refreshData)
   useEffect(() => {
-    if (!showInstallments) {
+    if (!showInstallments && !loading && !transactionToEdit) {
       setInstallments(1);
     }
-  }, [showInstallments]);
+  }, [showInstallments, loading, transactionToEdit]);
 
   const isCreditCard = selectedAccount?.type === "CREDIT_CARD";
   const numericAmount = parseFloat(amount.replace(",", ".")) || 0;
