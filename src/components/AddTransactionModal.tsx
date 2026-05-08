@@ -426,7 +426,7 @@ export function AddTransactionModal() {
                   </AnimatePresence>
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-4">
                   <div className="relative group">
                     <label className="absolute -top-2.5 left-5 bg-[#0A0A0A] px-2 text-[9px] font-black text-white/20 uppercase tracking-widest group-focus-within:text-violet-400 transition-colors z-10">
                       {type === "EXPENSE" ? "O que você comprou?" : "Descrição do Recebimento"}
@@ -673,7 +673,7 @@ export function AddTransactionModal() {
                   disabled={loading || !amount || !description}
                   type="submit"
                   className={cn(
-                    "w-full font-black text-xs uppercase tracking-[0.4em] py-6 rounded-[24px] transition-all shadow-2xl active:scale-[0.98] mt-4",
+                    "w-full font-black text-xs uppercase tracking-[0.4em] py-6 rounded-[24px] transition-all shadow-2xl active:scale-[0.98] mt-2",
                     type === "EXPENSE" 
                       ? "bg-white text-black hover:bg-white/90 shadow-white/5" 
                       : "bg-emerald-500 text-white hover:bg-emerald-400 shadow-emerald-500/20"
