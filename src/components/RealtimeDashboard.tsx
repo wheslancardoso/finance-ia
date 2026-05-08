@@ -80,9 +80,8 @@ export default function RealtimeDashboard({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-      {/* Left Column: Summary & Controls */}
-      <div className="lg:col-span-8 space-y-8">
-        
+      {/* Left Column: Top Sections */}
+      <div className="lg:col-span-8 flex flex-col gap-8">
         {/* Simplified Cockpit Header */}
         <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-10 relative overflow-hidden group">
           <div className={cn(
@@ -181,9 +180,35 @@ export default function RealtimeDashboard({
           currentDays={days} 
           lastFutureTransactionDate={lastFutureTransactionDate}
         />
+      </div>
 
-        {/* Budget Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Right Column: Activity (Matches Header + Slider) */}
+      <div className="lg:col-span-4 flex flex-col">
+        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-8 flex flex-col h-full overflow-hidden">
+          <div className="flex items-center justify-between mb-8 shrink-0">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <History className="w-5 h-5 text-white/20" />
+              Recentes
+            </h3>
+            <button className="text-[10px] font-black text-white/20 uppercase tracking-widest hover:text-white transition-colors">Ver Tudo</button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 -mr-4">
+            <TransactionTimeline transactions={initialTransactions} />
+          </div>
+
+          <div className="mt-8 pt-8 border-t border-white/5 shrink-0">
+            <div className="flex items-center justify-between p-4 bg-violet-600 rounded-3xl shadow-xl shadow-violet-600/20 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all">
+              <span className="text-[10px] font-black text-white uppercase tracking-widest">Vesper Insights</span>
+              <TrendingUp className="w-4 h-4 text-white" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Budget Grid - Foundation */}
+      <div className="lg:col-span-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {initialBudgets.map((budget, i) => (
             <SpendingCapacity 
               key={i}
@@ -192,30 +217,6 @@ export default function RealtimeDashboard({
               limit={budget.limit}
             />
           ))}
-        </div>
-      </div>
-
-      {/* Right Column: Activity */}
-      <div className="lg:col-span-4 space-y-8">
-        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-8 flex flex-col">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <History className="w-5 h-5 text-white/20" />
-              Recentes
-            </h3>
-            <button className="text-[10px] font-black text-white/20 uppercase tracking-widest hover:text-white transition-colors">Ver Tudo</button>
-          </div>
-
-          <div className="max-h-[580px] overflow-y-auto custom-scrollbar pr-4 -mr-4">
-            <TransactionTimeline transactions={initialTransactions} />
-          </div>
-
-          <div className="mt-8 pt-8 border-t border-white/5">
-            <div className="flex items-center justify-between p-4 bg-violet-600 rounded-3xl shadow-xl shadow-violet-600/20 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all">
-              <span className="text-[10px] font-black text-white uppercase tracking-widest">Vesper Insights</span>
-              <TrendingUp className="w-4 h-4 text-white" />
-            </div>
-          </div>
         </div>
       </div>
 
