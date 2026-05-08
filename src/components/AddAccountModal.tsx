@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Wallet, Palette, Landmark, CreditCard, Banknote } from "lucide-react";
+import { X, Wallet, Landmark, CreditCard, Banknote, RefreshCw, Check, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency, getTransactionInvoiceMonth } from "@/lib/utils";
 import { useAccountModal } from "@/context/AccountModalContext";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export function AddAccountModal() {
   const { isOpen, accountToEdit, closeModal, familyGroupId } = useAccountModal();
@@ -24,6 +26,13 @@ export function AddAccountModal() {
   const [closingDay, setClosingDay] = useState(10);
   const [dueDay, setDueDay] = useState(15);
 
+  // Invoice Sync State
+  const [invoiceRealValue, setInvoiceRealValue] = useState("");
+  const [calculatedInvoice, setCalculatedInvoice] = useState(0);
+  const [invoiceMonthLabel, setInvoiceMonthLabel] = useState("");
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncSuccess, setSyncSuccess] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       if (accountToEdit) {
@@ -40,6 +49,36 @@ export function AddAccountModal() {
     }
   }, [isOpen]);
 
+  // Calculate current invoice when editing a credit card
+  useEffect(() => {
+    if (isOpen && accountToEdit && accountToEdit.type === "CREDIT_CARD") {
+      calculateCurrentInvoice();
+    }
+  }, [isOpen, accountToEdit]);
+
+  async function calculateCurrentInvoice() {
+    if (!accountToEdit) return;
+    const supabase = createClient();
+    const { data: transactions } = await supabase
+      .from("transactions")
+      .select("*")
+      .eq("account_id", accountToEdit.id)
+      .eq("transaction_type", "EXPENSE");
+    if (!transactions) return;
+    const cDay = accountToEdit.closing_day || 31;
+    const todayInvoice = getTransactionInvoiceMonth(new Date().toISOString(), cDay);
+    const invoiceTotal = transactions
+      .filter(tx => {
+        const txInv = getTransactionInvoiceMonth(tx.date, cDay);
+        return txInv.year === todayInvoice.year && txInv.month === todayInvoice.month;
+      })
+      .reduce((sum, tx) => sum + (tx.amount_cents || 0), 0);
+    setCalculatedInvoice(invoiceTotal);
+    setInvoiceMonthLabel(
+      format(new Date(todayInvoice.year, todayInvoice.month, 1), "MMMM 'de' yyyy", { locale: ptBR })
+    );
+  }
+
   function resetForm() {
     setName("");
     setType("CHECKING");
@@ -48,6 +87,51 @@ export function AddAccountModal() {
     setCreditLimit("");
     setClosingDay(10);
     setDueDay(15);
+    setInvoiceRealValue("");
+    setCalculatedInvoice(0);
+    setSyncSuccess(false);
+  }
+
+  async function handleSyncInvoice() {
+    if (!accountToEdit || !invoiceRealValue) return;
+    setSyncLoading(true);
+    const supabase = createClient();
+    const realCents = Math.round(parseFloat(invoiceRealValue.replace(",", ".")) * 100);
+    const difference = realCents - calculatedInvoice;
+    if (difference === 0) {
+      setSyncLoading(false);
+      setSyncSuccess(true);
+      setTimeout(() => setSyncSuccess(false), 3000);
+      return;
+    }
+    const cDay = accountToEdit.closing_day || 31;
+    const todayInvoice = getTransactionInvoiceMonth(new Date().toISOString(), cDay);
+    // Data: dia do fechamento do mês anterior para cair na fatura correta
+    const adjDate = new Date(todayInvoice.year, todayInvoice.month - 1, cDay);
+    const { error } = await supabase.from("transactions").insert([{
+      account_id: accountToEdit.id,
+      category_id: null,
+      amount_cents: Math.abs(difference),
+      transaction_type: difference > 0 ? "EXPENSE" : "INCOME",
+      date: adjDate.toISOString(),
+      description: `Ajuste de Fatura \u2014 ${format(new Date(todayInvoice.year, todayInvoice.month, 1), "MMM/yy", { locale: ptBR })}`,
+      source: "MANUAL",
+      installment_current: 1,
+      installment_total: 1,
+      is_legacy_debt: false,
+      is_paid: false,
+    }]);
+    if (!error) {
+      setSyncSuccess(true);
+      setInvoiceRealValue("");
+      await calculateCurrentInvoice();
+      router.refresh();
+      setTimeout(() => setSyncSuccess(false), 3000);
+    } else {
+      console.error("Erro ao criar ajuste:", error);
+      alert("Erro ao criar transação de ajuste.");
+    }
+    setSyncLoading(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -247,6 +331,80 @@ export function AddAccountModal() {
                         />
                       </div>
                     </div>
+                  </motion.div>
+                )}
+
+                {/* Sincronizar Fatura */}
+                {type === "CREDIT_CARD" && accountToEdit && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-5 bg-violet-500/5 rounded-3xl border border-violet-500/10 space-y-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-[10px] font-black text-violet-400 uppercase tracking-widest">Sincronizar Fatura</h4>
+                        <p className="text-[9px] text-white/20 font-bold capitalize">{invoiceMonthLabel}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Calculado</p>
+                        <p className="text-sm font-bold text-white/60 tabular-nums">{formatCurrency(calculatedInvoice)}</p>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 font-bold">R$</span>
+                      <input
+                        placeholder="Valor real da fatura"
+                        value={invoiceRealValue}
+                        onChange={(e) => { setInvoiceRealValue(e.target.value); setSyncSuccess(false); }}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-4 text-white font-bold outline-none focus:border-violet-500/50 tabular-nums"
+                      />
+                    </div>
+
+                    {invoiceRealValue && (() => {
+                      const realCents = Math.round(parseFloat(invoiceRealValue.replace(",", ".")) * 100) || 0;
+                      const diff = realCents - calculatedInvoice;
+                      if (diff === 0) return (
+                        <p className="text-[10px] font-bold text-emerald-400 text-center uppercase tracking-widest">✓ Valores conferem</p>
+                      );
+                      return (
+                        <div className={cn(
+                          "flex items-center justify-between p-3 rounded-xl border",
+                          diff > 0 ? "bg-red-500/5 border-red-500/10" : "bg-emerald-500/5 border-emerald-500/10"
+                        )}>
+                          <div className="flex items-center gap-2">
+                            {diff > 0 ? <ArrowUpRight className="w-3.5 h-3.5 text-red-400" /> : <ArrowDownRight className="w-3.5 h-3.5 text-emerald-400" />}
+                            <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                              {diff > 0 ? "Acréscimo" : "Pgto. Antecipado"}
+                            </span>
+                          </div>
+                          <span className={cn("text-sm font-bold tabular-nums", diff > 0 ? "text-red-400" : "text-emerald-400")}>
+                            {diff > 0 ? "+" : "-"} {formatCurrency(Math.abs(diff))}
+                          </span>
+                        </div>
+                      );
+                    })()}
+
+                    <button
+                      type="button"
+                      onClick={handleSyncInvoice}
+                      disabled={syncLoading || !invoiceRealValue || syncSuccess}
+                      className={cn(
+                        "w-full py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2",
+                        syncSuccess
+                          ? "bg-emerald-500/20 border border-emerald-500/30 text-emerald-400"
+                          : "bg-violet-500/20 border border-violet-500/30 text-violet-400 hover:bg-violet-500/30 disabled:opacity-40"
+                      )}
+                    >
+                      {syncLoading ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : syncSuccess ? (
+                        <><Check className="w-3.5 h-3.5" /> Sincronizado</>
+                      ) : (
+                        <><RefreshCw className="w-3.5 h-3.5" /> Sincronizar</>
+                      )}
+                    </button>
                   </motion.div>
                 )}
 
