@@ -8,9 +8,10 @@ import { calculateProjectedBalance } from "@/utils/finance-projections";
 import { formatCurrency } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { TrendingUp, ArrowUpRight, ArrowDownRight, Wallet, History, Zap, ShieldCheck, AlertCircle } from "lucide-react";
-import { addDays, endOfMonth, differenceInDays } from "date-fns";
+import { addDays, addMonths, endOfMonth, differenceInDays } from "date-fns";
 import { QuickSyncModal } from "./QuickSyncModal";
 import { cn } from "@/lib/utils";
+import { useFinancialData } from "@/context/FinancialDataContext";
 
 interface RealtimeDashboardProps {
   initialBalance: number;
@@ -32,6 +33,7 @@ export default function RealtimeDashboard({
   const [days, setDays] = useState(0);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
+  const { accounts: liveAccounts } = useFinancialData();
 
   const handleQuickSync = (account: any) => {
     setSelectedAccount(account);
@@ -50,36 +52,52 @@ export default function RealtimeDashboard({
 
   // 2. Visão Prática: "Quanto me sobra este mês?"
   const monthlyOutlook = useMemo(() => {
-    const endOfCurrentMonth = endOfMonth(new Date());
+    const now = new Date();
+    const endOfCurrentMonth = endOfMonth(now);
     
-    const formattedBudgets = initialBudgets.map(b => ({
-      amount_cents: b.limit,
-      spent_this_month: b.spent
-    }));
-    
-    // Projeção até o fim do mês atual (recorrências + orçamentos)
-    const balanceAtMonthEnd = calculateProjectedBalance(
-      initialBalance, 
-      endOfCurrentMonth, 
-      initialRecurring || [], 
-      formattedBudgets
-    );
-    
-    // Somar faturas fechadas dos cartões de crédito
-    const totalClosedInvoices = accounts
+    // --- PARCELAS FUTURAS DESTE MÊS (transações agendadas até fim do mês) ---
+    const futureThisMonth = (initialRecurring || [])
+      .filter(item => {
+        if ((item as any).frequency !== "once") return false;
+        const d = new Date(item.next_date);
+        return d > now && d <= endOfCurrentMonth;
+      })
+      .reduce((sum, item) => {
+        if (item.transaction_type === "EXPENSE") return sum + item.amount_cents;
+        if (item.transaction_type === "INCOME") return sum - item.amount_cents;
+        return sum;
+      }, 0);
+
+    // --- RECORRENTES até fim do mês ---
+    let recurringThisMonth = 0;
+    (initialRecurring || []).filter(item => (item as any).frequency !== "once").forEach(item => {
+      let occDate = new Date(item.next_date);
+      while (occDate <= endOfCurrentMonth) {
+        if (occDate > now) {
+          if (item.transaction_type === "EXPENSE") recurringThisMonth += item.amount_cents;
+          else if (item.transaction_type === "INCOME") recurringThisMonth -= item.amount_cents;
+        }
+        if ((item as any).frequency === "monthly") occDate = addMonths(occDate, 1);
+        else if ((item as any).frequency === "weekly") occDate = addDays(occDate, 7);
+        else if ((item as any).frequency === "daily") occDate = addDays(occDate, 1);
+        else break;
+      }
+    });
+
+    // --- FATURAS FECHADAS (pendentes, não pagas) dos cartões ---
+    const totalClosedInvoices = liveAccounts
       .filter(a => a.type === "CREDIT_CARD")
-      .reduce((sum, a) => sum + (a.closed_invoice_cents || 0), 0);
-    
-    const recurringExpenses = Math.abs(initialBalance - balanceAtMonthEnd);
-    const plannedExpenses = recurringExpenses + totalClosedInvoices;
-    const finalBalance = balanceAtMonthEnd - totalClosedInvoices;
+      .reduce((sum, a) => sum + Math.max(0, a.closed_invoice_cents || 0), 0);
+
+    const plannedExpenses = futureThisMonth + recurringThisMonth + totalClosedInvoices;
+    const sobraLivre = initialBalance - plannedExpenses;
     
     return {
-      balanceAtMonthEnd: finalBalance,
+      balanceAtMonthEnd: sobraLivre,
       plannedExpenses,
-      isHealthy: finalBalance >= 0
+      isHealthy: sobraLivre >= 0
     };
-  }, [initialBalance, initialRecurring, initialBudgets, accounts]);
+  }, [initialBalance, initialRecurring, liveAccounts]);
 
   const isFuture = days > 0;
   const balanceDifference = projectedBalance - initialBalance;
