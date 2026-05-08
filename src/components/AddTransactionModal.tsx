@@ -569,44 +569,36 @@ export function AddTransactionModal() {
                     </div>
                   </div>
 
-                  <div className={cn("grid gap-4", showInstallments ? "grid-cols-1 sm:grid-cols-4" : "grid-cols-1")}>
-                    <div className={cn("space-y-2", showInstallments ? "sm:col-span-3" : "w-full")}>
-                      <div className="flex justify-between items-center px-4">
-                        <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Quando</label>
-                      </div>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <div className="relative flex-1">
-                          <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
-                          <input
-                            type="date"
-                            value={transactionDate}
-                            onChange={(e) => setTransactionDate(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-violet-500/50 font-bold"
-                            required
-                          />
-                        </div>
-                        <div className="relative w-full sm:w-32 shrink-0">
-                          <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
-                          <input
-                            type="time"
-                            value={transactionTime}
-                            onChange={(e) => setTransactionTime(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-violet-500/50 font-bold"
-                            required
-                          />
-                        </div>
-                      </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center px-4">
+                      <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Quando</label>
+                      {showInstallments && installments === 1 && (
+                        <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">À Vista</span>
+                      )}
                     </div>
-
-                    {showInstallments && (
-                      <div className="space-y-2 sm:col-span-1">
-                        <div className="flex justify-between items-center px-4">
-                          <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Parcelas</label>
-                          {installments === 1 && (
-                            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 whitespace-nowrap">À Vista</span>
-                          )}
-                        </div>
-                        <div className="relative">
+                    <div className="flex gap-2">
+                      <div className="relative flex-1 min-w-0">
+                        <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                        <input
+                          type="date"
+                          value={transactionDate}
+                          onChange={(e) => setTransactionDate(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-violet-500/50 font-bold"
+                          required
+                        />
+                      </div>
+                      <div className="relative w-28 shrink-0">
+                        <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                        <input
+                          type="time"
+                          value={transactionTime}
+                          onChange={(e) => setTransactionTime(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-violet-500/50 font-bold"
+                          required
+                        />
+                      </div>
+                      {showInstallments && (
+                        <div className="relative w-20 shrink-0">
                           <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
                           <input
                             type="number"
@@ -614,12 +606,12 @@ export function AddTransactionModal() {
                             max="99"
                             value={installments}
                             onChange={(e) => setInstallments(parseInt(e.target.value) || 1)}
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-5 text-sm text-white outline-none focus:border-violet-500/50 font-bold tabular-nums no-spinner"
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-3 text-sm text-white outline-none focus:border-violet-500/50 font-bold tabular-nums no-spinner text-center"
                             required
                           />
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
 
                   {/* Parcelamento Ultra UX - Lista de 1x a 12x */}
