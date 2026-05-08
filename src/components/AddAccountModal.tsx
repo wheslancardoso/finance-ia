@@ -59,27 +59,44 @@ export function AddAccountModal() {
   async function calculateCurrentInvoice() {
     if (!accountToEdit) return;
     const supabase = createClient();
-    // Buscar TODAS as transações (EXPENSE e INCOME) para calcular valor líquido
     const { data: transactions } = await supabase
       .from("transactions")
       .select("*")
       .eq("account_id", accountToEdit.id);
     if (!transactions) return;
+
     const cDay = accountToEdit.closing_day || 31;
-    const todayInvoice = getTransactionInvoiceMonth(new Date().toISOString(), cDay);
+    const now = new Date();
+    const todayDay = now.getDate();
+
+    // Determinar mês da fatura FECHADA (a que o banco mostra)
+    let closedY = now.getFullYear();
+    let closedM = now.getMonth();
+    if (todayDay >= cDay) {
+      // Fatura do mês atual já fechou
+    } else {
+      // Fatura do mês atual ainda aberta → fechada é mês anterior
+      closedM--;
+      if (closedM < 0) { closedM = 11; closedY--; }
+    }
+    const closedInvoiceStr = `${closedY}-${String(closedM + 1).padStart(2, '0')}-01`;
+
     const invoiceTotal = transactions
       .filter(tx => {
-        const txInv = getTransactionInvoiceMonth(tx.date, cDay);
-        return txInv.year === todayInvoice.year && txInv.month === todayInvoice.month;
+        const txDate = new Date(tx.date);
+        let tY = txDate.getUTCFullYear();
+        let tM = txDate.getUTCMonth();
+        if (txDate.getUTCDate() >= cDay) { tM++; if (tM > 11) { tM = 0; tY++; } }
+        return `${tY}-${String(tM + 1).padStart(2, '0')}-01` === closedInvoiceStr;
       })
       .reduce((sum, tx) => {
-        if (tx.transaction_type === "EXPENSE") return sum + (tx.amount_cents || 0);
         if (tx.transaction_type === "INCOME") return sum - (tx.amount_cents || 0);
-        return sum;
+        return sum + (tx.amount_cents || 0);
       }, 0);
+
     setCalculatedInvoice(invoiceTotal);
     setInvoiceMonthLabel(
-      format(new Date(todayInvoice.year, todayInvoice.month, 1), "MMMM 'de' yyyy", { locale: ptBR })
+      format(new Date(closedY, closedM, 1), "MMMM 'de' yyyy", { locale: ptBR })
     );
   }
 
@@ -108,17 +125,29 @@ export function AddAccountModal() {
       setTimeout(() => setSyncSuccess(false), 3000);
       return;
     }
+
     const cDay = accountToEdit.closing_day || 31;
-    const todayInvoice = getTransactionInvoiceMonth(new Date().toISOString(), cDay);
-    // Data: dia do fechamento do mês anterior para cair na fatura correta
-    const adjDate = new Date(todayInvoice.year, todayInvoice.month - 1, cDay);
+    const now = new Date();
+    const todayDay = now.getDate();
+
+    // Determinar mês da fatura FECHADA
+    let closedY = now.getFullYear();
+    let closedM = now.getMonth();
+    if (todayDay < cDay) {
+      closedM--;
+      if (closedM < 0) { closedM = 11; closedY--; }
+    }
+
+    // Data do ajuste: dia do fechamento do mês anterior → cai na fatura fechada
+    const adjDate = new Date(closedY, closedM - 1, cDay);
+
     const { error } = await supabase.from("transactions").insert([{
       account_id: accountToEdit.id,
       category_id: null,
       amount_cents: Math.abs(difference),
       transaction_type: difference > 0 ? "EXPENSE" : "INCOME",
       date: adjDate.toISOString(),
-      description: `Ajuste de Fatura \u2014 ${format(new Date(todayInvoice.year, todayInvoice.month, 1), "MMM/yy", { locale: ptBR })}`,
+      description: `Ajuste de Fatura — ${format(new Date(closedY, closedM, 1), "MMM/yy", { locale: ptBR })}`,
       source: "MANUAL",
       installment_current: 1,
       installment_total: 1,
@@ -347,7 +376,7 @@ export function AddAccountModal() {
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="text-[10px] font-black text-violet-400 uppercase tracking-widest">Sincronizar Fatura</h4>
+                        <h4 className="text-[10px] font-black text-violet-400 uppercase tracking-widest">Sincronizar Fatura Fechada</h4>
                         <p className="text-[9px] text-white/20 font-bold capitalize">{invoiceMonthLabel}</p>
                       </div>
                       <div className="text-right">

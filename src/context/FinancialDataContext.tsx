@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/client";
 import { useAccountModal } from "./AccountModalContext";
 import { db } from "@/lib/db";
 import { addMonths, format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface Category {
   id: string;
@@ -20,6 +21,10 @@ interface Account {
   credit_limit_cents?: number;
   current_invoice_cents?: number;
   ceiling_impact_cents?: number;
+  closed_invoice_cents?: number;
+  closed_invoice_month?: string;
+  open_invoice_cents?: number;
+  open_invoice_month?: string;
   closing_day?: number;
   due_day?: number;
   color_hex?: string;
@@ -185,54 +190,69 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       const accountsWithInvoice = await Promise.all(accData.map(async (acc) => {
         if (acc.type === "CREDIT_CARD") {
           const now = new Date();
-          let invY = now.getUTCFullYear();
-          let invM = now.getUTCMonth();
-          
-          // A "Fatura Atual" no HUD agora será sempre a do mês vigente do calendário.
-          // Isso garante que você veja os gastos de Maio durante todo o mês de Maio.
-          const invoiceStr = `${invY}-${String(invM + 1).padStart(2, '0')}-01`;
+          const cardClosingDay = acc.closing_day || 31;
+          const todayDay = now.getDate();
+
+          // Determinar meses da fatura aberta e fechada
+          let openY = now.getFullYear();
+          let openM = now.getMonth();
+          let closedY = now.getFullYear();
+          let closedM = now.getMonth();
+
+          if (todayDay >= cardClosingDay) {
+            // Fatura do mês atual FECHOU → aberta é o próximo mês
+            closedM = openM; closedY = openY;
+            openM++;
+            if (openM > 11) { openM = 0; openY++; }
+          } else {
+            // Fatura do mês atual ainda ABERTA → fechada é o mês anterior
+            openM = closedM; openY = closedY;
+            closedM--;
+            if (closedM < 0) { closedM = 11; closedY--; }
+          }
+
+          const openInvoiceStr = `${openY}-${String(openM + 1).padStart(2, '0')}-01`;
+          const closedInvoiceStr = `${closedY}-${String(closedM + 1).padStart(2, '0')}-01`;
+
+          const openMonthLabel = format(new Date(openY, openM, 1), "MMM", { locale: ptBR });
+          const closedMonthLabel = format(new Date(closedY, closedM, 1), "MMM", { locale: ptBR });
 
           const { data: txs } = await supabase
             .from("transactions")
             .select("id, amount_cents, date, is_legacy_debt, is_paid, transaction_type")
             .eq("account_id", acc.id);
           
-          let totalInvoice = 0;
+          let openInvoice = 0;
+          let closedInvoice = 0;
           let ceilingImpact = 0;
           let totalSpentOnCard = 0;
 
           txs?.forEach((tx) => {
             const txDate = new Date(tx.date);
+            const isIncome = tx.transaction_type === "INCOME";
             
-            // Apenas transações NÃO pagas ocupam o limite do cartão
+            // Saldo do cartão (apenas não pagas)
             if (!tx.is_paid) {
-              if (tx.transaction_type === "INCOME") {
-                totalSpentOnCard -= tx.amount_cents;
-              } else {
-                totalSpentOnCard += tx.amount_cents;
-              }
+              totalSpentOnCard += isIncome ? -tx.amount_cents : tx.amount_cents;
             }
 
+            // Determinar fatura da transação
             let tY = txDate.getUTCFullYear();
             let tM = txDate.getUTCMonth();
-            
-            // Se o dia da transação for MAIOR OU IGUAL ao dia de fechamento, cai na próxima fatura
-            const cardClosingDay = acc.closing_day || 31;
-            
             if (txDate.getUTCDate() >= cardClosingDay) {
               tM++;
               if (tM > 11) { tM = 0; tY++; }
             }
-            
             const txInvoiceStr = `${tY}-${String(tM + 1).padStart(2, '0')}-01`;
             
-            if (txInvoiceStr === invoiceStr) {
-              if (tx.transaction_type === "INCOME") {
-                totalInvoice -= tx.amount_cents;
-              } else {
-                totalInvoice += tx.amount_cents;
-              }
-              if (!tx.is_legacy_debt && tx.transaction_type !== "INCOME") {
+            const amountSigned = isIncome ? -tx.amount_cents : tx.amount_cents;
+
+            if (txInvoiceStr === openInvoiceStr) {
+              openInvoice += amountSigned;
+            }
+            if (txInvoiceStr === closedInvoiceStr) {
+              closedInvoice += amountSigned;
+              if (!tx.is_legacy_debt && !isIncome) {
                 ceilingImpact += tx.amount_cents;
               }
             }
@@ -240,7 +260,11 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
           
           return { 
             ...acc, 
-            current_invoice_cents: totalInvoice,
+            current_invoice_cents: closedInvoice,
+            closed_invoice_cents: closedInvoice,
+            closed_invoice_month: closedMonthLabel,
+            open_invoice_cents: openInvoice,
+            open_invoice_month: openMonthLabel,
             ceiling_impact_cents: ceilingImpact,
             balance_cents: -totalSpentOnCard
           };

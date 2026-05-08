@@ -91,19 +91,41 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
       </div>
 
       <div className="space-y-4">
-        <div className="space-y-1">
-          <p className="text-white/40 text-sm font-medium">
-            {isCreditCard ? "Fatura Atual" : "Saldo Atual"}
-          </p>
-          <div className="flex items-baseline gap-2">
-            <h2 className={cn(
-              "text-3xl font-bold tracking-tight tabular-nums",
-              isCreditCard ? "text-amber-500" : "text-white"
-            )}>
-              {formatCurrency(isCreditCard ? (current_invoice_cents || 0) : balance)}
+        {isCreditCard ? (
+          <div className="space-y-3">
+            {/* Fatura Fechada (destaque) */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">
+                  Fechada — {liveAccount.closed_invoice_month || "---"}
+                </p>
+              </div>
+              <h2 className="text-3xl font-bold tracking-tight tabular-nums text-amber-500">
+                {formatCurrency(current_invoice_cents || 0)}
+              </h2>
+            </div>
+            {/* Fatura Aberta */}
+            <div className="flex items-center justify-between px-3 py-2 bg-white/3 rounded-xl border border-white/5">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">
+                  Aberta — {liveAccount.open_invoice_month || "---"}
+                </span>
+              </div>
+              <span className="text-sm font-bold text-white/50 tabular-nums">
+                {formatCurrency(liveAccount.open_invoice_cents || 0)}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <p className="text-white/40 text-sm font-medium">Saldo Atual</p>
+            <h2 className="text-3xl font-bold tracking-tight tabular-nums text-white">
+              {formatCurrency(balance)}
             </h2>
           </div>
-        </div>
+        )}
 
         {isCreditCard && limit > 0 && (
           <div className="space-y-2">
