@@ -1,6 +1,6 @@
 # 🌌 Manifesto Vesper Finance | Centro de Comando
 
-O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia financeira de baixa fricção**. Este documento alinha as funcionalidades e a filosofia do projeto para garantir que ele permaneça prático, fluido e útil.
+O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia financeira de baixa fricção**. Este documento alinha as funcionalidades e a filosofia do projeto para garantir que ele permaneça prático, fluido e útil, servindo como guia mestre para a versão Web e o futuro port Android.
 
 ---
 
@@ -8,45 +8,51 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 *   **Fricção Zero:** Se leva mais de 5 segundos para registrar algo, o fluxo está errado.
 *   **Visual Imersivo:** Glassmorphism, Neons, Blur intenso e micro-animações. O dinheiro deve parecer vivo.
 *   **Foco no Futuro:** O passado é apenas histórico; o Vesper foca em quanto você terá amanhã.
+*   **Contextual:** O app muda de cor e brilho com base no estado financeiro (verde/violeta/vermelho).
 
 ---
 
-## 🚀 Os 4 Pilares de Funcionalidade
+## 🚀 Funcionalidades Implementadas (Blueprint para Android)
 
-### 1. Centro de Comando (Dashboard Estratégico)
-*   **Sobra Livre:** O número mais importante. Cálculo em tempo real: `(Saldo Atual + Entradas Previstas) - (Saídas Previstas + Orçamentos)`.
-*   **Time Travel (Viagem no Tempo):** Slider dinâmico para projetar o saldo em até 365 dias.
-*   **Radar de Status:** Visualização rápida de cartões (limite) e metas (progresso).
+### 1. Gestão de Contas & Cartões (Engine Central)
+*   **Contas Correntes:** Saldo real sincronizado via Supabase Triggers.
+*   **Cartões de Crédito Inteligentes:**
+    *   Gestão de limite total vs. disponível.
+    *   **Cálculo Automático de Fatura:** Lógica baseada em `closing_day` e `due_day`. O sistema identifica automaticamente a fatura aberta no momento (UTC) e soma as transações correspondentes.
+*   **Filtros Dinâmicos:** Interface estilo "Tabs" no histórico para isolar transações por conta específica com um clique.
 
-### 2. Modal Universal (Entrada Rápida)
-*   **Single Door:** Um único ponto de entrada para Saídas, Entradas e Parcelamentos.
-*   **Inteligência de Parcelas:** Cálculo instantâneo de fim de dívida e valor por parcela.
-*   **Aparência:** Estilo "Glass" limpo, sem spinners nativos de input (scrollbar de números escondida).
+### 2. Fluxo de Transações (Entrada Rápida)
+*   **Single Door Entry:** Modal universal para Entradas, Saídas e Transferências.
+*   **Parcelamento Nativo:**
+    *   Projeção automática de datas para parcelas futuras.
+    *   **Installment Timeline:** Visualização em modal de toda a série de parcelas de uma compra.
+    *   Exclusão inteligente (apenas uma parcela ou a série completa).
+*   **Categorias Inteligentes:** Sistema de categorias globais (semeadas automaticamente) e customizadas por família.
 
-### 3. Fluxo de Renda e Gastos Recorrentes
-*   **Recorrência Inteligente:** Unificação de Salários (Income) e Contas Fixas/Assinaturas (Expense).
-*   **Previsibilidade:** O sistema assume que esses valores ocorrerão e já os abate/soma no Time Travel automaticamente.
-*   **Configuração de Renda:** Seção para definir "Meta de Ganho" (Fixo + Variável).
+### 3. Sincronização & Performance (Local-First)
+*   **Persistência Offline (Dexie.js):** Contas e categorias são armazenadas localmente no IndexedDB.
+*   **Cache Estratégico:** Os dados financeiros são cacheados globalmente (FinancialDataContext), garantindo que modais e dashboards carreguem sem spinners.
+*   **Sincronização em Background:** O app prioriza a UI local e sincroniza com o Supabase de forma transparente.
 
-### 4. Fábrica de Sonhos (Gestão de Objetivos)
-*   **Lifestyle Goals:** Em vez de "Poupança", focamos em "Sonhos" (Carro, Viagem, Reserva).
-*   **Integração de Saldo:** O valor guardado em metas pode ser visualizado como "Comprometido", afetando a Sobra Livre.
-
----
-
-## 🛠️ Stack Tecnológica & Arquitetura
-*   **Frontend:** Next.js 16 (App Router) + Turbopack + Tailwind v4.
-*   **Database (Local-First):** Dexie.js (IndexedDB) para persistência offline e latência zero.
-*   **Backend:** Supabase (Auth + DB + RLS para compartilhamento familiar).
-*   **Interações:** Framer Motion para transições de estado de fluxo.
+### 4. Centro de Comando (Dashboard)
+*   **Quick Sync:** Botão de sincronização rápida para ajuste de saldo manual com log automático.
+*   **Status de Cartões:** Visualização rápida do comprometimento do limite.
 
 ---
 
-## ⚡ Funcionalidades Recentes (Maio/2026)
-*   **Financial Data Cache**: Implementação de cache global para contas e categorias (10 min). Modais abrem instantaneamente.
-*   **Transaction Timeline**: Linha do tempo vertical estilo "Liquid Glass" com agrupamento cronológico e ícones dinâmicos.
-*   **Transaction Time**: Suporte a horário nas transações para ordenação precisa.
-*   **Auto-Sync (DB Triggers)**: Atualização automática de saldos de contas via Gatilhos no Supabase (Insert/Update/Delete).
+## 🛠️ Stack Tecnológica
+*   **Web:** Next.js 16 (App Router) + Tailwind v4 + Framer Motion.
+*   **Local DB:** Dexie.js (IndexedDB).
+*   **Backend:** Supabase (Auth, PostgreSQL, Realtime, Triggers).
+*   **Android (Futuro):** Kotlin + Jetpack Compose + Room (Local DB) + Retrofit/Supabase SDK.
+
+---
+
+## ⚡ Ajustes Recentes (Maio/2026)
+*   **Account Filter Strip**: Implementação de seletor de contas horizontal no histórico com indicadores de saldo.
+*   **Dynamic Invoice Logic**: Correção do cálculo de faturas para respeitar o fuso horário e dias de fechamento.
+*   **Automatic Category Seeding**: Novos usuários ganham automaticamente um set de categorias (Salário, Alimentação, Lazer, etc).
+*   **Z-Index & Layout Fixes**: Estilização de inputs de data nativos e correções de sobreposição em modais "Glass".
 
 ---
 
@@ -54,18 +60,18 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 
 ### Fase 1: Fundação & Fricção Zero (CONCLUÍDA ✅)
 - [x] Autenticação e Layout Base (AppShell).
-- [x] Modais de Transação, Assinatura e Metas com Design Liquid Glass.
-- [x] Timeline Cronológica Dinâmica.
-- [x] Sistema de Cache Global e Persistência Local-First (Dexie).
+- [x] Modais de Transação e Histórico Filtrável.
+- [x] Sistema de Cache Global e Persistência Local-First.
+- [x] Lógica de Faturas de Cartão e Limites Dinâmicos.
 
 ### Fase 2: O Centro de Comando (Foco Atual 🎯)
-- [ ] **Lógica de Sobra Livre**: Implementar o cálculo real `(Saldo + Entradas) - (Saídas + Metas)` no Dashboard.
-- [ ] **Projeção de Fluxo**: Integrar a página de Assinaturas/Fluxos para gerar transações automáticas futuras.
-- [ ] **Interface de Cartão**: Exibir faturas (fechamento/vencimento) com base no limite disponível.
+- [ ] **Fábrica de Sonhos (Goals)**: Finalizar o módulo de metas com aportes e retiradas afetando o saldo livre.
+- [ ] **Lógica de Sobra Livre**: Implementar o cálculo real `(Saldo + Entradas) - (Saídas + Metas)`.
+- [ ] **Time Travel (Slider)**: Slider para projeção de saldo futuro baseado em fluxos recorrentes.
 
 ### Fase 3: Inteligência & Expansão
-- [ ] **Relatórios de Evolução**: Gráficos de barra de Mix de Renda e Evolução de Patrimônio.
-- [ ] **Integração n8n/IA**: Automação de importação de extratos e categorização inteligente.
+- [ ] **Relatórios de Evolução**: Mix de Renda e Evolução de Patrimônio.
+- [ ] **Port Android**: Iniciar desenvolvimento do HUD mobile em Kotlin/Compose.
 
 ---
 *Vesper Finance - Construído para clareza absoluta e fricção zero.*
