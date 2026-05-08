@@ -572,9 +572,6 @@ export function AddTransactionModal() {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center px-4">
                       <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Quando</label>
-                      {showInstallments && installments === 1 && (
-                        <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">À Vista</span>
-                      )}
                     </div>
                     <div className="flex gap-2">
                       <div className="relative flex-1 min-w-0">
@@ -597,20 +594,6 @@ export function AddTransactionModal() {
                           required
                         />
                       </div>
-                      {showInstallments && (
-                        <div className="relative w-20 shrink-0">
-                          <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
-                          <input
-                            type="number"
-                            min="1"
-                            max="99"
-                            value={installments}
-                            onChange={(e) => setInstallments(parseInt(e.target.value) || 1)}
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-3 text-sm text-white outline-none focus:border-violet-500/50 font-bold tabular-nums no-spinner text-center"
-                            required
-                          />
-                        </div>
-                      )}
                     </div>
                   </div>
 
@@ -647,6 +630,42 @@ export function AddTransactionModal() {
                             </div>
                           );
                         })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Parcelas - Seção dedicada */}
+                  {showInstallments && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center px-4">
+                        <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Parcelas</label>
+                        {installments <= 1 && (
+                          <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">À Vista</span>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                        <input
+                          type="number"
+                          min="1"
+                          max="99"
+                          value={installments === 0 ? "" : installments}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "") {
+                              setInstallments(0);
+                            } else {
+                              const num = parseInt(val);
+                              if (!isNaN(num) && num >= 0 && num <= 99) {
+                                setInstallments(num);
+                              }
+                            }
+                          }}
+                          onBlur={() => {
+                            if (installments < 1) setInstallments(1);
+                          }}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-5 text-sm text-white outline-none focus:border-violet-500/50 font-bold tabular-nums no-spinner"
+                        />
                       </div>
                     </div>
                   )}
