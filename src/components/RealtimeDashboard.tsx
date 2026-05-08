@@ -79,7 +79,7 @@ export default function RealtimeDashboard({
   const balanceDifference = projectedBalance - initialBalance;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       {/* Left Column: Top Sections */}
       <div className="lg:col-span-8 flex flex-col gap-8">
         {/* Simplified Cockpit Header */}
@@ -183,7 +183,7 @@ export default function RealtimeDashboard({
       </div>
 
       {/* Right Column: Activity (Matches Header + Slider) */}
-      <div className="lg:col-span-4 flex flex-col">
+      <div className="lg:col-span-4 flex flex-col self-stretch">
         <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-8 flex flex-col h-full overflow-hidden">
           <div className="flex items-center justify-between mb-8 shrink-0">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
