@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import GlassCard from "./GlassCard";
 import { cn, formatCurrency } from "@/lib/utils";
 import { CreditCard, Wallet, Banknote, CalendarDays } from "lucide-react";
@@ -59,6 +60,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
   }
 
   return (
+    <>
     <GlassCard className="relative overflow-hidden group">
       <div 
         className="absolute -top-12 -right-12 w-24 h-24 blur-[60px] opacity-20 transition-opacity group-hover:opacity-40"
@@ -180,14 +182,16 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
           </span>
         )}
       </div>
-
-      {isCreditCard && (
-        <PayInvoiceModal
-          isOpen={payModalOpen}
-          onClose={() => setPayModalOpen(false)}
-          creditCardAccount={liveAccount}
-        />
-      )}
     </GlassCard>
+
+    {isCreditCard && typeof document !== "undefined" && createPortal(
+      <PayInvoiceModal
+        isOpen={payModalOpen}
+        onClose={() => setPayModalOpen(false)}
+        creditCardAccount={liveAccount}
+      />,
+      document.body
+    )}
+    </>
   );
 }

@@ -274,9 +274,9 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
                   <button
                     onClick={handleAlreadyPaid}
                     disabled={loading}
-                    className="w-full py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/30 hover:text-white/60 hover:bg-white/5 border border-transparent hover:border-white/10 transition-all"
+                    className="w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-violet-400/50 hover:text-violet-300 bg-violet-500/5 border border-violet-500/20 hover:border-violet-500/40 transition-all"
                   >
-                    Já Paguei (só marcar como pago)
+                    Já Paguei (Liberar Limite)
                   </button>
                 )}
               </div>
