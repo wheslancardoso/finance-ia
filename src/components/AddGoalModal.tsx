@@ -6,10 +6,12 @@ import { X, Target, Palette, Sparkles, Calendar } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 import { useGoalModal } from "@/context/GoalModalContext";
+import { useAccountModal } from "@/context/AccountModalContext";
 import { useRouter } from "next/navigation";
 
 export function AddGoalModal() {
   const { isOpen, closeModal } = useGoalModal();
+  const { familyGroupId } = useAccountModal();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -22,41 +24,57 @@ export function AddGoalModal() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
+    
     setLoading(true);
 
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const supabase = createClient();
+      
+      if (!familyGroupId) {
+        console.error("Erro: familyGroupId não encontrado no contexto.");
+        alert("Não foi possível identificar seu grupo familiar. Tente recarregar a página.");
+        setLoading(false);
+        return;
+      }
 
-    const { data: familyMember } = await supabase
-      .from("family_members")
-      .select("family_group_id")
-      .eq("user_id", user.id)
-      .single();
+      // Validar e formatar valores
+      const targetStr = targetAmount.replace(/\./g, "").replace(",", ".");
+      const currentStr = currentAmount.replace(/\./g, "").replace(",", ".");
+      
+      const targetCents = Math.round(parseFloat(targetStr) * 100);
+      const currentCents = currentAmount ? Math.round(parseFloat(currentStr) * 100) : 0;
 
-    if (!familyMember) return;
+      if (isNaN(targetCents)) {
+        alert("Valor alvo inválido.");
+        setLoading(false);
+        return;
+      }
 
-    const targetCents = Math.round(parseFloat(targetAmount.replace(",", ".")) * 100);
-    const currentCents = currentAmount ? Math.round(parseFloat(currentAmount.replace(",", ".")) * 100) : 0;
+      const { error: insertError } = await supabase.from("goals").insert({
+        family_group_id: familyGroupId,
+        name,
+        target_amount_cents: targetCents,
+        current_amount_cents: currentCents,
+        deadline: deadline || null,
+        color_hex: colorHex,
+        status: "active"
+      });
 
-    const { error } = await supabase.from("goals").insert({
-      family_group_id: familyMember.family_group_id,
-      name,
-      target_amount_cents: targetCents,
-      current_amount_cents: currentCents,
-      deadline: deadline || null,
-      color_hex: colorHex,
-      status: "active"
-    });
-
-    if (!error) {
-      closeModal();
-      resetForm();
-      router.refresh();
-    } else {
-      alert("Erro ao salvar meta");
+      if (insertError) {
+        console.error("Erro ao inserir meta:", insertError);
+        alert(`Erro ao salvar meta: ${insertError.message}`);
+      } else {
+        closeModal();
+        resetForm();
+        router.refresh();
+      }
+    } catch (err) {
+      console.error("Erro inesperado no cadastro de meta:", err);
+      alert("Ocorreu um erro inesperado. Verifique os dados e tente novamente.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   function resetForm() {
@@ -75,7 +93,10 @@ export function AddGoalModal() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={closeModal}
+            onClick={(e) => {
+              e.preventDefault();
+              closeModal();
+            }}
             className="absolute inset-0 bg-black/80 backdrop-blur-md"
           />
 
@@ -92,7 +113,14 @@ export function AddGoalModal() {
                 </div>
                 <h2 className="text-xl font-bold text-white">Novo Objetivo</h2>
               </div>
-              <button onClick={closeModal} className="text-white/20 hover:text-white transition-colors">
+              <button 
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  closeModal();
+                }} 
+                className="text-white/20 hover:text-white transition-colors cursor-pointer p-1 hover:bg-white/5 rounded-full"
+              >
                 <X className="w-6 h-6" />
               </button>
             </div>

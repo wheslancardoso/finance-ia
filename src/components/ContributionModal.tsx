@@ -82,7 +82,10 @@ export function ContributionModal() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={closeModal}
+            onClick={(e) => {
+              e.preventDefault();
+              closeModal();
+            }}
             className="absolute inset-0 bg-black/80 backdrop-blur-md"
           />
 
@@ -94,11 +97,11 @@ export function ContributionModal() {
           >
             {/* Background Glow */}
             <div 
-              className="absolute -top-24 -right-24 w-48 h-48 blur-[100px] opacity-20 rounded-full"
+              className="absolute -top-24 -right-24 w-48 h-48 blur-[100px] opacity-20 rounded-full pointer-events-none"
               style={{ backgroundColor: selectedGoal.color_hex }}
             />
 
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex justify-between items-center mb-8 relative z-10">
               <div className="flex items-center gap-3">
                 <div 
                   className="w-10 h-10 rounded-xl flex items-center justify-center border"
@@ -111,7 +114,14 @@ export function ContributionModal() {
                   <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">{selectedGoal.name}</p>
                 </div>
               </div>
-              <button onClick={closeModal} className="text-white/20 hover:text-white transition-colors">
+              <button 
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  closeModal();
+                }} 
+                className="text-white/20 hover:text-white transition-colors cursor-pointer p-2 hover:bg-white/5 rounded-full"
+              >
                 <X className="w-6 h-6" />
               </button>
             </div>

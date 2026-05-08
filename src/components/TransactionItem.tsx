@@ -9,6 +9,7 @@ import { ArrowUpRight, ArrowDownLeft, Layers } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { useTransactionModal } from "@/context/TransactionModalContext";
+import { useAccountModal } from "@/context/AccountModalContext";
 import { ActionMenu } from "./ActionMenu";
 import { InstallmentTimelineModal } from "./InstallmentTimelineModal";
 
@@ -34,12 +35,15 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
     if (tx.description.startsWith("Aporte: ")) {
       const goalName = tx.description.replace("Aporte: ", "");
       
-      // Buscar a meta pelo nome
+      const { familyGroupId } = useAccountModal();
+      
+      // Buscar a meta pelo nome dentro do grupo familiar
       const { data: goalData } = await supabase
         .from("goals")
         .select("*")
         .eq("name", goalName)
-        .single();
+        .eq("family_group_id", familyGroupId)
+        .maybeSingle();
 
       if (goalData) {
         // Diminuir o valor da meta

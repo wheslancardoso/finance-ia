@@ -154,7 +154,13 @@ export function AddTransactionModal() {
 
         if (isOldAporte) {
           const oldGoalName = transactionToEdit.description.replace("Aporte: ", "");
-          const { data: oldGoal } = await supabase.from("goals").select("*").eq("name", oldGoalName).single();
+          const { data: oldGoal } = await supabase
+            .from("goals")
+            .select("*")
+            .eq("name", oldGoalName)
+            .eq("family_group_id", familyGroupId)
+            .maybeSingle();
+            
           if (oldGoal) {
             await supabase.from("goals").update({ 
               current_amount_cents: Math.max(0, (oldGoal.current_amount_cents || 0) - transactionToEdit.amount_cents) 
@@ -164,7 +170,13 @@ export function AddTransactionModal() {
 
         if (isNewAporte) {
           const newGoalName = description.replace("Aporte: ", "");
-          const { data: newGoal } = await supabase.from("goals").select("*").eq("name", newGoalName).single();
+          const { data: newGoal } = await supabase
+            .from("goals")
+            .select("*")
+            .eq("name", newGoalName)
+            .eq("family_group_id", familyGroupId)
+            .maybeSingle();
+            
           if (newGoal) {
             await supabase.from("goals").update({ 
               current_amount_cents: (newGoal.current_amount_cents || 0) + totalAmountCents 
