@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Plus, Wallet, Tag, PencilLine, CreditCard, Layers, Sparkles, TrendingUp, Calendar, ChevronDown, Clock } from "lucide-react";
+import { X, Plus, Wallet, Tag, PencilLine, CreditCard, Layers, Sparkles, TrendingUp, Calendar, ChevronDown, Clock, Hash } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useTransactionModal } from "@/context/TransactionModalContext";
@@ -519,7 +519,7 @@ export function AddTransactionModal() {
                     </div>
                   </div>
 
-                  <div className={cn("grid gap-4", showInstallments ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2")}>
+                  <div className={cn("grid gap-4", showInstallments ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1")}>
                     <div className={cn("space-y-2", showInstallments && "sm:col-span-2")}>
                       <div className="flex justify-between items-center px-4">
                         <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Quando</label>
@@ -556,15 +556,18 @@ export function AddTransactionModal() {
                             <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">À Vista</span>
                           )}
                         </div>
-                        <input
-                          type="number"
-                          min="1"
-                          max="99"
-                          value={installments}
-                          onChange={(e) => setInstallments(parseInt(e.target.value) || 1)}
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-sm text-white outline-none focus:border-violet-500/50 font-bold tabular-nums no-spinner"
-                          required
-                        />
+                        <div className="relative">
+                          <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                          <input
+                            type="number"
+                            min="1"
+                            max="99"
+                            value={installments}
+                            onChange={(e) => setInstallments(parseInt(e.target.value) || 1)}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-5 text-sm text-white outline-none focus:border-violet-500/50 font-bold tabular-nums no-spinner"
+                            required
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
