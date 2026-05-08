@@ -38,7 +38,7 @@ const CACHE_DURATION = 10 * 60 * 1000; // 10 minutos de cache
 export function FinancialDataProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [lastFetched, setLastFetched] = useState<number | null>(null);
   const { familyGroupId } = useAccountModal();
 
@@ -149,6 +149,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         console.log("LOCAL-FIRST: DADOS CARREGADOS DO BANCO LOCAL");
         setAccounts(localAccounts as Account[]);
         setCategories(localCategories as Category[]);
+        setLoading(false);
       }
     }
 

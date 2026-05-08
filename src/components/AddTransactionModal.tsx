@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Plus, Wallet, Tag, PencilLine, CreditCard, Layers, Sparkles, TrendingUp, Calendar, ChevronDown, Clock, Hash } from "lucide-react";
+import { X, Plus, Wallet, Tag, PencilLine, CreditCard, Layers, Sparkles, TrendingUp, Calendar, ChevronDown, Clock, Hash, Loader2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useTransactionModal } from "@/context/TransactionModalContext";
@@ -51,8 +51,26 @@ export function AddTransactionModal() {
   const [openAccount, setOpenAccount] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const accountDropdownRef = useRef<HTMLDivElement>(null);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
   const [editAllInstallments, setEditAllInstallments] = useState(false);
+
+  // Fechar dropdowns ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (accountDropdownRef.current && !accountDropdownRef.current.contains(e.target as Node)) {
+        setOpenAccount(false);
+      }
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
+        setOpenCategory(false);
+      }
+    }
+    if (openAccount || openCategory) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [openAccount, openCategory]);
 
   useEffect(() => {
     if (isOpen) {
@@ -427,14 +445,26 @@ export function AddTransactionModal() {
 
                   <div className="grid grid-cols-2 gap-4">
                     {/* Conta Custom Select */}
-                    <div className="space-y-2 relative">
+                    <div className="space-y-2 relative" ref={accountDropdownRef}>
                       <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-4">Origem</label>
                       <div 
-                        onClick={() => setOpenAccount(!openAccount)}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-sm text-white font-bold cursor-pointer flex justify-between items-center hover:border-white/20 transition-all"
+                        onClick={() => {
+                          if (accounts.length === 0) return;
+                          setOpenAccount(!openAccount);
+                          setOpenCategory(false);
+                        }}
+                        className={cn(
+                          "w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-sm text-white font-bold flex justify-between items-center transition-all",
+                          accounts.length === 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-white/20"
+                        )}
                       >
                         <span className="flex items-center gap-2 truncate">
-                          {(() => {
+                          {accounts.length === 0 ? (
+                            <span className="flex items-center gap-2 text-white/30">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Carregando...
+                            </span>
+                          ) : (() => {
                             const acc = accounts.find(a => a.id === accountId);
                             return acc ? (
                               <>
@@ -448,12 +478,12 @@ export function AddTransactionModal() {
                       </div>
 
                       <AnimatePresence>
-                        {openAccount && (
+                        {openAccount && accounts.length > 0 && (
                           <motion.div
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
-                            className="absolute z-50 left-0 right-0 top-full mt-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl"
+                            className="absolute z-50 left-0 right-0 top-full mt-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto"
                           >
                             {accounts.map(acc => (
                               <div
@@ -462,7 +492,10 @@ export function AddTransactionModal() {
                                   setAccountId(acc.id);
                                   setOpenAccount(false);
                                 }}
-                                className="px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-medium text-white/80 hover:text-white transition-colors border-b border-white/5 last:border-0 flex items-center gap-3"
+                                className={cn(
+                                  "px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-medium text-white/80 hover:text-white transition-colors border-b border-white/5 last:border-0 flex items-center gap-3",
+                                  acc.id === accountId && "bg-violet-500/10 text-violet-300"
+                                )}
                               >
                                 <span>{acc.type === "CREDIT_CARD" ? "💳" : "💰"}</span>
                                 {acc.name}
@@ -474,23 +507,37 @@ export function AddTransactionModal() {
                     </div>
 
                     {/* Categoria Custom Select */}
-                    <div className="space-y-2 relative">
+                    <div className="space-y-2 relative" ref={categoryDropdownRef}>
                       <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-4">Categoria</label>
                       <div 
-                        onClick={() => setOpenCategory(!openCategory)}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-sm text-white font-bold cursor-pointer flex justify-between items-center hover:border-white/20 transition-all"
+                        onClick={() => {
+                          if (categories.length === 0) return;
+                          setOpenCategory(!openCategory);
+                          setOpenAccount(false);
+                        }}
+                        className={cn(
+                          "w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-sm text-white font-bold flex justify-between items-center transition-all",
+                          categories.length === 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-white/20"
+                        )}
                       >
-                        <span className="truncate">{categories.find(c => c.id === categoryId)?.name || "Selecione"}</span>
+                        <span className="truncate">
+                          {categories.length === 0 ? (
+                            <span className="flex items-center gap-2 text-white/30">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Carregando...
+                            </span>
+                          ) : (categories.find(c => c.id === categoryId)?.name || "Selecione")}
+                        </span>
                         <ChevronDown className={cn("w-4 h-4 transition-transform", openCategory && "rotate-180")} />
                       </div>
 
                       <AnimatePresence>
-                        {openCategory && (
+                        {openCategory && filteredCategories.length > 0 && (
                           <motion.div
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
-                            className="absolute z-50 left-0 right-0 top-full mt-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl"
+                            className="absolute z-50 left-0 right-0 top-full mt-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto"
                           >
                             <div
                               onClick={() => {
@@ -508,7 +555,10 @@ export function AddTransactionModal() {
                                   setCategoryId(cat.id);
                                   setOpenCategory(false);
                                 }}
-                                className="px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-medium text-white/80 hover:text-white transition-colors border-b border-white/5 last:border-0"
+                                className={cn(
+                                  "px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-medium text-white/80 hover:text-white transition-colors border-b border-white/5 last:border-0",
+                                  cat.id === categoryId && "bg-violet-500/10 text-violet-300"
+                                )}
                               >
                                 {cat.name}
                               </div>
