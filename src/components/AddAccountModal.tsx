@@ -59,11 +59,11 @@ export function AddAccountModal() {
   async function calculateCurrentInvoice() {
     if (!accountToEdit) return;
     const supabase = createClient();
+    // Buscar TODAS as transações (EXPENSE e INCOME) para calcular valor líquido
     const { data: transactions } = await supabase
       .from("transactions")
       .select("*")
-      .eq("account_id", accountToEdit.id)
-      .eq("transaction_type", "EXPENSE");
+      .eq("account_id", accountToEdit.id);
     if (!transactions) return;
     const cDay = accountToEdit.closing_day || 31;
     const todayInvoice = getTransactionInvoiceMonth(new Date().toISOString(), cDay);
@@ -72,7 +72,11 @@ export function AddAccountModal() {
         const txInv = getTransactionInvoiceMonth(tx.date, cDay);
         return txInv.year === todayInvoice.year && txInv.month === todayInvoice.month;
       })
-      .reduce((sum, tx) => sum + (tx.amount_cents || 0), 0);
+      .reduce((sum, tx) => {
+        if (tx.transaction_type === "EXPENSE") return sum + (tx.amount_cents || 0);
+        if (tx.transaction_type === "INCOME") return sum - (tx.amount_cents || 0);
+        return sum;
+      }, 0);
     setCalculatedInvoice(invoiceTotal);
     setInvoiceMonthLabel(
       format(new Date(todayInvoice.year, todayInvoice.month, 1), "MMMM 'de' yyyy", { locale: ptBR })
