@@ -40,14 +40,22 @@ export function calculateProjectedBalance(
   projected -= remainingBudgets;
 
   // 2. Projetar itens recorrentes
+  const endOfThisMonth = endOfMonth(today);
+
   recurringItems.forEach((item) => {
     let occurrenceDate = new Date(item.next_date);
     
     // Simular ocorrências até a data alvo
     while (isBefore(occurrenceDate, targetDate) || occurrenceDate.getTime() === targetDate.getTime()) {
-      if (item.transaction_type === "INCOME") {
+      const isIncome = item.transaction_type === "INCOME";
+      const isFutureMonth = isAfter(occurrenceDate, endOfThisMonth);
+
+      // Só subtraímos despesas se elas forem de meses FUTUROS, 
+      // pois o mês atual já está coberto pelo remainingBudgets.
+      // Receitas são sempre somadas.
+      if (isIncome) {
         projected += item.amount_cents;
-      } else {
+      } else if (isFutureMonth) {
         projected -= item.amount_cents;
       }
 
@@ -61,10 +69,9 @@ export function calculateProjectedBalance(
       } else if (item.frequency === "yearly") {
         occurrenceDate = addMonths(occurrenceDate, 12);
       } else if (item.frequency === "once") {
-        // Se for uma transação única, processamos uma vez e paramos
         break;
       } else {
-        break; // Evitar loop infinito se a frequência for desconhecida
+        break;
       }
     }
   });

@@ -60,7 +60,8 @@ export default function RealtimeDashboard({
       .filter(item => {
         if ((item as any).frequency !== "once") return false;
         const d = new Date(item.next_date);
-        return d > now && d <= endOfCurrentMonth;
+        const isCreditCard = accounts.find(a => a.id === (item as any).account_id)?.type === "CREDIT_CARD";
+        return d > now && d <= endOfCurrentMonth && !isCreditCard;
       })
       .reduce((sum, item) => {
         if (item.transaction_type === "EXPENSE") return sum + item.amount_cents;

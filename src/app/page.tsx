@@ -2,7 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import RealtimeDashboard from "@/components/RealtimeDashboard";
 import { getFamilyGroup } from "@/utils/supabase/auth-helpers";
 import { redirect } from "next/navigation";
-import { startOfMonth } from "date-fns";
+import { startOfMonth, endOfMonth } from "date-fns";
 import { SyncFamilyGroup } from "@/components/SyncFamilyGroup";
 import SurvivalHUD from "@/components/SurvivalHUD";
 
@@ -27,7 +27,7 @@ export default async function Home() {
     .eq("family_group_id", familyGroupId);
 
   const accountIds = accounts?.map(a => a.id) || [];
-  
+
   const initialBalance = accounts?.filter(a => a.type !== "CREDIT_CARD")
     .reduce((acc, curr) => acc + (curr.balance_cents || 0), 0) || 0;
 
@@ -64,7 +64,9 @@ export default async function Home() {
 
   // 3. Buscar Orçamentos e Gastos Reais
   const monthStart = startOfMonth(new Date()).toISOString();
-  
+
+  const monthEnd = endOfMonth(new Date()).toISOString();
+
   const { data: budgetsData } = await supabase
     .from("budgets")
     .select(`
@@ -80,13 +82,13 @@ export default async function Home() {
     .in("account_id", accountIds)
     .eq("transaction_type", "EXPENSE")
     .gte("date", monthStart)
-    .lte("date", new Date().toISOString());
+    .lte("date", monthEnd);
 
   const budgets = (budgetsData || []).map(b => {
     const totalSpent = (spentData || [])
       .filter(s => s.category_id === b.category_id)
       .reduce((acc, curr) => acc + (curr.amount_cents || 0), 0);
-    
+
     return {
       category: (b.categories as any)?.name || "Categoria",
       spent: totalSpent,
@@ -97,15 +99,11 @@ export default async function Home() {
   // 4. Buscar Transações Futuras e Recorrentes (Para o Time Travel)
   const { data: futureTransactions } = await supabase
     .from("transactions")
-    .select("amount_cents, transaction_type, date")
+    .select("amount_cents, transaction_type, date, account_id")
     .in("account_id", accountIds)
     .gt("date", new Date().toISOString())
+    .eq("is_paid", false)
     .order("date", { ascending: true });
-
-  // Encontrar a data da última transação futura (Fim das Dívidas)
-  const lastFutureDate = futureTransactions?.length 
-    ? futureTransactions[futureTransactions.length - 1].date 
-    : null;
 
   const { data: recurring } = await supabase
     .from("recurring_transactions")
@@ -118,13 +116,15 @@ export default async function Home() {
       amount_cents: ft.amount_cents,
       transaction_type: ft.transaction_type,
       frequency: "once" as any,
-      next_date: ft.date
+      next_date: ft.date,
+      account_id: ft.account_id
     })),
     ...(recurring || []).map(r => ({
       amount_cents: r.amount_cents,
       transaction_type: r.transaction_type,
       frequency: r.frequency,
-      next_date: r.next_date
+      next_date: r.next_date,
+      account_id: r.account_id
     }))
   ];
 
@@ -138,8 +138,8 @@ export default async function Home() {
 
       <SurvivalHUD />
 
-      <RealtimeDashboard 
-        initialBalance={initialBalance} 
+      <RealtimeDashboard
+        initialBalance={initialBalance}
         initialTransactions={initialTransactions}
         initialBudgets={budgets}
         initialRecurring={projectionItems as any}

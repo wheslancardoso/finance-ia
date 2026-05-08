@@ -162,12 +162,14 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     // Buscar todas as transações do Mês Atual (para extraIncome e currentMonthExpenses)
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+    const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59)).toISOString();
     
     const { data: monthTxs } = await supabase
       .from("transactions")
       .select("amount_cents, transaction_type, account_id, is_legacy_debt")
       .eq("family_group_id", familyGroupId)
-      .gte("date", monthStart);
+      .gte("date", monthStart)
+      .lte("date", monthEnd);
       
     if (monthTxs && accData) {
       // Filtrar as transações que NÃO são de Cartão de Crédito
