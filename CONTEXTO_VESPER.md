@@ -63,9 +63,10 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 ## ⚡ Ajustes Recentes (Maio/2026)
 *   **Invoice-First Grouping**: No histórico de transações, cartões de crédito agora são agrupados por mês de fatura (ex: "Fatura de Maio") em vez de data civil, garantindo que compras feitas no dia do fechamento apareçam no mês correto de cobrança.
 *   **Credit Card Logic Refinement**: Implementada a regra de fechamento `>= closing_day` para atribuição automática de faturas e rollover de HUD baseado no mês vigente.
-*   **Account Filter Strip**: Seletor horizontal no histórico com exibição de saldo/fatura atual.
-*   **Goal Contributions**: Implementação de funcionalidade de aporte em metas.
-*   **Auto Category Seeding**: Semeio automático de categorias para novos grupos familiares.
+*   **Billing Cycle Dashboard**: O card de conta agora alterna automaticamente entre "Fatura Aberta" e "Fatura Fechada" baseado na data atual, exibindo o status relevante para o momento do usuário.
+*   **Invoice Payment System**: Adicionado modal de pagamento de fatura com fluxos de "Pagar Agora" (cria transação de débito) e "Já Paguei" (apenas libera o limite marcando as transações como pagas).
+*   **Planned Expenses Fix**: O cálculo do Dashboard agora integra faturas fechadas pendentes, garantindo que a projeção de "Sobra Livre" seja precisa.
+*   **UI/UX Refinement**: Refinamento do card de Recentes para não sobrepor a Timeline e implementação de Portais para modais, garantindo visibilidade total sobre o layout Glass.
 
 ---
 
@@ -78,8 +79,8 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 - [x] Sincronização Local-First e Cache Global.
 
 ### Fase 2: O Centro de Comando (Foco Atual 🎯)
-- [x] **Gestão de Metas**: Criação e Aportes básicos (Iniciado).
-- [ ] **Lógica de Sobra Livre**: Implementar o cálculo real no Dashboard.
+- [x] **Gestão de Metas**: Criação e Aportes básicos.
+- [x] **Lógica de Sobra Livre**: Integração de faturas e gastos recorrentes no Dashboard.
 - [ ] **Time Travel (Slider)**: Slider para projeção de saldo futuro.
 
 ### Fase 3: Inteligência & Expansão
@@ -90,6 +91,11 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 - [ ] **Dashboard de Recuperação**: Implementar cálculo do "Mês Zero" e gráfico de timeline de quitação de dívidas.
 - [ ] **Teto de Sobrevivência**: Divisão inteligente da Sobra Livre em orçamentos semanais/diários base-zero.
 - [ ] **Guardião de Compras (n8n + IA)**: Integrar etapa de avaliação e fricção no WhatsApp, onde a IA simula o impacto de um gasto variável antes de autorizar o registro.
+
+### **5. Sistema de Pagamento de Faturas e Reconciliação Híbrida**
+Para mitigar a fricção entre o gasto no cartão e a liquidação da fatura, a plataforma implementa um fluxo de pagamento em dois níveis:
+*   **Pagar Agora (Débito Integrado):** Automatiza a criação de uma transação de despesa na conta corrente e, simultaneamente, marca todas as transações da fatura como pagas, liberando o limite.
+*   **Já Paguei (Sincronização Manual):** Permite que o usuário reconcilie faturas pagas fora da plataforma (ex: débito automático no banco) sem duplicar a saída de caixa, focando apenas na liberação do limite e atualização do HUD de faturas.
 
 ---
 *Vesper Finance - Construído para clareza absoluta e fricção zero.*
