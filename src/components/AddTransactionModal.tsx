@@ -87,16 +87,20 @@ export function AddTransactionModal() {
         setType(transactionToEdit.transaction_type || transactionToEdit.type || "EXPENSE");
         setInstallments(1);
         const dateObj = new Date(transactionToEdit.date);
-        setTransactionDate(dateObj.toISOString().split('T')[0]);
-        setTransactionTime(dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
 
-        // Se for uma parcela, o comportamento agora é sempre editar a série a partir da primeira
+        // Se for uma parcela, sempre editar a série a partir da primeira
         if (transactionToEdit.installment_total > 1) {
           setInstallments(transactionToEdit.installment_total);
           setEditAllInstallments(true);
+          // Calcula a data da PRIMEIRA parcela subtraindo o offset
+          const firstInstallmentDate = addMonths(dateObj, -(transactionToEdit.installment_current - 1));
+          setTransactionDate(firstInstallmentDate.toISOString().split('T')[0]);
+          setTransactionTime(firstInstallmentDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
         } else {
           setInstallments(1);
           setEditAllInstallments(false);
+          setTransactionDate(dateObj.toISOString().split('T')[0]);
+          setTransactionTime(dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
         }
       } else {
         resetForm();
@@ -148,8 +152,11 @@ export function AddTransactionModal() {
         if (transactionToEdit.installment_total > 1) {
           // Sempre editar a série quando for parcelado
           const installmentsChanged = installments !== transactionToEdit.installment_total;
-          const dateChanged = new Date(finalDateISO).getTime() !== new Date(transactionToEdit.date).getTime();
-          const amountChanged = totalAmountCents !== transactionToEdit.amount_cents;
+          // Compara a data da primeira parcela (o form já mostra a data corrigida da 1ª parcela)
+          const originalFirstDate = addMonths(new Date(transactionToEdit.date), -(transactionToEdit.installment_current - 1));
+          const dateChanged = new Date(finalDateISO).toISOString().split('T')[0] !== originalFirstDate.toISOString().split('T')[0];
+          // Compara o valor POR PARCELA (o form mostra o total, mas comparamos dividido)
+          const amountChanged = installmentAmountCents !== transactionToEdit.amount_cents;
 
           if (installmentsChanged || dateChanged || amountChanged) {
             console.log("AddTransactionModal: Mudança estrutural detectada", { installmentsChanged, dateChanged, amountChanged });
