@@ -26,14 +26,10 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
   const [success, setSuccess] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(false);
 
-  // Contas disponíveis para débito (não cartões de crédito)
   const debitAccounts = accounts.filter(a => a.type !== "CREDIT_CARD");
-
-  // Valor da fatura fechada
   const invoiceAmount = creditCardAccount?.closed_invoice_cents || 0;
   const invoiceMonth = creditCardAccount?.closed_invoice_month || "---";
 
-  // Inicializar valor quando abre
   React.useEffect(() => {
     if (isOpen && creditCardAccount) {
       setPaymentAmount((invoiceAmount / 100).toString().replace(".", ","));
@@ -42,18 +38,15 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
     }
   }, [isOpen, creditCardAccount]);
 
-  async function handlePayInvoice() {
-    if (!selectedAccountId || !paymentAmount || !creditCardAccount) return;
-    setLoading(true);
+  // Lógica compartilhada: marca transações da fatura fechada como pagas
+  async function markInvoiceAsPaid() {
+    if (!creditCardAccount) return false;
 
     const supabase = createClient();
-    const paymentCents = Math.round(parseFloat(paymentAmount.replace(",", ".")) * 100);
-
     const cDay = creditCardAccount.closing_day || 31;
     const now = new Date();
     const todayDay = now.getDate();
 
-    // Determinar mês da fatura FECHADA
     let closedY = now.getFullYear();
     let closedM = now.getMonth();
     if (todayDay < cDay) {
@@ -62,41 +55,56 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
     }
     const closedInvoiceStr = `${closedY}-${String(closedM + 1).padStart(2, '0')}-01`;
 
-    // 1. Buscar transações da fatura fechada do cartão
     const { data: cardTxs } = await supabase
       .from("transactions")
       .select("id, amount_cents, date, is_paid")
       .eq("account_id", creditCardAccount.id)
       .eq("is_paid", false);
 
-    if (cardTxs) {
-      // Filtrar apenas transações que pertencem à fatura fechada
-      const invoiceTxIds = cardTxs
-        .filter(tx => {
-          const txDate = new Date(tx.date);
-          let tY = txDate.getUTCFullYear();
-          let tM = txDate.getUTCMonth();
-          if (txDate.getUTCDate() >= cDay) { tM++; if (tM > 11) { tM = 0; tY++; } }
-          return `${tY}-${String(tM + 1).padStart(2, '0')}-01` === closedInvoiceStr;
-        })
-        .map(tx => tx.id);
+    if (!cardTxs) return false;
 
-      // 2. Marcar como pagas
-      if (invoiceTxIds.length > 0) {
-        const { error: updateError } = await supabase
-          .from("transactions")
-          .update({ is_paid: true })
-          .in("id", invoiceTxIds);
+    const invoiceTxIds = cardTxs
+      .filter(tx => {
+        const txDate = new Date(tx.date);
+        let tY = txDate.getUTCFullYear();
+        let tM = txDate.getUTCMonth();
+        if (txDate.getUTCDate() >= cDay) { tM++; if (tM > 11) { tM = 0; tY++; } }
+        return `${tY}-${String(tM + 1).padStart(2, '0')}-01` === closedInvoiceStr;
+      })
+      .map(tx => tx.id);
 
-        if (updateError) {
-          console.error("Erro ao marcar transações como pagas:", updateError);
-        }
+    if (invoiceTxIds.length > 0) {
+      const { error } = await supabase
+        .from("transactions")
+        .update({ is_paid: true })
+        .in("id", invoiceTxIds);
+      if (error) {
+        console.error("Erro ao marcar transações como pagas:", error);
+        return false;
       }
     }
 
-    // 3. Criar transação de pagamento na conta de débito
+    return true;
+  }
+
+  // Pagar agora: marca como pago + debita da conta
+  async function handlePayInvoice() {
+    if (!selectedAccountId || !paymentAmount || !creditCardAccount) return;
+    setLoading(true);
+
+    const ok = await markInvoiceAsPaid();
+    if (!ok) { setLoading(false); return; }
+
+    const supabase = createClient();
+    const paymentCents = Math.round(parseFloat(paymentAmount.replace(",", ".")) * 100);
+    const cDay = creditCardAccount.closing_day || 31;
+    const now = new Date();
+    let closedY = now.getFullYear();
+    let closedM = now.getMonth();
+    if (now.getDate() < cDay) { closedM--; if (closedM < 0) { closedM = 11; closedY--; } }
     const monthLabel = format(new Date(closedY, closedM, 1), "MMM/yy", { locale: ptBR });
-    const { error: insertError } = await supabase.from("transactions").insert([{
+
+    const { error } = await supabase.from("transactions").insert([{
       account_id: selectedAccountId,
       category_id: null,
       amount_cents: paymentCents,
@@ -110,20 +118,32 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
       is_paid: false,
     }]);
 
-    if (insertError) {
-      console.error("Erro ao criar transação de pagamento:", insertError);
+    if (error) {
+      console.error("Erro ao criar transação de pagamento:", error);
       alert("Erro ao registrar pagamento.");
     } else {
-      setSuccess(true);
-      await refreshData();
-      router.refresh();
-      setTimeout(() => {
-        onClose();
-        setSuccess(false);
-      }, 1500);
+      await finishSuccess();
     }
-
     setLoading(false);
+  }
+
+  // Já paguei: só marca como pago, sem debitar
+  async function handleAlreadyPaid() {
+    setLoading(true);
+    const ok = await markInvoiceAsPaid();
+    if (ok) {
+      await finishSuccess();
+    } else {
+      alert("Erro ao marcar fatura como paga.");
+    }
+    setLoading(false);
+  }
+
+  async function finishSuccess() {
+    setSuccess(true);
+    await refreshData();
+    router.refresh();
+    setTimeout(() => { onClose(); setSuccess(false); }, 1500);
   }
 
   const selectedAccount = debitAccounts.find(a => a.id === selectedAccountId);
@@ -229,25 +249,37 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
                 </AnimatePresence>
               </div>
 
-              {/* Botão */}
-              <button
-                onClick={handlePayInvoice}
-                disabled={loading || !selectedAccountId || !paymentAmount || success}
-                className={cn(
-                  "w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-2",
-                  success
-                    ? "bg-emerald-500/20 border border-emerald-500/30 text-emerald-400"
-                    : "bg-white text-black hover:bg-white/90 active:scale-[0.98] shadow-xl disabled:opacity-40"
+              {/* Botões */}
+              <div className="space-y-3">
+                <button
+                  onClick={handlePayInvoice}
+                  disabled={loading || !selectedAccountId || !paymentAmount || success}
+                  className={cn(
+                    "w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-2",
+                    success
+                      ? "bg-emerald-500/20 border border-emerald-500/30 text-emerald-400"
+                      : "bg-white text-black hover:bg-white/90 active:scale-[0.98] shadow-xl disabled:opacity-40"
+                  )}
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : success ? (
+                    <><Check className="w-4 h-4" /> Pago com Sucesso</>
+                  ) : (
+                    "Pagar Agora"
+                  )}
+                </button>
+
+                {!success && (
+                  <button
+                    onClick={handleAlreadyPaid}
+                    disabled={loading}
+                    className="w-full py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/30 hover:text-white/60 hover:bg-white/5 border border-transparent hover:border-white/10 transition-all"
+                  >
+                    Já Paguei (só marcar como pago)
+                  </button>
                 )}
-              >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : success ? (
-                  <><Check className="w-4 h-4" /> Pago com Sucesso</>
-                ) : (
-                  "Confirmar Pagamento"
-                )}
-              </button>
+              </div>
             </div>
           </motion.div>
         </div>
