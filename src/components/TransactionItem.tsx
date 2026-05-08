@@ -29,6 +29,29 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
     if (!confirm(isGroup ? "Tem certeza que deseja excluir toda a série?" : "Tem certeza que deseja excluir esta transação?")) return;
 
     const supabase = createClient();
+
+    // Lógica de Reversão de Aporte
+    if (tx.description.startsWith("Aporte: ")) {
+      const goalName = tx.description.replace("Aporte: ", "");
+      
+      // Buscar a meta pelo nome
+      const { data: goalData } = await supabase
+        .from("goals")
+        .select("*")
+        .eq("name", goalName)
+        .single();
+
+      if (goalData) {
+        // Diminuir o valor da meta
+        const newTotal = (goalData.current_amount_cents || 0) - tx.amount_cents;
+        await supabase
+          .from("goals")
+          .update({ current_amount_cents: Math.max(0, newTotal) })
+          .eq("id", goalData.id);
+        
+        console.log(`REVERSÃO: Meta '${goalName}' atualizada para ${newTotal}`);
+      }
+    }
     
     let query = supabase.from("transactions").delete();
     

@@ -21,6 +21,7 @@ interface Account {
   current_invoice_cents?: number;
   closing_day?: number;
   due_day?: number;
+  color_hex?: string;
 }
 
 interface FinancialDataContextType {

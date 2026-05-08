@@ -148,7 +148,32 @@ export function AddTransactionModal() {
       }
 
       if (transactionToEdit) {
-        // Logica de Edição
+        // --- LOGICA DE SINCRONIZAÇÃO COM METAS (Aportes) ---
+        const isOldAporte = transactionToEdit.description?.startsWith("Aporte: ");
+        const isNewAporte = description.startsWith("Aporte: ");
+
+        if (isOldAporte) {
+          const oldGoalName = transactionToEdit.description.replace("Aporte: ", "");
+          const { data: oldGoal } = await supabase.from("goals").select("*").eq("name", oldGoalName).single();
+          if (oldGoal) {
+            await supabase.from("goals").update({ 
+              current_amount_cents: Math.max(0, (oldGoal.current_amount_cents || 0) - transactionToEdit.amount_cents) 
+            }).eq("id", oldGoal.id);
+          }
+        }
+
+        if (isNewAporte) {
+          const newGoalName = description.replace("Aporte: ", "");
+          const { data: newGoal } = await supabase.from("goals").select("*").eq("name", newGoalName).single();
+          if (newGoal) {
+            await supabase.from("goals").update({ 
+              current_amount_cents: (newGoal.current_amount_cents || 0) + totalAmountCents 
+            }).eq("id", newGoal.id);
+          }
+        }
+        // --------------------------------------------------
+
+        // Logica de Edição Existente
         if (transactionToEdit.installment_total > 1) {
           // Sempre editar a série quando for parcelado
           const installmentsChanged = installments !== transactionToEdit.installment_total;
