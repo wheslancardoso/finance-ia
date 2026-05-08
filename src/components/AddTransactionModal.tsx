@@ -46,6 +46,8 @@ export function AddTransactionModal() {
   const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
   const [transactionTime, setTransactionTime] = useState(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
 
+  const [isLegacyDebt, setIsLegacyDebt] = useState(false);
+
   // Custom Select States
   const [openCategory, setOpenCategory] = useState(false);
   const [openAccount, setOpenAccount] = useState(false);
@@ -86,6 +88,7 @@ export function AddTransactionModal() {
         setAccountId(transactionToEdit.account_id);
         setType(transactionToEdit.transaction_type || transactionToEdit.type || "EXPENSE");
         setInstallments(1);
+        setIsLegacyDebt(transactionToEdit.is_legacy_debt || false);
         const dateObj = new Date(transactionToEdit.date);
 
         // Se for uma parcela, sempre editar a série a partir da primeira
@@ -130,6 +133,7 @@ export function AddTransactionModal() {
         account_id: accountId,
         category_id: categoryId || null,
         transaction_type: type,
+        is_legacy_debt: isLegacyDebt,
       };
 
       let errorOccurred = false;
@@ -244,6 +248,7 @@ export function AddTransactionModal() {
                 account_id: accountId,
                 category_id: categoryId || null,
                 description: description,
+                is_legacy_debt: isLegacyDebt,
               })
               .eq("description", transactionToEdit.description)
               .eq("installment_total", transactionToEdit.installment_total)
@@ -316,6 +321,7 @@ export function AddTransactionModal() {
     setAmount("");
     setDescription("");
     setInstallments(1);
+    setIsLegacyDebt(false);
     setTransactionTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
   }
 
@@ -691,6 +697,41 @@ export function AddTransactionModal() {
                       </span>
                     </div>
                   )}
+
+                  {/* Dívida Legada - Toggle */}
+                  <div 
+                    onClick={() => setIsLegacyDebt(!isLegacyDebt)}
+                    className={cn(
+                      "flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer group",
+                      isLegacyDebt 
+                        ? "bg-amber-500/10 border-amber-500/30" 
+                        : "bg-white/[0.02] border-white/10 hover:border-white/20"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                        isLegacyDebt ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-white/20"
+                      )}>
+                        <Clock className="w-4 h-4" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className={cn("text-xs font-bold uppercase tracking-wider transition-colors", isLegacyDebt ? "text-amber-400" : "text-white/40")}>
+                          Dívida Legada
+                        </span>
+                        <span className="text-[10px] text-white/20 font-medium">Não abate do teto mensal</span>
+                      </div>
+                    </div>
+                    <div className={cn(
+                      "w-10 h-5 rounded-full relative transition-colors duration-300",
+                      isLegacyDebt ? "bg-amber-500" : "bg-white/10"
+                    )}>
+                      <motion.div 
+                        animate={{ x: isLegacyDebt ? 22 : 2 }}
+                        className="absolute top-1 left-0 w-3 h-3 rounded-full bg-white shadow-sm" 
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Toggle de edição em massa removido pois agora é o padrão via primeira parcela */}

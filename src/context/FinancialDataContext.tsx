@@ -60,20 +60,28 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
   const { familyGroupId } = useAccountModal();
 
-  // Persistência local rápida (Local-First MVP)
+  // Persistência local e remota (Supabase)
   const setMonthlyIncomeCents = useCallback((val: number) => {
     setMonthlyIncomeCentsState(val);
     if (typeof window !== "undefined") {
       localStorage.setItem("vesper_monthly_income", val.toString());
     }
-  }, []);
+    if (familyGroupId) {
+      const supabase = createClient();
+      supabase.from("family_groups").update({ monthly_income_cents: val }).eq("id", familyGroupId).then();
+    }
+  }, [familyGroupId]);
 
   const setFixedExpensesCents = useCallback((val: number) => {
     setFixedExpensesCentsState(val);
     if (typeof window !== "undefined") {
       localStorage.setItem("vesper_fixed_expenses", val.toString());
     }
-  }, []);
+    if (familyGroupId) {
+      const supabase = createClient();
+      supabase.from("family_groups").update({ fixed_expenses_cents: val }).eq("id", familyGroupId).then();
+    }
+  }, [familyGroupId]);
 
   const refreshData = useCallback(async () => {
     if (!familyGroupId) return;
@@ -81,6 +89,28 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     setLoading(true);
     console.log("LOCAL-FIRST: BUSCANDO ATUALIZAÇÕES DO SUPABASE...");
     const supabase = createClient();
+    
+    // Buscar Configurações do Grupo Familiar (Modo Crise)
+    const { data: familyGroup } = await supabase
+      .from("family_groups")
+      .select("monthly_income_cents, fixed_expenses_cents, accumulated_balance_cents")
+      .eq("id", familyGroupId)
+      .single();
+      
+    if (familyGroup) {
+      if (familyGroup.monthly_income_cents !== null) {
+        setMonthlyIncomeCentsState(familyGroup.monthly_income_cents);
+        localStorage.setItem("vesper_monthly_income", familyGroup.monthly_income_cents.toString());
+      }
+      if (familyGroup.fixed_expenses_cents !== null) {
+        setFixedExpensesCentsState(familyGroup.fixed_expenses_cents);
+        localStorage.setItem("vesper_fixed_expenses", familyGroup.fixed_expenses_cents.toString());
+      }
+      if (familyGroup.accumulated_balance_cents !== null) {
+        setAccumulatedBalanceCents(familyGroup.accumulated_balance_cents);
+        localStorage.setItem("vesper_accumulated_balance", familyGroup.accumulated_balance_cents.toString());
+      }
+    }
 
     // Buscar Categorias (Incluindo Globais)
     let { data: catData } = await supabase
@@ -128,7 +158,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     
     const { data: monthTxs } = await supabase
       .from("transactions")
-      .select("amount_cents, transaction_type, account_id")
+      .select("amount_cents, transaction_type, account_id, is_legacy_debt")
       .eq("family_group_id", familyGroupId)
       .gte("date", monthStart);
       
@@ -141,7 +171,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         .reduce((sum, tx) => sum + tx.amount_cents, 0);
         
       const monthExp = monthTxs
-        .filter(tx => tx.transaction_type === "EXPENSE" && nonCreditCardAccIds.includes(tx.account_id))
+        .filter(tx => tx.transaction_type === "EXPENSE" && nonCreditCardAccIds.includes(tx.account_id) && !tx.is_legacy_debt)
         .reduce((sum, tx) => sum + tx.amount_cents, 0);
         
       setExtraIncomeCents(extraInc);
@@ -165,10 +195,12 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
           const { data: txs } = await supabase
             .from("transactions")
-            .select("amount_cents, date")
+            .select("amount_cents, date, is_legacy_debt")
             .eq("account_id", acc.id);
           
           const total = txs?.reduce((sum, tx) => {
+            if (tx.is_legacy_debt) return sum; // Ignorar dívidas antigas já calculadas no custo fixo
+
             const txDate = new Date(tx.date);
             let tY = txDate.getUTCFullYear();
             let tM = txDate.getUTCMonth();
