@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { useFinancialData } from "@/context/FinancialDataContext";
 
 export function AddSubscriptionModal() {
-  const { isOpen, closeModal } = useSubscriptionModal();
+  const { isOpen, closeModal, editingSubscription } = useSubscriptionModal();
   const { familyGroupId } = useAccountModal();
   const router = useRouter();
   const { categories, accounts, refreshData } = useFinancialData();
@@ -25,6 +25,28 @@ export function AddSubscriptionModal() {
   const [day, setDay] = useState(new Date().getDate());
   const [type, setType] = useState<"EXPENSE" | "INCOME">("EXPENSE");
   
+  // Pre-preencher se estiver editando
+  useEffect(() => {
+    if (editingSubscription) {
+      setDescription(editingSubscription.description || "");
+      setAmount(((editingSubscription.amount_cents || 0) / 100).toString().replace(".", ","));
+      setCategoryId(editingSubscription.category_id || "");
+      setAccountId(editingSubscription.account_id || "");
+      setType(editingSubscription.transaction_type || "EXPENSE");
+      
+      if (editingSubscription.next_date) {
+        setDay(new Date(editingSubscription.next_date).getDate());
+      }
+    } else {
+      setDescription("");
+      setAmount("");
+      setCategoryId("");
+      if (accounts.length > 0) setAccountId(accounts[0].id);
+      setDay(new Date().getDate());
+      setType("EXPENSE");
+    }
+  }, [editingSubscription, accounts, isOpen]);
+
   // Custom Select States
   const [openCategory, setOpenCategory] = useState(false);
   const [openAccount, setOpenAccount] = useState(false);
@@ -48,18 +70,12 @@ export function AddSubscriptionModal() {
   }, [openAccount, openCategory]);
 
   useEffect(() => {
-    if (isOpen && accounts.length > 0) {
+    if (isOpen && accounts.length > 0 && !editingSubscription) {
       if (!accountId || !accounts.find(a => a.id === accountId)) {
         setAccountId(accounts[0].id);
       }
     }
-  }, [isOpen, accounts]);
-
-  // Sync category when type changes
-  useEffect(() => {
-    const firstOfType = categories.find(c => c.type === type);
-    if (firstOfType) setCategoryId(firstOfType.id);
-  }, [type, categories]);
+  }, [isOpen, accounts, editingSubscription]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -84,17 +100,36 @@ export function AddSubscriptionModal() {
       nextDate.setMonth(nextDate.getMonth() + 1);
     }
 
-    const { error } = await supabase.from("recurring_transactions").insert({
-      family_group_id: familyGroupId,
+    // Fallback para categorias caso esteja vazio (o banco exige category_id)
+    const fallbackCategoryId = type === "EXPENSE" 
+      ? "fe7555b9-5019-4cad-8d57-b2472d660c0f" // Outros (Gasto)
+      : "6e0e37fc-4104-4e2a-929e-170758d76d41"; // Outros (Receita)
+
+    const payload: any = {
       account_id: accountId,
-      category_id: categoryId,
+      category_id: categoryId || fallbackCategoryId,
       description,
       amount_cents: amountCents,
       transaction_type: type,
       frequency: "monthly",
       next_date: nextDate.toISOString(),
-      status: "active"
-    });
+      status: editingSubscription ? editingSubscription.status : "active"
+    };
+
+    let error;
+    if (editingSubscription) {
+      const { error: err } = await supabase
+        .from("recurring_transactions")
+        .update(payload)
+        .eq("id", editingSubscription.id);
+      error = err;
+    } else {
+      payload.family_group_id = familyGroupId;
+      const { error: err } = await supabase
+        .from("recurring_transactions")
+        .insert(payload);
+      error = err;
+    }
 
     if (!error) {
       await refreshData();
@@ -103,7 +138,8 @@ export function AddSubscriptionModal() {
       setAmount("");
       router.refresh();
     } else {
-      alert("Erro ao salvar fluxo recorrente");
+      console.error("Erro ao salvar fluxo:", error);
+      alert(`Erro ao salvar: ${error.message || "Erro desconhecido"}`);
     }
     setLoading(false);
   }
@@ -228,7 +264,7 @@ export function AddSubscriptionModal() {
                           <Loader2 className="w-3 h-3 animate-spin" />
                           Carregando...
                         </span>
-                      ) : (categories.find(c => c.id === categoryId)?.name || "Selecione")}
+                      ) : (categories.find(c => c.id === categoryId)?.name || "Nenhuma")}
                     </span>
                     <ChevronDown className={cn("w-4 h-4 transition-transform", openCategory && "rotate-180")} />
                   </div>
@@ -236,11 +272,20 @@ export function AddSubscriptionModal() {
                   <AnimatePresence>
                     {openCategory && filteredCategories.length > 0 && (
                       <motion.div
-                        initial={{ opacity: 0, y: -10 }}
+                        initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute z-50 left-0 right-0 top-full mt-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto"
+                        exit={{ opacity: 0, y: 10 }}
+                        className="absolute z-50 left-0 right-0 bottom-full mb-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto"
                       >
+                        <div
+                          onClick={() => {
+                            setCategoryId("");
+                            setOpenCategory(false);
+                          }}
+                          className="px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-bold text-white/40 hover:text-white transition-colors border-b border-white/5 italic"
+                        >
+                          Nenhuma (Opcional)
+                        </div>
                         {filteredCategories.map(cat => (
                           <div
                             key={cat.id}
@@ -294,10 +339,10 @@ export function AddSubscriptionModal() {
                   <AnimatePresence>
                     {openAccount && accounts.length > 0 && (
                       <motion.div
-                        initial={{ opacity: 0, y: -10 }}
+                        initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute z-50 left-0 right-0 top-full mt-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto"
+                        exit={{ opacity: 0, y: 10 }}
+                        className="absolute z-50 left-0 right-0 bottom-full mb-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto"
                       >
                         {accounts.map(acc => (
                           <div

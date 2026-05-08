@@ -90,23 +90,37 @@ export default function RealtimeDashboard({
     });
 
     // --- TOTAL DE DÍVIDA NOS CARTÕES ---
+    const todayDay = new Date().getDate();
     const cardBreakdown = liveAccounts
       .filter((a: any) => a.type === "CREDIT_CARD")
       .reduce((acc: any, a: any) => {
-        acc.closed += Math.max(0, a.closed_invoice_cents || 0);
-        acc.open += Math.max(0, a.open_invoice_cents || 0);
+        const cardClosingDay = a.closing_day || 31;
+        
+        if (todayDay >= cardClosingDay) {
+          // Caso 1: A fatura deste mês já FECHOU. 
+          // O que está 'fechado' vence agora (Imediato). 
+          // O que está 'aberto' já é para o mês que vem (Próxima).
+          acc.immediate += Math.max(0, a.closed_invoice_cents || 0);
+          acc.upcoming += Math.max(0, a.open_invoice_cents || 0);
+        } else {
+          // Caso 2: A fatura deste mês ainda está ABERTA.
+          // O que está 'aberto' vence ainda este mês (Imediato).
+          // O que está 'fechado' é do mês passado (deve estar pago, mas se não estiver, é Imediato).
+          acc.immediate += Math.max(0, a.open_invoice_cents || 0) + Math.max(0, a.closed_invoice_cents || 0);
+          acc.upcoming += 0; 
+        }
         return acc;
-      }, { closed: 0, open: 0 });
+      }, { immediate: 0, upcoming: 0 });
 
-    const plannedExpenses = futureThisMonth + recurringThisMonth + cardBreakdown.closed + cardBreakdown.open;
+    const plannedExpenses = futureThisMonth + recurringThisMonth + cardBreakdown.immediate + cardBreakdown.upcoming;
     const scheduledOnly = futureThisMonth + recurringThisMonth;
     const sobraLivre = initialBalance - plannedExpenses;
     
     return {
       balanceAtMonthEnd: sobraLivre,
       plannedExpenses,
-      immediateCardDebt: cardBreakdown.closed,
-      upcomingCardDebt: cardBreakdown.open,
+      immediateCardDebt: cardBreakdown.immediate,
+      upcomingCardDebt: cardBreakdown.upcoming,
       scheduledOnly,
       isHealthy: sobraLivre >= 0
     };

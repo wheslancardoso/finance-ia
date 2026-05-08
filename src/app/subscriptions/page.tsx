@@ -8,6 +8,8 @@ import { redirect } from "next/navigation";
 import { SubscriptionManager } from "@/components/SubscriptionManager";
 import { SyncFamilyGroup } from "@/components/SyncFamilyGroup";
 
+export const dynamic = "force-dynamic";
+
 export default async function SubscriptionsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -20,7 +22,7 @@ export default async function SubscriptionsPage() {
     .from("recurring_transactions")
     .select(`
       *,
-      categories(name, icon),
+      categories(name, icon_name),
       accounts(name, color_hex)
     `)
     .eq("family_group_id", familyGroupId)

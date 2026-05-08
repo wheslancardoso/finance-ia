@@ -4,7 +4,8 @@ import React, { createContext, useContext, useState, ReactNode } from "react";
 
 interface SubscriptionModalContextType {
   isOpen: boolean;
-  openModal: () => void;
+  editingSubscription: any | null;
+  openModal: (subscription?: any) => void;
   closeModal: () => void;
 }
 
@@ -12,12 +13,20 @@ const SubscriptionModalContext = createContext<SubscriptionModalContextType | un
 
 export function SubscriptionModalProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [editingSubscription, setEditingSubscription] = useState<any | null>(null);
 
-  const openModal = () => setIsOpen(true);
-  const closeModal = () => setIsOpen(false);
+  const openModal = (subscription?: any) => {
+    setEditingSubscription(subscription || null);
+    setIsOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsOpen(false);
+    setEditingSubscription(null);
+  };
 
   return (
-    <SubscriptionModalContext.Provider value={{ isOpen, openModal, closeModal }}>
+    <SubscriptionModalContext.Provider value={{ isOpen, editingSubscription, openModal, closeModal }}>
       {children}
     </SubscriptionModalContext.Provider>
   );
