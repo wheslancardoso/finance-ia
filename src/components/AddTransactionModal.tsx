@@ -584,7 +584,7 @@ export function AddTransactionModal() {
                           required
                         />
                       </div>
-                      <div className="relative w-28 shrink-0">
+                      <div className="relative w-36 shrink-0">
                         <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
                         <input
                           type="time"
