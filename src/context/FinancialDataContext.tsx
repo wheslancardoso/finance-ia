@@ -19,6 +19,7 @@ interface Account {
   balance_cents: number;
   credit_limit_cents?: number;
   current_invoice_cents?: number;
+  ceiling_impact_cents?: number;
   closing_day?: number;
   due_day?: number;
   color_hex?: string;
@@ -39,6 +40,7 @@ interface FinancialDataContextType {
   extraIncomeCents: number;
   currentMonthExpensesCents: number;
   accumulatedBalanceCents: number;
+  toggleTransactionPaid: (transactionId: string, currentStatus: boolean) => Promise<void>;
 }
 
 const FinancialDataContext = createContext<FinancialDataContextType | undefined>(undefined);
@@ -179,42 +181,61 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     }
     
     if (accData) {
-      // Calcular Fatura Atual para cada cartão
+      // Calcular Fatura Atual e Impacto no Teto para cada cartão
       const accountsWithInvoice = await Promise.all(accData.map(async (acc) => {
         if (acc.type === "CREDIT_CARD") {
-          // Determinar qual é a fatura "aberta" no momento (UTC)
           const now = new Date();
           let invY = now.getUTCFullYear();
           let invM = now.getUTCMonth();
           
-          if (now.getUTCDate() > (acc.closing_day || 1)) {
-            invM++;
-            if (invM > 11) { invM = 0; invY++; }
-          }
+          // A "Fatura Atual" no HUD agora será sempre a do mês vigente do calendário.
+          // Isso garante que você veja os gastos de Maio durante todo o mês de Maio.
           const invoiceStr = `${invY}-${String(invM + 1).padStart(2, '0')}-01`;
 
           const { data: txs } = await supabase
             .from("transactions")
-            .select("amount_cents, date, is_legacy_debt")
+            .select("id, amount_cents, date, is_legacy_debt, is_paid")
             .eq("account_id", acc.id);
           
-          const total = txs?.reduce((sum, tx) => {
-            if (tx.is_legacy_debt) return sum; // Ignorar dívidas antigas já calculadas no custo fixo
+          let totalInvoice = 0;
+          let ceilingImpact = 0;
+          let totalSpentOnCard = 0;
 
+          txs?.forEach((tx) => {
             const txDate = new Date(tx.date);
+            
+            // Apenas transações NÃO pagas ocupam o limite do cartão
+            if (!tx.is_paid) {
+              totalSpentOnCard += tx.amount_cents;
+            }
+
             let tY = txDate.getUTCFullYear();
             let tM = txDate.getUTCMonth();
             
-            if (txDate.getUTCDate() > (acc.closing_day || 1)) {
+            // Se o dia da transação for MAIOR OU IGUAL ao dia de fechamento, cai na próxima fatura
+            const cardClosingDay = acc.closing_day || 31;
+            
+            if (txDate.getUTCDate() >= cardClosingDay) {
               tM++;
               if (tM > 11) { tM = 0; tY++; }
             }
             
             const txInvoiceStr = `${tY}-${String(tM + 1).padStart(2, '0')}-01`;
-            return txInvoiceStr === invoiceStr ? sum + tx.amount_cents : sum;
-          }, 0) || 0;
+            
+            if (txInvoiceStr === invoiceStr) {
+              totalInvoice += tx.amount_cents;
+              if (!tx.is_legacy_debt) {
+                ceilingImpact += tx.amount_cents;
+              }
+            }
+          });
           
-          return { ...acc, current_invoice_cents: total };
+          return { 
+            ...acc, 
+            current_invoice_cents: totalInvoice,
+            ceiling_impact_cents: ceilingImpact,
+            balance_cents: -totalSpentOnCard
+          };
         }
         return acc;
       }));
@@ -227,6 +248,18 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     setLastFetched(Date.now());
     setLoading(false);
   }, [familyGroupId]);
+
+  const toggleTransactionPaid = async (transactionId: string, currentStatus: boolean) => {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("transactions")
+      .update({ is_paid: !currentStatus })
+      .eq("id", transactionId);
+    
+    if (!error) {
+      await refreshData();
+    }
+  };
 
   // Carregar dados locais IMEDIATAMENTE
   useEffect(() => {
@@ -276,7 +309,8 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       categories, accounts, loading, refreshData, lastFetched,
       monthlyIncomeCents, setMonthlyIncomeCents,
       fixedExpensesCents, setFixedExpensesCents,
-      extraIncomeCents, currentMonthExpensesCents, accumulatedBalanceCents
+      extraIncomeCents, currentMonthExpensesCents, accumulatedBalanceCents,
+      toggleTransactionPaid
     }}>
       {children}
     </FinancialDataContext.Provider>

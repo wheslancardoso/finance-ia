@@ -164,10 +164,10 @@ export function AddTransactionModal() {
             .eq("name", oldGoalName)
             .eq("family_group_id", familyGroupId)
             .maybeSingle();
-            
+
           if (oldGoal) {
-            await supabase.from("goals").update({ 
-              current_amount_cents: Math.max(0, (oldGoal.current_amount_cents || 0) - transactionToEdit.amount_cents) 
+            await supabase.from("goals").update({
+              current_amount_cents: Math.max(0, (oldGoal.current_amount_cents || 0) - transactionToEdit.amount_cents)
             }).eq("id", oldGoal.id);
           }
         }
@@ -180,10 +180,10 @@ export function AddTransactionModal() {
             .eq("name", newGoalName)
             .eq("family_group_id", familyGroupId)
             .maybeSingle();
-            
+
           if (newGoal) {
-            await supabase.from("goals").update({ 
-              current_amount_cents: (newGoal.current_amount_cents || 0) + totalAmountCents 
+            await supabase.from("goals").update({
+              current_amount_cents: (newGoal.current_amount_cents || 0) + totalAmountCents
             }).eq("id", newGoal.id);
           }
         }
@@ -216,7 +216,8 @@ export function AddTransactionModal() {
             } else {
               // Inserir nova série
               const transactionsToInsert = [];
-              const startDate = new Date(transactionDate);
+              const [startYear, startMonth, startDay] = transactionDate.split('-').map(Number);
+              const startDate = new Date(startYear, startMonth - 1, startDay);
 
               for (let i = 0; i < installments; i++) {
                 const installmentDate = addMonths(startDate, i);
@@ -279,7 +280,8 @@ export function AddTransactionModal() {
         }
       } else {
         const transactionsToInsert = [];
-        const startDate = new Date(transactionDate);
+        const [startYear, startMonth, startDay] = transactionDate.split('-').map(Number);
+        const startDate = new Date(startYear, startMonth - 1, startDay);
 
         for (let i = 0; i < installments; i++) {
           const installmentDate = addMonths(startDate, i);
@@ -699,12 +701,12 @@ export function AddTransactionModal() {
                   )}
 
                   {/* Dívida Legada - Toggle */}
-                  <div 
+                  <div
                     onClick={() => setIsLegacyDebt(!isLegacyDebt)}
                     className={cn(
                       "flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer group",
-                      isLegacyDebt 
-                        ? "bg-amber-500/10 border-amber-500/30" 
+                      isLegacyDebt
+                        ? "bg-amber-500/10 border-amber-500/30"
                         : "bg-white/[0.02] border-white/10 hover:border-white/20"
                     )}
                   >
@@ -726,9 +728,9 @@ export function AddTransactionModal() {
                       "w-10 h-5 rounded-full relative transition-colors duration-300",
                       isLegacyDebt ? "bg-amber-500" : "bg-white/10"
                     )}>
-                      <motion.div 
+                      <motion.div
                         animate={{ x: isLegacyDebt ? 22 : 2 }}
-                        className="absolute top-1 left-0 w-3 h-3 rounded-full bg-white shadow-sm" 
+                        className="absolute top-1 left-0 w-3 h-3 rounded-full bg-white shadow-sm"
                       />
                     </div>
                   </div>

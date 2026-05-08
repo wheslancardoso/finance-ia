@@ -61,7 +61,9 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 ---
 
 ## ⚡ Ajustes Recentes (Maio/2026)
-*   **Account Filter Strip**: Seletor horizontal no histórico.
+*   **Invoice-First Grouping**: No histórico de transações, cartões de crédito agora são agrupados por mês de fatura (ex: "Fatura de Maio") em vez de data civil, garantindo que compras feitas no dia do fechamento apareçam no mês correto de cobrança.
+*   **Credit Card Logic Refinement**: Implementada a regra de fechamento `>= closing_day` para atribuição automática de faturas e rollover de HUD baseado no mês vigente.
+*   **Account Filter Strip**: Seletor horizontal no histórico com exibição de saldo/fatura atual.
 *   **Goal Contributions**: Implementação de funcionalidade de aporte em metas.
 *   **Auto Category Seeding**: Semeio automático de categorias para novos grupos familiares.
 

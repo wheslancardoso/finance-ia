@@ -11,3 +11,22 @@ export function formatCurrency(cents: number) {
     currency: "BRL",
   }).format(cents / 100);
 }
+
+export function getTransactionInvoiceMonth(dateStr: string, closingDay: number | null) {
+  const date = new Date(dateStr);
+  let year = date.getUTCFullYear();
+  let month = date.getUTCMonth();
+  const day = date.getUTCDate();
+  
+  // Regra central: se o dia for >= ao fechamento, cai no próximo mês
+  const cDay = closingDay || 31;
+  if (day >= cDay) {
+    month++;
+    if (month > 11) {
+      month = 0;
+      year++;
+    }
+  }
+  
+  return { year, month };
+}

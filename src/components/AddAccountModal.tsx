@@ -172,18 +172,27 @@ export function AddAccountModal() {
 
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-1">
-                    {type === "CREDIT_CARD" ? "Fatura Atual" : "Saldo"}
+                    {type === "CREDIT_CARD" ? "Gasto Acumulado (Débito)" : "Saldo"}
                   </label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 font-bold">R$</span>
                     <input
                       placeholder="0,00"
-                      value={balance}
+                      value={type === "CREDIT_CARD" ? balance.replace("-", "") : balance}
                       onChange={(e) => setBalance(e.target.value)}
-                      className="w-full bg-white/5 border border-white/5 rounded-2xl py-4 pl-10 pr-4 text-white text-xl font-bold outline-none focus:border-white/20 transition-all tabular-nums"
+                      disabled={type === "CREDIT_CARD"}
+                      className={cn(
+                        "w-full bg-white/5 border border-white/5 rounded-2xl py-4 pl-10 pr-4 text-white text-xl font-bold outline-none transition-all tabular-nums",
+                        type === "CREDIT_CARD" ? "opacity-50 cursor-not-allowed border-violet-500/20" : "focus:border-white/20"
+                      )}
                       required
                     />
                   </div>
+                  {type === "CREDIT_CARD" && (
+                    <p className="text-[9px] text-violet-400/60 font-bold uppercase tracking-tighter px-1">
+                      Calculado automaticamente via transações
+                    </p>
+                  )}
                 </div>
 
                 {type === "CREDIT_CARD" && (

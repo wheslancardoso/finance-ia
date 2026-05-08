@@ -2,14 +2,15 @@
 
 import React from "react";
 import GlassCard from "./GlassCard";
-import { formatCurrency, cn } from "@/lib/utils";
+import { formatCurrency, cn, getTransactionInvoiceMonth } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowUpRight, ArrowDownLeft, Layers } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, Layers, Check, Calendar } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { useTransactionModal } from "@/context/TransactionModalContext";
 import { useAccountModal } from "@/context/AccountModalContext";
+import { useFinancialData } from "@/context/FinancialDataContext";
 import { ActionMenu } from "./ActionMenu";
 import { InstallmentTimelineModal } from "./InstallmentTimelineModal";
 
@@ -18,6 +19,7 @@ interface TransactionItemProps {
 }
 
 export function TransactionItem({ transaction: tx }: TransactionItemProps) {
+  const { toggleTransactionPaid } = useFinancialData();
   const [isTimelineOpen, setIsTimelineOpen] = React.useState(false);
   const router = useRouter();
   const { openEdit } = useTransactionModal();
@@ -82,7 +84,8 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
       <GlassCard 
         className={cn(
           "p-4 flex items-center justify-between group hover:border-white/20 transition-all",
-          isInstallment && "cursor-pointer"
+          isInstallment && "cursor-pointer",
+          tx.is_paid && "opacity-50 grayscale-[0.5]"
         )}
         onClick={() => {
           if (isInstallment) setIsTimelineOpen(true);
@@ -99,7 +102,9 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
           </div>
           
           <div>
-            <p className="text-white font-semibold text-lg">{tx.description}</p>
+            <p className={cn("text-white font-semibold text-lg", tx.is_paid && "line-through text-white/40")}>
+              {tx.description}
+            </p>
             <div className="flex items-center gap-2">
               <span 
                 className="text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-tighter"
@@ -126,11 +131,12 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
           <div className="text-right">
             <p className={cn(
               "text-xl font-bold tabular-nums",
-              isIncome ? "text-green-400" : "text-white"
+              isIncome ? "text-green-400" : "text-white",
+              tx.is_paid && "text-white/20"
             )}>
               {isIncome ? "+" : "-"} {formatCurrency(tx.amount_cents)}
             </p>
@@ -139,8 +145,27 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
             </p>
           </div>
 
-          {/* Action Menu */}
-          <div onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+            {/* Botão de Quitar */}
+            {!isIncome && (
+              <button
+                onClick={async () => {
+                  await toggleTransactionPaid(tx.id, tx.is_paid || false);
+                  router.refresh();
+                }}
+                className={cn(
+                  "w-10 h-10 rounded-2xl flex items-center justify-center transition-all border shrink-0",
+                  tx.is_paid 
+                    ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]" 
+                    : "bg-white/5 border-white/10 text-white/10 hover:border-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/5"
+                )}
+                title={tx.is_paid ? "Marcar como não pago" : "Marcar como pago"}
+              >
+                <Check className={cn("w-5 h-5 transition-transform", tx.is_paid && "scale-110")} />
+              </button>
+            )}
+
+            {/* Action Menu */}
             <ActionMenu 
               onEdit={async () => {
                 console.log("TransactionItem: triggering openEdit for", tx.id);

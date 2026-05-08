@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { TransactionItem } from "./TransactionItem";
 import GlassCard from "./GlassCard";
-import { formatCurrency, cn } from "@/lib/utils";
+import { formatCurrency, cn, getTransactionInvoiceMonth } from "@/lib/utils";
 import { 
   Search, 
   Filter, 
@@ -13,15 +13,22 @@ import {
   LayoutGrid
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useFinancialData } from "@/context/FinancialDataContext";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface TransactionsContentProps {
   initialTransactions: any[];
   accounts: any[];
 }
 
-export function TransactionsContent({ initialTransactions, accounts }: TransactionsContentProps) {
+export function TransactionsContent({ initialTransactions, accounts: serverAccounts }: TransactionsContentProps) {
+  const { accounts: contextAccounts } = useFinancialData();
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Usar as contas do contexto se disponíveis (pois têm o cálculo da fatura)
+  const accounts = contextAccounts.length > 0 ? contextAccounts : serverAccounts;
 
   const filteredTransactions = useMemo(() => {
     return initialTransactions.filter(tx => {
@@ -33,19 +40,24 @@ export function TransactionsContent({ initialTransactions, accounts }: Transacti
     });
   }, [initialTransactions, selectedAccountId, searchQuery]);
 
-  // Agrupar transações por data
+  // Agrupar transações por data ou fatura
   const groupedTransactions = useMemo(() => {
     const groups: Record<string, any[]> = {};
     filteredTransactions.forEach((tx) => {
-      const date = new Date(tx.date).toLocaleDateString("pt-BR", { 
-        day: "2-digit", 
-        month: "long", 
-        year: "numeric" 
-      });
-      if (!groups[date]) {
-        groups[date] = [];
+      const isCredit = tx.accounts?.type === "CREDIT_CARD";
+      let groupKey: string;
+
+      if (isCredit) {
+        const inv = getTransactionInvoiceMonth(tx.date, tx.accounts?.closing_day);
+        groupKey = `Fatura de ${format(new Date(inv.year, inv.month, 1), "MMMM 'de' yyyy", { locale: ptBR })}`;
+      } else {
+        groupKey = format(new Date(tx.date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
       }
-      groups[date].push(tx);
+
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey].push(tx);
     });
     return groups;
   }, [filteredTransactions]);
@@ -100,14 +112,15 @@ export function TransactionsContent({ initialTransactions, accounts }: Transacti
                    />
                 )}
               </div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.1em] truncate w-full mb-0.5">
+              <p className="text-[9px] font-black uppercase tracking-widest truncate w-full opacity-40">
                 {acc.name}
               </p>
               <p className={cn(
-                "text-xs font-bold tabular-nums truncate w-full",
+                "text-xs font-black tabular-nums truncate w-full mt-0.5",
                 isSelected ? "text-white" : "text-white/60"
               )}>
-                {formatCurrency(Math.abs(acc.balance_cents))}
+                {isCredit ? "Fatura: " : ""}
+                {formatCurrency(isCredit ? (acc.current_invoice_cents || 0) : (acc.balance_cents || 0))}
               </p>
             </button>
           );

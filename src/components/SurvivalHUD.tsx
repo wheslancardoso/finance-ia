@@ -25,10 +25,10 @@ export default function SurvivalHUD() {
   const [setupExpenses, setSetupExpenses] = useState("");
 
   // Matemática Base-Zero do Modo Crise
-  const totalCreditCardInvoices = useMemo(() => {
+  const totalCreditCardImpact = useMemo(() => {
     return accounts
       .filter((acc) => acc.type === "CREDIT_CARD")
-      .reduce((sum, acc) => sum + (acc.current_invoice_cents || 0), 0);
+      .reduce((sum, acc) => sum + (acc.ceiling_impact_cents || 0), 0);
   }, [accounts]);
 
   const survivalCeilingCents = useMemo(() => {
@@ -38,7 +38,7 @@ export default function SurvivalHUD() {
       accumulatedBalanceCents + 
       extraIncomeCents - 
       fixedExpensesCents - 
-      totalCreditCardInvoices - 
+      totalCreditCardImpact - 
       currentMonthExpensesCents
     );
   }, [
@@ -46,7 +46,7 @@ export default function SurvivalHUD() {
     accumulatedBalanceCents, 
     extraIncomeCents, 
     fixedExpensesCents, 
-    totalCreditCardInvoices, 
+    totalCreditCardImpact, 
     currentMonthExpensesCents
   ]);
 
@@ -213,7 +213,7 @@ export default function SurvivalHUD() {
             <span className="text-white/20">-</span>
             <span title="Débitos/Pix" className="text-amber-400/70">{(currentMonthExpensesCents / 100).toFixed(0)}</span>
             <span className="text-white/20">-</span>
-            <span title="Faturas Abertas" className="text-red-400/70">{(totalCreditCardInvoices / 100).toFixed(0)}</span>
+            <span title="Faturas Abertas (Gasto Novo)" className="text-red-400/70">{(totalCreditCardImpact / 100).toFixed(0)}</span>
           </div>
         </div>
 

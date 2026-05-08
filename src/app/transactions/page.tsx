@@ -11,7 +11,7 @@ export default async function TransactionsPage() {
   // 1. Buscar Contas do grupo (com detalhes para o filtro)
   const { data: accounts } = await supabase
     .from("accounts")
-    .select("id, name, type, balance_cents, color_hex")
+    .select("id, name, type, balance_cents, color_hex, closing_day, due_day")
     .eq("family_group_id", familyGroupId)
     .order("name");
 
@@ -23,7 +23,7 @@ export default async function TransactionsPage() {
     .select(`
       *,
       categories (name, color_hex, icon_name),
-      accounts (name, color_hex)
+      accounts (name, color_hex, type, closing_day, due_day)
     `)
     .in("account_id", accountIds)
     .order("date", { ascending: false });
