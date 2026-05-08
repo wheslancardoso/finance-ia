@@ -34,6 +34,11 @@ interface FinancialDataContextType {
   setMonthlyIncomeCents: (val: number) => void;
   fixedExpensesCents: number;
   setFixedExpensesCents: (val: number) => void;
+  
+  // Modo Crise Avançado
+  extraIncomeCents: number;
+  currentMonthExpensesCents: number;
+  accumulatedBalanceCents: number;
 }
 
 const FinancialDataContext = createContext<FinancialDataContextType | undefined>(undefined);
@@ -49,6 +54,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   // Modo Crise: Variáveis Base
   const [monthlyIncomeCents, setMonthlyIncomeCentsState] = useState(0);
   const [fixedExpensesCents, setFixedExpensesCentsState] = useState(0);
+  const [extraIncomeCents, setExtraIncomeCents] = useState(0);
+  const [currentMonthExpensesCents, setCurrentMonthExpensesCents] = useState(0);
+  const [accumulatedBalanceCents, setAccumulatedBalanceCents] = useState(0);
 
   const { familyGroupId } = useAccountModal();
 
@@ -112,6 +120,32 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       setCategories(catData);
       // Atualizar Banco Local
       await db.categories.bulkPut(catData.map(c => ({ ...c, family_group_id: familyGroupId })));
+    }
+    
+    // Buscar todas as transações do Mês Atual (para extraIncome e currentMonthExpenses)
+    const now = new Date();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+    
+    const { data: monthTxs } = await supabase
+      .from("transactions")
+      .select("amount_cents, transaction_type, account_id")
+      .eq("family_group_id", familyGroupId)
+      .gte("date", monthStart);
+      
+    if (monthTxs && accData) {
+      // Filtrar as transações que NÃO são de Cartão de Crédito
+      const nonCreditCardAccIds = accData.filter(a => a.type !== "CREDIT_CARD").map(a => a.id);
+      
+      const extraInc = monthTxs
+        .filter(tx => tx.transaction_type === "INCOME")
+        .reduce((sum, tx) => sum + tx.amount_cents, 0);
+        
+      const monthExp = monthTxs
+        .filter(tx => tx.transaction_type === "EXPENSE" && nonCreditCardAccIds.includes(tx.account_id))
+        .reduce((sum, tx) => sum + tx.amount_cents, 0);
+        
+      setExtraIncomeCents(extraInc);
+      setCurrentMonthExpensesCents(monthExp);
     }
     
     if (accData) {
@@ -184,6 +218,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         
         const storedExpenses = localStorage.getItem("vesper_fixed_expenses");
         if (storedExpenses) setFixedExpensesCentsState(parseInt(storedExpenses, 10));
+        
+        const storedAccumulated = localStorage.getItem("vesper_accumulated_balance");
+        if (storedAccumulated) setAccumulatedBalanceCents(parseInt(storedAccumulated, 10));
       }
     }
 
@@ -206,7 +243,8 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     <FinancialDataContext.Provider value={{ 
       categories, accounts, loading, refreshData, lastFetched,
       monthlyIncomeCents, setMonthlyIncomeCents,
-      fixedExpensesCents, setFixedExpensesCents
+      fixedExpensesCents, setFixedExpensesCents,
+      extraIncomeCents, currentMonthExpensesCents, accumulatedBalanceCents
     }}>
       {children}
     </FinancialDataContext.Provider>

@@ -11,6 +11,9 @@ export default function SurvivalHUD() {
     monthlyIncomeCents, 
     fixedExpensesCents, 
     accounts,
+    extraIncomeCents,
+    currentMonthExpensesCents,
+    accumulatedBalanceCents,
     setMonthlyIncomeCents,
     setFixedExpensesCents
   } = useFinancialData();
@@ -29,9 +32,23 @@ export default function SurvivalHUD() {
   }, [accounts]);
 
   const survivalCeilingCents = useMemo(() => {
-    // Teto = Renda - Fixo - Faturas de Cartão (Dinheiro "Virtual" que já foi comprometido)
-    return Math.max(0, monthlyIncomeCents - fixedExpensesCents - totalCreditCardInvoices);
-  }, [monthlyIncomeCents, fixedExpensesCents, totalCreditCardInvoices]);
+    // Teto = Renda Base + Sobras Passadas + Bicos Extras - Fixo - Faturas de Cartão - Gastos Variáveis (Débito/Pix)
+    return Math.max(0, 
+      monthlyIncomeCents + 
+      accumulatedBalanceCents + 
+      extraIncomeCents - 
+      fixedExpensesCents - 
+      totalCreditCardInvoices - 
+      currentMonthExpensesCents
+    );
+  }, [
+    monthlyIncomeCents, 
+    accumulatedBalanceCents, 
+    extraIncomeCents, 
+    fixedExpensesCents, 
+    totalCreditCardInvoices, 
+    currentMonthExpensesCents
+  ]);
 
   // Cálculos Temporais
   const getDisplayValue = () => {
@@ -183,12 +200,20 @@ export default function SurvivalHUD() {
           </div>
 
           {/* Math Summary Miniature */}
-          <div className="flex items-center gap-3 text-[10px] text-white/30 font-mono">
-            <span>Renda: {(monthlyIncomeCents / 100).toFixed(0)}</span>
-            <span>-</span>
-            <span>Fixo: {(fixedExpensesCents / 100).toFixed(0)}</span>
-            <span>-</span>
-            <span className="text-red-400/70">Cartões: {(totalCreditCardInvoices / 100).toFixed(0)}</span>
+          <div className="flex flex-wrap items-center justify-end gap-2 text-[10px] text-white/30 font-mono">
+            <span title="Renda Base" className="text-emerald-500/70">{(monthlyIncomeCents / 100).toFixed(0)}</span>
+            {(accumulatedBalanceCents > 0 || extraIncomeCents > 0) && (
+              <>
+                <span className="text-white/20">+</span>
+                <span title="Bicos e Sobras" className="text-blue-400/70">{((accumulatedBalanceCents + extraIncomeCents) / 100).toFixed(0)}</span>
+              </>
+            )}
+            <span className="text-white/20">-</span>
+            <span title="Custo Fixo" className="text-white/40">{(fixedExpensesCents / 100).toFixed(0)}</span>
+            <span className="text-white/20">-</span>
+            <span title="Débitos/Pix" className="text-amber-400/70">{(currentMonthExpensesCents / 100).toFixed(0)}</span>
+            <span className="text-white/20">-</span>
+            <span title="Faturas Abertas" className="text-red-400/70">{(totalCreditCardInvoices / 100).toFixed(0)}</span>
           </div>
         </div>
 
