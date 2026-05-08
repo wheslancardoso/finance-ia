@@ -584,55 +584,38 @@ export function AddTransactionModal() {
                           required
                         />
                       </div>
-                      <div className="relative w-36 shrink-0">
+                      <div className="relative shrink-0 flex items-center gap-0 bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4">
                         <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
                         <input
-                          type="time"
-                          value={transactionTime}
-                          onChange={(e) => setTransactionTime(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-violet-500/50 font-bold"
-                          required
+                          type="number"
+                          min="0"
+                          max="23"
+                          value={transactionTime.split(":")[0]}
+                          onChange={(e) => {
+                            let h = parseInt(e.target.value) || 0;
+                            if (h > 23) h = 23;
+                            if (h < 0) h = 0;
+                            setTransactionTime(`${String(h).padStart(2, "0")}:${transactionTime.split(":")[1]}`);
+                          }}
+                          className="w-7 bg-transparent py-4 text-sm text-white outline-none font-bold text-center no-spinner tabular-nums"
+                        />
+                        <span className="text-white/40 font-bold text-sm">:</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="59"
+                          value={transactionTime.split(":")[1]}
+                          onChange={(e) => {
+                            let m = parseInt(e.target.value) || 0;
+                            if (m > 59) m = 59;
+                            if (m < 0) m = 0;
+                            setTransactionTime(`${transactionTime.split(":")[0]}:${String(m).padStart(2, "0")}`);
+                          }}
+                          className="w-7 bg-transparent py-4 text-sm text-white outline-none font-bold text-center no-spinner tabular-nums"
                         />
                       </div>
                     </div>
                   </div>
-
-                  {/* Parcelamento Ultra UX - Lista de 1x a 12x */}
-                  {showInstallments && installments > 1 && (
-                    <div className="space-y-4 pt-2">
-                      <div className="flex items-center justify-between px-2">
-                        <div className="flex items-center gap-2">
-                          <Layers className="w-4 h-4 text-white/20" />
-                          <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Projeção</span>
-                        </div>
-                        <span className="text-[10px] font-bold text-violet-400 bg-violet-400/10 px-2 py-0.5 rounded-full border border-violet-400/20">
-                          Termina em {format(addMonths(new Date(transactionDate), installments - 1), "MMM 'de' yy", { locale: ptBR })}
-                        </span>
-                      </div>
-
-                      <div 
-                        ref={scrollRef}
-                        className="flex gap-2 overflow-x-auto pb-4 scroll-smooth custom-scrollbar mask-fade-right"
-                      >
-                        {Array.from({ length: Math.min(installments, 12) }, (_, i) => {
-                          const date = addMonths(new Date(transactionDate), i);
-                          return (
-                            <div
-                              key={i}
-                              className="flex-shrink-0 w-24 p-3 rounded-[20px] border border-white/5 bg-white/2 flex flex-col items-center gap-1 opacity-60"
-                            >
-                              <span className="text-[9px] font-black text-white/40 uppercase">
-                                {i + 1}ª Parcela
-                              </span>
-                              <span className="text-[10px] font-bold text-white">
-                                {format(date, "MMM/yy", { locale: ptBR })}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
 
                   {/* Parcelas - Seção dedicada */}
                   {showInstallments && (
@@ -667,6 +650,19 @@ export function AddTransactionModal() {
                           className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-5 text-sm text-white outline-none focus:border-violet-500/50 font-bold tabular-nums no-spinner"
                         />
                       </div>
+                    </div>
+                  )}
+
+                  {/* Projeção de parcelas - compacta */}
+                  {showInstallments && installments > 1 && (
+                    <div className="flex items-center justify-between px-2 py-2">
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-3.5 h-3.5 text-white/20" />
+                        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{installments}x</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-violet-400 bg-violet-400/10 px-2 py-0.5 rounded-full border border-violet-400/20">
+                        Termina em {format(addMonths(new Date(transactionDate), installments - 1), "MMM 'de' yy", { locale: ptBR })}
+                      </span>
                     </div>
                   )}
                 </div>
