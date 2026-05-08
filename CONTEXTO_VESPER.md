@@ -65,7 +65,8 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 *   **Credit Card Logic Refinement**: Implementada a regra de fechamento `>= closing_day` para atribuição automática de faturas e rollover de HUD baseado no mês vigente.
 *   **Billing Cycle Dashboard**: O card de conta agora alterna automaticamente entre "Fatura Aberta" e "Fatura Fechada" baseado na data atual, exibindo o status relevante para o momento do usuário.
 *   **Invoice Payment System**: Adicionado modal de pagamento de fatura com fluxos de "Pagar Agora" (cria transação de débito) e "Já Paguei" (apenas libera o limite marcando as transações como pagas).
-*   **Planned Expenses Fix**: O cálculo do Dashboard agora integra faturas fechadas pendentes, garantindo que a projeção de "Sobra Livre" seja precisa.
+*   **Planned Expenses Fix**: O cálculo de "Gastos Previstos" no Dashboard agora soma: faturas fechadas + faturas abertas (não pagas) + parcelas futuras do mês + recorrentes. A "Sobra Livre" é `Liquidez Atual - Gastos Previstos`. Dados vêm do `FinancialDataContext` (client-side) garantindo sincronia em tempo real.
+*   **Cross-Page Sync**: O filtro de contas em `/transactions` agora exibe o valor correto da fatura (fechada ou aberta) com label dinâmico, sincronizado com `/accounts` via contexto compartilhado.
 *   **UI/UX Refinement**: Refinamento do card de Recentes para não sobrepor a Timeline e implementação de Portais para modais, garantindo visibilidade total sobre o layout Glass.
 
 ---
