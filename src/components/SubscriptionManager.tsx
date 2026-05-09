@@ -29,7 +29,6 @@ import {
 import { useSubscriptionModal } from "@/context/SubscriptionModalContext";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { createClient } from "@/utils/supabase/client";
-import { useRouter } from "next/navigation";
 
 // Mapeamento de ícones de categorias
 const ICON_MAP: Record<string, any> = {
@@ -65,7 +64,6 @@ interface SubscriptionManagerProps {
 export function SubscriptionManager({ initialSubscriptions }: SubscriptionManagerProps) {
   const { recurringTransactions: contextSubs, refreshData } = useFinancialData();
   const { openModal } = useSubscriptionModal();
-  const router = useRouter();
 
   async function toggleStatus(id: string, currentStatus: string) {
     const supabase = createClient();

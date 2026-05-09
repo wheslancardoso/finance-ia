@@ -263,11 +263,11 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         const openMonthLabel = format(new Date(openY, openM, 1), "MMM", { locale: ptBR });
         const closedMonthLabel = format(new Date(closedY, closedM, 1), "MMM", { locale: ptBR });
 
-        const openInvoice = state.invoices.find(i => i.account_id === acc.id && i.billing_month === openRef);
-        const closedInvoice = state.invoices.find(i => i.account_id === acc.id && i.billing_month === closedRef);
+        const openInvoice = state.invoices.find(i => i.account_id === acc.id && i.reference_month === openRef);
+        const closedInvoice = state.invoices.find(i => i.account_id === acc.id && i.reference_month === closedRef);
 
-        const openAmount = openInvoice ? Number(openInvoice.total_amount_cents) : 0;
-        const closedAmount = closedInvoice ? Number(closedInvoice.total_amount_cents) : 0;
+        const openAmount = openInvoice ? Number(openInvoice.amount_cents) : 0;
+        const closedAmount = closedInvoice ? Number(closedInvoice.amount_cents) : 0;
 
         return { 
           ...acc, 
