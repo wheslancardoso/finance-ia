@@ -64,7 +64,8 @@ export function getProjectedDetails(
   targetDate: Date,
   recurringItems: RecurringItem[] = [],
   budgets: Budget[] = [],
-  accounts: Account[] = []
+  accounts: Account[] = [],
+  fixedExpensesCents: number = 0
 ): ProjectedDetails {
   let projected = currentBalance;
   const today = new Date();
@@ -129,6 +130,29 @@ export function getProjectedDetails(
   const targetMonthStart = startOfMonth(targetDate);
   const fullMonthsAhead = differenceInCalendarMonths(targetDate, today);
 
+  // 1. Contabilizar Despesas Fixas Manuais (Survival HUD)
+  // Se houver despesas fixas manuais, elas ocorrem todo mês.
+  if (fixedExpensesCents > 0) {
+    // Para cada mês até o alvo (incluindo o atual)
+    for (let i = 0; i <= fullMonthsAhead; i++) {
+      const monthDate = addMonths(today, i);
+      projected -= fixedExpensesCents;
+      
+      if (isSameMonth(monthDate, targetDate)) {
+        transactions.push({
+          id: `manual-fixed-${i}`,
+          description: "Despesas Fixas (Manual)",
+          amount_cents: fixedExpensesCents,
+          transaction_type: "EXPENSE",
+          date: new Date(monthDate.getFullYear(), monthDate.getMonth(), 1), // Dia 1 como padrão
+          isRecurring: true,
+          accountName: "Geral",
+          accountType: "CASH"
+        });
+      }
+    }
+  }
+
   // 1. Orçamentos do mês atual
   const remainingBudgetsThisMonth = budgets.reduce((acc, budget) => {
     const remaining = Math.max(0, budget.amount_cents - budget.spent_this_month);
@@ -175,6 +199,7 @@ export function getProjectedDetails(
     const effectiveTargetDate = endOfMonth(targetDate);
 
     while (isBefore(occurrenceDate, effectiveTargetDate) || isSameMonth(occurrenceDate, effectiveTargetDate)) {
+      // Pular se for no passado (antes de hoje e não no mesmo mês)
       if (isBefore(occurrenceDate, today) && !isSameMonth(occurrenceDate, today)) {
         const next = advanceDate(occurrenceDate, item.frequency);
         if (!next) break;
@@ -183,7 +208,6 @@ export function getProjectedDetails(
       }
 
       const isIncome = item.transaction_type === "INCOME";
-      const isFutureMonth = isAfter(occurrenceDate, endOfThisMonth);
       const isTargetMonth = isSameMonth(occurrenceDate, targetDate);
 
       const account = accounts.find(a => a.id === item.account_id);
@@ -206,25 +230,45 @@ export function getProjectedDetails(
           });
         }
       } else {
-        // Subtrair do saldo se for hoje ou futuro
+        // Lógica para Despesas
+        
+        // Evitar redundância com faturas de cartão:
+        // Se a transação é no cartão e é para este mês ou o próximo, 
+        // ela já pode estar incluída em closed_invoice ou open_invoice.
+        // Padrão: Se for no cartão, não subtraímos do saldo aqui pois as faturas já foram subtraídas no passo 0.
+        // Apenas mostramos na lista se for o mês alvo para transparência.
+        
         const isPastSameMonth = isSameMonth(occurrenceDate, today) && isBefore(occurrenceDate, today);
         
-        // Se não for passado (ou seja, hoje ou futuro), subtraímos do saldo projetado
-        if (!isPastSameMonth) {
-          projected -= item.amount_cents;
+        if (accountType === "CREDIT_CARD") {
+          // No cartão, o impacto no saldo é via pagamento da fatura.
+          // Se for uma transação recorrente futura (além da fatura aberta atual), 
+          // ela impactará faturas futuras que ainda não foram somadas.
+          
+          const nextInvoicePayDate = addMonths(today, 1);
+          const isBeyondOpenInvoice = isAfter(occurrenceDate, endOfMonth(nextInvoicePayDate));
+          
+          if (isBeyondOpenInvoice) {
+            projected -= item.amount_cents;
+          }
+        } else {
+          // Se for débito/dinheiro, subtrai normalmente se não for passado
+          if (!isPastSameMonth) {
+            projected -= item.amount_cents;
+          }
         }
 
         if (isTargetMonth) {
           transactions.push({
             id: `recurring-${item.id || Math.random()}-${occurrenceDate.getTime()}`,
-            description: item.description || item.category || "Despesa Fixa",
+            description: item.description || item.category || "Despesa",
             amount_cents: item.amount_cents,
             transaction_type: "EXPENSE",
             date: occurrenceDate,
             category: item.category,
             isRecurring: true,
-            accountName,
-            accountType
+            accountName: accountName || "Conta Corrente",
+            accountType: accountType || "CHECKING"
           });
         }
       }

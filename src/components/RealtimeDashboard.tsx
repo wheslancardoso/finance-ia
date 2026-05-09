@@ -36,7 +36,7 @@ export default function RealtimeDashboard({
   const [targetDate, setTargetDate] = useState<Date>(startOfMonth(new Date()));
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
-  const { accounts: liveAccounts } = useFinancialData();
+  const { accounts: liveAccounts, fixedExpensesCents } = useFinancialData();
 
   const handleQuickSync = (account: any) => {
     setSelectedAccount(account);
@@ -50,8 +50,15 @@ export default function RealtimeDashboard({
       spent_this_month: b.spent,
       category: b.category
     }));
-    return getProjectedDetails(initialBalance, targetDate, initialRecurring || [], formattedBudgets, liveAccounts as any);
-  }, [initialBalance, initialRecurring, targetDate, initialBudgets, liveAccounts]);
+    return getProjectedDetails(
+      initialBalance, 
+      targetDate, 
+      initialRecurring || [], 
+      formattedBudgets, 
+      liveAccounts as any,
+      fixedExpensesCents
+    );
+  }, [initialBalance, initialRecurring, targetDate, initialBudgets, liveAccounts, fixedExpensesCents]);
 
   const projectedBalance = projection.totalBalance;
 
