@@ -221,83 +221,86 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     
     if (accData) {
       // Calcular Fatura Atual e Impacto no Teto para cada cartão
+      const creditCardIds = accData.filter(a => a.type === "CREDIT_CARD").map(a => a.id);
+      
+      let allInvoices: any[] = [];
+      let allUnpaidTxs: any[] = [];
+
+      if (creditCardIds.length > 0) {
+        // Busca as faturas reais no banco
+        const { data: invoices } = await supabase
+          .from("credit_card_invoices")
+          .select("*")
+          .in("account_id", creditCardIds);
+        if (invoices) allInvoices = invoices;
+
+        // Busca apenas transações não pagas para compor o limite utilizado
+        const { data: txs } = await supabase
+          .from("transactions")
+          .select("amount_cents, is_legacy_debt, is_paid, transaction_type, account_id, date, invoice_id")
+          .in("account_id", creditCardIds)
+          .eq("is_paid", false);
+        if (txs) allUnpaidTxs = txs;
+      }
+
       const accountsWithInvoice = await Promise.all(accData.map(async (acc) => {
         if (acc.type === "CREDIT_CARD") {
           const now = new Date();
           const cardClosingDay = acc.closing_day || 31;
           const todayDay = now.getDate();
 
-          // Determinar meses da fatura aberta e fechada
           let openY = now.getFullYear();
           let openM = now.getMonth();
           let closedY = now.getFullYear();
           let closedM = now.getMonth();
 
           if (todayDay >= cardClosingDay) {
-            // Fatura do mês atual FECHOU → aberta é o próximo mês
             closedM = openM; closedY = openY;
             openM++;
             if (openM > 11) { openM = 0; openY++; }
           } else {
-            // Fatura do mês atual ainda ABERTA → fechada é o mês anterior
             openM = closedM; openY = closedY;
             closedM--;
             if (closedM < 0) { closedM = 11; closedY--; }
           }
-
-          const openInvoiceStr = `${openY}-${String(openM + 1).padStart(2, '0')}-01`;
-          const closedInvoiceStr = `${closedY}-${String(closedM + 1).padStart(2, '0')}-01`;
+          
+          // Mês de referência no formato YYYY-MM
+          const openRef = `${openY}-${String(openM + 1).padStart(2, '0')}`;
+          const closedRef = `${closedY}-${String(closedM + 1).padStart(2, '0')}`;
 
           const openMonthLabel = format(new Date(openY, openM, 1), "MMM", { locale: ptBR });
           const closedMonthLabel = format(new Date(closedY, closedM, 1), "MMM", { locale: ptBR });
 
-          const { data: txs } = await supabase
-            .from("transactions")
-            .select("id, amount_cents, date, is_legacy_debt, is_paid, transaction_type")
-            .eq("account_id", acc.id);
-          
-          let openInvoice = 0;
-          let closedInvoice = 0;
+          const cardInvoices = allInvoices.filter(i => i.account_id === acc.id);
+          const openInvoiceRecord = cardInvoices.find(i => i.reference_month === openRef);
+          const closedInvoiceRecord = cardInvoices.find(i => i.reference_month === closedRef);
+
+          let openInvoiceAmount = openInvoiceRecord ? Number(openInvoiceRecord.amount_cents) : 0;
+          let closedInvoiceAmount = closedInvoiceRecord ? Number(closedInvoiceRecord.amount_cents) : 0;
+
+          // Calcular Teto de Gastos e Limite Total a partir das transactions ativas e faturas em si
           let ceilingImpact = 0;
           let totalSpentOnCard = 0;
 
-          txs?.forEach((tx) => {
-            const txDate = new Date(tx.date);
+          const cardTxs = allUnpaidTxs.filter(tx => tx.account_id === acc.id);
+          cardTxs.forEach(tx => {
             const isIncome = tx.transaction_type === "INCOME";
-            
-            // Saldo do cartão (apenas não pagas)
-            if (!tx.is_paid) {
-              totalSpentOnCard += isIncome ? -tx.amount_cents : tx.amount_cents;
-            }
+            totalSpentOnCard += isIncome ? -tx.amount_cents : tx.amount_cents;
 
-            // Determinar fatura da transação
-            let tY = txDate.getUTCFullYear();
-            let tM = txDate.getUTCMonth();
-            if (txDate.getUTCDate() >= cardClosingDay) {
-              tM++;
-              if (tM > 11) { tM = 0; tY++; }
-            }
-            const txInvoiceStr = `${tY}-${String(tM + 1).padStart(2, '0')}-01`;
-            
-            const amountSigned = isIncome ? -tx.amount_cents : tx.amount_cents;
-
-            if (txInvoiceStr === openInvoiceStr && !tx.is_paid) {
-              openInvoice += amountSigned;
-            }
-            if (txInvoiceStr === closedInvoiceStr && !tx.is_paid) {
-              closedInvoice += amountSigned;
-              if (!tx.is_legacy_debt && !isIncome) {
-                ceilingImpact += tx.amount_cents;
-              }
+            // Se pertencer à fatura fechada recém ou aberta (simplificado)
+            if (tx.invoice_id === closedInvoiceRecord?.id) {
+               if (!tx.is_legacy_debt && !isIncome) {
+                 ceilingImpact += tx.amount_cents;
+               }
             }
           });
-          
+
           return { 
             ...acc, 
-            current_invoice_cents: closedInvoice > 0 ? closedInvoice : openInvoice,
-            closed_invoice_cents: closedInvoice,
+            current_invoice_cents: closedInvoiceAmount > 0 ? closedInvoiceAmount : openInvoiceAmount,
+            closed_invoice_cents: closedInvoiceAmount,
             closed_invoice_month: closedMonthLabel,
-            open_invoice_cents: openInvoice,
+            open_invoice_cents: openInvoiceAmount,
             open_invoice_month: openMonthLabel,
             ceiling_impact_cents: ceilingImpact,
             balance_cents: -totalSpentOnCard

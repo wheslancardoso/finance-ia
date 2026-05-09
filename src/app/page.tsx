@@ -102,7 +102,7 @@ export default async function Home() {
     .select("description, amount_cents, transaction_type, date, account_id")
     .in("account_id", accountIds)
     .gt("date", new Date().toISOString())
-    .eq("is_paid", false)
+    .or("is_paid.eq.false,is_paid.is.null")
     .order("date", { ascending: true });
 
   // Encontrar a data da última transação futura (Fim das Dívidas)
