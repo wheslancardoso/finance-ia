@@ -2,7 +2,8 @@
 
 import React, { useState, useMemo } from "react";
 import { useFinancialData } from "@/context/FinancialDataContext";
-import { Wallet, CalendarDays, Calendar, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Wallet, CalendarDays, Calendar, AlertTriangle, ShieldCheck, Zap } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type ViewMode = "DAY" | "WEEK" | "MONTH";
 
@@ -36,6 +37,13 @@ export default function SurvivalHUD() {
         return sum + closed + open;
       }, 0);
   }, [accounts]);
+
+  const netWorthCents = useMemo(() => {
+    const liquidity = accounts
+      .filter(a => a.type !== "CREDIT_CARD")
+      .reduce((sum, a) => sum + (a.balance_cents || 0), 0);
+    return liquidity - totalCreditCardImpact;
+  }, [accounts, totalCreditCardImpact]);
 
   const survivalCeilingCents = useMemo(() => {
     // Teto = (Renda Base + Fluxos Recorrentes) + Sobras Passadas + Bicos Extras - (Fixo Manual + Gastos Recorrentes) - Faturas de Cartão - Gastos Variáveis (Débito/Pix)
@@ -184,8 +192,40 @@ export default function SurvivalHUD() {
               </span>
               <span className="text-sm font-medium text-white/30 lowercase">/ {viewMode.toLowerCase()}</span>
             </div>
+            
+            {/* Net Worth Insight */}
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Patrimônio Líquido:</span>
+              <span className={cn(
+                "text-[10px] font-black tabular-nums",
+                netWorthCents >= 0 ? "text-emerald-500/60" : "text-red-500/60"
+              )}>
+                {(netWorthCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </span>
+              {netWorthCents < 0 && (
+                <div className="flex items-center gap-1 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-md">
+                  <AlertTriangle className="w-2.5 h-2.5 text-red-400" />
+                  <span className="text-[8px] font-black text-red-400 uppercase tracking-tighter">Ciclo de Dívida</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Salvation Goal for "Break the Cycle" */}
+        {netWorthCents < 0 && (
+          <div className="hidden lg:flex flex-col items-center bg-white/5 border border-white/10 rounded-2xl p-4 min-w-[200px]">
+             <span className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 flex items-center gap-1">
+              <Zap className="w-3 h-3 text-amber-400" /> Meta de Salvação
+            </span>
+            <span className="text-xl font-black text-amber-400 tabular-nums">
+              {((Math.abs(netWorthCents)) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            </span>
+            <p className="text-[8px] text-white/40 mt-1 text-center font-medium leading-tight">
+              Quanto você precisa para pagar <br/> tudo e ter R$ 0,00 real.
+            </p>
+          </div>
+        )}
 
         {/* Right Side: Toggles and Math Summary */}
         <div className="flex flex-col items-end gap-3 w-full md:w-auto">

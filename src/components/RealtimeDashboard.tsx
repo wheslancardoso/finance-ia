@@ -3,15 +3,17 @@
 import React, { useState, useMemo } from "react";
 import { SpendingCapacity } from "./SpendingCapacity";
 import { TransactionTimeline } from "./TransactionTimeline";
-import { TimeTravelSlider } from "./TimeTravelSlider";
+import { MonthNavigator } from "./MonthNavigator";
 import { calculateProjectedBalance } from "@/utils/finance-projections";
 import { formatCurrency } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { TrendingUp, ArrowUpRight, ArrowDownRight, Wallet, History, Zap, ShieldCheck, AlertCircle } from "lucide-react";
-import { addDays, addMonths, endOfMonth, differenceInDays } from "date-fns";
+import { addDays, addMonths, endOfMonth, differenceInDays, isSameMonth, startOfMonth } from "date-fns";
 import { QuickSyncModal } from "./QuickSyncModal";
 import { cn } from "@/lib/utils";
 import { useFinancialData } from "@/context/FinancialDataContext";
+import { ptBR } from "date-fns/locale";
+import { format } from "date-fns";
 
 interface RealtimeDashboardProps {
   initialBalance: number;
@@ -30,7 +32,7 @@ export default function RealtimeDashboard({
   lastFutureTransactionDate,
   accounts
 }: RealtimeDashboardProps) {
-  const [days, setDays] = useState(0);
+  const [targetDate, setTargetDate] = useState<Date>(startOfMonth(new Date()));
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const { accounts: liveAccounts } = useFinancialData();
@@ -40,15 +42,14 @@ export default function RealtimeDashboard({
     setSyncModalOpen(true);
   };
 
-  // 1. Cálculo da Projeção (Viagem no Tempo)
+  // 1. Cálculo da Projeção (Viagem no Tempo por Meses)
   const projectedBalance = useMemo(() => {
-    const targetDate = addDays(new Date(), days);
     const formattedBudgets = initialBudgets.map(b => ({
       amount_cents: b.limit,
       spent_this_month: b.spent
     }));
     return calculateProjectedBalance(initialBalance, targetDate, initialRecurring || [], formattedBudgets);
-  }, [initialBalance, initialRecurring, days, initialBudgets]);
+  }, [initialBalance, initialRecurring, targetDate, initialBudgets]);
 
   // 2. Visão Prática: "Quanto me sobra este mês?"
   const monthlyOutlook = useMemo(() => {
@@ -122,7 +123,7 @@ export default function RealtimeDashboard({
     };
   }, [initialBalance, initialRecurring, liveAccounts, accounts]);
 
-  const isFuture = days > 0;
+  const isFuture = !isSameMonth(targetDate, new Date());
   const balanceDifference = projectedBalance - initialBalance;
 
   return (
@@ -141,7 +142,7 @@ export default function RealtimeDashboard({
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-white/40 font-bold text-xs uppercase tracking-[0.2em]">
                   <Wallet className="w-4 h-4" />
-                  {isFuture ? "Patrimônio Projetado" : "Liquidez Atual"}
+                  {isFuture ? `Projeção para ${format(targetDate, "MMMM", { locale: ptBR })}` : "Liquidez Atual"}
                 </div>
                 <motion.h1 
                   key={projectedBalance}
@@ -243,10 +244,10 @@ export default function RealtimeDashboard({
           </div>
         </div>
 
-        {/* Time Travel Slider */}
-        <TimeTravelSlider 
-          onDateChange={setDays} 
-          currentDays={days} 
+        {/* Month Navigator */}
+        <MonthNavigator 
+          selectedDate={targetDate}
+          onDateChange={setTargetDate}
           lastFutureTransactionDate={lastFutureTransactionDate}
         />
       </div>
