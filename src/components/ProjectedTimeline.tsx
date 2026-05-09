@@ -18,7 +18,15 @@ import {
   ArrowDownRight,
   Calendar,
   Zap,
-  CreditCard
+  CreditCard,
+  Tv,
+  Music,
+  Wifi,
+  Lightbulb,
+  Droplets,
+  Smartphone,
+  Coffee,
+  Heart
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { ProjectedTransaction } from "@/utils/finance-projections";
@@ -31,14 +39,25 @@ const getIcon = (description: string, categoryName: string, type: string) => {
   const desc = description.toLowerCase();
   const name = categoryName?.toLowerCase() || "";
   
+  // Assinaturas e recorrentes comuns
+  if (desc.includes("netflix") || desc.includes("prime video") || desc.includes("disney") || desc.includes("hbo")) return Tv;
+  if (desc.includes("spotify") || desc.includes("youtube premium") || desc.includes("music") || desc.includes("deezer")) return Music;
+  if (desc.includes("internet") || desc.includes("wi-fi") || desc.includes("claro") || desc.includes("vivo")) return Wifi;
+  if (desc.includes("celular") || desc.includes("tim") || desc.includes("recharge")) return Smartphone;
+  if (desc.includes("luz") || desc.includes("energia") || desc.includes("enel")) return Lightbulb;
+  if (desc.includes("água") || desc.includes("sabesp") || desc.includes("condomínio")) return Droplets;
+  
+  // Compras e Comida
   if (desc.includes("amazon") || desc.includes("shopee") || desc.includes("mercado livre") || desc.includes("magalu")) return ShoppingBag;
-  if (name.includes("alimento") || name.includes("comer") || name.includes("restaurante")) return Utensils;
-  if (name.includes("transporte") || name.includes("uber") || name.includes("carro")) return Car;
-  if (name.includes("lazer") || name.includes("game") || name.includes("diversão")) return Gamepad;
-  if (name.includes("saúde") || name.includes("médico") || name.includes("farmácia")) return Activity;
-  if (name.includes("salário") || name.includes("trampo") || name.includes("job")) return Briefcase;
+  if (name.includes("alimento") || name.includes("comer") || name.includes("restaurante") || name.includes("iFood")) return Utensils;
+  if (name.includes("café") || desc.includes("starbucks") || desc.includes("padaria")) return Coffee;
+  
+  // Outros
+  if (name.includes("transporte") || name.includes("uber") || name.includes("carro") || desc.includes("combustível")) return Car;
+  if (name.includes("lazer") || name.includes("game") || name.includes("diversão") || desc.includes("steam")) return Gamepad;
+  if (name.includes("saúde") || name.includes("médico") || name.includes("farmácia") || name.includes("convênio")) return Heart;
+  if (name.includes("salário") || name.includes("trampo") || name.includes("job") || name.includes("recebimento")) return Briefcase;
   if (name.includes("invest") || name.includes("rendimento")) return TrendingUp;
-  if (name.includes("compras") || name.includes("shop")) return ShoppingBag;
   if (name.includes("moradia") || name.includes("aluguel") || name.includes("casa")) return Home;
   
   return type === "INCOME" ? ArrowUpRight : ArrowDownRight;
@@ -113,23 +132,26 @@ export function ProjectedTimeline({ transactions }: ProjectedTimelineProps) {
 
 function ProjectedItem({ tx }: { tx: ProjectedTransaction }) {
   const Icon = getIcon(tx.description, tx.category || "", tx.transaction_type);
+  const isIncome = tx.transaction_type === "INCOME";
   
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group relative"
+      className="group"
     >
       <div className={cn(
         "bg-white/[0.02] border border-white/5 p-4 rounded-[2rem] flex items-center justify-between transition-all duration-300",
-        tx.transaction_type === "INCOME" ? "hover:border-emerald-500/20" : "hover:border-white/10"
+        isIncome ? "hover:border-emerald-500/20 hover:bg-emerald-500/[0.02]" : "hover:border-white/10 hover:bg-white/[0.04]"
       )}>
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-white/5 border border-white/5">
-            <Icon className={cn(
-              "w-5 h-5",
-              tx.transaction_type === "INCOME" ? "text-emerald-400" : "text-white/40"
-            )} />
+          <div className={cn(
+            "w-10 h-10 rounded-2xl flex items-center justify-center border transition-colors",
+            isIncome 
+              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
+              : "bg-white/5 border-white/5 text-white/40"
+          )}>
+            <Icon className="w-5 h-5" />
           </div>
 
           <div className="space-y-0.5">
@@ -137,17 +159,14 @@ function ProjectedItem({ tx }: { tx: ProjectedTransaction }) {
               {tx.description}
             </h5>
             <div className="flex items-center gap-2">
-              <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">
-                {tx.accountName || (tx.isRecurring ? "Recorrente" : "Provisão")}
-              </span>
               {tx.accountType === "CREDIT_CARD" && (
-                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-500/10 border border-violet-500/20">
-                  <CreditCard className="w-2.5 h-2.5 text-violet-400" />
-                  <span className="text-[7px] font-bold text-violet-400 uppercase">Cartão</span>
-                </div>
+                <CreditCard className="w-3 h-3 text-violet-400/60" />
               )}
-              <span className="text-[9px] font-bold text-white/10">•</span>
-              <span className="text-[9px] font-bold text-white/40">
+              <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
+                {tx.accountName || (tx.isRecurring ? "Recorrente" : "Reserva")}
+              </span>
+              <span className="text-[10px] text-white/10">•</span>
+              <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
                 {format(tx.date, "dd 'de' MMM", { locale: ptBR })}
               </span>
             </div>
@@ -156,11 +175,16 @@ function ProjectedItem({ tx }: { tx: ProjectedTransaction }) {
 
         <div className="text-right">
           <p className={cn(
-            "text-sm font-black tabular-nums",
-            tx.transaction_type === "INCOME" ? "text-emerald-400" : "text-white/60"
+            "text-base font-black tabular-nums tracking-tight",
+            isIncome ? "text-emerald-400" : "text-white/90"
           )}>
-            {tx.transaction_type === "INCOME" ? "+" : "-"} {formatCurrency(tx.amount_cents)}
+            {isIncome ? "+" : "-"} {formatCurrency(tx.amount_cents)}
           </p>
+          {tx.isRecurring && (
+            <p className="text-[9px] font-black text-white/10 uppercase tracking-[0.2em] mt-0.5">
+              Fixo Mensal
+            </p>
+          )}
         </div>
       </div>
     </motion.div>

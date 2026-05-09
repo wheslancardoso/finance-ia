@@ -23,7 +23,7 @@ export default async function Home() {
   // 1. Buscar contas do grupo (incluindo cartões)
   const { data: accounts } = await supabase
     .from("accounts")
-    .select("id, name, balance_cents, type, color_hex")
+    .select("id, name, balance_cents, type, color_hex, open_invoice_cents, closed_invoice_cents, due_day, closing_day")
     .eq("family_group_id", familyGroupId);
 
   const accountIds = accounts?.map(a => a.id) || [];

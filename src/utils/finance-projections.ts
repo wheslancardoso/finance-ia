@@ -1,4 +1,17 @@
-import { addDays, endOfMonth, isAfter, isBefore, addMonths, isSameMonth, differenceInCalendarMonths, startOfMonth } from "date-fns";
+import { addDays, endOfMonth, isAfter, isBefore, addMonths, isSameMonth, differenceInCalendarMonths, startOfMonth, format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+
+interface Account {
+  id: string;
+  name: string;
+  type: string;
+  balance_cents: number;
+  closed_invoice_cents?: number;
+  closed_invoice_month?: string;
+  open_invoice_cents?: number;
+  open_invoice_month?: string;
+  due_day?: number;
+}
 
 interface RecurringItem {
   id?: string;
@@ -51,11 +64,61 @@ export function getProjectedDetails(
   targetDate: Date,
   recurringItems: RecurringItem[] = [],
   budgets: Budget[] = [],
-  accounts: any[] = []
+  accounts: Account[] = []
 ): ProjectedDetails {
   let projected = currentBalance;
   const today = new Date();
   const transactions: ProjectedTransaction[] = [];
+
+  // 0. Contabilizar Faturas de Cartão (Latência de Pagamento)
+  accounts.forEach(acc => {
+    if (acc.type === "CREDIT_CARD") {
+      // Fatura Fechada (O que já fechou e precisa ser pago)
+      // Se fechou no mês atual ou anterior, o vencimento é geralmente no mês atual ou seguinte
+      if ((acc.closed_invoice_cents || 0) > 0) {
+        const dueDate = new Date(today.getFullYear(), today.getMonth(), acc.due_day || 10);
+        
+        // Se a data de vencimento for no mês alvo, adicionamos à lista de transações
+        if (isSameMonth(targetDate, dueDate)) {
+          transactions.push({
+            id: `card-closed-${acc.id}`,
+            description: `Fatura ${acc.name} (${acc.closed_invoice_month || 'Ant'})`,
+            amount_cents: acc.closed_invoice_cents || 0,
+            transaction_type: "EXPENSE",
+            date: dueDate,
+            isRecurring: false,
+            accountName: acc.name,
+            accountType: "CREDIT_CARD"
+          });
+        }
+        
+        // Sempre subtraímos do saldo projetado se for uma dívida pendente
+        projected -= (acc.closed_invoice_cents || 0);
+      }
+
+      // Fatura Aberta (O que está sendo gasto agora e vencerá no próximo ciclo)
+      if ((acc.open_invoice_cents || 0) > 0) {
+        // A fatura aberta sempre vence no ciclo seguinte ao fechamento atual
+        const nextMonth = addMonths(today, 1);
+        const dueDate = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), acc.due_day || 10);
+        
+        if (isSameMonth(targetDate, dueDate)) {
+          transactions.push({
+            id: `card-open-${acc.id}`,
+            description: `Fatura ${acc.name} (${acc.open_invoice_month || 'Atu'})`,
+            amount_cents: acc.open_invoice_cents || 0,
+            transaction_type: "EXPENSE",
+            date: dueDate,
+            isRecurring: false,
+            accountName: acc.name,
+            accountType: "CREDIT_CARD"
+          });
+        }
+
+        projected -= (acc.open_invoice_cents || 0);
+      }
+    }
+  });
   
   // Se for o mês atual, não há "detalhes projetados" da mesma forma
   if (isBefore(targetDate, today) && !isSameMonth(targetDate, today)) {

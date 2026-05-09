@@ -9,7 +9,7 @@ import { ProjectedTimeline } from "./ProjectedTimeline";
 import { formatCurrency } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { TrendingUp, ArrowUpRight, ArrowDownRight, Wallet, History, Zap, ShieldCheck, AlertCircle } from "lucide-react";
-import { addDays, addMonths, endOfMonth, differenceInDays, isSameMonth, startOfMonth } from "date-fns";
+import { addDays, addMonths, endOfMonth, differenceInDays, isSameMonth, startOfMonth, isSameDay } from "date-fns";
 import { QuickSyncModal } from "./QuickSyncModal";
 import { cn } from "@/lib/utils";
 import { useFinancialData } from "@/context/FinancialDataContext";
@@ -50,8 +50,8 @@ export default function RealtimeDashboard({
       spent_this_month: b.spent,
       category: b.category
     }));
-    return getProjectedDetails(initialBalance, targetDate, initialRecurring || [], formattedBudgets, accounts);
-  }, [initialBalance, initialRecurring, targetDate, initialBudgets, accounts]);
+    return getProjectedDetails(initialBalance, targetDate, initialRecurring || [], formattedBudgets, liveAccounts as any);
+  }, [initialBalance, initialRecurring, targetDate, initialBudgets, liveAccounts]);
 
   const projectedBalance = projection.totalBalance;
 
@@ -60,13 +60,17 @@ export default function RealtimeDashboard({
     const now = new Date();
     const endOfCurrentMonth = endOfMonth(now);
     
-    // --- PARCELAS FUTURAS DESTE MÊS (transações agendadas até fim do mês) ---
+    // --- COMPROMISSOS AGENDADOS (Pagas uma única vez, ex: parcelas ou boletos avulsos) ---
     const futureThisMonth = (initialRecurring || [])
       .filter(item => {
         if ((item as any).frequency !== "once") return false;
         const d = new Date(item.next_date);
-        const isCreditCard = accounts.find(a => a.id === (item as any).account_id)?.type === "CREDIT_CARD";
-        return d > now && d <= endOfCurrentMonth && !isCreditCard;
+        const isCreditCard = liveAccounts.find(a => a.id === (item as any).account_id)?.type === "CREDIT_CARD";
+        
+        // Se for futuro e neste mês
+        const isFuture = d >= now || isSameDay(d, now);
+        // Incluímos itens de cartão também, pois se são futuros, ainda não estão na fatura aberta
+        return isFuture && d <= endOfCurrentMonth;
       })
       .reduce((sum, item) => {
         if (item.transaction_type === "EXPENSE") return sum + item.amount_cents;
@@ -74,21 +78,17 @@ export default function RealtimeDashboard({
         return sum;
       }, 0);
 
-    // --- RECORRENTES até fim do mês ---
+    // --- COMPROMISSOS RECORRENTES (Fixos mensais) ---
     let recurringThisMonth = 0;
     (initialRecurring || []).filter(item => (item as any).frequency !== "once").forEach(item => {
-      const isCreditCard = accounts.find(a => a.id === (item as any).account_id)?.type === "CREDIT_CARD";
-      
-      // Se for cartão, só incluímos se a data for futura (compromisso ainda não efetivado na fatura)
-      if (isCreditCard) {
-        const nextDate = new Date(item.next_date);
-        if (nextDate < now && !isSameMonth(nextDate, now)) return;
-        // Se for hoje ou futuro no mês, mantemos para garantir que o usuário veja o compromisso
-      }
-
+      const isCreditCard = liveAccounts.find(a => a.id === (item as any).account_id)?.type === "CREDIT_CARD";
       const occDate = new Date(item.next_date);
-      // Se a próxima data é neste mês (mesmo que já tenha passado), nós a contabilizamos como um compromisso do mês atual
-      // a menos que já tenha passado para o mês que vem (o que o sistema faz automaticamente após o pagamento/vencimento)
+      
+      // Se a data já passou (e não é hoje), assumimos que o saldo bancário já reflete o pagamento
+      // (a menos que seja cartão, onde o saldo da fatura é atualizado por transações reais)
+      const isPast = occDate < now && !isSameDay(occDate, now);
+      if (isPast) return; 
+
       if (occDate <= endOfCurrentMonth) {
         if (item.transaction_type === "EXPENSE") recurringThisMonth += item.amount_cents;
         else if (item.transaction_type === "INCOME") recurringThisMonth -= item.amount_cents;
