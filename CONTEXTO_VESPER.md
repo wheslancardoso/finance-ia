@@ -16,7 +16,7 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 
 ### 1. Centro de Comando (Dashboard Estratégico)
 *   **Sobra Livre:** O número mais importante. Cálculo em tempo real: `(Saldo Atual + Entradas Previstas) - (Saídas Previstas + Metas)`.
-*   **Time Travel (Viagem no Tempo):** Slider dinâmico para projetar o saldo em até 365 dias (Baseado em fluxos recorrentes).
+*   **Visão de Futuro (Month Navigator):** Navegação por meses para projetar o saldo e patrimônio líquido baseado em fluxos recorrentes, orçamentos e parcelamentos.
 *   **Radar de Status:** Visualização rápida de cartões (limite comprometido) e metas (progresso visual).
 
 ### 2. Modal Universal (Entrada Rápida)
@@ -68,6 +68,8 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 *   **Planned Expenses Fix**: O cálculo de "Gastos Previstos" no Dashboard agora soma: faturas fechadas + faturas abertas (não pagas) + parcelas futuras do mês + recorrentes. A "Sobra Livre" é `Liquidez Atual - Gastos Previstos`. Dados vêm do `FinancialDataContext` (client-side) garantindo sincronia em tempo real.
 *   **Cross-Page Sync**: O filtro de contas em `/transactions` agora exibe o valor correto da fatura (fechada ou aberta) com label dinâmico, sincronizado com `/accounts` via contexto compartilhado.
 *   **UI/UX Refinement**: Refinamento do card de Recentes para não sobrepor a Timeline e implementação de Portais para modais, garantindo visibilidade total sobre o layout Glass.
+*   **Future Vision Engine**: Substituição do Time Travel linear por um Navegador de Meses discreto, permitindo visualizar o estado final de cada mês futuro, incluindo projeções de orçamentos e receitas recorrentes.
+*   **Net Worth & Salvation Goal**: Introdução da métrica de Patrimônio Líquido (Liquidez - Dívidas) e a "Meta de Salvação" no SurvivalHUD, focada em usuários que buscam sair do ciclo de endividamento.
 
 ---
 
@@ -82,15 +84,15 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 ### Fase 2: O Centro de Comando (Foco Atual 🎯)
 - [x] **Gestão de Metas**: Criação e Aportes básicos.
 - [x] **Lógica de Sobra Livre**: Integração de faturas e gastos recorrentes no Dashboard.
-- [ ] **Time Travel (Slider)**: Slider para projeção de saldo futuro.
+- [x] **Visão de Futuro (Month Navigator)**: Navegador de meses para projeção de saldo futuro e fim de dívidas.
 
 ### Fase 3: Inteligência & Expansão
 - [ ] **Relatórios de Evolução**: Mix de Renda e Evolução de Patrimônio.
 - [ ] **Port Android**: Iniciar desenvolvimento do HUD mobile em Kotlin/Compose.
 
 ### Fase 4: Modo Crise & Recuperação (Recurso Avançado)
-- [ ] **Dashboard de Recuperação**: Implementar cálculo do "Mês Zero" e gráfico de timeline de quitação de dívidas.
-- [ ] **Teto de Sobrevivência**: Divisão inteligente da Sobra Livre em orçamentos semanais/diários base-zero.
+- [x] **Dashboard de Recuperação**: Implementar cálculo do "Patrimônio Líquido" e meta de quitação de dívidas.
+- [x] **Teto de Sobrevivência**: Divisão inteligente da Sobra Livre em orçamentos semanais/diários base-zero.
 - [ ] **Guardião de Compras (n8n + IA)**: Integrar etapa de avaliação e fricção no WhatsApp, onde a IA simula o impacto de um gasto variável antes de autorizar o registro.
 
 ### **5. Sistema de Pagamento de Faturas e Reconciliação Híbrida**
