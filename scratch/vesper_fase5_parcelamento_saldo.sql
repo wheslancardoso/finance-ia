@@ -10,6 +10,38 @@
 BEGIN;
 
 -- ============================================================
+-- BLOCO 0: AJUSTE DE NOMES DE COLUNAS (ALINHAMENTO FRONTEND)
+-- ============================================================
+DO $$ 
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='credit_card_invoices' AND column_name='billing_month') THEN
+    ALTER TABLE public.credit_card_invoices RENAME COLUMN billing_month TO reference_month;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='credit_card_invoices' AND column_name='total_amount_cents') THEN
+    ALTER TABLE public.credit_card_invoices RENAME COLUMN total_amount_cents TO amount_cents;
+  END IF;
+END $$;
+
+-- ============================================================
+-- BLOCO 0.1: HELPER — GERAR DATAS SEGURAS (Evita 30 de fevereiro)
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.fn_safe_date(p_year int, p_month int, p_day int)
+RETURNS DATE AS $$
+DECLARE
+    v_first_of_month DATE;
+    v_last_of_month DATE;
+BEGIN
+    v_first_of_month := make_date(p_year, p_month, 1);
+    v_last_of_month := (v_first_of_month + interval '1 month' - interval '1 day')::date;
+    IF p_day > extract(day from v_last_of_month) THEN
+        RETURN v_last_of_month;
+    ELSE
+        RETURN make_date(p_year, p_month, p_day);
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================
 -- BLOCO 1: TRIGGER DE SALDO EM CONTAS (O MAIS CRÍTICO)
 -- ============================================================
 -- Problema atual: accounts.balance_cents é atualizado pelo
@@ -242,40 +274,40 @@ BEGIN
     'YYYY-MM'
   );
 
-  -- Calcular datas reais de fechamento e vencimento
-  -- Trata dia > último dia do mês (ex: closing_day=31 em fevereiro)
-  v_closing_date := (make_date(v_billing_year, v_billing_month, 1)
-                     + (v_closing_day - 1) * interval '1 day')::date;
+  -- Calcular datas reais de fechamento e vencimento de forma segura
+  v_closing_date := public.fn_safe_date(v_billing_year, v_billing_month, v_closing_day);
 
   -- Se due_day não está configurado, assume closing_day + 10 dias
   IF v_due_day IS NULL THEN
     v_due_date := v_closing_date + interval '10 days';
   ELSE
-    -- Vencimento pode ser no mês seguinte ao fechamento
+    -- Vencimento pode ser no mês seguinte ao fechamento (se due_day < closing_day)
     DECLARE
-      v_due_month INTEGER := v_billing_month + 1;
+      v_due_month INTEGER := v_billing_month;
       v_due_year  INTEGER := v_billing_year;
     BEGIN
-      IF v_due_month > 12 THEN
-        v_due_month := 1;
-        v_due_year  := v_due_year + 1;
+      IF v_due_day < v_closing_day THEN
+        v_due_month := v_due_month + 1;
+        IF v_due_month > 12 THEN
+          v_due_month := 1;
+          v_due_year  := v_due_year + 1;
+        END IF;
       END IF;
-      v_due_date := (make_date(v_due_year, v_due_month, 1)
-                     + (v_due_day - 1) * interval '1 day')::date;
+      v_due_date := public.fn_safe_date(v_due_year, v_due_month, v_due_day);
     END;
   END IF;
 
   -- Buscar fatura existente para esse mês
   SELECT id INTO v_invoice_id
     FROM public.credit_card_invoices
-   WHERE account_id    = p_account_id
-     AND billing_month = v_billing_label
+   WHERE account_id      = p_account_id
+     AND reference_month = v_billing_label
    LIMIT 1;
 
   -- Se não existe, criar
   IF v_invoice_id IS NULL THEN
     INSERT INTO public.credit_card_invoices (
-      account_id, billing_month, closing_date, due_date, status, total_amount_cents
+      account_id, reference_month, closing_date, due_date, status, amount_cents
     ) VALUES (
       p_account_id, v_billing_label, v_closing_date, v_due_date, 'OPEN', 0
     )
@@ -511,7 +543,7 @@ BEGIN
           t.description,
           t.invoice_id,
           t.is_paid,
-          i.billing_month AS reference_month,
+          i.reference_month,
           i.status AS invoice_status
         FROM public.transactions t
         LEFT JOIN public.credit_card_invoices i ON t.invoice_id = i.id
@@ -633,10 +665,10 @@ BEGIN
       FROM (
         SELECT
           i.id,
-          i.billing_month AS reference_month,
+          i.reference_month,
           i.due_date,
           i.status,
-          i.total_amount_cents AS amount_cents,
+          i.amount_cents,
           a.name AS account_name,
           a.color_hex
         FROM public.credit_card_invoices i
@@ -677,7 +709,7 @@ BEGIN
           +
           -- Faturas de cartão com vencimento no mês
           COALESCE((
-            SELECT SUM(i.total_amount_cents)
+            SELECT SUM(i.amount_cents)
             FROM public.credit_card_invoices i
             JOIN public.accounts a ON i.account_id = a.id
             WHERE a.family_group_id = p_family_group_id
@@ -833,10 +865,10 @@ BEGIN
                 SELECT 
                     i.id,
                     i.account_id,
-                    i.billing_month AS reference_month,
+                    i.reference_month,
                     i.closing_date,
                     i.due_date,
-                    i.total_amount_cents AS amount_cents,
+                    i.amount_cents,
                     i.status
                 FROM public.credit_card_invoices i
                 JOIN public.accounts a ON i.account_id = a.id 
@@ -894,6 +926,98 @@ BEGIN
     RETURN result;
 END;
 $$;
+
+-- ============================================================
+-- BLOCO 9.2: SINCRONIZAÇÃO AUTOMÁTICA DE FATURAS (TRG)
+-- ============================================================
+-- Resolve o problema de transações órfãs ou valores desincronizados.
+-- ============================================================
+
+-- 1. Trigger de Vínculo de Transação a Fatura
+CREATE OR REPLACE FUNCTION public.trg_link_credit_card_transaction()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_account_type VARCHAR;
+    v_closing_day INT;
+    v_due_day INT;
+    v_base_date DATE;
+    v_test_closing_date DATE;
+    v_invoice_month DATE;
+    v_invoice_due_date DATE;
+    v_reference_month VARCHAR(7);
+    v_invoice_id UUID;
+BEGIN
+    SELECT type, closing_day, due_day INTO v_account_type, v_closing_day, v_due_day
+    FROM public.accounts WHERE id = NEW.account_id;
+
+    IF v_account_type != 'CREDIT_CARD' OR v_closing_day IS NULL THEN
+        RETURN NEW;
+    END IF;
+
+    v_base_date := NEW.date::DATE;
+    v_test_closing_date := public.fn_safe_date(extract(year from v_base_date)::int, extract(month from v_base_date)::int, v_closing_day);
+
+    IF v_base_date <= v_test_closing_date THEN
+        v_invoice_month := v_test_closing_date;
+    ELSE
+        v_invoice_month := v_test_closing_date + interval '1 month';
+    END IF;
+
+    IF v_due_day < v_closing_day THEN
+        v_invoice_due_date := public.fn_safe_date(extract(year from v_invoice_month + interval '1 month')::int, extract(month from v_invoice_month + interval '1 month')::int, v_due_day);
+    ELSE
+        v_invoice_due_date := public.fn_safe_date(extract(year from v_invoice_month)::int, extract(month from v_invoice_month)::int, v_due_day);
+    END IF;
+
+    v_reference_month := to_char(v_invoice_due_date, 'YYYY-MM');
+
+    SELECT id INTO v_invoice_id FROM public.credit_card_invoices
+    WHERE account_id = NEW.account_id AND reference_month = v_reference_month;
+
+    IF v_invoice_id IS NULL THEN
+        INSERT INTO public.credit_card_invoices (account_id, reference_month, closing_date, due_date, amount_cents, status)
+        VALUES (NEW.account_id, v_reference_month, 
+                public.fn_safe_date(extract(year from v_invoice_month)::int, extract(month from v_invoice_month)::int, v_closing_day), 
+                v_invoice_due_date, 0, 'OPEN')
+        RETURNING id INTO v_invoice_id;
+    END IF;
+
+    NEW.invoice_id := v_invoice_id;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_on_credit_card_tx ON public.transactions;
+CREATE TRIGGER trg_on_credit_card_tx
+BEFORE INSERT OR UPDATE OF date, account_id, invoice_id ON public.transactions
+FOR EACH ROW EXECUTE FUNCTION public.trg_link_credit_card_transaction();
+
+-- 2. Trigger de Soma de Totais na Fatura
+CREATE OR REPLACE FUNCTION public.trg_update_invoice_amount()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'UPDATE' OR TG_OP = 'DELETE' THEN
+        IF OLD.invoice_id IS NOT NULL THEN
+            UPDATE public.credit_card_invoices
+            SET amount_cents = (SELECT COALESCE(SUM(amount_cents), 0) FROM public.transactions WHERE invoice_id = OLD.invoice_id AND transaction_type != 'PAYMENT')
+            WHERE id = OLD.invoice_id;
+        END IF;
+    END IF;
+    IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
+        IF NEW.invoice_id IS NOT NULL THEN
+            UPDATE public.credit_card_invoices
+            SET amount_cents = (SELECT COALESCE(SUM(amount_cents), 0) FROM public.transactions WHERE invoice_id = NEW.invoice_id AND transaction_type != 'PAYMENT')
+            WHERE id = NEW.invoice_id;
+        END IF;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_update_invoice_amount_after ON public.transactions;
+CREATE TRIGGER trg_update_invoice_amount_after
+AFTER INSERT OR UPDATE OF amount_cents, invoice_id, transaction_type OR DELETE
+ON public.transactions FOR EACH ROW EXECUTE FUNCTION public.trg_update_invoice_amount();
 
 -- ============================================================
 -- BLOCO 10: SEGURANÇA — RLS para RPCs públicas
@@ -955,18 +1079,14 @@ COMMIT;
 --    → deve retornar installment_group_id e 12 transaction_ids
 
 -- 4. Verificar que as 12 faturas foram criadas/encontradas:
---    SELECT billing_month, total_amount_cents, status
+--    SELECT reference_month, amount_cents, status
 --    FROM public.credit_card_invoices
 --    WHERE account_id = '<uuid-do-cartao>'
---    ORDER BY billing_month;
---    → deve mostrar 12 meses com total_amount_cents = 30000 cada
+--    ORDER BY reference_month;
+--    → deve mostrar 12 meses com amount_cents = 30000 cada
 
--- 5. Verificar projeção futura para 3 meses à frente:
---    SELECT get_month_projection(
---      '<uuid-do-grupo>',
---      (CURRENT_DATE + interval '3 months')::date
---    );
---    → deve incluir as parcelas do parcelamento acima
+-- 5. Backfill de Vínculo (Opcional, mas recomendado):
+--    UPDATE public.transactions SET invoice_id = NULL WHERE account_id IN (SELECT id FROM accounts WHERE type = 'CREDIT_CARD');
 
 -- 6. Testar transferência atômica:
 --    SELECT create_transfer(
