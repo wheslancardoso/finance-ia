@@ -87,13 +87,16 @@ export function AddTransactionModal() {
 
       if (!isNaN(txDate.getTime())) {
         const shouldBeLegacy = isBefore(txDate, currentMonthStart);
-        // Usamos setIsLegacyDebt de forma que não precise de isLegacyDebt nas dependências
-        setIsLegacyDebt(shouldBeLegacy);
+        // Garantimos que a atualização do estado não cause loops nem mude o tamanho do array
+        setIsLegacyDebt(prev => {
+          if (prev !== shouldBeLegacy) return shouldBeLegacy;
+          return prev;
+        });
       }
     } catch (e) {
       console.error("Erro ao processar data para dívida legada", e);
     }
-  }, [transactionDate, transactionToEdit]);
+  }, [transactionDate, transactionToEdit, isLegacyDebt]);
 
   useEffect(() => {
     if (isOpen) {
@@ -333,8 +336,13 @@ export function AddTransactionModal() {
 
         const { error } = await supabase.from("transactions").insert(transactionsToInsert);
         if (error) {
-          console.error("Erro ao inserir parcelas. Detalhes:", JSON.stringify(error, null, 2));
-          console.error("Payload tentado:", JSON.stringify(transactionsToInsert, null, 2));
+          console.error("Erro detalhado do Supabase ao inserir parcelas:", {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
+          console.error("Payload tentado:", transactionsToInsert);
           errorOccurred = true;
         }
       }
@@ -487,7 +495,7 @@ export function AddTransactionModal() {
                         <span className="text-white/60">
                           {formatCurrency(
                             selectedAccount.type === "CREDIT_CARD"
-                              ? (selectedAccount.credit_limit_cents || 0) + selectedAccount.balance_cents
+                              ? (selectedAccount.credit_limit_cents || 0) - ((selectedAccount.open_invoice_cents || 0) + (selectedAccount.closed_invoice_cents || 0))
                               : selectedAccount.balance_cents
                           )}
                         </span>

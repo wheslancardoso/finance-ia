@@ -39,10 +39,14 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
 
   // Detectar status da fatura
   const today = new Date().getDate();
-  const hasClosedInvoice = isCreditCard && today >= (closing_day || 31) && (liveAccount.closed_invoice_cents || 0) > 0;
+  const hasClosedInvoice = isCreditCard && today > (closing_day || 31) && (liveAccount.closed_invoice_cents || 0) > 0;
 
-  // No caso de cartão, o 'balance' representa o gasto acumulado (fatura)
-  const spent = Math.abs(balance);
+  // Para cartão de crédito, o gasto real é a soma das faturas não pagas (aberta + fechada).
+  // balance_cents é sempre 0 para CREDIT_CARD (a trigger de saldo ignora esse tipo de conta).
+  const totalCardSpent = isCreditCard 
+    ? (liveAccount.open_invoice_cents || 0) + (liveAccount.closed_invoice_cents || 0)
+    : 0;
+  const spent = isCreditCard ? totalCardSpent : Math.abs(balance);
   const available = (limit || 0) - spent;
   const percentage = limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
 
@@ -101,14 +105,14 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
       <div className="space-y-4">
         {isCreditCard ? (() => {
           const today = new Date().getDate();
-          const dateIsClosed = today >= (closing_day || 31);
+          const dateIsClosed = today > (closing_day || 31);
           const closedAmount = liveAccount.closed_invoice_cents || 0;
+          const openAmount = liveAccount.open_invoice_cents || 0;
           
-          // Se a fatura fechada foi paga (=0), mostra a aberta
-          const showClosed = dateIsClosed && closedAmount > 0;
-          const invoiceAmount = showClosed 
-            ? closedAmount 
-            : (liveAccount.open_invoice_cents || 0);
+          // Se a fatura fechada já foi paga ou se a aberta tem saldo (indicando atividade nova),
+          // mostramos a aberta para dar feedback de que a transação funcionou.
+          const showClosed = dateIsClosed && closedAmount > 0 && openAmount === 0;
+          const invoiceAmount = showClosed ? closedAmount : openAmount;
           const invoiceMonth = showClosed
             ? (liveAccount.closed_invoice_month || "---")
             : (liveAccount.open_invoice_month || "---");

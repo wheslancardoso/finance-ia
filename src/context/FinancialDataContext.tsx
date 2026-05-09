@@ -299,7 +299,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         let closedY = now.getFullYear();
         let closedM = now.getMonth();
 
-        if (todayDay >= cardClosingDay) {
+        if (todayDay > cardClosingDay) {
           closedM = openM; closedY = openY;
           openM++;
           if (openM > 11) { openM = 0; openY++; }
@@ -324,7 +324,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
         return { 
           ...acc, 
-          current_invoice_cents: closedAmount > 0 ? closedAmount : openAmount,
+          // Priorizamos a fatura aberta se houver gastos nela (já que a anterior pode estar paga),
+          // ou mostramos a fechada se a aberta estiver zerada.
+          current_invoice_cents: (openAmount > 0) ? openAmount : (closedAmount > 0 ? closedAmount : 0),
           closed_invoice_cents: closedAmount,
           closed_invoice_month: closedMonthLabel,
           open_invoice_cents: openAmount,
@@ -522,41 +524,49 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         return;
       }
       
-      const localAccounts = await db.accounts.where('family_group_id').equals(familyGroupId).toArray();
-      const localCategories = await db.categories.where('family_group_id').equals(familyGroupId).toArray();
-      const localGoals = await db.goals.where('family_group_id').equals(familyGroupId).toArray();
-      const localRecurring = await db.recurring_transactions.where('family_group_id').equals(familyGroupId).toArray();
-      const localBudgets = await db.budgets.where('family_group_id').equals(familyGroupId).toArray();
+      try {
+        const localAccounts = await db.accounts.where('family_group_id').equals(familyGroupId).toArray();
+        const localCategories = await db.categories.where('family_group_id').equals(familyGroupId).toArray();
+        const localGoals = await db.goals.where('family_group_id').equals(familyGroupId).toArray();
+        const localRecurring = await db.recurring_transactions.where('family_group_id').equals(familyGroupId).toArray();
+        const localBudgets = await db.budgets.where('family_group_id').equals(familyGroupId).toArray();
 
-      if (localAccounts.length > 0 || localCategories.length > 0) {
-        console.log("LOCAL-FIRST: DADOS CARREGADOS DO BANCO LOCAL");
-        setAccounts(localAccounts as Account[]);
-        setCategories(localCategories as Category[]);
-        setGoals(localGoals as Goal[]);
-        setRecurringTransactions(localRecurring as RecurringTransaction[]);
-        setBudgets(localBudgets as Budget[]);
+        if (localAccounts.length > 0 || localCategories.length > 0) {
+          console.log("LOCAL-FIRST: DADOS CARREGADOS DO BANCO LOCAL");
+          setAccounts(localAccounts as Account[]);
+          setCategories(localCategories as Category[]);
+          setGoals(localGoals as Goal[]);
+          setRecurringTransactions(localRecurring as RecurringTransaction[]);
+          setBudgets(localBudgets as Budget[]);
+        }
+      } catch (err) {
+        console.error("ERRO AO CARREGAR DADOS LOCAIS (DEXIE):", err);
+      } finally {
+        setLoading(false);
+        setIsInitialLoading(false);
       }
-      
-      setLoading(false);
-      setIsInitialLoading(false);
     };
 
     // Carregar Configurações do Modo Crise do LocalStorage
     if (typeof window !== "undefined") {
-      const storedIncome = localStorage.getItem("vesper_monthly_income");
-      if (storedIncome) setMonthlyIncomeCentsState(parseInt(storedIncome, 10));
-      
-      const storedExpenses = localStorage.getItem("vesper_fixed_expenses");
-      if (storedExpenses) setFixedExpensesCentsState(parseInt(storedExpenses, 10));
-      
-      const storedAccumulated = localStorage.getItem("vesper_accumulated_balance");
-      if (storedAccumulated) setAccumulatedBalanceCents(parseInt(storedAccumulated, 10));
+      try {
+        const storedIncome = localStorage.getItem("vesper_monthly_income");
+        if (storedIncome) setMonthlyIncomeCentsState(parseInt(storedIncome, 10));
+        
+        const storedExpenses = localStorage.getItem("vesper_fixed_expenses");
+        if (storedExpenses) setFixedExpensesCentsState(parseInt(storedExpenses, 10));
+        
+        const storedAccumulated = localStorage.getItem("vesper_accumulated_balance");
+        if (storedAccumulated) setAccumulatedBalanceCents(parseInt(storedAccumulated, 10));
 
-      const storedRecIncome = localStorage.getItem("vesper_recurring_income");
-      if (storedRecIncome) setRecurringIncomeCents(parseInt(storedRecIncome, 10));
+        const storedRecIncome = localStorage.getItem("vesper_recurring_income");
+        if (storedRecIncome) setRecurringIncomeCents(parseInt(storedRecIncome, 10));
 
-      const storedRecExpense = localStorage.getItem("vesper_recurring_expense");
-      if (storedRecExpense) setRecurringExpensesCents(parseInt(storedRecExpense, 10));
+        const storedRecExpense = localStorage.getItem("vesper_recurring_expense");
+        if (storedRecExpense) setRecurringExpensesCents(parseInt(storedRecExpense, 10));
+      } catch (err) {
+        console.error("ERRO AO CARREGAR LOCALSTORAGE:", err);
+      }
     }
 
     loadLocalData();
