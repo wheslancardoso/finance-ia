@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Target, Palette, Sparkles, Calendar } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 import { useGoalModal } from "@/context/GoalModalContext";
 import { useAccountModal } from "@/context/AccountModalContext";
@@ -12,6 +11,7 @@ import { useRouter } from "next/navigation";
 export function AddGoalModal() {
   const { isOpen, closeModal } = useGoalModal();
   const { familyGroupId } = useAccountModal();
+  const { upsertGoal, refreshData } = useFinancialData();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -29,7 +29,6 @@ export function AddGoalModal() {
     setLoading(true);
 
     try {
-      const supabase = createClient();
       
       if (!familyGroupId) {
         console.error("Erro: familyGroupId não encontrado no contexto.");
@@ -51,8 +50,7 @@ export function AddGoalModal() {
         return;
       }
 
-      const { error: insertError } = await supabase.from("goals").insert({
-        family_group_id: familyGroupId,
+      await upsertGoal({
         name,
         target_amount_cents: targetCents,
         current_amount_cents: currentCents,
@@ -61,14 +59,8 @@ export function AddGoalModal() {
         status: "active"
       });
 
-      if (insertError) {
-        console.error("Erro ao inserir meta:", insertError);
-        alert(`Erro ao salvar meta: ${insertError.message}`);
-      } else {
-        closeModal();
-        resetForm();
-        router.refresh();
-      }
+      closeModal();
+      resetForm();
     } catch (err) {
       console.error("Erro inesperado no cadastro de meta:", err);
       alert("Ocorreu um erro inesperado. Verifique os dados e tente novamente.");

@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Wallet, Landmark, CreditCard, Banknote, RefreshCw, Check, ArrowUpRight, ArrowDownRight } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { cn, formatCurrency, getTransactionInvoiceMonth } from "@/lib/utils";
 import { useAccountModal } from "@/context/AccountModalContext";
@@ -11,7 +10,19 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export function AddAccountModal() {
-  const { isOpen, accountToEdit, closeModal, familyGroupId } = useAccountModal();
+  const { 
+    isOpen, 
+    accountToEdit, 
+    closeModal, 
+    familyGroupId 
+  } = useAccountModal();
+  
+  const { 
+    transactions, 
+    upsertAccount, 
+    upsertTransaction,
+    refreshData 
+  } = useFinancialData();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -58,11 +69,6 @@ export function AddAccountModal() {
 
   async function calculateCurrentInvoice() {
     if (!accountToEdit) return;
-    const supabase = createClient();
-    const { data: transactions } = await supabase
-      .from("transactions")
-      .select("*")
-      .eq("account_id", accountToEdit.id);
     if (!transactions) return;
 
     const cDay = accountToEdit.closing_day || 31;
@@ -116,7 +122,6 @@ export function AddAccountModal() {
   async function handleSyncInvoice() {
     if (!accountToEdit || !invoiceRealValue) return;
     setSyncLoading(true);
-    const supabase = createClient();
     const realCents = Math.round(parseFloat(invoiceRealValue.replace(",", ".")) * 100);
     const difference = realCents - calculatedInvoice;
     if (difference === 0) {
@@ -141,7 +146,7 @@ export function AddAccountModal() {
     // Data do ajuste: dia do fechamento do mês anterior → cai na fatura fechada
     const adjDate = new Date(closedY, closedM - 1, cDay);
 
-    const { error } = await supabase.from("transactions").insert([{
+    await upsertTransaction({
       account_id: accountToEdit.id,
       category_id: null,
       amount_cents: Math.abs(difference),
@@ -153,17 +158,11 @@ export function AddAccountModal() {
       installment_total: 1,
       is_legacy_debt: false,
       is_paid: false,
-    }]);
-    if (!error) {
-      setSyncSuccess(true);
-      setInvoiceRealValue("");
-      await calculateCurrentInvoice();
-      router.refresh();
-      setTimeout(() => setSyncSuccess(false), 3000);
-    } else {
-      console.error("Erro ao criar ajuste:", error);
-      alert("Erro ao criar transação de ajuste.");
-    }
+    });
+    setSyncSuccess(true);
+    setInvoiceRealValue("");
+    await calculateCurrentInvoice();
+    setTimeout(() => setSyncSuccess(false), 3000);
     setSyncLoading(false);
   }
 
@@ -171,17 +170,8 @@ export function AddAccountModal() {
     e.preventDefault();
     setLoading(true);
 
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      alert("Sessão expirada.");
-      setLoading(false);
-      return;
-    }
-
-    if (!familyGroupId && !accountToEdit) {
-      alert("Erro: ID do grupo familiar não encontrado. Tente atualizar a página.");
+    if (familyGroupId === null && !accountToEdit) {
+      alert("Erro: ID do grupo familiar não encontrado.");
       setLoading(false);
       return;
     }
@@ -199,21 +189,14 @@ export function AddAccountModal() {
       due_day: type === "CREDIT_CARD" ? dueDay : null,
     };
 
-    let error;
-    if (accountToEdit) {
-      const { error: err } = await supabase.from("accounts").update(payload).eq("id", accountToEdit.id);
-      error = err;
-    } else {
-      payload.family_group_id = familyGroupId;
-      const { error: err } = await supabase.from("accounts").insert([payload]);
-      error = err;
-    }
-
-    if (!error) {
+    try {
+      await upsertAccount({
+        id: accountToEdit?.id,
+        ...payload
+      });
       closeModal();
-      router.refresh();
-    } else {
-      console.error("Erro Supabase:", error);
+    } catch (error) {
+      console.error("Erro ao salvar conta:", error);
       alert("Erro ao salvar conta no banco de dados.");
     }
     setLoading(false);

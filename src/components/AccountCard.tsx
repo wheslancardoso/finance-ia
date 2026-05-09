@@ -11,6 +11,8 @@ import { useAccountModal } from "@/context/AccountModalContext";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { ActionMenu } from "./ActionMenu";
 import { PayInvoiceModal } from "./PayInvoiceModal";
+import { format, addMonths } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface AccountCardProps {
   account: any;
@@ -38,15 +40,15 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
   const [payModalOpen, setPayModalOpen] = useState(false);
 
   // Detectar status da fatura
-  const today = new Date().getDate();
-  const hasClosedInvoice = isCreditCard && today > (closing_day || 31) && (liveAccount.closed_invoice_cents || 0) > 0;
+  const openAmount = liveAccount.open_invoice_cents || 0;
+  const closedAmount = liveAccount.closed_invoice_cents || 0;
+  
+  // Se houver fatura fechada não paga, damos prioridade a ela na visualização principal
+  // se a aberta ainda estiver pequena ou se o usuário estiver no período de fechamento.
+  const hasClosedInvoice = isCreditCard && closedAmount > 0;
 
-  // Para cartão de crédito, o gasto real é a soma das faturas não pagas (aberta + fechada).
-  // balance_cents é sempre 0 para CREDIT_CARD (a trigger de saldo ignora esse tipo de conta).
-  const totalCardSpent = isCreditCard 
-    ? (liveAccount.open_invoice_cents || 0) + (liveAccount.closed_invoice_cents || 0)
-    : 0;
-  const spent = isCreditCard ? totalCardSpent : Math.abs(balance);
+  // O balance_cents para CREDIT_CARD agora representa a dívida total acumulada (via trigger).
+  const spent = isCreditCard ? Math.abs(balance) : Math.abs(balance);
   const available = (limit || 0) - spent;
   const percentage = limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
 
@@ -104,18 +106,24 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
 
       <div className="space-y-4">
         {isCreditCard ? (() => {
-          const today = new Date().getDate();
-          const dateIsClosed = today > (closing_day || 31);
-          const closedAmount = liveAccount.closed_invoice_cents || 0;
-          const openAmount = liveAccount.open_invoice_cents || 0;
-          
-          // Se a fatura fechada já foi paga ou se a aberta tem saldo (indicando atividade nova),
-          // mostramos a aberta para dar feedback de que a transação funcionou.
-          const showClosed = dateIsClosed && closedAmount > 0 && openAmount === 0;
+          // Mostramos a fatura FECHADA se houver valor, senão a ABERTA.
+          const showClosed = closedAmount > 0;
           const invoiceAmount = showClosed ? closedAmount : openAmount;
-          const invoiceMonth = showClosed
-            ? (liveAccount.closed_invoice_month || "---")
-            : (liveAccount.open_invoice_month || "---");
+          const invoiceMonthRaw = showClosed
+            ? (liveAccount.closed_invoice_month || "")
+            : (liveAccount.open_invoice_month || "");
+          
+          // Formata o mês (YYYY-MM para MMM)
+          let invoiceMonth = "---";
+          if (invoiceMonthRaw) {
+            try {
+              const [y, m] = invoiceMonthRaw.split("-");
+              // Mostramos o mês de VENCIMENTO (mês de referência + 1)
+              invoiceMonth = format(addMonths(new Date(parseInt(y), parseInt(m) - 1, 1), 1), "MMM", { locale: ptBR });
+            } catch (e) {
+              invoiceMonth = invoiceMonthRaw;
+            }
+          }
           
           return (
             <div className="space-y-1">

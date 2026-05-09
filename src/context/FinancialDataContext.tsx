@@ -1,17 +1,11 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { createClient } from "@/utils/supabase/client";
+import { financialService } from "@/services/financialService";
+import { db, type Account, type Category, type Goal, type RecurringTransaction, type Budget, type FinancialHealthScore } from "@/lib/db";
 import { useAccountModal } from "./AccountModalContext";
-import { db } from "@/lib/db";
 import { addMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
-interface Category {
-  id: string;
-  name: string;
-  type: "EXPENSE" | "INCOME" | "TRANSFER";
-}
 
 export interface IncomeMixItem {
   name: string;
@@ -21,68 +15,6 @@ export interface IncomeMixItem {
 export interface NetWorthHistoryItem {
   month: string;
   amount: number;
-}
-
-export interface Account {
-  id: string;
-  name: string;
-  type: string;
-  balance_cents: number;
-  credit_limit_cents?: number;
-  current_invoice_cents?: number;
-  ceiling_impact_cents?: number;
-  closed_invoice_cents?: number;
-  closed_invoice_month?: string;
-  open_invoice_cents?: number;
-  open_invoice_month?: string;
-  closing_day?: number;
-  due_day?: number;
-  color_hex?: string;
-}
-
-export interface Goal {
-  id: string;
-  name: string;
-  target_amount_cents: number;
-  current_amount_cents: number;
-  monthly_contribution_cents: number;
-  deadline?: string;
-  projected_completion_date?: string;
-  color_hex?: string;
-}
-
-export interface RecurringTransaction {
-  id: string;
-  description: string;
-  amount_cents: number;
-  transaction_type: "INCOME" | "EXPENSE";
-  frequency: "monthly" | "weekly" | "yearly";
-  next_date: string;
-  status: "active" | "inactive";
-  category_id?: string;
-  account_id?: string;
-}
-
-export interface Budget {
-  id: string;
-  category_id: string;
-  amount_cents: number;
-}
-
-export interface Transaction {
-  id: string;
-  description: string;
-  amount_cents: number;
-  transaction_type: "INCOME" | "EXPENSE" | "TRANSFER";
-  date: string;
-  is_paid: boolean;
-  category_id?: string;
-  account_id: string;
-  installment_current?: number;
-  installment_total?: number;
-  is_legacy_debt?: boolean;
-  category?: Category;
-  account?: Account;
 }
 
 interface GoalRecommendation {
@@ -106,30 +38,6 @@ interface SimulationResult {
   impact_percentage: number;
 }
 
-interface FinancialStateResponse {
-  family_group: {
-    id: string;
-    name: string;
-    monthly_income_cents: number;
-    fixed_expenses_cents: number;
-    accumulated_balance_cents: number;
-    financial_health_score?: number;
-  };
-  categories: Category[];
-  accounts: Account[];
-  invoices: any[];
-  goals: Goal[];
-  recurring_transactions: (RecurringTransaction & { category?: Category; account?: Account })[];
-  budgets: Budget[];
-  recent_transactions: Transaction[];
-  month_transactions: Transaction[];
-  month_stats: {
-    income: number;
-    expense: number;
-    debit_expense: number;
-  };
-}
-
 interface FinancialDataContextType {
   categories: Category[];
   accounts: Account[];
@@ -141,7 +49,6 @@ interface FinancialDataContextType {
   fixedExpensesCents: number;
   setFixedExpensesCents: (val: number) => void;
   
-  // Modo Crise Avançado
   extraIncomeCents: number;
   currentMonthExpensesCents: number;
   accumulatedBalanceCents: number;
@@ -152,10 +59,17 @@ interface FinancialDataContextType {
   budgets: Budget[];
   recentTransactions: any[];
   monthTransactions: any[];
-  healthScore: number;
-  toggleTransactionPaid: (transactionId: string, currentStatus: boolean) => Promise<void>;
+  healthScore: FinancialHealthScore | null;
+  toggleTransactionPaid: (id: string, status: boolean) => Promise<void>;
+  upsertTransaction: (data: any) => Promise<any>;
+  deleteTransaction: (id: string) => Promise<void>;
+  deleteTransactionSeries: (description: string, total: number, accId: string) => Promise<void>;
+  updateTransactionSeries: (description: string, total: number, accId: string, updates: any) => Promise<void>;
   createInstallmentSeries: (data: any) => Promise<void>;
-  simulatePurchaseImpact: (amountCents: number) => Promise<SimulationResult>;
+  upsertAccount: (data: any) => Promise<void>;
+  upsertGoal: (data: any) => Promise<void>;
+  updateGoalBalance: (id: string, amount: number) => Promise<void>;
+  simulatePurchaseImpact: (amount: number, installments: number) => Promise<SimulationResult>;
   getGoalRecommendations: () => Promise<GoalRecommendationsResponse>;
   getIncomeMix: () => IncomeMixItem[];
   getNetWorthHistory: () => NetWorthHistoryItem[];
@@ -287,57 +201,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       setCurrentMonthExpensesCents(monthExp);
     }
 
-    // 6. Processar Contas e Faturas de Cartão
-    const accountsWithInvoice = state.accounts.map(acc => {
-      if (acc.type === "CREDIT_CARD") {
-        const now = new Date();
-        const cardClosingDay = acc.closing_day || 31;
-        const todayDay = now.getDate();
-
-        let openY = now.getFullYear();
-        let openM = now.getMonth();
-        let closedY = now.getFullYear();
-        let closedM = now.getMonth();
-
-        if (todayDay > cardClosingDay) {
-          closedM = openM; closedY = openY;
-          openM++;
-          if (openM > 11) { openM = 0; openY++; }
-        } else {
-          openM = closedM; openY = closedY;
-          closedM--;
-          if (closedM < 0) { closedM = 11; closedY--; }
-        }
-        
-        const openRef = `${openY}-${String(openM + 1).padStart(2, '0')}`;
-        const closedRef = `${closedY}-${String(closedM + 1).padStart(2, '0')}`;
-
-        // O label deve ser o mês de VENCIMENTO (geralmente mês de referência + 1)
-        const openMonthLabel = format(addMonths(new Date(openY, openM, 1), 1), "MMM", { locale: ptBR });
-        const closedMonthLabel = format(addMonths(new Date(closedY, closedM, 1), 1), "MMM", { locale: ptBR });
-
-        const openInvoice = state.invoices.find(i => i.account_id === acc.id && i.reference_month === openRef);
-        const closedInvoice = state.invoices.find(i => i.account_id === acc.id && i.reference_month === closedRef);
-
-        const openAmount = openInvoice ? Number(openInvoice.amount_cents) : 0;
-        const closedAmount = closedInvoice ? Number(closedInvoice.amount_cents) : 0;
-
-        return { 
-          ...acc, 
-          // Priorizamos a fatura aberta se houver gastos nela (já que a anterior pode estar paga),
-          // ou mostramos a fechada se a aberta estiver zerada.
-          current_invoice_cents: (openAmount > 0) ? openAmount : (closedAmount > 0 ? closedAmount : 0),
-          closed_invoice_cents: closedAmount,
-          closed_invoice_month: closedMonthLabel,
-          open_invoice_cents: openAmount,
-          open_invoice_month: openMonthLabel,
-        };
-      }
-      return acc;
-    });
-
-    setAccounts(accountsWithInvoice);
-    await db.accounts.bulkPut(accountsWithInvoice.map(a => ({ ...a, family_group_id: familyGroupId })));
+    // 6. Sincronizar Entidades com State e Dexie
+    setAccounts(state.accounts);
+    await db.accounts.bulkPut(state.accounts.map(a => ({ ...a, family_group_id: familyGroupId })));
     
     // 7. Sincronizar Outras Entidades com State e Dexie
     setGoals(state.goals || []);
@@ -493,14 +359,67 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   }, [accounts, monthTransactions]);
 
   const createTransfer = async (fromId: string, toId: string, amountCents: number) => {
-    const supabase = createClient();
-    const { error } = await supabase.rpc('create_transfer', {
-      p_family_group_id: familyGroupId,
-      p_from_account_id: fromId,
-      p_to_account_id: toId,
-      p_amount_cents: amountCents,
-      p_description: "Transferência entre contas"
+    if (!familyGroupId) return;
+    const { error } = await financialService.createTransfer({
+      family_group_id: familyGroupId,
+      from_account_id: fromId,
+      to_account_id: toId,
+      amount_cents: amountCents
     });
+    if (!error) await refreshData();
+    return { error };
+  };
+
+  const upsertTransaction = async (data: any) => {
+    const res = await financialService.upsertTransaction({
+      ...data,
+      family_group_id: familyGroupId!
+    });
+    if (!res.error) await refreshData();
+    return res;
+  };
+
+  const deleteTransaction = async (id: string) => {
+    const { error } = await financialService.deleteTransaction(id);
+    if (!error) await refreshData();
+  };
+
+  const deleteTransactionSeries = async (description: string, total: number, accId: string) => {
+    const { error } = await financialService.deleteTransactionSeries(description, total, accId);
+    if (!error) await refreshData();
+  };
+
+  const updateTransactionSeries = async (description: string, total: number, accId: string, updates: any) => {
+    const { error } = await financialService.updateTransactionSeries(description, total, accId, updates);
+    if (!error) await refreshData();
+  };
+
+  const createInstallmentSeries = async (data: any) => {
+    const { error } = await financialService.createInstallmentSeries({
+      ...data,
+      family_group_id: familyGroupId!
+    });
+    if (!error) await refreshData();
+  };
+
+  const upsertAccount = async (data: any) => {
+    const { error } = await financialService.upsertAccount({
+      ...data,
+      family_group_id: familyGroupId!
+    });
+    if (!error) await refreshData();
+  };
+
+  const upsertGoal = async (data: any) => {
+    const { error } = await financialService.upsertGoal({
+      ...data,
+      family_group_id: familyGroupId!
+    });
+    if (!error) await refreshData();
+  };
+
+  const updateGoalBalance = async (id: string, amount: number) => {
+    const { error } = await financialService.updateGoalBalance(id, amount);
     if (!error) await refreshData();
   };
 
@@ -596,14 +515,16 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       budgets,
       recentTransactions,
       monthTransactions,
-      healthScore,
-      toggleTransactionPaid,
-      createInstallmentSeries,
-      simulatePurchaseImpact,
-      getGoalRecommendations,
       getIncomeMix,
       getNetWorthHistory,
-      createTransfer
+      createTransfer,
+      upsertTransaction,
+      deleteTransaction,
+      deleteTransactionSeries,
+      updateTransactionSeries,
+      upsertAccount,
+      upsertGoal,
+      updateGoalBalance
     }}>
       {children}
     </FinancialDataContext.Provider>
