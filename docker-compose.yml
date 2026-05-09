@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: vesper-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: vesper_user
+      POSTGRES_PASSWORD: vesper_password
+      POSTGRES_DB: vesper_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+
+  postgrest:
+    image: postgrest/postgrest
+    container_name: vesper-postgrest
+    ports:
+      - "3000:3000"
+    environment:
+      PGRST_DB_URI: postgres://authenticator:vesper_secret_password@db:5432/vesper_db
+      PGRST_DB_SCHEMA: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: "really-long-secret-key-that-should-be-kept-safe"
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
