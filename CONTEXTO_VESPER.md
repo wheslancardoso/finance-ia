@@ -18,6 +18,7 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 *   **Sobra Livre:** O número mais importante. Cálculo em tempo real: `(Saldo Atual + Entradas Previstas) - (Saídas Previstas + Metas)`.
 *   **Visão de Futuro (Month Navigator):** Navegação por meses para projetar o saldo e patrimônio líquido baseado em fluxos recorrentes, orçamentos e parcelamentos.
 *   **Radar de Status:** Visualização rápida de cartões (limite comprometido) e metas (progresso visual).
+*   **Simplicidade de Planilha, Poder de Banco:** O sistema deve ser tão direto quanto um Excel (você lança e o resultado aparece), mas com a inteligência de um banco de dados (automação de faturas, recorrências e triggers). Se a lógica for complicada demais para ser explicada em uma linha, ela deve ser simplificada.
 
 ### 2. Modal Universal (Entrada Rápida)
 *   **Single Door:** Um único ponto de entrada para Saídas, Entradas e Transferências.
@@ -75,11 +76,11 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 
 ## 🛡️ Grande Refatoração: Estrutura & Inteligência (Em Planejamento)
 
-Identificamos que o principal gargalo de performance e a origem de bugs intermitentes nas projeções futuras (como a perda de parcelas) residem na estrutura descentralizada do banco de dados. Para resolver isso, iniciaremos uma transição de lógica "client-side heavy" para uma arquitetura "database-driven".
+Identificamos que o principal gargalo de performance e a origem de bugs intermitentes nas projeções futuras (como a perda de parcelas) residem na estrutura descentralizada do banco de dados. Para resolver isso, iniciaremos uma transição de lógica "client-side heavy" para uma arquitetura "database-driven", inspirada na clareza de uma planilha de Excel.
 
 ### 1. Reestruturação do Core de Cartões
 *   **Faturas Reais (`credit_card_invoices`):** Substituição dos campos flutuantes (como `open_invoice_cents`) por uma tabela formal de faturas. Isso garante rastreabilidade total de cada centavo gasto em cada ciclo.
-*   **Triggers de Automação:** O PostgreSQL assumirá a responsabilidade de vincular transações às faturas corretas e calcular totais em tempo real, eliminando inconsistências entre o que o banco armazena e o que o React exibe.
+*   **Triggers de Automação:** O PostgreSQL assumirá a responsabilidade de vincular transações às faturas corretas e calcular totais em tempo real, eliminando inconsistências entre o que o banco armazena e o que o React exibe. O objetivo é que o usuário "jogue" a despesa no sistema e o banco resolva o resto.
 
 ### 2. Otimização Massiva (O "Single Request" Dashboard)
 *   **Stored Procedure (RPC):** Implementação da função `get_dashboard_summary`. Em vez de 7+ requisições separadas, o frontend fará apenas uma chamada. O banco retornará um JSON consolidado com contas, faturas, transações futuras e recorrentes.
