@@ -14,6 +14,8 @@ export default function SurvivalHUD() {
     extraIncomeCents,
     currentMonthExpensesCents,
     accumulatedBalanceCents,
+    recurringIncomeCents,
+    recurringExpensesCents,
     setMonthlyIncomeCents,
     setFixedExpensesCents
   } = useFinancialData();
@@ -36,20 +38,25 @@ export default function SurvivalHUD() {
   }, [accounts]);
 
   const survivalCeilingCents = useMemo(() => {
-    // Teto = Renda Base + Sobras Passadas + Bicos Extras - Fixo - Faturas de Cartão - Gastos Variáveis (Débito/Pix)
+    // Teto = (Renda Base + Fluxos Recorrentes) + Sobras Passadas + Bicos Extras - (Fixo Manual + Gastos Recorrentes) - Faturas de Cartão - Gastos Variáveis (Débito/Pix)
+    const totalIncome = monthlyIncomeCents + recurringIncomeCents;
+    const totalFixed = fixedExpensesCents + recurringExpensesCents;
+
     return Math.max(0, 
-      monthlyIncomeCents + 
+      totalIncome + 
       accumulatedBalanceCents + 
       extraIncomeCents - 
-      fixedExpensesCents - 
+      totalFixed - 
       totalCreditCardImpact - 
       currentMonthExpensesCents
     );
   }, [
     monthlyIncomeCents, 
+    recurringIncomeCents,
     accumulatedBalanceCents, 
     extraIncomeCents, 
     fixedExpensesCents, 
+    recurringExpensesCents,
     totalCreditCardImpact, 
     currentMonthExpensesCents
   ]);
@@ -80,7 +87,8 @@ export default function SurvivalHUD() {
   });
 
   // Determinar Estado Visual
-  const percentageOfIncome = monthlyIncomeCents > 0 ? (survivalCeilingCents / monthlyIncomeCents) * 100 : 0;
+  const totalIncomeForStatus = monthlyIncomeCents + recurringIncomeCents;
+  const percentageOfIncome = totalIncomeForStatus > 0 ? (survivalCeilingCents / totalIncomeForStatus) * 100 : 0;
   
   let statusColor = "text-emerald-400";
   let statusGlow = "shadow-[0_0_15px_rgba(16,185,129,0.3)]";
@@ -102,8 +110,8 @@ export default function SurvivalHUD() {
     statusMessage = "Atenção ao Orçamento";
   }
 
-  // Se a renda não estiver configurada, mostramos o setup
-  if (monthlyIncomeCents === 0) {
+  // Se a renda total (manual + recorrente) não estiver configurada, mostramos o setup
+  if (monthlyIncomeCents + recurringIncomeCents === 0) {
     return (
       <div className="w-full bg-[#0a0a0a]/80 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-4">
@@ -204,22 +212,42 @@ export default function SurvivalHUD() {
           </div>
 
           {/* Math Summary Miniature */}
-          <div className="flex flex-wrap items-center justify-end gap-2 text-[10px] text-white/30 font-mono">
-            <span title="Renda Base" className="text-emerald-500/70">{(monthlyIncomeCents / 100).toFixed(0)}</span>
+          <div className="flex flex-wrap items-center justify-end gap-2 text-[9px] text-white/30 font-mono">
+            <div className="flex items-center gap-1">
+              <span className="text-white/10">RENDA:</span>
+              <span title="Renda (Base + Recorrente)" className="text-emerald-500/70">
+                {((monthlyIncomeCents + recurringIncomeCents) / 100).toFixed(0)}
+              </span>
+            </div>
             {(accumulatedBalanceCents > 0 || extraIncomeCents > 0) && (
-              <>
+              <div className="flex items-center gap-1">
                 <span className="text-white/20">+</span>
-                <span title="Bicos e Sobras" className="text-blue-400/70">{((accumulatedBalanceCents + extraIncomeCents) / 100).toFixed(0)}</span>
-              </>
+                <span title="Bicos e Sobras" className="text-blue-400/70">
+                  {((accumulatedBalanceCents + extraIncomeCents) / 100).toFixed(0)}
+                </span>
+              </div>
             )}
-            <span className="text-white/20">-</span>
-            <span title="Custo Fixo" className="text-white/40">{(fixedExpensesCents / 100).toFixed(0)}</span>
-            <span className="text-white/20">-</span>
-            <span title="Débitos/Pix" className="text-orange-400/70">{(currentMonthExpensesCents / 100).toFixed(0)}</span>
-            <span className="text-white/20">-</span>
-            <span title="Faturas Fechadas (Dívida Imediata)" className="text-red-500/70">{(accounts.filter(a => a.type === 'CREDIT_CARD').reduce((s, a) => s + (a.closed_invoice_cents || 0), 0) / 100).toFixed(0)}</span>
-            <span className="text-white/20">-</span>
-            <span title="Próxima Fatura (Comprometido no Cartão)" className="text-amber-500/70">{(accounts.filter(a => a.type === 'CREDIT_CARD').reduce((s, a) => s + (a.open_invoice_cents || 0), 0) / 100).toFixed(0)}</span>
+            <div className="flex items-center gap-1">
+              <span className="text-white/20">-</span>
+              <span className="text-white/10">FIXO:</span>
+              <span title="Custo Fixo (Base + Recorrente)" className="text-white/40">
+                {((fixedExpensesCents + recurringExpensesCents) / 100).toFixed(0)}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-white/20">-</span>
+              <span className="text-white/10">MÊS:</span>
+              <span title="Débitos/Pix Já Feitos" className="text-orange-400/70">
+                {(currentMonthExpensesCents / 100).toFixed(0)}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-white/20">-</span>
+              <span className="text-white/10">CARTÃO:</span>
+              <span title="Faturas Fechadas + Abertas" className="text-red-500/70">
+                {((accounts.filter(a => a.type === 'CREDIT_CARD').reduce((s, a) => s + (a.closed_invoice_cents || 0) + (a.open_invoice_cents || 0), 0)) / 100).toFixed(0)}
+              </span>
+            </div>
           </div>
         </div>
 

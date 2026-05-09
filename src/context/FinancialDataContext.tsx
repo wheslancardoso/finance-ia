@@ -45,6 +45,8 @@ interface FinancialDataContextType {
   extraIncomeCents: number;
   currentMonthExpensesCents: number;
   accumulatedBalanceCents: number;
+  recurringIncomeCents: number;
+  recurringExpensesCents: number;
   toggleTransactionPaid: (transactionId: string, currentStatus: boolean) => Promise<void>;
 }
 
@@ -64,6 +66,8 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const [extraIncomeCents, setExtraIncomeCents] = useState(0);
   const [currentMonthExpensesCents, setCurrentMonthExpensesCents] = useState(0);
   const [accumulatedBalanceCents, setAccumulatedBalanceCents] = useState(0);
+  const [recurringIncomeCents, setRecurringIncomeCents] = useState(0);
+  const [recurringExpensesCents, setRecurringExpensesCents] = useState(0);
 
   const { familyGroupId } = useAccountModal();
 
@@ -97,12 +101,34 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     console.log("LOCAL-FIRST: BUSCANDO ATUALIZAÇÕES DO SUPABASE...");
     const supabase = createClient();
     
-    // Buscar Configurações do Grupo Familiar (Modo Crise)
+    // 1. Buscar Configurações do Grupo Familiar (Modo Crise)
     const { data: familyGroup } = await supabase
       .from("family_groups")
       .select("monthly_income_cents, fixed_expenses_cents, accumulated_balance_cents")
       .eq("id", familyGroupId)
       .single();
+
+    // 2. Buscar Fluxos Recorrentes para somar ao Modo Crise
+    const { data: recurringTxs } = await supabase
+      .from("recurring_transactions")
+      .select("amount_cents, transaction_type")
+      .eq("family_group_id", familyGroupId)
+      .eq("status", "active");
+
+    const recIncome = recurringTxs
+      ?.filter(r => r.transaction_type === "INCOME")
+      .reduce((sum, r) => sum + r.amount_cents, 0) || 0;
+
+    const recExpense = recurringTxs
+      ?.filter(r => r.transaction_type === "EXPENSE")
+      .reduce((sum, r) => sum + r.amount_cents, 0) || 0;
+
+    setRecurringIncomeCents(recIncome);
+    setRecurringExpensesCents(recExpense);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("vesper_recurring_income", recIncome.toString());
+      localStorage.setItem("vesper_recurring_expense", recExpense.toString());
+    }
       
     if (familyGroup) {
       if (familyGroup.monthly_income_cents !== null) {
@@ -326,6 +352,12 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         
         const storedAccumulated = localStorage.getItem("vesper_accumulated_balance");
         if (storedAccumulated) setAccumulatedBalanceCents(parseInt(storedAccumulated, 10));
+
+        const storedRecIncome = localStorage.getItem("vesper_recurring_income");
+        if (storedRecIncome) setRecurringIncomeCents(parseInt(storedRecIncome, 10));
+
+        const storedRecExpense = localStorage.getItem("vesper_recurring_expense");
+        if (storedRecExpense) setRecurringExpensesCents(parseInt(storedRecExpense, 10));
       }
     }
 
@@ -350,6 +382,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       monthlyIncomeCents, setMonthlyIncomeCents,
       fixedExpensesCents, setFixedExpensesCents,
       extraIncomeCents, currentMonthExpensesCents, accumulatedBalanceCents,
+      recurringIncomeCents, recurringExpensesCents,
       toggleTransactionPaid
     }}>
       {children}

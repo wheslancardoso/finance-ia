@@ -91,7 +91,7 @@ export function AddSubscriptionModal() {
       return;
     }
 
-    const amountCents = Math.round(parseFloat(amount.replace(",", ".")) * 100);
+    const amountCents = Math.round(parseFloat(amount.replace(/\./g, "").replace(",", ".")) * 100);
     
     // Calcular a próxima data baseada no dia escolhido
     const nextDate = new Date();

@@ -76,16 +76,12 @@ export default function RealtimeDashboard({
       const isCreditCard = accounts.find(a => a.id === (item as any).account_id)?.type === "CREDIT_CARD";
       if (isCreditCard) return;
 
-      let occDate = new Date(item.next_date);
-      while (occDate <= endOfCurrentMonth) {
-        if (occDate > now) {
-          if (item.transaction_type === "EXPENSE") recurringThisMonth += item.amount_cents;
-          else if (item.transaction_type === "INCOME") recurringThisMonth -= item.amount_cents;
-        }
-        if ((item as any).frequency === "monthly") occDate = addMonths(occDate, 1);
-        else if ((item as any).frequency === "weekly") occDate = addDays(occDate, 7);
-        else if ((item as any).frequency === "daily") occDate = addDays(occDate, 1);
-        else break;
+      const occDate = new Date(item.next_date);
+      // Se a próxima data é neste mês (mesmo que já tenha passado), nós a contabilizamos como um compromisso do mês atual
+      // a menos que já tenha passado para o mês que vem (o que o sistema faz automaticamente após o pagamento/vencimento)
+      if (occDate <= endOfCurrentMonth) {
+        if (item.transaction_type === "EXPENSE") recurringThisMonth += item.amount_cents;
+        else if (item.transaction_type === "INCOME") recurringThisMonth -= item.amount_cents;
       }
     });
 

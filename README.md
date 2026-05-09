@@ -1,36 +1,33 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Vesper Finance IA
 
-## Getting Started
+Uma plataforma de inteligência financeira com estética **Premium Brutalist** focada em liquidez real e sobrevivência financeira.
 
-First, run the development server:
+## 🚀 Funcionalidades Principais
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### 1. Dashboard em Tempo Real
+- **Viagem no Tempo**: Projeção de patrimônio baseada em fluxos futuros e gastos agendados.
+- **Liquidez Atual**: Visão clara do dinheiro disponível em contas não-crédito.
+- **Sobra Livre**: Cálculo inteligente de quanto realmente sobra no mês após todos os compromissos.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Modo Crise (Survival HUD)
+- **Teto de Sobrevivência**: Um HUD fixo que calcula seu limite de gastos diário e mensal baseado na sua renda e custos fixos.
+- **Status de Saúde**: Indicadores visuais (Stable, Warning, Critical) baseados na porcentagem de renda comprometida.
+- **Integração Automática**: Consome dados de `Fluxos Recorrentes` e `Gastos Manuais` para uma precisão absoluta.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Fluxos Recorrentes
+- Gestão de assinaturas, aluguéis, salários e compromissos fixos.
+- Diferenciação visual entre **Receitas Fixas** (Emerald) e **Gastos Fixos** (Violet).
+- Edição simplificada e fallback inteligente de categorias.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🛠️ Tech Stack
+- **Framework**: Next.js 14+ (App Router)
+- **Estilização**: Tailwind CSS com Design System Brutalista
+- **Banco de Dados**: Supabase (PostgreSQL + Auth)
+- **Estado Global**: React Context API com Local-First Persistence (Dexie/LocalStorage)
 
-## Learn More
+## 📐 Lógica de Cálculo (Sobrevivência)
+O **Teto de Sobrevivência** segue a fórmula:
+`Teto = (Renda Base + Fluxos Recorrentes) + Sobras Passadas + Bicos Extras - (Custo Fixo + Gastos Recorrentes) - Dívida de Cartão - Gastos Variáveis do Mês`
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+Desenvolvido com foco em precisão matemática e UX de alta performance.
