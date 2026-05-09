@@ -26,10 +26,10 @@ export default function GlassCard({ children, className, onClick }: GlassCardPro
         className
       )}
     >
-      {/* Refraction effect overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+      {/* Refraction effect overlay - lowered opacity and z-index to stay behind content */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none z-0" />
       
-      <div className="relative z-10">
+      <div className="relative z-10 h-full flex flex-col">
         {children}
       </div>
     </motion.div>

@@ -4,6 +4,7 @@ import React, { useState, useMemo } from "react";
 import { SpendingCapacity } from "./SpendingCapacity";
 import { TransactionTimeline } from "./TransactionTimeline";
 import { MonthNavigator } from "./MonthNavigator";
+import SpendingSimulator from "./SpendingSimulator";
 import { getProjectedDetails, ProjectedTransaction } from "@/utils/finance-projections";
 import { ProjectedTimeline } from "./ProjectedTimeline";
 import { formatCurrency } from "@/lib/utils";
@@ -45,7 +46,8 @@ export default function RealtimeDashboard({
     recurringExpensesCents,
     currentMonthExpensesCents,
     accumulatedBalanceCents,
-    extraIncomeCents
+    extraIncomeCents,
+    healthScore
   } = useFinancialData();
 
   // Usar dados live se disponíveis, senão inicial
@@ -104,7 +106,7 @@ export default function RealtimeDashboard({
     const scheduledOnly = (initialRecurring || [])
       .filter(item => {
         const d = new Date(item.next_date);
-        return d > now && d <= endOfCurrentMonth && !displayAccounts.find(a => a.id === item.account_id)?.type === "CREDIT_CARD";
+        return d > now && d <= endOfCurrentMonth && displayAccounts.find(a => a.id === item.account_id)?.type !== "CREDIT_CARD";
       })
       .reduce((sum, item) => {
         if (item.transaction_type === "EXPENSE") return sum + item.amount_cents;
@@ -177,6 +179,45 @@ export default function RealtimeDashboard({
                 </motion.div>
               )}
             </div>
+            
+            {/* NOVO: Health Score & Crisis Mode HUD */}
+            {!isFuture && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white/5 rounded-3xl p-5 border border-white/10 flex items-center gap-4 group hover:bg-white/10 transition-all">
+                  <div className={cn(
+                    "w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black",
+                    healthScore > 70 ? "bg-emerald-500/20 text-emerald-400" : 
+                    healthScore > 40 ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"
+                  )}>
+                    {healthScore}
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Saúde Financeira</p>
+                    <p className="text-sm font-black text-white">
+                      {healthScore > 70 ? "Excelente" : healthScore > 40 ? "Atenção" : "Crítico"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="md:col-span-2 bg-white/5 rounded-3xl p-5 border border-white/10 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Zap className="w-5 h-5 text-amber-400" />
+                    <div>
+                      <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Capacidade de Gasto</p>
+                      <p className="text-sm font-black text-white">{formatCurrency(monthlyOutlook.balanceAtMonthEnd)} disponíveis</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    {[1,2,3,4,5].map(i => (
+                      <div key={i} className={cn(
+                        "w-1.5 h-6 rounded-full transition-colors",
+                        (i * 20) <= healthScore ? "bg-emerald-400" : "bg-white/10"
+                      )} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Quick Account Sync Bar */}
             {!isFuture && (
@@ -288,8 +329,10 @@ export default function RealtimeDashboard({
         />
       </div>
 
-      {/* Coluna Direita: Recentes — não ultrapassa o fim do Slider */}
-      <div className="lg:col-span-4">
+      {/* Coluna Direita: Insights + Recentes */}
+      <div className="lg:col-span-4 space-y-8">
+        <SpendingSimulator />
+        
         <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] p-6 flex flex-col overflow-hidden shadow-2xl max-h-[calc(100vh-200px)] lg:max-h-none lg:h-fit">
           <div className="flex items-center justify-between mb-4 shrink-0">
             <h3 className="text-sm font-bold text-white flex items-center gap-2 uppercase tracking-widest">

@@ -6,6 +6,7 @@ import { formatCurrency, cn } from "@/lib/utils";
 import GlassCard from "@/components/GlassCard";
 import { useGoalModal } from "@/context/GoalModalContext";
 import { useFinancialData } from "@/context/FinancialDataContext";
+import GoalRecommendations from "./GoalRecommendations";
 
 interface GoalsManagerProps {
   initialGoals?: any[];
@@ -37,6 +38,8 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
           Novo Objetivo
         </button>
       </header>
+
+      <GoalRecommendations />
 
       {(!goalsToDisplay || goalsToDisplay.length === 0) ? (
         <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">

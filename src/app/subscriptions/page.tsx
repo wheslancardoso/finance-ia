@@ -7,6 +7,7 @@ import { Zap, Bell, CreditCard } from "lucide-react";
 import { redirect } from "next/navigation";
 import { SubscriptionManager } from "@/components/SubscriptionManager";
 import { SyncFamilyGroup } from "@/components/SyncFamilyGroup";
+import { RecurringTransaction } from "@/context/FinancialDataContext";
 
 export const dynamic = "force-dynamic";
 
@@ -29,20 +30,20 @@ export default async function SubscriptionsPage() {
     return <div>Erro ao carregar estado financeiro.</div>;
   }
 
-  const subscriptions = financialState.recurring_transactions || [];
+  const subscriptions: RecurringTransaction[] = financialState.recurring_transactions || [];
 
-  const activeSubs = subscriptions?.filter(s => s.status === "active") || [];
+  const activeSubs = subscriptions?.filter((s: RecurringTransaction) => s.status === "active") || [];
   
   const totalExpenses = activeSubs
-    .filter(s => s.transaction_type === "EXPENSE")
-    .reduce((acc, curr) => acc + curr.amount_cents, 0);
+    .filter((s: RecurringTransaction) => s.transaction_type === "EXPENSE")
+    .reduce((acc: number, curr: RecurringTransaction) => acc + curr.amount_cents, 0);
 
   const totalIncomes = activeSubs
-    .filter(s => s.transaction_type === "INCOME")
-    .reduce((acc, curr) => acc + curr.amount_cents, 0);
+    .filter((s: RecurringTransaction) => s.transaction_type === "INCOME")
+    .reduce((acc: number, curr: RecurringTransaction) => acc + curr.amount_cents, 0);
 
   const committedBalance = totalIncomes - totalExpenses;
-  const nextBilling = activeSubs.find(s => s.transaction_type === "EXPENSE");
+  const nextBilling = activeSubs.find((s: RecurringTransaction) => s.transaction_type === "EXPENSE");
 
   return (
     <div className="p-8 md:p-12 max-w-7xl mx-auto w-full space-y-12">
@@ -67,7 +68,7 @@ export default async function SubscriptionsPage() {
           <div className="space-y-1">
             <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Total de Gastos Fixos</p>
             <h2 className="text-3xl font-black text-white tabular-nums">{formatCurrency(totalExpenses)}</h2>
-            <p className="text-[10px] text-white/20 font-bold uppercase">De {activeSubs.filter(s => s.transaction_type === 'EXPENSE').length} fontes</p>
+            <p className="text-[10px] text-white/20 font-bold uppercase">De {activeSubs.filter((s: RecurringTransaction) => s.transaction_type === 'EXPENSE').length} fontes</p>
           </div>
         </GlassCard>
 

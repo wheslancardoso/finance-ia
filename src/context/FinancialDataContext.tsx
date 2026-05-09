@@ -220,16 +220,20 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     const supabase = createClient();
     
     // 1. Chamar a Função RPC Mestra V5 (Elite Edition)
+    console.log("DEBUG-RPC: Chamando get_financial_state_v5 com ID:", familyGroupId);
+    
     const { data, error } = await supabase.rpc('get_financial_state_v5', { 
       p_family_group_id: familyGroupId 
     });
 
     if (error) {
-      console.error("❌ ERRO AO BUSCAR ESTADO FINANCEIRO:", {
+      console.error("❌ ERRO AO BUSCAR ESTADO FINANCEIRO:", JSON.stringify(error, null, 2));
+      console.error("Contexto do Erro:", {
         message: error.message,
         details: error.details,
         hint: error.hint,
-        code: error.code
+        code: error.code,
+        familyGroupId
       });
       setLoading(false);
       return;
@@ -371,11 +375,14 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       p_amount_cents: amountCents
     });
     if (error) {
-      console.error("❌ Erro na simulação (fn_simulate_spending):", {
+      console.error("❌ Erro na simulação (fn_simulate_spending):", JSON.stringify(error, null, 2));
+      console.error("Contexto do Erro:", {
         message: error.message,
         details: error.details,
         hint: error.hint,
-        code: error.code
+        code: error.code,
+        familyGroupId,
+        amountCents
       });
       return {
         current_surplus_cents: 0,
@@ -394,11 +401,13 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       p_family_group_id: familyGroupId
     });
     if (error) {
-      console.error("❌ Erro ao buscar recomendações (fn_get_goal_recommendations):", {
+      console.error("❌ Erro ao buscar recomendações (fn_get_goal_recommendations):", JSON.stringify(error, null, 2));
+      console.error("Contexto do Erro:", {
         message: error.message,
         details: error.details,
         hint: error.hint,
-        code: error.code
+        code: error.code,
+        familyGroupId
       });
       return {
         surplus_cents: 0,

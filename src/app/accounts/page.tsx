@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { AccountsHeader } from "@/components/AccountsHeader";
 import { getFamilyGroup } from "@/utils/supabase/auth-helpers";
 import { SyncFamilyGroup } from "@/components/SyncFamilyGroup";
+import { Account } from "@/context/FinancialDataContext";
 
 export default async function AccountsPage() {
   const supabase = await createClient();
@@ -18,7 +19,7 @@ export default async function AccountsPage() {
     p_family_group_id: familyGroupId
   });
 
-  const accounts = financialState?.accounts || [];
+  const accounts: Account[] = financialState?.accounts || [];
   const hasAccounts = accounts.length > 0;
 
   return (
@@ -38,7 +39,7 @@ export default async function AccountsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {accounts.map((acc) => (
+          {accounts.map((acc: Account) => (
             <AccountCard
               key={acc.id}
               account={acc}

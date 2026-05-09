@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { Phone, Check, Loader2, AlertCircle } from "lucide-react";
+import { Phone, Check, Loader2, AlertCircle, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function WhatsAppSettings({ userId, initialNumber }: { userId: string, initialNumber?: string }) {
