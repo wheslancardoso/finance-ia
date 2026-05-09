@@ -169,7 +169,8 @@ const CACHE_DURATION = 10 * 60 * 1000; // 10 minutos de cache
 export function FinancialDataProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Começa como false para evitar travamentos se o ID não for resolvido
+  const [isInitialLoading, setIsInitialLoading] = useState(true); // Controle interno para o primeiro load
   const [lastFetched, setLastFetched] = useState<number | null>(null);
   
   // Modo Crise: Variáveis Base
@@ -213,31 +214,29 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   }, [familyGroupId]);
 
   const refreshData = useCallback(async () => {
-    if (!familyGroupId) return;
-
-    setLoading(true);
-    console.log("DATABASE-DRIVEN: BUSCANDO ESTADO GLOBAL VIA RPC...");
-    const supabase = createClient();
-    
-    // 1. Chamar a Função RPC Mestra V5 (Elite Edition)
-    console.log("DEBUG-RPC: Chamando get_financial_state_v5 com ID:", familyGroupId);
-    
-    const { data, error } = await supabase.rpc('get_financial_state_v5', { 
-      p_family_group_id: familyGroupId 
-    });
-
-    if (error) {
-      console.error("❌ ERRO AO BUSCAR ESTADO FINANCEIRO:", JSON.stringify(error, null, 2));
-      console.error("Contexto do Erro:", {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-        familyGroupId
-      });
+    if (!familyGroupId) {
       setLoading(false);
       return;
     }
+
+    try {
+      if (loading && !isInitialLoading) return; // Evitar chamadas duplicadas
+    
+    setLoading(true);
+    if (isInitialLoading) setIsInitialLoading(false);
+      console.log("DATABASE-DRIVEN: BUSCANDO ESTADO GLOBAL VIA RPC...");
+      const supabase = createClient();
+      
+      // 1. Chamar a Função RPC Mestra V5 (Elite Edition)
+      console.log("DEBUG-RPC: Chamando get_financial_state_v5 com ID:", familyGroupId);
+      
+      const { data, error } = await supabase.rpc('get_financial_state_v5', { 
+        p_family_group_id: familyGroupId 
+      });
+
+      if (error) {
+        throw error;
+      }
 
     const state = data as FinancialStateResponse;
 
@@ -313,8 +312,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         const openRef = `${openY}-${String(openM + 1).padStart(2, '0')}`;
         const closedRef = `${closedY}-${String(closedM + 1).padStart(2, '0')}`;
 
-        const openMonthLabel = format(new Date(openY, openM, 1), "MMM", { locale: ptBR });
-        const closedMonthLabel = format(new Date(closedY, closedM, 1), "MMM", { locale: ptBR });
+        // O label deve ser o mês de VENCIMENTO (geralmente mês de referência + 1)
+        const openMonthLabel = format(addMonths(new Date(openY, openM, 1), 1), "MMM", { locale: ptBR });
+        const closedMonthLabel = format(addMonths(new Date(closedY, closedM, 1), 1), "MMM", { locale: ptBR });
 
         const openInvoice = state.invoices.find(i => i.account_id === acc.id && i.reference_month === openRef);
         const closedInvoice = state.invoices.find(i => i.account_id === acc.id && i.reference_month === closedRef);
@@ -348,8 +348,19 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     if (state.recurring_transactions) await db.recurring_transactions.bulkPut(state.recurring_transactions.map(r => ({ ...r, family_group_id: familyGroupId })));
     if (state.budgets) await db.budgets.bulkPut(state.budgets.map(b => ({ ...b, family_group_id: familyGroupId })));
 
-    setLastFetched(Date.now());
-    setLoading(false);
+      setLastFetched(Date.now());
+    } catch (error: any) {
+      console.error("❌ ERRO AO BUSCAR ESTADO FINANCEIRO:", JSON.stringify(error, null, 2));
+      console.error("Contexto do Erro:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        familyGroupId
+      });
+    } finally {
+      setLoading(false);
+    }
   }, [familyGroupId]);
 
   const createInstallmentSeries = async (data: any) => {
@@ -503,10 +514,13 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     }
   };
 
-  // Carregar dados locais IMEDIATAMENTE
   useEffect(() => {
-    async function loadLocalData() {
-      if (!familyGroupId) return;
+    const loadLocalData = async () => {
+      if (!familyGroupId) {
+        setLoading(false);
+        setIsInitialLoading(false);
+        return;
+      }
       
       const localAccounts = await db.accounts.where('family_group_id').equals(familyGroupId).toArray();
       const localCategories = await db.categories.where('family_group_id').equals(familyGroupId).toArray();
@@ -521,26 +535,28 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         setGoals(localGoals as Goal[]);
         setRecurringTransactions(localRecurring as RecurringTransaction[]);
         setBudgets(localBudgets as Budget[]);
-        setLoading(false);
       }
       
-      // Carregar Configurações do Modo Crise do LocalStorage
-      if (typeof window !== "undefined") {
-        const storedIncome = localStorage.getItem("vesper_monthly_income");
-        if (storedIncome) setMonthlyIncomeCentsState(parseInt(storedIncome, 10));
-        
-        const storedExpenses = localStorage.getItem("vesper_fixed_expenses");
-        if (storedExpenses) setFixedExpensesCentsState(parseInt(storedExpenses, 10));
-        
-        const storedAccumulated = localStorage.getItem("vesper_accumulated_balance");
-        if (storedAccumulated) setAccumulatedBalanceCents(parseInt(storedAccumulated, 10));
+      setLoading(false);
+      setIsInitialLoading(false);
+    };
 
-        const storedRecIncome = localStorage.getItem("vesper_recurring_income");
-        if (storedRecIncome) setRecurringIncomeCents(parseInt(storedRecIncome, 10));
+    // Carregar Configurações do Modo Crise do LocalStorage
+    if (typeof window !== "undefined") {
+      const storedIncome = localStorage.getItem("vesper_monthly_income");
+      if (storedIncome) setMonthlyIncomeCentsState(parseInt(storedIncome, 10));
+      
+      const storedExpenses = localStorage.getItem("vesper_fixed_expenses");
+      if (storedExpenses) setFixedExpensesCentsState(parseInt(storedExpenses, 10));
+      
+      const storedAccumulated = localStorage.getItem("vesper_accumulated_balance");
+      if (storedAccumulated) setAccumulatedBalanceCents(parseInt(storedAccumulated, 10));
 
-        const storedRecExpense = localStorage.getItem("vesper_recurring_expense");
-        if (storedRecExpense) setRecurringExpensesCents(parseInt(storedRecExpense, 10));
-      }
+      const storedRecIncome = localStorage.getItem("vesper_recurring_income");
+      if (storedRecIncome) setRecurringIncomeCents(parseInt(storedRecIncome, 10));
+
+      const storedRecExpense = localStorage.getItem("vesper_recurring_expense");
+      if (storedRecExpense) setRecurringExpensesCents(parseInt(storedRecExpense, 10));
     }
 
     loadLocalData();

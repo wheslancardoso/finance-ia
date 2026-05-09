@@ -32,7 +32,7 @@ export function AddTransactionModal() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const { categories, accounts, refreshData } = useFinancialData();
+  const { categories, accounts, loading: contextLoading, refreshData } = useFinancialData();
 
   const [loading, setLoading] = useState(false);
 
@@ -76,17 +76,26 @@ export function AddTransactionModal() {
 
   // Automatização da Dívida Legada
   useEffect(() => {
-    if (!transactionDate) return;
+    if (!transactionDate || transactionToEdit) return; // Não sobrescreve se estiver editando
     
     const now = new Date();
     const currentMonthStart = startOfMonth(now);
     
-    const [year, month, day] = transactionDate.split('-').map(Number);
-    const txDate = new Date(year, month - 1, day);
+    try {
+      const [year, month, day] = transactionDate.split('-').map(Number);
+      const txDate = new Date(year, month - 1, day);
 
-    // É dívida legada se a data for anterior ao início do mês atual
-    setIsLegacyDebt(isBefore(txDate, currentMonthStart));
-  }, [transactionDate]);
+      if (!isNaN(txDate.getTime())) {
+        const shouldBeLegacy = isBefore(txDate, currentMonthStart);
+        if (shouldBeLegacy !== isLegacyDebt) {
+          console.log(`Dívida Legada Automática: ${shouldBeLegacy ? 'DETECTADA' : 'REMOVIDA'} (Data: ${transactionDate})`);
+          setIsLegacyDebt(shouldBeLegacy);
+        }
+      }
+    } catch (e) {
+      console.error("Erro ao processar data para dívida legada", e);
+    }
+  }, [transactionDate, transactionToEdit, isLegacyDebt]);
 
   useEffect(() => {
     if (isOpen) {
@@ -140,8 +149,8 @@ export function AddTransactionModal() {
     const capturedIsLegacyDebt = isLegacyDebt;
 
     try {
-      if (!capturedAccountId || !capturedAmount) {
-        alert("Por favor, preencha a conta e o valor.");
+      if (!capturedAccountId || !capturedAmount || !familyGroupId) {
+        alert("Por favor, preencha a conta e o valor. (ID do grupo familiar não encontrado)");
         setLoading(false);
         return;
       }
@@ -154,10 +163,13 @@ export function AddTransactionModal() {
       const installmentAmountCents = Math.floor(totalAmountCents / capturedInstallments);
 
       const basePayload = {
+        family_group_id: familyGroupId,
         account_id: capturedAccountId,
-        category_id: capturedCategoryId || null,
+        category_id: (capturedCategoryId && capturedCategoryId.trim() !== "") ? capturedCategoryId : null,
         transaction_type: capturedType,
         is_legacy_debt: capturedIsLegacyDebt,
+        is_paid: true,
+        source: "MANUAL",
       };
 
       let errorOccurred = false;
@@ -271,7 +283,7 @@ export function AddTransactionModal() {
               .from("transactions")
               .update({
                 account_id: capturedAccountId,
-                category_id: capturedCategoryId || null,
+                category_id: (capturedCategoryId && capturedCategoryId.trim() !== "") ? capturedCategoryId : null,
                 description: capturedDescription,
                 is_legacy_debt: capturedIsLegacyDebt,
               })
@@ -323,7 +335,8 @@ export function AddTransactionModal() {
 
         const { error } = await supabase.from("transactions").insert(transactionsToInsert);
         if (error) {
-          console.error("Erro ao inserir parcelas:", error);
+          console.error("Erro ao inserir parcelas. Detalhes:", JSON.stringify(error, null, 2));
+          console.error("Payload tentado:", JSON.stringify(transactionsToInsert, null, 2));
           errorOccurred = true;
         }
       }
@@ -513,24 +526,26 @@ export function AddTransactionModal() {
                           setOpenCategory(false);
                         }}
                         className={cn(
-                          "w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-sm text-white font-bold flex justify-between items-center transition-all",
-                          accounts.length === 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-white/20"
+                          "w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-sm text-white font-bold flex justify-between items-center transition-all cursor-pointer hover:border-white/20",
+                          accounts.length === 0 && !contextLoading && "opacity-80"
                         )}
                       >
                         <span className="flex items-center gap-2 truncate">
                           {accounts.length === 0 ? (
-                            <span className="flex items-center gap-2 text-white/30">
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              Carregando...
+                            <span className="flex items-center gap-2 text-white/30 italic">
+                              {contextLoading && <Loader2 className="w-3 h-3 animate-spin text-violet-400" />}
+                              {contextLoading ? "Buscando contas..." : "Nenhuma conta encontrada"}
                             </span>
                           ) : (() => {
                             const acc = accounts.find(a => a.id === accountId);
                             return acc ? (
-                              <>
-                                {acc.type === "CREDIT_CARD" ? "💳" : "💰"}
+                              <div className="flex items-center gap-2">
+                                <span className="opacity-70">{acc.type === "CREDIT_CARD" ? "💳" : "💰"}</span>
                                 {acc.name}
-                              </>
-                            ) : "Selecione";
+                              </div>
+                            ) : (
+                              <span className="text-white/40">Selecione a conta</span>
+                            );
                           })()}
                         </span>
                         <ChevronDown className={cn("w-4 h-4 transition-transform", openAccount && "rotate-180")} />
@@ -570,22 +585,30 @@ export function AddTransactionModal() {
                       <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-4">Categoria</label>
                       <div
                         onClick={() => {
-                          if (categories.length === 0) return;
                           setOpenCategory(!openCategory);
                           setOpenAccount(false);
                         }}
                         className={cn(
-                          "w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-sm text-white font-bold flex justify-between items-center transition-all",
-                          categories.length === 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-white/20"
+                          "w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-sm text-white font-bold flex justify-between items-center transition-all cursor-pointer hover:border-white/20",
+                          categories.length === 0 && !contextLoading && "opacity-80"
                         )}
                       >
                         <span className="truncate">
                           {categories.length === 0 ? (
-                            <span className="flex items-center gap-2 text-white/30">
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              Carregando...
+                            <span className="flex items-center gap-2 text-white/30 italic">
+                              {contextLoading && <Loader2 className="w-3 h-3 animate-spin text-violet-400" />}
+                              {contextLoading ? "Buscando categorias..." : "Nenhuma categoria"}
                             </span>
-                          ) : (categories.find(c => c.id === categoryId)?.name || "Selecione")}
+                          ) : filteredCategories.length === 0 ? (
+                            <span className="text-white/30 italic">
+                              Sem categorias de {type === "EXPENSE" ? "Gasto" : "Receita"}
+                            </span>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="text-white">{categories.find(c => c.id === categoryId)?.name || "Selecione a categoria"}</span>
+                              {contextLoading && <Loader2 className="w-2 h-2 animate-spin text-white/20" />}
+                            </div>
+                          )}
                         </span>
                         <ChevronDown className={cn("w-4 h-4 transition-transform", openCategory && "rotate-180")} />
                       </div>
