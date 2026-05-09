@@ -8,6 +8,7 @@ interface RecurringItem {
   next_date: string | Date;
   description?: string;
   category?: string;
+  account_id?: string;
 }
 
 interface Budget {
@@ -93,7 +94,7 @@ export function getProjectedDetails(
       // Adicionar entrada para o mês alvo especificamente se estivermos olhando para ele
       transactions.push({
         id: `budget-future-${budget.category || 'general'}`,
-        description: `Provisão: ${budget.category || 'Orçamento'}`,
+        description: `Provisionado: ${budget.category || 'Orçamento'}`,
         amount_cents: budget.amount_cents,
         transaction_type: "EXPENSE",
         date: targetMonthEnd,
@@ -131,7 +132,7 @@ export function getProjectedDetails(
         if (isTargetMonth) {
           transactions.push({
             id: `recurring-${item.id || Math.random()}-${occurrenceDate.getTime()}`,
-            description: item.description || "Receita Prevista",
+            description: item.description || item.category || "Receita Fixa",
             amount_cents: item.amount_cents,
             transaction_type: "INCOME",
             date: occurrenceDate,
@@ -141,12 +142,19 @@ export function getProjectedDetails(
             accountType
           });
         }
-      } else if (isFutureMonth) {
-        projected -= item.amount_cents;
+      } else {
+        // Subtrair do saldo se for hoje ou futuro
+        const isPastSameMonth = isSameMonth(occurrenceDate, today) && isBefore(occurrenceDate, today);
+        
+        // Se não for passado (ou seja, hoje ou futuro), subtraímos do saldo projetado
+        if (!isPastSameMonth) {
+          projected -= item.amount_cents;
+        }
+
         if (isTargetMonth) {
           transactions.push({
             id: `recurring-${item.id || Math.random()}-${occurrenceDate.getTime()}`,
-            description: item.description || "Despesa Prevista",
+            description: item.description || item.category || "Despesa Fixa",
             amount_cents: item.amount_cents,
             transaction_type: "EXPENSE",
             date: occurrenceDate,

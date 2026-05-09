@@ -77,9 +77,14 @@ export default function RealtimeDashboard({
     // --- RECORRENTES até fim do mês ---
     let recurringThisMonth = 0;
     (initialRecurring || []).filter(item => (item as any).frequency !== "once").forEach(item => {
-      // Evitar contagem dupla: Se a recorrente for em cartão, ela já vai aparecer na fatura aberta/fechada conforme o tempo passa
       const isCreditCard = accounts.find(a => a.id === (item as any).account_id)?.type === "CREDIT_CARD";
-      if (isCreditCard) return;
+      
+      // Se for cartão, só incluímos se a data for futura (compromisso ainda não efetivado na fatura)
+      if (isCreditCard) {
+        const nextDate = new Date(item.next_date);
+        if (nextDate < now && !isSameMonth(nextDate, now)) return;
+        // Se for hoje ou futuro no mês, mantemos para garantir que o usuário veja o compromisso
+      }
 
       const occDate = new Date(item.next_date);
       // Se a próxima data é neste mês (mesmo que já tenha passado), nós a contabilizamos como um compromisso do mês atual
@@ -196,55 +201,87 @@ export default function RealtimeDashboard({
             )}
 
             {/* Practical Insights Bar */}
-            {!isFuture && (
-              <div className="flex flex-wrap gap-4 pt-6 border-t border-white/5">
-                <div className="flex items-center gap-3 bg-white/2 px-4 py-3 rounded-2xl border border-white/5 group relative cursor-help">
-                  <ArrowDownRight className="w-4 h-4 text-red-400/60" />
-                  <div>
-                    <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Gastos Previstos</p>
-                    <p className="text-sm font-bold text-white/80">{formatCurrency(monthlyOutlook.plannedExpenses)}</p>
-                  </div>
-                  
-                  {/* Tooltip Breakdown */}
-                  <div className="absolute bottom-full left-0 mb-4 w-64 p-4 bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-50">
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] text-white/40 uppercase font-bold">Dívida Imediata (Faturas)</span>
-                        <span className="text-xs font-bold text-red-400">{formatCurrency(monthlyOutlook.immediateCardDebt)}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] text-white/40 uppercase font-bold">Agendados (Pix/Débito)</span>
-                        <span className="text-xs font-bold text-violet-400">{formatCurrency(monthlyOutlook.scheduledOnly)}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] text-white/40 uppercase font-bold">Próxima Fatura (Abertas)</span>
-                        <span className="text-xs font-bold text-amber-400">{formatCurrency(monthlyOutlook.upcomingCardDebt)}</span>
-                      </div>
-                      <div className="pt-2 border-t border-white/5 flex justify-between items-center">
-                        <span className="text-[10px] text-white/60 uppercase font-black">Total</span>
-                        <span className="text-sm font-black text-white">{formatCurrency(monthlyOutlook.plannedExpenses)}</span>
+            <div className="flex flex-wrap gap-4 pt-6 border-t border-white/5">
+              {!isFuture ? (
+                <>
+                  <div className="flex items-center gap-3 bg-white/2 px-4 py-3 rounded-2xl border border-white/5 group relative cursor-help">
+                    <ArrowDownRight className="w-4 h-4 text-red-400/60" />
+                    <div>
+                      <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Gastos Previstos</p>
+                      <p className="text-sm font-bold text-white/80">{formatCurrency(monthlyOutlook.plannedExpenses)}</p>
+                    </div>
+                    
+                    {/* Tooltip Breakdown */}
+                    <div className="absolute bottom-full left-0 mb-4 w-64 p-4 bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-50">
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] text-white/40 uppercase font-bold">Dívida Imediata (Faturas)</span>
+                          <span className="text-xs font-bold text-red-400">{formatCurrency(monthlyOutlook.immediateCardDebt)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] text-white/40 uppercase font-bold">Agendados (Pix/Débito)</span>
+                          <span className="text-xs font-bold text-violet-400">{formatCurrency(monthlyOutlook.scheduledOnly)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] text-white/40 uppercase font-bold">Próxima Fatura (Abertas)</span>
+                          <span className="text-xs font-bold text-amber-400">{formatCurrency(monthlyOutlook.upcomingCardDebt)}</span>
+                        </div>
+                        <div className="pt-2 border-t border-white/5 flex justify-between items-center">
+                          <span className="text-[10px] text-white/60 uppercase font-black">Total</span>
+                          <span className="text-sm font-black text-white">{formatCurrency(monthlyOutlook.plannedExpenses)}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all",
-                  monthlyOutlook.isHealthy ? "bg-emerald-500/5 border-emerald-500/10" : "bg-red-500/5 border-red-500/10"
-                )}>
-                  {monthlyOutlook.isHealthy ? <ShieldCheck className="w-4 h-4 text-emerald-400" /> : <AlertCircle className="w-4 h-4 text-red-400" />}
-                  <div>
-                    <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Sobra Livre</p>
-                    <p className={cn(
-                      "text-sm font-black",
-                      monthlyOutlook.isHealthy ? "text-emerald-400" : "text-red-400"
-                    )}>
-                      {formatCurrency(monthlyOutlook.balanceAtMonthEnd)}
-                    </p>
+                  <div className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all",
+                    monthlyOutlook.isHealthy ? "bg-emerald-500/5 border-emerald-500/10" : "bg-red-500/5 border-red-500/10"
+                  )}>
+                    {monthlyOutlook.isHealthy ? <ShieldCheck className="w-4 h-4 text-emerald-400" /> : <AlertCircle className="w-4 h-4 text-red-400" />}
+                    <div>
+                      <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Sobra Livre</p>
+                      <p className={cn(
+                        "text-sm font-black",
+                        monthlyOutlook.isHealthy ? "text-emerald-400" : "text-red-400"
+                      )}>
+                        {formatCurrency(monthlyOutlook.balanceAtMonthEnd)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </div>
-            )}
+                </>
+              ) : (
+                <>
+                  <div className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all",
+                    projectedBalance >= 0 ? "bg-emerald-500/5 border-emerald-500/10" : "bg-red-500/5 border-red-500/10"
+                  )}>
+                    {projectedBalance >= 0 ? <ShieldCheck className="w-4 h-4 text-emerald-400" /> : <AlertCircle className="w-4 h-4 text-red-400" />}
+                    <div>
+                      <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Liquidez Projetada</p>
+                      <p className={cn(
+                        "text-sm font-black",
+                        projectedBalance >= 0 ? "text-emerald-400" : "text-red-400"
+                      )}>
+                        {formatCurrency(projectedBalance)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {projectedBalance < 0 && (
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border bg-amber-500/5 border-amber-500/10 animate-pulse">
+                      <AlertCircle className="w-4 h-4 text-amber-400" />
+                      <div>
+                        <p className="text-[9px] font-black text-amber-400/40 uppercase tracking-widest">Ação Recomendada</p>
+                        <p className="text-sm font-black text-amber-400">
+                          Poupar {formatCurrency(Math.abs(projectedBalance))} para equilibrar
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
 
