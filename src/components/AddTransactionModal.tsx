@@ -87,15 +87,13 @@ export function AddTransactionModal() {
 
       if (!isNaN(txDate.getTime())) {
         const shouldBeLegacy = isBefore(txDate, currentMonthStart);
-        if (shouldBeLegacy !== isLegacyDebt) {
-          console.log(`Dívida Legada Automática: ${shouldBeLegacy ? 'DETECTADA' : 'REMOVIDA'} (Data: ${transactionDate})`);
-          setIsLegacyDebt(shouldBeLegacy);
-        }
+        // Usamos setIsLegacyDebt de forma que não precise de isLegacyDebt nas dependências
+        setIsLegacyDebt(shouldBeLegacy);
       }
     } catch (e) {
       console.error("Erro ao processar data para dívida legada", e);
     }
-  }, [transactionDate, transactionToEdit, isLegacyDebt]);
+  }, [transactionDate, transactionToEdit]);
 
   useEffect(() => {
     if (isOpen) {
