@@ -99,7 +99,7 @@ export default async function Home() {
   // 4. Buscar Transações Futuras e Recorrentes (Para o Time Travel)
   const { data: futureTransactions } = await supabase
     .from("transactions")
-    .select("amount_cents, transaction_type, date, account_id")
+    .select("description, amount_cents, transaction_type, date, account_id")
     .in("account_id", accountIds)
     .gt("date", new Date().toISOString())
     .eq("is_paid", false)
@@ -118,6 +118,8 @@ export default async function Home() {
 
   const projectionItems = [
     ...(futureTransactions || []).map(ft => ({
+      id: (ft as any).id,
+      description: ft.description,
       amount_cents: ft.amount_cents,
       transaction_type: ft.transaction_type,
       frequency: "once" as any,
@@ -125,6 +127,8 @@ export default async function Home() {
       account_id: ft.account_id
     })),
     ...(recurring || []).map(r => ({
+      id: r.id,
+      description: r.description,
       amount_cents: r.amount_cents,
       transaction_type: r.transaction_type,
       frequency: r.frequency,

@@ -50,8 +50,8 @@ export default function RealtimeDashboard({
       spent_this_month: b.spent,
       category: b.category
     }));
-    return getProjectedDetails(initialBalance, targetDate, initialRecurring || [], formattedBudgets);
-  }, [initialBalance, initialRecurring, targetDate, initialBudgets]);
+    return getProjectedDetails(initialBalance, targetDate, initialRecurring || [], formattedBudgets, accounts);
+  }, [initialBalance, initialRecurring, targetDate, initialBudgets, accounts]);
 
   const projectedBalance = projection.totalBalance;
 

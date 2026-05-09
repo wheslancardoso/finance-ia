@@ -17,7 +17,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Calendar,
-  Zap
+  Zap,
+  CreditCard
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { ProjectedTransaction } from "@/utils/finance-projections";
@@ -137,8 +138,14 @@ function ProjectedItem({ tx }: { tx: ProjectedTransaction }) {
             </h5>
             <div className="flex items-center gap-2">
               <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">
-                {tx.isRecurring ? "Recorrente" : "Provisão"}
+                {tx.accountName || (tx.isRecurring ? "Recorrente" : "Provisão")}
               </span>
+              {tx.accountType === "CREDIT_CARD" && (
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-500/10 border border-violet-500/20">
+                  <CreditCard className="w-2.5 h-2.5 text-violet-400" />
+                  <span className="text-[7px] font-bold text-violet-400 uppercase">Cartão</span>
+                </div>
+              )}
               <span className="text-[9px] font-bold text-white/10">•</span>
               <span className="text-[9px] font-bold text-white/40">
                 {format(tx.date, "dd 'de' MMM", { locale: ptBR })}

@@ -24,6 +24,8 @@ export interface ProjectedTransaction {
   date: Date;
   category?: string;
   isRecurring: boolean;
+  accountName?: string;
+  accountType?: string;
 }
 
 export interface ProjectedDetails {
@@ -47,7 +49,8 @@ export function getProjectedDetails(
   currentBalance: number,
   targetDate: Date,
   recurringItems: RecurringItem[] = [],
-  budgets: Budget[] = []
+  budgets: Budget[] = [],
+  accounts: any[] = []
 ): ProjectedDetails {
   let projected = currentBalance;
   const today = new Date();
@@ -119,6 +122,10 @@ export function getProjectedDetails(
       const isFutureMonth = isAfter(occurrenceDate, endOfThisMonth);
       const isTargetMonth = isSameMonth(occurrenceDate, targetDate);
 
+      const account = accounts.find(a => a.id === item.account_id);
+      const accountName = account?.name;
+      const accountType = account?.type;
+
       if (isIncome) {
         projected += item.amount_cents;
         if (isTargetMonth) {
@@ -129,7 +136,9 @@ export function getProjectedDetails(
             transaction_type: "INCOME",
             date: occurrenceDate,
             category: item.category,
-            isRecurring: true
+            isRecurring: true,
+            accountName,
+            accountType
           });
         }
       } else if (isFutureMonth) {
@@ -142,7 +151,9 @@ export function getProjectedDetails(
             transaction_type: "EXPENSE",
             date: occurrenceDate,
             category: item.category,
-            isRecurring: true
+            isRecurring: true,
+            accountName,
+            accountType
           });
         }
       }
