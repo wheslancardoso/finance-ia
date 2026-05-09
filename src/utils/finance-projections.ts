@@ -1,95 +1,176 @@
 import { addDays, endOfMonth, isAfter, isBefore, addMonths, isSameMonth, differenceInCalendarMonths } from "date-fns";
 
 interface RecurringItem {
+  id?: string;
   amount_cents: number;
   transaction_type: "INCOME" | "EXPENSE";
   frequency: "daily" | "weekly" | "monthly" | "yearly" | "once";
   next_date: string | Date;
+  description?: string;
+  category?: string;
 }
 
 interface Budget {
   amount_cents: number;
   spent_this_month: number;
+  category?: string;
+}
+
+export interface ProjectedTransaction {
+  id: string;
+  description: string;
+  amount_cents: number;
+  transaction_type: "INCOME" | "EXPENSE";
+  date: Date;
+  category?: string;
+  isRecurring: boolean;
+}
+
+export interface ProjectedDetails {
+  totalBalance: number;
+  transactions: ProjectedTransaction[];
+  budgetSummaries: {
+    category: string;
+    allocated: number;
+    projected: number;
+  }[];
 }
 
 /**
- * Calcula o saldo projetado em uma data futura.
+ * Calcula o saldo projetado e o detalhamento em uma data futura.
  * @param currentBalance Saldo inicial (pode ser liquidez ou patrimônio líquido)
  * @param targetDate Data para a projeção
  * @param recurringItems Lista de transações recorrentes e parcelas futuras
  * @param budgets Lista de orçamentos configurados
  */
-export function calculateProjectedBalance(
+export function getProjectedDetails(
   currentBalance: number,
   targetDate: Date,
   recurringItems: RecurringItem[] = [],
   budgets: Budget[] = []
-): number {
+): ProjectedDetails {
   let projected = currentBalance;
   const today = new Date();
+  const transactions: ProjectedTransaction[] = [];
   
+  // Se for o mês atual, não há "detalhes projetados" da mesma forma
   if (isBefore(targetDate, today) && !isSameMonth(targetDate, today)) {
-    return currentBalance;
+    return { totalBalance: currentBalance, transactions: [], budgetSummaries: [] };
   }
 
-  // 1. Calcular meses completos à frente para aplicar orçamentos cheios
+  const targetMonthEnd = endOfMonth(targetDate);
+  const targetMonthStart = startOfMonth(targetDate);
   const fullMonthsAhead = differenceInCalendarMonths(targetDate, today);
 
-  // 2. Considerar o "Restante do Orçamento" para o mês atual
+  // 1. Orçamentos do mês atual
   const remainingBudgetsThisMonth = budgets.reduce((acc, budget) => {
     const remaining = Math.max(0, budget.amount_cents - budget.spent_this_month);
+    if (remaining > 0 && isSameMonth(targetDate, today)) {
+      transactions.push({
+        id: `budget-now-${budget.category || 'general'}`,
+        description: `Reserva: ${budget.category || 'Orçamento'}`,
+        amount_cents: remaining,
+        transaction_type: "EXPENSE",
+        date: targetMonthEnd,
+        category: budget.category,
+        isRecurring: false
+      });
+    }
     return acc + remaining;
   }, 0);
   
   projected -= remainingBudgetsThisMonth;
 
-  // 3. Considerar "Orçamento Total" para meses futuros cheios
-  // Se estamos em Janeiro e projetamos para Março, subtraímos o orçamento TOTAL de Fevereiro.
-  // E também o orçamento TOTAL de Março (assumindo que será gasto até o fim do mês alvo).
+  // 2. Orçamentos de meses futuros
   if (fullMonthsAhead > 0) {
-    const totalMonthlyBudget = budgets.reduce((acc, budget) => acc + budget.amount_cents, 0);
-    projected -= (totalMonthlyBudget * fullMonthsAhead);
+    budgets.forEach(budget => {
+      const totalFutureBudget = budget.amount_cents * fullMonthsAhead;
+      projected -= totalFutureBudget;
+      
+      // Adicionar entrada para o mês alvo especificamente se estivermos olhando para ele
+      transactions.push({
+        id: `budget-future-${budget.category || 'general'}`,
+        description: `Provisão: ${budget.category || 'Orçamento'}`,
+        amount_cents: budget.amount_cents,
+        transaction_type: "EXPENSE",
+        date: targetMonthEnd,
+        category: budget.category,
+        isRecurring: false
+      });
+    });
   }
 
-  // 4. Projetar itens recorrentes (Salários, Contas Fixas, Parcelas)
+  // 3. Itens recorrentes
   const endOfThisMonth = endOfMonth(today);
 
   recurringItems.forEach((item) => {
     let occurrenceDate = new Date(item.next_date);
-    
-    // Simular ocorrências até a data alvo
-    // Usamos o fim do mês alvo se a data alvo for o primeiro dia do mês (navegação por meses)
     const effectiveTargetDate = endOfMonth(targetDate);
 
     while (isBefore(occurrenceDate, effectiveTargetDate) || isSameMonth(occurrenceDate, effectiveTargetDate)) {
-      // Evitar processar datas no passado que já estão no saldo atual
       if (isBefore(occurrenceDate, today) && !isSameMonth(occurrenceDate, today)) {
-        occurrenceDate = advanceDate(occurrenceDate, item.frequency);
-        if (!occurrenceDate) break;
+        const next = advanceDate(occurrenceDate, item.frequency);
+        if (!next) break;
+        occurrenceDate = next;
         continue;
       }
 
       const isIncome = item.transaction_type === "INCOME";
       const isFutureMonth = isAfter(occurrenceDate, endOfThisMonth);
+      const isTargetMonth = isSameMonth(occurrenceDate, targetDate);
 
-      // Regra de Ouro:
-      // - Receitas são SEMPRE somadas (mesmo este mês, se ainda não caíram).
-      // - Despesas só são subtraídas se forem de meses FUTUROS, 
-      //   pois o mês atual já está coberto pelo remainingBudgets.
       if (isIncome) {
         projected += item.amount_cents;
+        if (isTargetMonth) {
+          transactions.push({
+            id: `recurring-${item.id || Math.random()}-${occurrenceDate.getTime()}`,
+            description: item.description || "Receita Prevista",
+            amount_cents: item.amount_cents,
+            transaction_type: "INCOME",
+            date: occurrenceDate,
+            category: item.category,
+            isRecurring: true
+          });
+        }
       } else if (isFutureMonth) {
         projected -= item.amount_cents;
+        if (isTargetMonth) {
+          transactions.push({
+            id: `recurring-${item.id || Math.random()}-${occurrenceDate.getTime()}`,
+            description: item.description || "Despesa Prevista",
+            amount_cents: item.amount_cents,
+            transaction_type: "EXPENSE",
+            date: occurrenceDate,
+            category: item.category,
+            isRecurring: true
+          });
+        }
       }
 
-      // Avançar para a próxima ocorrência
       const nextDate = advanceDate(occurrenceDate, item.frequency);
       if (!nextDate || item.frequency === "once") break;
       occurrenceDate = nextDate;
     }
   });
 
-  return projected;
+  return {
+    totalBalance: projected,
+    transactions: transactions.sort((a, b) => a.date.getTime() - b.date.getTime()),
+    budgetSummaries: budgets.map(b => ({
+      category: b.category || 'Outros',
+      allocated: b.amount_cents,
+      projected: b.amount_cents
+    }))
+  };
+}
+
+export function calculateProjectedBalance(
+  currentBalance: number,
+  targetDate: Date,
+  recurringItems: RecurringItem[] = [],
+  budgets: Budget[] = []
+): number {
+  return getProjectedDetails(currentBalance, targetDate, recurringItems, budgets).totalBalance;
 }
 
 function advanceDate(date: Date, frequency: string): Date | null {

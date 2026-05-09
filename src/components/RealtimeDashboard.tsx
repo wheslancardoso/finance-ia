@@ -4,7 +4,8 @@ import React, { useState, useMemo } from "react";
 import { SpendingCapacity } from "./SpendingCapacity";
 import { TransactionTimeline } from "./TransactionTimeline";
 import { MonthNavigator } from "./MonthNavigator";
-import { calculateProjectedBalance } from "@/utils/finance-projections";
+import { getProjectedDetails, ProjectedTransaction } from "@/utils/finance-projections";
+import { ProjectedTimeline } from "./ProjectedTimeline";
 import { formatCurrency } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { TrendingUp, ArrowUpRight, ArrowDownRight, Wallet, History, Zap, ShieldCheck, AlertCircle } from "lucide-react";
@@ -43,13 +44,16 @@ export default function RealtimeDashboard({
   };
 
   // 1. Cálculo da Projeção (Viagem no Tempo por Meses)
-  const projectedBalance = useMemo(() => {
+  const projection = useMemo(() => {
     const formattedBudgets = initialBudgets.map(b => ({
       amount_cents: b.limit,
-      spent_this_month: b.spent
+      spent_this_month: b.spent,
+      category: b.category
     }));
-    return calculateProjectedBalance(initialBalance, targetDate, initialRecurring || [], formattedBudgets);
+    return getProjectedDetails(initialBalance, targetDate, initialRecurring || [], formattedBudgets);
   }, [initialBalance, initialRecurring, targetDate, initialBudgets]);
+
+  const projectedBalance = projection.totalBalance;
 
   // 2. Visão Prática: "Quanto me sobra este mês?"
   const monthlyOutlook = useMemo(() => {
@@ -257,14 +261,48 @@ export default function RealtimeDashboard({
         <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] p-6 flex flex-col overflow-hidden shadow-2xl max-h-[calc(100vh-200px)] lg:max-h-none lg:h-fit">
           <div className="flex items-center justify-between mb-4 shrink-0">
             <h3 className="text-sm font-bold text-white flex items-center gap-2 uppercase tracking-widest">
-              <History className="w-4 h-4 text-white/20" />
-              Recentes
+              {isFuture ? (
+                <>
+                  <Zap className="w-4 h-4 text-violet-400" />
+                  Previsão {format(targetDate, "MMM/yy", { locale: ptBR })}
+                </>
+              ) : (
+                <>
+                  <History className="w-4 h-4 text-white/20" />
+                  Recentes
+                </>
+              )}
             </h3>
-            <button className="text-[10px] font-black text-white/20 uppercase tracking-widest hover:text-white transition-colors">Ver Tudo</button>
+            {!isFuture && (
+              <button className="text-[10px] font-black text-white/20 uppercase tracking-widest hover:text-white transition-colors">
+                Ver Tudo
+              </button>
+            )}
           </div>
 
+          {isFuture && (
+            <div className="grid grid-cols-2 gap-4 mb-6 shrink-0">
+              <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
+                <p className="text-[8px] font-black text-emerald-400/60 uppercase tracking-widest mb-1">Receitas</p>
+                <p className="text-sm font-bold text-emerald-400">
+                  {formatCurrency(projection.transactions.filter(t => t.transaction_type === "INCOME").reduce((s, t) => s + t.amount_cents, 0))}
+                </p>
+              </div>
+              <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
+                <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Despesas</p>
+                <p className="text-sm font-bold text-white/80">
+                  {formatCurrency(projection.transactions.filter(t => t.transaction_type === "EXPENSE").reduce((s, t) => s + t.amount_cents, 0))}
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="overflow-y-auto custom-scrollbar pr-2 -mr-2 max-h-[500px]">
-            <TransactionTimeline transactions={initialTransactions} />
+            {isFuture ? (
+              <ProjectedTimeline transactions={projection.transactions} />
+            ) : (
+              <TransactionTimeline transactions={initialTransactions} />
+            )}
           </div>
         </div>
       </div>
