@@ -44,7 +44,9 @@ CREATE TABLE IF NOT EXISTS public.family_groups (
     name VARCHAR(100) NOT NULL,
     monthly_income_cents BIGINT DEFAULT 0,
     accumulated_balance_cents BIGINT DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    financial_health_score INTEGER DEFAULT 100,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 2. Profiles
@@ -95,8 +97,8 @@ CREATE TABLE IF NOT EXISTS public.accounts (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. Credit Card Invoices
-CREATE TABLE IF NOT EXISTS public.credit_card_invoices (
+-- 6. Invoices (Renamed from credit_card_invoices)
+CREATE TABLE IF NOT EXISTS public.invoices (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     account_id UUID NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
     reference_month CHARACTER VARYING NOT NULL, -- 'YYYY-MM'
@@ -105,7 +107,8 @@ CREATE TABLE IF NOT EXISTS public.credit_card_invoices (
     status CHARACTER VARYING DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'CLOSED', 'PAID')),
     amount_cents BIGINT DEFAULT 0,
     paid_amount_cents BIGINT DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 7. Goals
@@ -127,7 +130,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     family_group_id UUID REFERENCES public.family_groups(id) ON DELETE CASCADE,
     account_id UUID REFERENCES public.accounts(id) ON DELETE CASCADE,
     category_id UUID REFERENCES public.categories(id) ON DELETE RESTRICT,
-    invoice_id UUID REFERENCES public.credit_card_invoices(id) ON DELETE SET NULL,
+    invoice_id UUID REFERENCES public.invoices(id) ON DELETE SET NULL,
     goal_id UUID REFERENCES public.goals(id) ON DELETE SET NULL,
     amount_cents BIGINT NOT NULL,
     transaction_type VARCHAR(20) NOT NULL, -- 'INCOME', 'EXPENSE', 'TRANSFER'
@@ -251,8 +254,23 @@ CREATE INDEX IF NOT EXISTS idx_whatsapp_sessions_family ON public.whatsapp_sessi
 CREATE INDEX IF NOT EXISTS idx_ai_message_log_family ON public.ai_message_log (family_group_id, created_at DESC);
 
 -- ============================================================
--- BLOCO: FUNÇÕES E TRIGGERS (CONSOLIDADO FASE 4/5)
+-- BLOCO: FUNÇÕES E TRIGGERS (CONSOLIDADO)
 -- ============================================================
+
+-- Trigger: auto update updated_at
+CREATE OR REPLACE FUNCTION public.fn_update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tr_update_family_groups_updated_at BEFORE UPDATE ON public.family_groups FOR EACH ROW EXECUTE FUNCTION public.fn_update_updated_at_column();
+CREATE TRIGGER tr_update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.fn_update_updated_at_column();
+CREATE TRIGGER tr_update_accounts_updated_at BEFORE UPDATE ON public.accounts FOR EACH ROW EXECUTE FUNCTION public.fn_update_updated_at_column();
+CREATE TRIGGER tr_update_invoices_updated_at BEFORE UPDATE ON public.invoices FOR EACH ROW EXECUTE FUNCTION public.fn_update_updated_at_column();
+CREATE TRIGGER tr_update_transactions_updated_at BEFORE UPDATE ON public.transactions FOR EACH ROW EXECUTE FUNCTION public.fn_update_updated_at_column();
 
 -- Helper: Data segura
 CREATE OR REPLACE FUNCTION public.fn_safe_date(p_year int, p_month int, p_day int)
@@ -271,24 +289,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 0.1 Helper — Gerar Datas Seguras
-CREATE OR REPLACE FUNCTION public.fn_safe_date(p_year int, p_month int, p_day int)
-RETURNS DATE AS $$
-DECLARE
-    v_first_of_month DATE;
-    v_last_of_month DATE;
-BEGIN
-    v_first_of_month := make_date(p_year, p_month, 1);
-    v_last_of_month := (v_first_of_month + interval '1 month' - interval '1 day')::date;
-    IF p_day > extract(day from v_last_of_month) THEN
-        RETURN v_last_of_month;
-    ELSE
-        RETURN make_date(p_year, p_month, p_day);
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
-
--- Trigger: Atualização de Saldo em Contas
+-- Trigger: Atualização de Saldo em Contas (Incluso Cartão de Crédito)
 CREATE OR REPLACE FUNCTION public.fn_update_account_balance()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -297,22 +298,37 @@ DECLARE
 BEGIN
   IF TG_OP = 'DELETE' THEN
     SELECT type INTO v_account_type FROM public.accounts WHERE id = OLD.account_id;
-    IF v_account_type = 'CREDIT_CARD' THEN RETURN OLD; END IF;
-    IF OLD.transaction_type = 'INCOME' THEN
-      UPDATE public.accounts SET balance_cents = balance_cents - OLD.amount_cents WHERE id = OLD.account_id;
-    ELSIF OLD.transaction_type IN ('EXPENSE', 'TRANSFER') THEN
-      UPDATE public.accounts SET balance_cents = balance_cents + OLD.amount_cents WHERE id = OLD.account_id;
+    IF v_account_type = 'CREDIT_CARD' THEN
+      -- Para cartão, balance_cents representa a dívida (positivo = dívida)
+      IF OLD.transaction_type = 'INCOME' THEN -- Pagamento da fatura
+        UPDATE public.accounts SET balance_cents = balance_cents + OLD.amount_cents WHERE id = OLD.account_id;
+      ELSE
+        UPDATE public.accounts SET balance_cents = balance_cents - OLD.amount_cents WHERE id = OLD.account_id;
+      END IF;
+    ELSE
+      IF OLD.transaction_type = 'INCOME' THEN
+        UPDATE public.accounts SET balance_cents = balance_cents - OLD.amount_cents WHERE id = OLD.account_id;
+      ELSE
+        UPDATE public.accounts SET balance_cents = balance_cents + OLD.amount_cents WHERE id = OLD.account_id;
+      END IF;
     END IF;
     RETURN OLD;
   END IF;
 
   IF TG_OP = 'INSERT' THEN
     SELECT type INTO v_account_type FROM public.accounts WHERE id = NEW.account_id;
-    IF v_account_type = 'CREDIT_CARD' THEN RETURN NEW; END IF;
-    IF NEW.transaction_type = 'INCOME' THEN
-      UPDATE public.accounts SET balance_cents = balance_cents + NEW.amount_cents WHERE id = NEW.account_id;
-    ELSIF NEW.transaction_type IN ('EXPENSE', 'TRANSFER') THEN
-      UPDATE public.accounts SET balance_cents = balance_cents - NEW.amount_cents WHERE id = NEW.account_id;
+    IF v_account_type = 'CREDIT_CARD' THEN
+      IF NEW.transaction_type = 'INCOME' THEN -- Pagamento da fatura
+        UPDATE public.accounts SET balance_cents = balance_cents - NEW.amount_cents WHERE id = NEW.account_id;
+      ELSE
+        UPDATE public.accounts SET balance_cents = balance_cents + NEW.amount_cents WHERE id = NEW.account_id;
+      END IF;
+    ELSE
+      IF NEW.transaction_type = 'INCOME' THEN
+        UPDATE public.accounts SET balance_cents = balance_cents + NEW.amount_cents WHERE id = NEW.account_id;
+      ELSE
+        UPDATE public.accounts SET balance_cents = balance_cents - NEW.amount_cents WHERE id = NEW.account_id;
+      END IF;
     END IF;
     RETURN NEW;
   END IF;
@@ -321,7 +337,13 @@ BEGIN
     IF OLD.account_id IS DISTINCT FROM NEW.account_id THEN
       -- Reverter antiga
       SELECT type INTO v_account_type FROM public.accounts WHERE id = OLD.account_id;
-      IF v_account_type != 'CREDIT_CARD' THEN
+      IF v_account_type = 'CREDIT_CARD' THEN
+        IF OLD.transaction_type = 'INCOME' THEN
+          UPDATE public.accounts SET balance_cents = balance_cents + OLD.amount_cents WHERE id = OLD.account_id;
+        ELSE
+          UPDATE public.accounts SET balance_cents = balance_cents - OLD.amount_cents WHERE id = OLD.account_id;
+        END IF;
+      ELSE
         IF OLD.transaction_type = 'INCOME' THEN
           UPDATE public.accounts SET balance_cents = balance_cents - OLD.amount_cents WHERE id = OLD.account_id;
         ELSE
@@ -330,7 +352,13 @@ BEGIN
       END IF;
       -- Aplicar nova
       SELECT type INTO v_account_type FROM public.accounts WHERE id = NEW.account_id;
-      IF v_account_type != 'CREDIT_CARD' THEN
+      IF v_account_type = 'CREDIT_CARD' THEN
+        IF NEW.transaction_type = 'INCOME' THEN
+          UPDATE public.accounts SET balance_cents = balance_cents - NEW.amount_cents WHERE id = NEW.account_id;
+        ELSE
+          UPDATE public.accounts SET balance_cents = balance_cents + NEW.amount_cents WHERE id = NEW.account_id;
+        END IF;
+      ELSE
         IF NEW.transaction_type = 'INCOME' THEN
           UPDATE public.accounts SET balance_cents = balance_cents + NEW.amount_cents WHERE id = NEW.account_id;
         ELSE
@@ -341,24 +369,42 @@ BEGIN
     END IF;
 
     SELECT type INTO v_account_type FROM public.accounts WHERE id = NEW.account_id;
-    IF v_account_type = 'CREDIT_CARD' THEN RETURN NEW; END IF;
-
     v_delta := NEW.amount_cents - OLD.amount_cents;
-    IF NEW.transaction_type = 'INCOME' AND OLD.transaction_type = 'INCOME' THEN
-      UPDATE public.accounts SET balance_cents = balance_cents + v_delta WHERE id = NEW.account_id;
-    ELSIF NEW.transaction_type IN ('EXPENSE','TRANSFER') AND OLD.transaction_type IN ('EXPENSE','TRANSFER') THEN
-      UPDATE public.accounts SET balance_cents = balance_cents - v_delta WHERE id = NEW.account_id;
-    ELSE
-      -- Tipo mudou
-      IF OLD.transaction_type = 'INCOME' THEN
-        UPDATE public.accounts SET balance_cents = balance_cents - OLD.amount_cents WHERE id = OLD.account_id;
+
+    IF v_account_type = 'CREDIT_CARD' THEN
+      IF NEW.transaction_type = 'INCOME' AND OLD.transaction_type = 'INCOME' THEN
+        UPDATE public.accounts SET balance_cents = balance_cents - v_delta WHERE id = NEW.account_id;
+      ELSIF NEW.transaction_type != 'INCOME' AND OLD.transaction_type != 'INCOME' THEN
+        UPDATE public.accounts SET balance_cents = balance_cents + v_delta WHERE id = NEW.account_id;
       ELSE
-        UPDATE public.accounts SET balance_cents = balance_cents + OLD.amount_cents WHERE id = OLD.account_id;
+        -- Tipo mudou (ex: Income -> Expense)
+        IF OLD.transaction_type = 'INCOME' THEN
+          UPDATE public.accounts SET balance_cents = balance_cents + OLD.amount_cents WHERE id = NEW.account_id;
+        ELSE
+          UPDATE public.accounts SET balance_cents = balance_cents - OLD.amount_cents WHERE id = NEW.account_id;
+        END IF;
+        IF NEW.transaction_type = 'INCOME' THEN
+          UPDATE public.accounts SET balance_cents = balance_cents - NEW.amount_cents WHERE id = NEW.account_id;
+        ELSE
+          UPDATE public.accounts SET balance_cents = balance_cents + NEW.amount_cents WHERE id = NEW.account_id;
+        END IF;
       END IF;
-      IF NEW.transaction_type = 'INCOME' THEN
-        UPDATE public.accounts SET balance_cents = balance_cents + NEW.amount_cents WHERE id = NEW.account_id;
+    ELSE
+      IF NEW.transaction_type = 'INCOME' AND OLD.transaction_type = 'INCOME' THEN
+        UPDATE public.accounts SET balance_cents = balance_cents + v_delta WHERE id = NEW.account_id;
+      ELSIF NEW.transaction_type != 'INCOME' AND OLD.transaction_type != 'INCOME' THEN
+        UPDATE public.accounts SET balance_cents = balance_cents - v_delta WHERE id = NEW.account_id;
       ELSE
-        UPDATE public.accounts SET balance_cents = balance_cents - NEW.amount_cents WHERE id = NEW.account_id;
+        IF OLD.transaction_type = 'INCOME' THEN
+          UPDATE public.accounts SET balance_cents = balance_cents - OLD.amount_cents WHERE id = NEW.account_id;
+        ELSE
+          UPDATE public.accounts SET balance_cents = balance_cents + OLD.amount_cents WHERE id = NEW.account_id;
+        END IF;
+        IF NEW.transaction_type = 'INCOME' THEN
+          UPDATE public.accounts SET balance_cents = balance_cents + NEW.amount_cents WHERE id = NEW.account_id;
+        ELSE
+          UPDATE public.accounts SET balance_cents = balance_cents - NEW.amount_cents WHERE id = NEW.account_id;
+        END IF;
       END IF;
     END IF;
     RETURN NEW;
@@ -367,6 +413,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS tr_update_account_balance ON public.transactions;
 CREATE TRIGGER tr_update_account_balance AFTER INSERT OR UPDATE OR DELETE ON public.transactions FOR EACH ROW EXECUTE FUNCTION public.fn_update_account_balance();
 
 -- Trigger de Vínculo de Transação a Fatura
@@ -393,6 +440,7 @@ BEGIN
     v_base_date := NEW.date::DATE;
     v_test_closing_date := public.fn_safe_date(extract(year from v_base_date)::int, extract(month from v_base_date)::int, v_closing_day);
 
+    -- Se a transação for após o fechamento, cai na próxima fatura
     IF v_base_date <= v_test_closing_date THEN
         v_invoice_month := v_test_closing_date;
     ELSE
@@ -407,11 +455,11 @@ BEGIN
 
     v_reference_month := to_char(v_invoice_due_date, 'YYYY-MM');
 
-    SELECT id INTO v_invoice_id FROM public.credit_card_invoices
+    SELECT id INTO v_invoice_id FROM public.invoices
     WHERE account_id = NEW.account_id AND reference_month = v_reference_month;
 
     IF v_invoice_id IS NULL THEN
-        INSERT INTO public.credit_card_invoices (account_id, reference_month, closing_date, due_date, amount_cents, status)
+        INSERT INTO public.invoices (account_id, reference_month, closing_date, due_date, amount_cents, status)
         VALUES (NEW.account_id, v_reference_month, 
                 public.fn_safe_date(extract(year from v_invoice_month)::int, extract(month from v_invoice_month)::int, v_closing_day), 
                 v_invoice_due_date, 0, 'OPEN')
@@ -434,14 +482,14 @@ RETURNS TRIGGER AS $$
 BEGIN
     IF TG_OP = 'UPDATE' OR TG_OP = 'DELETE' THEN
         IF OLD.invoice_id IS NOT NULL THEN
-            UPDATE public.credit_card_invoices
+            UPDATE public.invoices
             SET amount_cents = (SELECT COALESCE(SUM(amount_cents), 0) FROM public.transactions WHERE invoice_id = OLD.invoice_id)
             WHERE id = OLD.invoice_id;
         END IF;
     END IF;
     IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
         IF NEW.invoice_id IS NOT NULL THEN
-            UPDATE public.credit_card_invoices
+            UPDATE public.invoices
             SET amount_cents = (SELECT COALESCE(SUM(amount_cents), 0) FROM public.transactions WHERE invoice_id = NEW.invoice_id)
             WHERE id = NEW.invoice_id;
         END IF;
@@ -455,24 +503,90 @@ CREATE TRIGGER trg_update_invoice_amount_after
 AFTER INSERT OR UPDATE OF amount_cents, invoice_id OR DELETE
 ON public.transactions FOR EACH ROW EXECUTE FUNCTION public.trg_update_invoice_amount();
 
--- RPC: Get Financial State V3
-CREATE OR REPLACE FUNCTION public.get_financial_state_v3(p_family_group_id UUID, p_target_month TIMESTAMPTZ DEFAULT NOW())
-RETURNS JSONB LANGUAGE plpgsql AS $$
-DECLARE
-  v_result JSONB;
-  v_month_start TIMESTAMPTZ := date_trunc('month', p_target_month);
-  v_month_end TIMESTAMPTZ := v_month_start + interval '1 month' - interval '1 second';
+-- Trigger de Atualização Automática de Status de Fatura
+CREATE OR REPLACE FUNCTION public.trg_auto_close_invoices()
+RETURNS TRIGGER AS $$
 BEGIN
-  SELECT jsonb_build_object(
-    'family_group', (SELECT jsonb_build_object('id', id, 'name', name, 'monthly_income_cents', COALESCE(monthly_income_cents, 0), 'accumulated_balance_cents', COALESCE(accumulated_balance_cents, 0)) FROM public.family_groups WHERE id = p_family_group_id),
-    'accounts', (SELECT COALESCE(jsonb_agg(a ORDER BY a.name), '[]'::jsonb) FROM (SELECT id, name, type, balance_cents, credit_limit_cents, color_hex, is_active, closing_day, due_day, currency_code FROM public.accounts WHERE family_group_id = p_family_group_id AND is_active = true) a),
-    'invoices', (SELECT COALESCE(jsonb_agg(i), '[]'::jsonb) FROM (SELECT i.* FROM public.credit_card_invoices i JOIN public.accounts a ON i.account_id = a.id WHERE a.family_group_id = p_family_group_id AND i.status IN ('OPEN', 'CLOSED')) i),
-    'goals', (SELECT COALESCE(jsonb_agg(g ORDER BY g.deadline ASC NULLS LAST), '[]'::jsonb) FROM (SELECT * FROM public.goals WHERE family_group_id = p_family_group_id AND status = 'active') g),
-    'recent_transactions', (SELECT COALESCE(jsonb_agg(t ORDER BY t.date DESC, t.created_at DESC), '[]'::jsonb) FROM (SELECT t.*, c.name AS category_name, c.icon_name AS category_icon, acc.name AS account_name FROM public.transactions t LEFT JOIN public.categories c ON t.category_id = c.id LEFT JOIN public.accounts acc ON t.account_id = acc.id WHERE t.family_group_id = p_family_group_id LIMIT 50) t)
-  ) INTO v_result;
-  RETURN v_result;
+    -- Se hoje passou da data de fechamento, e status é OPEN, vira CLOSED
+    UPDATE public.invoices 
+    SET status = 'CLOSED' 
+    WHERE status = 'OPEN' AND closing_date < CURRENT_DATE;
+    RETURN NULL;
 END;
-$$;
+$$ LANGUAGE plpgsql;
+
+-- Executa a cada transação ou quando necessário
+-- Em um ambiente real, isso seria um cron, mas para dev local podemos atrelar a transações
+CREATE TRIGGER trg_check_invoice_status AFTER INSERT ON public.transactions
+FOR EACH STATEMENT EXECUTE FUNCTION public.trg_auto_close_invoices();
+
+-- RPC: get_financial_state_v5 (Melhorado para Cartão de Crédito)
+CREATE OR REPLACE FUNCTION public.get_financial_state_v5(
+    p_family_group_id UUID, 
+    p_target_month TIMESTAMPTZ DEFAULT NOW()
+)
+RETURNS JSON AS $$
+DECLARE
+    result JSON;
+    v_month_start DATE := date_trunc('month', p_target_month)::date;
+    v_month_end DATE := (date_trunc('month', p_target_month) + interval '1 month' - interval '1 day')::date;
+BEGIN
+    -- Atualiza status de faturas antes de retornar
+    UPDATE public.invoices 
+    SET status = 'CLOSED' 
+    WHERE status = 'OPEN' AND closing_date < CURRENT_DATE;
+
+    SELECT json_build_object(
+        'family_group', (
+            SELECT json_build_object(
+                'id', fg.id,
+                'name', fg.name,
+                'monthly_income_cents', fg.monthly_income_cents,
+                'accumulated_balance_cents', fg.accumulated_balance_cents,
+                'financial_health_score', COALESCE(fg.financial_health_score, 100)
+            ) FROM public.family_groups fg WHERE id = p_family_group_id
+        ),
+        'accounts', (
+            SELECT COALESCE(json_agg(row_to_json(a_with_invoices)), '[]'::json) 
+            FROM (
+                SELECT a.*,
+                    (SELECT COALESCE(SUM(amount_cents), 0) FROM public.invoices WHERE account_id = a.id AND status = 'OPEN') as open_invoice_cents,
+                    (SELECT COALESCE(SUM(amount_cents), 0) FROM public.invoices WHERE account_id = a.id AND status = 'CLOSED') as closed_invoice_cents,
+                    (SELECT reference_month FROM public.invoices WHERE account_id = a.id AND status = 'OPEN' ORDER BY closing_date ASC LIMIT 1) as open_invoice_month,
+                    (SELECT reference_month FROM public.invoices WHERE account_id = a.id AND status = 'CLOSED' ORDER BY closing_date DESC LIMIT 1) as closed_invoice_month
+                FROM public.accounts a 
+                WHERE family_group_id = p_family_group_id AND is_active = true
+            ) a_with_invoices
+        ),
+        'invoices', (
+            SELECT COALESCE(json_agg(row_to_json(i)), '[]'::json) FROM public.invoices i 
+            JOIN public.accounts a ON i.account_id = a.id 
+            WHERE a.family_group_id = p_family_group_id AND i.status != 'PAID'
+        ),
+        'goals', (
+            SELECT COALESCE(json_agg(row_to_json(g)), '[]'::json) FROM public.goals g 
+            WHERE family_group_id = p_family_group_id AND status = 'active'
+        ),
+        'recent_transactions', (
+            SELECT COALESCE(json_agg(t_joined), '[]'::json) FROM (
+                SELECT t.*, row_to_json(c) as category, row_to_json(a) as account
+                FROM public.transactions t
+                LEFT JOIN public.categories c ON t.category_id = c.id
+                LEFT JOIN public.accounts a ON t.account_id = a.id
+                WHERE t.family_group_id = p_family_group_id
+                ORDER BY t.date DESC
+                LIMIT 50
+            ) t_joined
+        ),
+        'categories', (
+            SELECT COALESCE(json_agg(row_to_json(c)), '[]'::json) FROM public.categories c 
+            WHERE family_group_id = p_family_group_id OR is_system_default = true
+        )
+    ) INTO result;
+    
+    RETURN result;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Seed Data
 INSERT INTO auth.users (id, email) VALUES ('00000000-0000-0000-0000-000000000001', 'test@example.com') ON CONFLICT DO NOTHING;
@@ -499,237 +613,271 @@ INSERT INTO public.accounts (id, family_group_id, name, type, credit_limit_cents
 ON CONFLICT DO NOTHING;
 
 -- ============================================================
--- RPCs CONSOLIDADAS (V6)
+-- BLOCO: RPCs DE NEGÓCIO (PARCELAMENTO E TRANSFERÊNCIA)
 -- ============================================================
 
--- 1. get_month_projection
-CREATE OR REPLACE FUNCTION public.get_month_projection(
-    p_family_group_id UUID, 
-    p_target_month DATE DEFAULT CURRENT_DATE
+-- Helper: Encontrar ou Criar Fatura
+CREATE OR REPLACE FUNCTION public.fn_get_or_create_invoice(
+  p_account_id  UUID,
+  p_purchase_date TIMESTAMPTZ
 )
-RETURNS JSON AS $$
+RETURNS UUID
+LANGUAGE plpgsql
+AS $$
 DECLARE
-    v_month_start DATE := date_trunc('month', p_target_month)::date;
-    v_month_end DATE := (date_trunc('month', p_target_month) + interval '1 month' - interval '1 day')::date;
-    v_income_total BIGINT;
-    v_expense_total BIGINT;
-    v_balance_current BIGINT;
-    v_projected_balance BIGINT;
+  v_closing_day     INTEGER;
+  v_due_day         INTEGER;
+  v_billing_year    INTEGER;
+  v_billing_month   INTEGER;
+  v_billing_label   TEXT;
+  v_closing_date    DATE;
+  v_due_date        DATE;
+  v_invoice_id      UUID;
 BEGIN
-    SELECT COALESCE(SUM(balance_cents), 0) INTO v_balance_current
-    FROM public.accounts
-    WHERE family_group_id = p_family_group_id AND type != 'CREDIT_CARD' AND is_active = true;
+  SELECT closing_day, due_day INTO v_closing_day, v_due_day
+  FROM public.accounts WHERE id = p_account_id AND type = 'CREDIT_CARD';
 
-    SELECT COALESCE(SUM(amount_cents), 0) INTO v_income_total
-    FROM public.transactions
-    WHERE family_group_id = p_family_group_id 
-    AND date >= v_month_start AND date <= v_month_end
-    AND transaction_type = 'INCOME';
+  IF v_closing_day IS NULL THEN RETURN NULL; END IF;
 
-    SELECT COALESCE(SUM(amount_cents), 0) INTO v_expense_total
-    FROM public.transactions
-    WHERE family_group_id = p_family_group_id 
-    AND date >= v_month_start AND date <= v_month_end
-    AND transaction_type = 'EXPENSE'
-    AND account_id IN (SELECT id FROM public.accounts WHERE family_group_id = p_family_group_id AND type != 'CREDIT_CARD');
+  IF EXTRACT(DAY FROM p_purchase_date) >= v_closing_day THEN
+    v_billing_year  := EXTRACT(YEAR  FROM p_purchase_date + interval '1 month');
+    v_billing_month := EXTRACT(MONTH FROM p_purchase_date + interval '1 month');
+  ELSE
+    v_billing_year  := EXTRACT(YEAR  FROM p_purchase_date);
+    v_billing_month := EXTRACT(MONTH FROM p_purchase_date);
+  END IF;
 
-    v_projected_balance := v_balance_current + v_income_total - v_expense_total;
+  v_billing_label := to_char(make_date(v_billing_year, v_billing_month, 1), 'YYYY-MM');
+  v_closing_date := public.fn_safe_date(v_billing_year, v_billing_month, v_closing_day);
 
-    RETURN json_build_object(
-        'projection', json_build_object(
-            'month_start', v_month_start,
-            'month_end', v_month_end,
-            'current_balance_cents', v_balance_current,
-            'projected_income_cents', v_income_total,
-            'projected_expense_cents', v_expense_total,
-            'projected_end_balance_cents', v_projected_balance
-        )
-    );
+  IF v_due_day IS NULL THEN
+    v_due_date := v_closing_date + interval '10 days';
+  ELSE
+    DECLARE
+      v_due_month INTEGER := v_billing_month;
+      v_due_year  INTEGER := v_billing_year;
+    BEGIN
+      IF v_due_day < v_closing_day THEN
+        v_due_month := v_due_month + 1;
+        IF v_due_month > 12 THEN
+          v_due_month := 1; v_due_year := v_due_year + 1;
+        END IF;
+      END IF;
+      v_due_date := public.fn_safe_date(v_due_year, v_due_month, v_due_day);
+    END;
+  END IF;
+
+  SELECT id INTO v_invoice_id FROM public.invoices
+  WHERE account_id = p_account_id AND reference_month = v_billing_label LIMIT 1;
+
+  IF v_invoice_id IS NULL THEN
+    INSERT INTO public.invoices (account_id, reference_month, closing_date, due_date, status, amount_cents)
+    VALUES (p_account_id, v_billing_label, v_closing_date, v_due_date, 'OPEN', 0)
+    RETURNING id INTO v_invoice_id;
+  END IF;
+
+  RETURN v_invoice_id;
 END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+$$;
 
--- 2. get_financial_state_v5
-CREATE OR REPLACE FUNCTION public.get_financial_state_v5(
-    p_family_group_id UUID, 
-    p_target_month TIMESTAMPTZ DEFAULT NOW()
-)
-RETURNS JSON AS $$
-DECLARE
-    result JSON;
-    v_month_start DATE := date_trunc('month', p_target_month)::date;
-    v_month_end DATE := (date_trunc('month', p_target_month) + interval '1 month' - interval '1 day')::date;
-BEGIN
-    SELECT json_build_object(
-        'family_group', (
-            SELECT row_to_json(fg) FROM public.family_groups fg WHERE id = p_family_group_id
-        ),
-        'accounts', (
-            SELECT COALESCE(json_agg(row_to_json(a)), '[]'::json) FROM public.accounts a 
-            WHERE family_group_id = p_family_group_id AND is_active = true
-        ),
-        'invoices', (
-            SELECT COALESCE(json_agg(row_to_json(i)), '[]'::json) FROM public.credit_card_invoices i 
-            JOIN public.accounts a ON i.account_id = a.id 
-            WHERE a.family_group_id = p_family_group_id AND i.status != 'PAID'
-        ),
-        'goals', (
-            SELECT COALESCE(json_agg(row_to_json(g)), '[]'::json) FROM public.goals g 
-            WHERE family_group_id = p_family_group_id AND status = 'active'
-        ),
-        'recurring_transactions', (
-            SELECT COALESCE(json_agg(rt_joined), '[]'::json) FROM (
-                SELECT rt.*, row_to_json(c) as category, row_to_json(a) as account
-                FROM public.recurring_transactions rt
-                LEFT JOIN public.categories c ON rt.category_id = c.id
-                LEFT JOIN public.accounts a ON rt.account_id = a.id
-                WHERE rt.family_group_id = p_family_group_id AND rt.status = 'active'
-            ) rt_joined
-        ),
-        'budgets', (
-            SELECT COALESCE(json_agg(row_to_json(b)), '[]'::json) FROM public.budgets b 
-            WHERE family_group_id = p_family_group_id
-        ),
-        'recent_transactions', (
-            SELECT COALESCE(json_agg(t_joined), '[]'::json) FROM (
-                SELECT t.*, row_to_json(c) as category, row_to_json(a) as account
-                FROM public.transactions t
-                LEFT JOIN public.categories c ON t.category_id = c.id
-                LEFT JOIN public.accounts a ON t.account_id = a.id
-                WHERE t.family_group_id = p_family_group_id
-                ORDER BY t.date DESC
-                LIMIT 50
-            ) t_joined
-        ),
-        'month_transactions', (
-            SELECT COALESCE(json_agg(t_joined), '[]'::json) FROM (
-                SELECT t.*, row_to_json(c) as category, row_to_json(a) as account
-                FROM public.transactions t
-                LEFT JOIN public.categories c ON t.category_id = c.id
-                LEFT JOIN public.accounts a ON t.account_id = a.id
-                WHERE t.family_group_id = p_family_group_id
-                AND t.date >= v_month_start AND t.date <= v_month_end
-                ORDER BY t.date DESC
-            ) t_joined
-        ),
-        'month_stats', (
-            SELECT json_build_object(
-                'income', COALESCE(SUM(amount_cents) FILTER (WHERE transaction_type = 'INCOME'), 0),
-                'expense', COALESCE(SUM(amount_cents) FILTER (WHERE transaction_type = 'EXPENSE'), 0),
-                'debit_expense', COALESCE(SUM(amount_cents) FILTER (
-                    WHERE transaction_type = 'EXPENSE' 
-                    AND account_id IN (SELECT id FROM public.accounts WHERE family_group_id = p_family_group_id AND type != 'CREDIT_CARD')
-                ), 0)
-            )
-            FROM public.transactions
-            WHERE family_group_id = p_family_group_id 
-            AND date >= v_month_start AND date <= v_month_end
-            AND is_paid = true
-        ),
-        'categories', (
-            SELECT COALESCE(json_agg(row_to_json(c)), '[]'::json) FROM public.categories c 
-            WHERE family_group_id = p_family_group_id OR is_system_default = true
-        )
-    ) INTO result;
-    
-    RETURN result;
-END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
-
--- 3. fn_get_goal_recommendations
-CREATE OR REPLACE FUNCTION public.fn_get_goal_recommendations(
-  p_family_group_id UUID
+-- RPC: create_installment_series
+CREATE OR REPLACE FUNCTION public.create_installment_series(
+  p_account_id      UUID,
+  p_category_id     UUID,
+  p_description     TEXT,
+  p_merchant_name   TEXT       DEFAULT NULL,
+  p_total_cents     BIGINT     DEFAULT 0,
+  p_installments    INTEGER    DEFAULT 1,
+  p_purchase_date   TIMESTAMPTZ DEFAULT NOW(),
+  p_source          TEXT       DEFAULT 'MANUAL',
+  p_family_group_id UUID       DEFAULT NULL,
+  p_source_metadata JSONB      DEFAULT '{}'::jsonb
 )
 RETURNS JSONB
 LANGUAGE plpgsql
-SECURITY DEFINER
 AS $$
 DECLARE
-  v_projection JSONB;
-  v_surplus BIGINT;
-  v_goal RECORD;
-  v_recommendations JSONB := '[]'::jsonb;
-  v_amount_to_allocate BIGINT;
-  v_remaining_surplus BIGINT;
+  v_group_id          UUID := gen_random_uuid();
+  v_installment_cents BIGINT;
+  v_remainder_cents   BIGINT;
+  v_current_amount    BIGINT;
+  v_current_date      TIMESTAMPTZ;
+  v_invoice_id        UUID;
+  v_transaction_id    UUID;
+  v_i                 INTEGER;
+  v_inserted_ids      UUID[] := '{}';
+  v_account_type      TEXT;
 BEGIN
-  v_projection := public.get_month_projection(p_family_group_id, CURRENT_DATE);
-  v_surplus := (v_projection->'projection'->>'projected_end_balance_cents')::bigint;
-  v_remaining_surplus := COALESCE(v_surplus, 0);
-
-  IF v_remaining_surplus <= 0 THEN
-    RETURN jsonb_build_object(
-      'surplus_cents', v_surplus,
-      'recommendations', v_recommendations,
-      'message', 'Sem sobra livre projetada para este mês.'
-    );
+  IF p_installments < 1 OR p_installments > 48 THEN
+    RAISE EXCEPTION 'Parcelas entre 1 e 48. Recebido: %', p_installments;
+  END IF;
+  
+  SELECT type INTO v_account_type FROM public.accounts WHERE id = p_account_id;
+  IF v_account_type IS DISTINCT FROM 'CREDIT_CARD' THEN
+    RAISE EXCEPTION 'Apenas para CREDIT_CARD. Tipo: %', v_account_type;
   END IF;
 
-  FOR v_goal IN (
-    SELECT id, name, target_amount_cents, current_amount_cents, monthly_contribution_cents, priority
-    FROM public.goals
-    WHERE family_group_id = p_family_group_id
-      AND status = 'active'
-      AND current_amount_cents < target_amount_cents
-    ORDER BY COALESCE(priority, 999) ASC, created_at ASC
-  ) LOOP
-    v_amount_to_allocate := COALESCE(v_goal.monthly_contribution_cents, 0);
-    IF v_remaining_surplus < v_amount_to_allocate THEN v_amount_to_allocate := v_remaining_surplus; END IF;
-    IF v_amount_to_allocate > 0 THEN
-      v_recommendations := v_recommendations || jsonb_build_object(
-        'goal_id', v_goal.id,
-        'goal_name', v_goal.name,
-        'recommended_amount_cents', v_amount_to_allocate,
-        'is_full_target', v_amount_to_allocate = v_goal.monthly_contribution_cents
-      );
-      v_remaining_surplus := v_remaining_surplus - v_amount_to_allocate;
-    END IF;
-    EXIT WHEN v_remaining_surplus <= 0;
+  v_installment_cents := p_total_cents / p_installments;
+  v_remainder_cents   := p_total_cents - (v_installment_cents * p_installments);
+
+  FOR v_i IN 1..p_installments LOOP
+    v_current_date := p_purchase_date + ((v_i - 1) * interval '1 month');
+    v_current_amount := CASE WHEN v_i = 1 THEN v_installment_cents + v_remainder_cents ELSE v_installment_cents END;
+    v_invoice_id := public.fn_get_or_create_invoice(p_account_id, v_current_date);
+
+    INSERT INTO public.transactions (
+      account_id, category_id, amount_cents, transaction_type, date, description, merchant_name,
+      installment_current, installment_total, installment_group_id, invoice_id, source, source_metadata, family_group_id
+    ) VALUES (
+      p_account_id, p_category_id, v_current_amount, 'EXPENSE', v_current_date, 
+      p_description || ' (' || v_i || '/' || p_installments || ')', p_merchant_name,
+      v_i, p_installments, v_group_id, v_invoice_id, p_source, p_source_metadata, p_family_group_id
+    ) RETURNING id INTO v_transaction_id;
+
+    v_inserted_ids := array_append(v_inserted_ids, v_transaction_id);
   END LOOP;
 
+  RETURN jsonb_build_object('success', true, 'installment_group_id', v_group_id, 'transaction_ids', to_jsonb(v_inserted_ids));
+END;
+$$;
+
+-- RPC: create_transfer
+CREATE OR REPLACE FUNCTION public.create_transfer(
+  p_from_account_id UUID,
+  p_to_account_id   UUID,
+  p_amount_cents    BIGINT,
+  p_description     TEXT,
+  p_date            TIMESTAMPTZ DEFAULT NOW(),
+  p_category_id     UUID        DEFAULT NULL,
+  p_family_group_id UUID        DEFAULT NULL,
+  p_source          TEXT        DEFAULT 'MANUAL'
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_out_id UUID;
+  v_in_id  UUID;
+BEGIN
+  IF p_from_account_id = p_to_account_id THEN RAISE EXCEPTION 'Contas iguais.'; END IF;
+
+  INSERT INTO public.transactions (account_id, category_id, amount_cents, transaction_type, date, description, source, family_group_id)
+  VALUES (p_from_account_id, p_category_id, p_amount_cents, 'TRANSFER', p_date, p_description, p_source, p_family_group_id)
+  RETURNING id INTO v_out_id;
+
+  INSERT INTO public.transactions (account_id, category_id, amount_cents, transaction_type, date, description, source, family_group_id, linked_transaction_id)
+  VALUES (p_to_account_id, p_category_id, p_amount_cents, 'INCOME', p_date, p_description, p_source, p_family_group_id, v_out_id)
+  RETURNING id INTO v_in_id;
+
+  UPDATE public.transactions SET linked_transaction_id = v_in_id WHERE id = v_out_id;
+  RETURN jsonb_build_object('success', true, 'out_id', v_out_id, 'in_id', v_in_id);
+END;
+$$;
+
+-- RPC: delete_installment_series
+CREATE OR REPLACE FUNCTION public.delete_installment_series(
+  p_group_id        UUID,
+  p_delete_from     INTEGER    DEFAULT 1,
+  p_family_group_id UUID       DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE v_count INTEGER;
+BEGIN
+  DELETE FROM public.transactions
+  WHERE installment_group_id = p_group_id AND installment_current >= p_delete_from
+    AND (p_family_group_id IS NULL OR family_group_id = p_family_group_id);
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN jsonb_build_object('success', true, 'deleted_count', v_count);
+END;
+$$;
+
+-- RPC: get_installment_series
+CREATE OR REPLACE FUNCTION public.get_installment_series(p_group_id UUID)
+RETURNS JSONB LANGUAGE plpgsql STABLE AS $$
+BEGIN
   RETURN jsonb_build_object(
-    'surplus_cents', v_surplus,
-    'remaining_surplus_cents', v_remaining_surplus,
-    'recommendations', v_recommendations
+    'installments', (
+      SELECT COALESCE(jsonb_agg(t ORDER BY t.installment_current), '[]'::jsonb)
+      FROM (
+        SELECT t.id, t.installment_current, t.installment_total, t.amount_cents, t.date, t.description, t.invoice_id, t.is_paid, i.reference_month, i.status AS invoice_status
+        FROM public.transactions t LEFT JOIN public.invoices i ON t.invoice_id = i.id
+        WHERE t.installment_group_id = p_group_id ORDER BY t.installment_current
+      ) t
+    ),
+    'summary', (
+      SELECT jsonb_build_object('total_cents', SUM(amount_cents), 'paid_count', COUNT(*) FILTER (WHERE is_paid = true), 'remaining_count', COUNT(*) FILTER (WHERE is_paid = false))
+      FROM public.transactions WHERE installment_group_id = p_group_id
+    )
   );
 END;
 $$;
 
--- 4. fn_simulate_spending
-CREATE OR REPLACE FUNCTION public.fn_simulate_spending(
+-- RPC: get_month_projection
+CREATE OR REPLACE FUNCTION public.get_month_projection(
   p_family_group_id UUID,
-  p_amount_cents BIGINT
+  p_target_month    DATE DEFAULT CURRENT_DATE
 )
 RETURNS JSONB
 LANGUAGE plpgsql
-SECURITY DEFINER
+STABLE
 AS $$
 DECLARE
-  v_projection JSONB;
-  v_current_surplus BIGINT;
-  v_new_surplus BIGINT;
-  v_status TEXT;
-  v_message TEXT;
+  v_month_start    TIMESTAMPTZ := date_trunc('month', p_target_month::timestamptz);
+  v_month_end      TIMESTAMPTZ := v_month_start + interval '1 month' - interval '1 second';
 BEGIN
-  v_projection := public.get_month_projection(p_family_group_id, CURRENT_DATE);
-  v_current_surplus := (v_projection->'projection'->>'projected_end_balance_cents')::bigint;
-  v_new_surplus := COALESCE(v_current_surplus, 0) - p_amount_cents;
-
-  IF v_new_surplus < 0 THEN
-    v_status := 'DANGER';
-    v_message := 'Este gasto deixará seu saldo negativo no fim do mês!';
-  ELSIF v_new_surplus < (COALESCE(v_current_surplus, 0) * 0.2) THEN
-    v_status := 'WARNING';
-    v_message := 'Cuidado, este gasto consome quase toda sua sobra livre.';
-  ELSE
-    v_status := 'SAFE';
-    v_message := 'Gasto dentro da margem de segurança.';
-  END IF;
-
   RETURN jsonb_build_object(
-    'current_surplus_cents', v_current_surplus,
-    'simulated_surplus_cents', v_new_surplus,
-    'status', v_status,
-    'message', v_message,
-    'impact_percentage', CASE WHEN COALESCE(v_current_surplus, 0) > 0 THEN ROUND((p_amount_cents::numeric / v_current_surplus::numeric) * 100, 2) ELSE 100 END
+    'target_month', to_char(v_month_start, 'YYYY-MM'),
+    'current_liquid_cents', (
+      SELECT COALESCE(SUM(balance_cents), 0)
+      FROM public.accounts
+      WHERE family_group_id = p_family_group_id AND type != 'CREDIT_CARD' AND is_active = true
+    ),
+    'installments_due', (
+      SELECT COALESCE(jsonb_agg(t ORDER BY t.date), '[]'::jsonb)
+      FROM (
+        SELECT t.id, t.description, t.amount_cents, t.date, t.installment_current, t.installment_total, t.installment_group_id, t.merchant_name, c.name AS category_name, a.name AS account_name
+        FROM public.transactions t
+        LEFT JOIN public.categories c ON t.category_id = c.id
+        LEFT JOIN public.accounts   a ON t.account_id  = a.id
+        WHERE t.family_group_id  = p_family_group_id AND t.transaction_type = 'EXPENSE' AND t.date >= v_month_start AND t.date <= v_month_end AND t.installment_total > 1 AND t.is_paid = false
+      ) t
+    ),
+    'recurring_due', (
+      SELECT COALESCE(jsonb_agg(r ORDER BY r.description), '[]'::jsonb)
+      FROM (
+        SELECT rt.id, rt.description, rt.amount_cents, rt.transaction_type, rt.next_date, c.name AS category_name, a.name AS account_name
+        FROM public.recurring_transactions rt
+        LEFT JOIN public.categories c ON rt.category_id = c.id
+        LEFT JOIN public.accounts   a ON rt.account_id  = a.id
+        WHERE rt.family_group_id = p_family_group_id AND rt.status = 'active' AND rt.next_date >= v_month_start::date AND rt.next_date <= v_month_end::date
+      ) r
+    ),
+    'invoices_due', (
+      SELECT COALESCE(jsonb_agg(i ORDER BY i.due_date), '[]'::jsonb)
+      FROM (
+        SELECT i.id, i.reference_month, i.due_date, i.status, i.amount_cents, a.name AS account_name, a.color_hex
+        FROM public.invoices i
+        JOIN public.accounts a ON i.account_id = a.id
+        WHERE a.family_group_id = p_family_group_id AND i.due_date >= v_month_start::date AND i.due_date <= v_month_end::date AND i.status IN ('OPEN', 'CLOSED')
+      ) i
+    ),
+    'summary', (
+      SELECT jsonb_build_object(
+        'projected_income_cents', (
+          SELECT COALESCE(SUM(amount_cents), 0) FROM public.recurring_transactions
+          WHERE family_group_id = p_family_group_id AND transaction_type = 'INCOME' AND status = 'active' AND next_date BETWEEN v_month_start::date AND v_month_end::date
+        ),
+        'projected_expense_cents', (
+          COALESCE((SELECT SUM(amount_cents) FROM public.transactions WHERE family_group_id = p_family_group_id AND transaction_type = 'EXPENSE' AND date BETWEEN v_month_start AND v_month_end AND installment_total > 1 AND t.is_paid = false), 0) +
+          COALESCE((SELECT SUM(i.amount_cents) FROM public.invoices i JOIN public.accounts a ON i.account_id = a.id WHERE a.family_group_id = p_family_group_id AND i.due_date BETWEEN v_month_start::date AND v_month_end::date AND i.status IN ('OPEN', 'CLOSED')), 0) +
+          COALESCE((SELECT SUM(amount_cents) FROM public.recurring_transactions WHERE family_group_id = p_family_group_id AND transaction_type = 'EXPENSE' AND status = 'active' AND next_date BETWEEN v_month_start::date AND v_month_end::date), 0)
+        ),
+        'month_start', v_month_start,
+        'month_end',   v_month_end
+      )
+    )
   );
 END;
 $$;
@@ -743,9 +891,3 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA auth TO anon;
 GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO anon;
 GRANT ALL ON ALL FUNCTIONS IN SCHEMA auth TO anon;
-
--- Universal Permissions for RPCs
-GRANT EXECUTE ON FUNCTION public.get_month_projection TO anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.get_financial_state_v5 TO anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.fn_get_goal_recommendations TO anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.fn_simulate_spending TO anon, authenticated, service_role;
