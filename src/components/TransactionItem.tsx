@@ -5,7 +5,7 @@ import GlassCard from "./GlassCard";
 import { formatCurrency, cn, getTransactionInvoiceMonth } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowUpRight, ArrowDownLeft, Layers, Check, Calendar } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, Layers, Check, Calendar, Zap } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { useTransactionModal } from "@/context/TransactionModalContext";
@@ -125,6 +125,12 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
                   <span className="text-[9px] font-bold text-violet-400 tracking-tighter">
                     {tx.installment_current}/{tx.installment_total}
                   </span>
+                </div>
+              )}
+              {tx.ai_log_id && (
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20" title="Processado via IA (WhatsApp)">
+                  <Zap className="w-2 h-2 text-emerald-400 fill-emerald-400" />
+                  <span className="text-[9px] font-bold text-emerald-400 tracking-tighter">IA</span>
                 </div>
               )}
             </div>
