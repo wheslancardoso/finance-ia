@@ -73,6 +73,24 @@ O Vesper não é um app de contabilidade; é uma ferramenta de **estratégia fin
 
 ---
 
+## 🛡️ Grande Refatoração: Estrutura & Inteligência (Em Planejamento)
+
+Identificamos que o principal gargalo de performance e a origem de bugs intermitentes nas projeções futuras (como a perda de parcelas) residem na estrutura descentralizada do banco de dados. Para resolver isso, iniciaremos uma transição de lógica "client-side heavy" para uma arquitetura "database-driven".
+
+### 1. Reestruturação do Core de Cartões
+*   **Faturas Reais (`credit_card_invoices`):** Substituição dos campos flutuantes (como `open_invoice_cents`) por uma tabela formal de faturas. Isso garante rastreabilidade total de cada centavo gasto em cada ciclo.
+*   **Triggers de Automação:** O PostgreSQL assumirá a responsabilidade de vincular transações às faturas corretas e calcular totais em tempo real, eliminando inconsistências entre o que o banco armazena e o que o React exibe.
+
+### 2. Otimização Massiva (O "Single Request" Dashboard)
+*   **Stored Procedure (RPC):** Implementação da função `get_dashboard_summary`. Em vez de 7+ requisições separadas, o frontend fará apenas uma chamada. O banco retornará um JSON consolidado com contas, faturas, transações futuras e recorrentes.
+*   **Ganho de Performance:** Redução drástica na latência de carregamento e eliminação de estados de "loading" picotados no dashboard.
+
+### 3. Projeção Financeira Inabalável
+*   **Integração Total:** A nova lógica de projeção consumirá dados de faturas reais, transações recorrentes, gastos fixos e saldo de contas corrente.
+*   **Previsibilidade Absoluta:** O sistema conseguirá projetar com precisão cirúrgica o saldo final de meses distantes (ex: Junho/2026), considerando o impacto exato dos vencimentos de faturas e recorrências, garantindo que o usuário tenha controle total sobre cada fluxo de entrada e saída.
+
+---
+
 ## 🗺️ Roadmap de Implementação
 
 ### Fase 1: Fundação & Fricção Zero (CONCLUÍDA ✅)
