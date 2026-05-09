@@ -26,8 +26,7 @@ import {
   Droplets,
   Smartphone,
   Coffee,
-  Heart,
-  ShieldCheck
+  Heart
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { ProjectedTransaction } from "@/utils/finance-projections";
@@ -163,14 +162,11 @@ function ProjectedItem({ tx }: { tx: ProjectedTransaction }) {
               {tx.accountType === "CREDIT_CARD" && (
                 <CreditCard className="w-3 h-3 text-violet-400/60" />
               )}
-              {tx.id.startsWith("manual-fixed") && (
-                <ShieldCheck className="w-3 h-3 text-emerald-400/60" />
-              )}
-              <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
-                {tx.id.startsWith("manual-fixed") ? "Sobrevivência (HUD)" : (tx.accountName || (tx.isRecurring ? "Recorrente" : "Reserva"))}
+              <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
+                {tx.accountName || (tx.isRecurring ? "Recorrente" : "Reserva")}
               </span>
               <span className="text-[10px] text-white/10">•</span>
-              <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
+              <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
                 {format(tx.date, "dd 'de' MMM", { locale: ptBR })}
               </span>
             </div>
