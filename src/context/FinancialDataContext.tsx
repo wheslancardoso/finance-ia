@@ -13,7 +13,17 @@ interface Category {
   type: "EXPENSE" | "INCOME" | "TRANSFER";
 }
 
-interface Account {
+export interface IncomeMixItem {
+  name: string;
+  value: number;
+}
+
+export interface NetWorthHistoryItem {
+  month: string;
+  amount: number;
+}
+
+export interface Account {
   id: string;
   name: string;
   type: string;
@@ -30,16 +40,18 @@ interface Account {
   color_hex?: string;
 }
 
-interface Goal {
+export interface Goal {
   id: string;
   name: string;
   target_amount_cents: number;
   current_amount_cents: number;
+  monthly_contribution_cents: number;
   deadline?: string;
+  projected_completion_date?: string;
   color_hex?: string;
 }
 
-interface RecurringTransaction {
+export interface RecurringTransaction {
   id: string;
   description: string;
   amount_cents: number;
@@ -51,13 +63,13 @@ interface RecurringTransaction {
   account_id?: string;
 }
 
-interface Budget {
+export interface Budget {
   id: string;
   category_id: string;
   amount_cents: number;
 }
 
-interface Transaction {
+export interface Transaction {
   id: string;
   description: string;
   amount_cents: number;
@@ -73,6 +85,27 @@ interface Transaction {
   account?: Account;
 }
 
+interface GoalRecommendation {
+  goal_id: string;
+  goal_name: string;
+  recommended_amount_cents: number;
+  is_full_target: boolean;
+}
+
+interface GoalRecommendationsResponse {
+  surplus_cents: number;
+  remaining_surplus_cents: number;
+  recommendations: GoalRecommendation[];
+}
+
+interface SimulationResult {
+  current_surplus_cents: number;
+  simulated_surplus_cents: number;
+  status: "SAFE" | "WARNING" | "DANGER";
+  message: string;
+  impact_percentage: number;
+}
+
 interface FinancialStateResponse {
   family_group: {
     id: string;
@@ -80,6 +113,7 @@ interface FinancialStateResponse {
     monthly_income_cents: number;
     fixed_expenses_cents: number;
     accumulated_balance_cents: number;
+    financial_health_score?: number;
   };
   categories: Category[];
   accounts: Account[];
@@ -118,7 +152,14 @@ interface FinancialDataContextType {
   budgets: Budget[];
   recentTransactions: any[];
   monthTransactions: any[];
+  healthScore: number;
   toggleTransactionPaid: (transactionId: string, currentStatus: boolean) => Promise<void>;
+  createInstallmentSeries: (data: any) => Promise<void>;
+  simulatePurchaseImpact: (amountCents: number) => Promise<SimulationResult>;
+  getGoalRecommendations: () => Promise<GoalRecommendationsResponse>;
+  getIncomeMix: () => IncomeMixItem[];
+  getNetWorthHistory: () => NetWorthHistoryItem[];
+  createTransfer: (fromId: string, toId: string, amountCents: number) => Promise<void>;
 }
 
 const FinancialDataContext = createContext<FinancialDataContextType | undefined>(undefined);
@@ -144,6 +185,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   const [monthTransactions, setMonthTransactions] = useState<any[]>([]);
+  const [healthScore, setHealthScore] = useState(0);
 
   const { familyGroupId } = useAccountModal();
 
@@ -177,13 +219,18 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     console.log("DATABASE-DRIVEN: BUSCANDO ESTADO GLOBAL VIA RPC...");
     const supabase = createClient();
     
-    // 1. Chamar a Função RPC Mestra V3
-    const { data, error } = await supabase.rpc('get_financial_state_v3', { 
+    // 1. Chamar a Função RPC Mestra V5 (Elite Edition)
+    const { data, error } = await supabase.rpc('get_financial_state_v5', { 
       p_family_group_id: familyGroupId 
     });
 
     if (error) {
-      console.error("ERRO AO BUSCAR ESTADO FINANCEIRO:", error);
+      console.error("❌ ERRO AO BUSCAR ESTADO FINANCEIRO:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
       setLoading(false);
       return;
     }
@@ -192,16 +239,18 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
     // 2. Atualizar Configurações do Grupo Familiar (Modo Crise)
     if (state.family_group) {
-      const { monthly_income_cents, fixed_expenses_cents, accumulated_balance_cents } = state.family_group;
+      const { monthly_income_cents, fixed_expenses_cents, accumulated_balance_cents, financial_health_score } = state.family_group;
       
       setMonthlyIncomeCentsState(monthly_income_cents || 0);
       setFixedExpensesCentsState(fixed_expenses_cents || 0);
       setAccumulatedBalanceCents(accumulated_balance_cents || 0);
+      setHealthScore(financial_health_score || 0);
 
       if (typeof window !== "undefined") {
         localStorage.setItem("vesper_monthly_income", (monthly_income_cents || 0).toString());
         localStorage.setItem("vesper_fixed_expenses", (fixed_expenses_cents || 0).toString());
         localStorage.setItem("vesper_accumulated_balance", (accumulated_balance_cents || 0).toString());
+        localStorage.setItem("vesper_health_score", (financial_health_score || 0).toString());
       }
     }
 
@@ -299,6 +348,140 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     setLoading(false);
   }, [familyGroupId]);
 
+  const createInstallmentSeries = async (data: any) => {
+    const supabase = createClient();
+    const { error } = await supabase.rpc('create_installment_series', {
+      p_family_group_id: familyGroupId,
+      p_description: data.description,
+      p_amount_total_cents: data.amount_total_cents,
+      p_installments: data.installments,
+      p_account_id: data.account_id,
+      p_category_id: data.category_id,
+      p_start_date: data.date || new Date().toISOString()
+    });
+    
+    if (!error) await refreshData();
+    else console.error("Erro ao criar parcelamento:", error);
+  };
+
+  const simulatePurchaseImpact = async (amountCents: number): Promise<SimulationResult> => {
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc('fn_simulate_spending', {
+      p_family_group_id: familyGroupId,
+      p_amount_cents: amountCents
+    });
+    if (error) {
+      console.error("❌ Erro na simulação (fn_simulate_spending):", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      return {
+        current_surplus_cents: 0,
+        simulated_surplus_cents: 0,
+        status: "DANGER",
+        message: "Erro ao conectar com o simulador.",
+        impact_percentage: 0
+      };
+    }
+    return data;
+  };
+
+  const getGoalRecommendations = async (): Promise<GoalRecommendationsResponse> => {
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc('fn_get_goal_recommendations', {
+      p_family_group_id: familyGroupId
+    });
+    if (error) {
+      console.error("❌ Erro ao buscar recomendações (fn_get_goal_recommendations):", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      return {
+        surplus_cents: 0,
+        remaining_surplus_cents: 0,
+        recommendations: []
+      };
+    }
+    return data;
+  };
+
+  const getIncomeMix = useCallback((): IncomeMixItem[] => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const incomeTransactions = monthTransactions.filter(tx => 
+      tx.transaction_type === "INCOME" && 
+      new Date(tx.date) >= thirtyDaysAgo
+    );
+
+    const mixMap: Record<string, number> = {};
+    
+    incomeTransactions.forEach(tx => {
+      const catName = tx.category?.name || "Outros";
+      mixMap[catName] = (mixMap[catName] || 0) + (tx.amount_cents / 100);
+    });
+
+    return Object.entries(mixMap).map(([name, value]) => ({
+      name,
+      value: Math.round(value * 100) / 100
+    }));
+  }, [monthTransactions]);
+
+  const getNetWorthHistory = useCallback((): NetWorthHistoryItem[] => {
+    const history: NetWorthHistoryItem[] = [];
+    const now = new Date();
+    
+    // 1. Saldo atual total
+    let currentTotalCents = accounts.reduce((sum, acc) => sum + (acc.balance_cents || 0), 0);
+    
+    // 2. Iterar 6 meses para trás
+    for (let i = 0; i < 6; i++) {
+      const targetMonth = addMonths(now, -i);
+      const monthStr = format(targetMonth, "MMM", { locale: ptBR });
+      
+      // Adicionar ponto atual
+      history.unshift({
+        month: monthStr,
+        amount: Math.round(currentTotalCents / 100)
+      });
+
+      // 3. Subtrair o resultado líquido do mês atual para "voltar no tempo"
+      const monthStart = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 1);
+      const monthEnd = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0, 23, 59, 59);
+
+      const mTransactions = monthTransactions.filter(tx => {
+        const d = new Date(tx.date);
+        return d >= monthStart && d <= monthEnd;
+      });
+
+      const netChangeCents = mTransactions.reduce((net, tx) => {
+        if (tx.transaction_type === "INCOME") return net + tx.amount_cents;
+        if (tx.transaction_type === "EXPENSE") return net - tx.amount_cents;
+        return net;
+      }, 0);
+
+      currentTotalCents -= netChangeCents;
+    }
+
+    return history;
+  }, [accounts, monthTransactions]);
+
+  const createTransfer = async (fromId: string, toId: string, amountCents: number) => {
+    const supabase = createClient();
+    const { error } = await supabase.rpc('create_transfer', {
+      p_family_group_id: familyGroupId,
+      p_from_account_id: fromId,
+      p_to_account_id: toId,
+      p_amount_cents: amountCents,
+      p_description: "Transferência entre contas"
+    });
+    if (!error) await refreshData();
+  };
+
   const toggleTransactionPaid = async (transactionId: string, currentStatus: boolean) => {
     const supabase = createClient();
     const { error } = await supabase
@@ -378,7 +561,14 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       budgets,
       recentTransactions,
       monthTransactions,
-      toggleTransactionPaid
+      healthScore,
+      toggleTransactionPaid,
+      createInstallmentSeries,
+      simulatePurchaseImpact,
+      getGoalRecommendations,
+      getIncomeMix,
+      getNetWorthHistory,
+      createTransfer
     }}>
       {children}
     </FinancialDataContext.Provider>
