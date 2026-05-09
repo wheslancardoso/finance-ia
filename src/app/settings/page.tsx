@@ -1,8 +1,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { getFamilyGroup } from "@/utils/supabase/auth-helpers";
 import { redirect } from "next/navigation";
-import { Users, Shield, Zap, Palette, Bell, CreditCard, ChevronRight, UserPlus } from "lucide-react";
+import { Users, Shield, Zap, Palette, Bell, CreditCard, ChevronRight, UserPlus, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { WhatsAppSettings } from "@/components/WhatsAppSettings";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -12,7 +13,13 @@ export default async function SettingsPage() {
 
   const familyGroupId = await getFamilyGroup();
 
-  // Buscar membros do grupo
+  // Buscar membros do grupo e o profile do usuário logado
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("whatsapp_number")
+    .eq("id", user.id)
+    .single();
+
   const { data: members } = await supabase
     .from("family_members")
     .select(`
@@ -20,7 +27,8 @@ export default async function SettingsPage() {
       profiles (
         full_name,
         avatar_url,
-        id
+        id,
+        whatsapp_number
       )
     `)
     .eq("family_group_id", familyGroupId);
@@ -69,12 +77,21 @@ export default async function SettingsPage() {
       )
     },
     {
+      id: "whatsapp",
+      title: "Protocolo WhatsApp",
+      subtitle: "Vincule seu número para comandar o Vesper via mensagens.",
+      icon: MessageSquare,
+      color: "text-emerald-400",
+      bg: "bg-emerald-400/10",
+      content: <WhatsAppSettings userId={user.id} initialNumber={profileData?.whatsapp_number} />
+    },
+    {
       id: "preferences",
       title: "Preferências",
       subtitle: "Personalize sua experiência no Centro de Comando.",
       icon: Palette,
-      color: "text-emerald-400",
-      bg: "bg-emerald-400/10",
+      color: "text-amber-400",
+      bg: "bg-amber-400/10",
       content: (
         <div className="space-y-3">
           <div className="p-4 rounded-3xl bg-white/[0.02] border border-white/5 flex items-center justify-between">
