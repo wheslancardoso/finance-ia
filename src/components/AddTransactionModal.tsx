@@ -8,7 +8,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { useTransactionModal } from "@/context/TransactionModalContext";
 import { useAccountModal } from "@/context/AccountModalContext";
 import { usePathname, useRouter } from "next/navigation";
-import { addMonths, format } from "date-fns";
+import { addMonths, format, isBefore, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useFinancialData } from "@/context/FinancialDataContext";
 
@@ -73,6 +73,20 @@ export function AddTransactionModal() {
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [openAccount, openCategory]);
+
+  // Automatização da Dívida Legada
+  useEffect(() => {
+    if (!transactionDate) return;
+    
+    const now = new Date();
+    const currentMonthStart = startOfMonth(now);
+    
+    const [year, month, day] = transactionDate.split('-').map(Number);
+    const txDate = new Date(year, month - 1, day);
+
+    // É dívida legada se a data for anterior ao início do mês atual
+    setIsLegacyDebt(isBefore(txDate, currentMonthStart));
+  }, [transactionDate]);
 
   useEffect(() => {
     if (isOpen) {
@@ -711,40 +725,24 @@ export function AddTransactionModal() {
                     </div>
                   )}
 
-                  {/* Dívida Legada - Toggle */}
-                  <div
-                    onClick={() => setIsLegacyDebt(!isLegacyDebt)}
-                    className={cn(
-                      "flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer group",
-                      isLegacyDebt
-                        ? "bg-amber-500/10 border-amber-500/30"
-                        : "bg-white/[0.02] border-white/10 hover:border-white/20"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
-                        isLegacyDebt ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-white/20"
-                      )}>
+                  {/* Dívida Legada - Info Automática */}
+                  {isLegacyDebt && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
                         <Clock className="w-4 h-4" />
                       </div>
                       <div className="flex flex-col">
-                        <span className={cn("text-xs font-bold uppercase tracking-wider transition-colors", isLegacyDebt ? "text-amber-400" : "text-white/40")}>
-                          Dívida Legada
+                        <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                          Dívida Legada Detectada
                         </span>
-                        <span className="text-[10px] text-white/20 font-medium">Não abate do teto mensal</span>
+                        <span className="text-[10px] text-white/40 font-medium">Este gasto retroativo não afetará o teto de gastos do mês atual.</span>
                       </div>
-                    </div>
-                    <div className={cn(
-                      "w-10 h-5 rounded-full relative transition-colors duration-300",
-                      isLegacyDebt ? "bg-amber-500" : "bg-white/10"
-                    )}>
-                      <motion.div
-                        animate={{ x: isLegacyDebt ? 22 : 2 }}
-                        className="absolute top-1 left-0 w-3 h-3 rounded-full bg-white shadow-sm"
-                      />
-                    </div>
-                  </div>
+                    </motion.div>
+                  )}
                 </div>
 
                 {/* Toggle de edição em massa removido pois agora é o padrão via primeira parcela */}
