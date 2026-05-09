@@ -35,7 +35,7 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
       const matchesAccount = !selectedAccountId || tx.account_id === selectedAccountId;
       const matchesSearch = !searchQuery || 
         tx.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tx.categories?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+        tx.category?.name?.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesAccount && matchesSearch;
     });
   }, [initialTransactions, selectedAccountId, searchQuery]);
@@ -44,11 +44,11 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
   const groupedTransactions = useMemo(() => {
     const groups: Record<string, any[]> = {};
     filteredTransactions.forEach((tx) => {
-      const isCredit = tx.accounts?.type === "CREDIT_CARD";
+      const isCredit = tx.account?.type === "CREDIT_CARD";
       let groupKey: string;
 
       if (isCredit) {
-        const inv = getTransactionInvoiceMonth(tx.date, tx.accounts?.closing_day);
+        const inv = getTransactionInvoiceMonth(tx.date, tx.account?.closing_day);
         groupKey = `Fatura de ${format(new Date(inv.year, inv.month, 1), "MMMM 'de' yyyy", { locale: ptBR })}`;
       } else {
         groupKey = format(new Date(tx.date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });

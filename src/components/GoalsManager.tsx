@@ -5,13 +5,17 @@ import { Target, Plus, Sparkles } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 import GlassCard from "@/components/GlassCard";
 import { useGoalModal } from "@/context/GoalModalContext";
+import { useFinancialData } from "@/context/FinancialDataContext";
 
 interface GoalsManagerProps {
-  initialGoals: any[];
+  initialGoals?: any[];
 }
 
 export function GoalsManager({ initialGoals }: GoalsManagerProps) {
+  const { goals: contextGoals } = useFinancialData();
   const { openModal, openContribution, openDetail } = useGoalModal();
+
+  const goalsToDisplay = contextGoals.length > 0 ? contextGoals : (initialGoals || []);
 
   return (
     <div className="space-y-10">
@@ -34,7 +38,7 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
         </button>
       </header>
 
-      {(!initialGoals || initialGoals.length === 0) ? (
+      {(!goalsToDisplay || goalsToDisplay.length === 0) ? (
         <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
           <div className="w-20 h-20 bg-white/5 rounded-[32px] flex items-center justify-center border border-white/10">
             <Target className="w-10 h-10 text-white/20" />
@@ -54,7 +58,7 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {initialGoals.map((goal) => {
+          {goalsToDisplay.map((goal) => {
             const percentage = Math.min((goal.current_amount_cents / goal.target_amount_cents) * 100, 100);
             const remaining = goal.target_amount_cents - goal.current_amount_cents;
             

@@ -36,7 +36,27 @@ export default function RealtimeDashboard({
   const [targetDate, setTargetDate] = useState<Date>(startOfMonth(new Date()));
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
-  const { accounts: liveAccounts } = useFinancialData();
+  const { 
+    accounts: liveAccounts, 
+    recentTransactions: liveTransactions,
+    monthlyIncomeCents,
+    fixedExpensesCents,
+    recurringIncomeCents,
+    recurringExpensesCents,
+    currentMonthExpensesCents,
+    accumulatedBalanceCents,
+    extraIncomeCents
+  } = useFinancialData();
+
+  // Usar dados live se disponíveis, senão inicial
+  const displayAccounts = liveAccounts.length > 0 ? liveAccounts : accounts;
+  const displayTransactions = liveTransactions.length > 0 ? liveTransactions : initialTransactions;
+
+  const currentBalance = useMemo(() => {
+    return displayAccounts
+      .filter((a: any) => a.type !== "CREDIT_CARD")
+      .reduce((sum: number, a: any) => sum + (a.balance_cents || 0), 0);
+  }, [displayAccounts]);
 
   const handleQuickSync = (account: any) => {
     setSelectedAccount(account);
@@ -50,8 +70,8 @@ export default function RealtimeDashboard({
       spent_this_month: b.spent,
       category: b.category
     }));
-    return getProjectedDetails(initialBalance, targetDate, initialRecurring || [], formattedBudgets, accounts);
-  }, [initialBalance, initialRecurring, targetDate, initialBudgets, accounts]);
+    return getProjectedDetails(currentBalance, targetDate, initialRecurring || [], formattedBudgets, displayAccounts);
+  }, [currentBalance, initialRecurring, targetDate, initialBudgets, displayAccounts]);
 
   const projectedBalance = projection.totalBalance;
 
@@ -60,13 +80,31 @@ export default function RealtimeDashboard({
     const now = new Date();
     const endOfCurrentMonth = endOfMonth(now);
     
-    // --- PARCELAS FUTURAS DESTE MÊS (transações agendadas até fim do mês) ---
-    const futureThisMonth = (initialRecurring || [])
+    // --- TOTAL DE DÍVIDA NOS CARTÕES ---
+    const todayDay = new Date().getDate();
+    const cardBreakdown = displayAccounts
+      .filter((a: any) => a.type === "CREDIT_CARD")
+      .reduce((acc: any, a: any) => {
+        const cardClosingDay = a.closing_day || 31;
+        
+        if (todayDay >= cardClosingDay) {
+          acc.immediate += Math.max(0, a.closed_invoice_cents || 0);
+          acc.upcoming += Math.max(0, a.open_invoice_cents || 0);
+        } else {
+          acc.immediate += Math.max(0, a.open_invoice_cents || 0) + Math.max(0, a.closed_invoice_cents || 0);
+          acc.upcoming += 0; 
+        }
+        return acc;
+      }, { immediate: 0, upcoming: 0 });
+
+    const totalIncome = monthlyIncomeCents + recurringIncomeCents;
+    const totalFixed = fixedExpensesCents + recurringExpensesCents;
+    
+    // Gastos que ainda vão sair este mês (não provisionados ainda)
+    const scheduledOnly = (initialRecurring || [])
       .filter(item => {
-        if ((item as any).frequency !== "once") return false;
         const d = new Date(item.next_date);
-        const isCreditCard = accounts.find(a => a.id === (item as any).account_id)?.type === "CREDIT_CARD";
-        return d > now && d <= endOfCurrentMonth && !isCreditCard;
+        return d > now && d <= endOfCurrentMonth && !displayAccounts.find(a => a.id === item.account_id)?.type === "CREDIT_CARD";
       })
       .reduce((sum, item) => {
         if (item.transaction_type === "EXPENSE") return sum + item.amount_cents;
@@ -74,53 +112,10 @@ export default function RealtimeDashboard({
         return sum;
       }, 0);
 
-    // --- RECORRENTES até fim do mês ---
-    let recurringThisMonth = 0;
-    (initialRecurring || []).filter(item => (item as any).frequency !== "once").forEach(item => {
-      const isCreditCard = accounts.find(a => a.id === (item as any).account_id)?.type === "CREDIT_CARD";
-      
-      // Se for cartão, só incluímos se a data for futura (compromisso ainda não efetivado na fatura)
-      if (isCreditCard) {
-        const nextDate = new Date(item.next_date);
-        if (nextDate < now && !isSameMonth(nextDate, now)) return;
-        // Se for hoje ou futuro no mês, mantemos para garantir que o usuário veja o compromisso
-      }
-
-      const occDate = new Date(item.next_date);
-      // Se a próxima data é neste mês (mesmo que já tenha passado), nós a contabilizamos como um compromisso do mês atual
-      // a menos que já tenha passado para o mês que vem (o que o sistema faz automaticamente após o pagamento/vencimento)
-      if (occDate <= endOfCurrentMonth) {
-        if (item.transaction_type === "EXPENSE") recurringThisMonth += item.amount_cents;
-        else if (item.transaction_type === "INCOME") recurringThisMonth -= item.amount_cents;
-      }
-    });
-
-    // --- TOTAL DE DÍVIDA NOS CARTÕES ---
-    const todayDay = new Date().getDate();
-    const cardBreakdown = liveAccounts
-      .filter((a: any) => a.type === "CREDIT_CARD")
-      .reduce((acc: any, a: any) => {
-        const cardClosingDay = a.closing_day || 31;
-        
-        if (todayDay >= cardClosingDay) {
-          // Caso 1: A fatura deste mês já FECHOU. 
-          // O que está 'fechado' vence agora (Imediato). 
-          // O que está 'aberto' já é para o mês que vem (Próxima).
-          acc.immediate += Math.max(0, a.closed_invoice_cents || 0);
-          acc.upcoming += Math.max(0, a.open_invoice_cents || 0);
-        } else {
-          // Caso 2: A fatura deste mês ainda está ABERTA.
-          // O que está 'aberto' vence ainda este mês (Imediato).
-          // O que está 'fechado' é do mês passado (deve estar pago, mas se não estiver, é Imediato).
-          acc.immediate += Math.max(0, a.open_invoice_cents || 0) + Math.max(0, a.closed_invoice_cents || 0);
-          acc.upcoming += 0; 
-        }
-        return acc;
-      }, { immediate: 0, upcoming: 0 });
-
-    const plannedExpenses = futureThisMonth + recurringThisMonth + cardBreakdown.immediate + cardBreakdown.upcoming;
-    const scheduledOnly = futureThisMonth + recurringThisMonth;
-    const sobraLivre = initialBalance - plannedExpenses;
+    const plannedExpenses = scheduledOnly + cardBreakdown.immediate + cardBreakdown.upcoming;
+    
+    // Sobra Livre = Liquidez Atual - (Gastos que ainda vão sair)
+    const sobraLivre = currentBalance - plannedExpenses;
     
     return {
       balanceAtMonthEnd: sobraLivre,
@@ -130,7 +125,7 @@ export default function RealtimeDashboard({
       scheduledOnly,
       isHealthy: sobraLivre >= 0
     };
-  }, [initialBalance, initialRecurring, liveAccounts, accounts]);
+  }, [currentBalance, initialRecurring, displayAccounts, monthlyIncomeCents, recurringIncomeCents, fixedExpensesCents, recurringExpensesCents]);
 
   const isFuture = !isSameMonth(targetDate, new Date());
   const balanceDifference = projectedBalance - initialBalance;
@@ -338,7 +333,7 @@ export default function RealtimeDashboard({
             {isFuture ? (
               <ProjectedTimeline transactions={projection.transactions} />
             ) : (
-              <TransactionTimeline transactions={initialTransactions} />
+              <TransactionTimeline transactions={displayTransactions} />
             )}
           </div>
         </div>

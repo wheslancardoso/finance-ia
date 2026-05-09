@@ -30,7 +30,7 @@ export function GoalDetailModal() {
     // Buscar transações que começam com "Aporte: " + nome da meta
     const { data, error } = await supabase
       .from("transactions")
-      .select("*, accounts(name)")
+      .select("*, account:accounts(name)")
       .ilike("description", `Aporte: ${selectedGoal.name}`)
       .order("date", { ascending: false });
 
@@ -172,7 +172,7 @@ export function GoalDetailModal() {
                           <TrendingUp className="w-5 h-5" />
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-white">Aporte via {tx.accounts?.name || 'Conta'}</p>
+                          <p className="text-sm font-bold text-white">Aporte via {tx.account?.name || 'Conta'}</p>
                           <div className="flex items-center gap-2 text-[10px] text-white/20 font-bold uppercase">
                             <Calendar className="w-3 h-3" />
                             {format(new Date(tx.date), "dd 'de' MMMM", { locale: ptBR })}

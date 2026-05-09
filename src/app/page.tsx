@@ -20,37 +20,31 @@ export default async function Home() {
     return <div>Erro ao carregar seu grupo familiar.</div>;
   }
 
-  // 1. Buscar contas do grupo (incluindo cartões)
-  const { data: accounts } = await supabase
-    .from("accounts")
-    .select("id, name, balance_cents, type, color_hex, open_invoice_cents, closed_invoice_cents, due_day, closing_day")
-    .eq("family_group_id", familyGroupId);
+  // 1. Buscar Estado Financeiro Completo via RPC v3
+  const { data: financialState } = await supabase.rpc('get_financial_state_v3', {
+    p_family_group_id: familyGroupId,
+    p_target_month: new Date().toISOString()
+  });
 
-  const accountIds = accounts?.map(a => a.id) || [];
+  if (!financialState) {
+    return <div>Erro ao carregar estado financeiro.</div>;
+  }
 
-  const initialBalance = accounts?.filter(a => a.type !== "CREDIT_CARD")
-    .reduce((acc, curr) => acc + (curr.balance_cents || 0), 0) || 0;
+  const {
+    accounts = [],
+    recent_transactions = [],
+    budgets: budgetsData = [],
+    recurring_transactions = [],
+    month_transactions = [],
+    categories = []
+  } = financialState;
 
-  // 2. Buscar transações recentes com mais detalhes
-  const { data: transactions } = await supabase
-    .from("transactions")
-    .select(`
-      id,
-      description,
-      amount_cents,
-      transaction_type,
-      date,
-      installment_current,
-      installment_total,
-      categories (name, color_hex),
-      accounts (name, type)
-    `)
-    .in("account_id", accountIds)
-    .lte("date", new Date().toISOString())
-    .order("date", { ascending: false })
-    .limit(10);
+  // 2. Mapear dados para o Dashboard
+  const initialBalance = accounts
+    .filter((a: any) => a.type !== "CREDIT_CARD")
+    .reduce((acc: number, curr: any) => acc + (curr.balance_cents || 0), 0);
 
-  const initialTransactions = (transactions || []).map((tx: any) => ({
+  const initialTransactions = recent_transactions.map((tx: any) => ({
     id: tx.id,
     date: tx.date,
     description: tx.description,
@@ -58,84 +52,53 @@ export default async function Home() {
     type: tx.transaction_type || "EXPENSE",
     installment_current: tx.installment_current,
     installment_total: tx.installment_total,
-    category: tx.categories,
-    account: tx.accounts,
+    category: tx.category,
+    account: tx.account,
   }));
 
-  // 3. Buscar Orçamentos e Gastos Reais
-  const monthStart = startOfMonth(new Date()).toISOString();
-
-  const monthEnd = endOfMonth(new Date()).toISOString();
-
-  const { data: budgetsData } = await supabase
-    .from("budgets")
-    .select(`
-      amount_cents,
-      category_id,
-      categories (name)
-    `)
-    .eq("family_group_id", familyGroupId);
-
-  const { data: spentData } = await supabase
-    .from("transactions")
-    .select("category_id, amount_cents")
-    .in("account_id", accountIds)
-    .eq("transaction_type", "EXPENSE")
-    .gte("date", monthStart)
-    .lte("date", monthEnd);
-
-  const budgets = (budgetsData || []).map(b => {
-    const totalSpent = (spentData || [])
-      .filter(s => s.category_id === b.category_id)
-      .reduce((acc, curr) => acc + (curr.amount_cents || 0), 0);
+  const budgets = budgetsData.map((b: any) => {
+    const totalSpent = month_transactions
+      .filter((s: any) => s.category_id === b.category_id && s.transaction_type === "EXPENSE")
+      .reduce((acc: number, curr: any) => acc + (curr.amount_cents || 0), 0);
 
     return {
-      category: (b.categories as any)?.name || "Categoria",
+      category: categories.find((c: any) => c.id === b.category_id)?.name || "Categoria",
       spent: totalSpent,
       limit: b.amount_cents,
     };
   });
 
-  // 4. Buscar Transações Futuras e Recorrentes (Para o Time Travel)
-  const { data: futureTransactions } = await supabase
-    .from("transactions")
-    .select("description, amount_cents, transaction_type, date, account_id")
-    .in("account_id", accountIds)
-    .gt("date", new Date().toISOString())
-    .or("is_paid.eq.false,is_paid.is.null")
-    .order("date", { ascending: true });
+  const projectionItems = [
+    // Transações futuras agendadas (is_paid = false)
+    ...recent_transactions
+      .filter((t: any) => new Date(t.date) > new Date() && !t.is_paid)
+      .map((ft: any) => ({
+        id: ft.id,
+        description: ft.description,
+        amount_cents: ft.amount_cents,
+        transaction_type: ft.transaction_type,
+        frequency: "once" as const,
+        next_date: ft.date,
+        account_id: ft.account_id
+      })),
+    // Recorrências ativas
+    ...recurring_transactions
+      .filter((r: any) => r.status === 'active')
+      .map((r: any) => ({
+        id: r.id,
+        description: r.description,
+        amount_cents: r.amount_cents,
+        transaction_type: r.transaction_type,
+        frequency: r.frequency,
+        next_date: r.next_date,
+        account_id: r.account_id
+      }))
+  ];
 
-  // Encontrar a data da última transação futura (Fim das Dívidas)
-  const lastFutureDate = futureTransactions?.length
-    ? futureTransactions[futureTransactions.length - 1].date
+  const lastFutureDate = projectionItems.length 
+    ? projectionItems.sort((a, b) => new Date(b.next_date).getTime() - new Date(a.next_date).getTime())[0].next_date 
     : null;
 
-  const { data: recurring } = await supabase
-    .from("recurring_transactions")
-    .select("*")
-    .eq("family_group_id", familyGroupId)
-    .eq("status", "active");
-
-  const projectionItems = [
-    ...(futureTransactions || []).map(ft => ({
-      id: (ft as any).id,
-      description: ft.description,
-      amount_cents: ft.amount_cents,
-      transaction_type: ft.transaction_type,
-      frequency: "once" as any,
-      next_date: ft.date,
-      account_id: ft.account_id
-    })),
-    ...(recurring || []).map(r => ({
-      id: r.id,
-      description: r.description,
-      amount_cents: r.amount_cents,
-      transaction_type: r.transaction_type,
-      frequency: r.frequency,
-      next_date: r.next_date,
-      account_id: r.account_id
-    }))
-  ];
 
   return (
     <div className="p-8 md:p-12 max-w-7xl mx-auto w-full space-y-8">

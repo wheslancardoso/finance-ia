@@ -18,15 +18,18 @@ export default async function SubscriptionsPage() {
 
   const familyGroupId = await getFamilyGroup();
 
-  const { data: subscriptions } = await supabase
-    .from("recurring_transactions")
-    .select(`
-      *,
-      categories(name, icon_name),
-      accounts(name, color_hex)
-    `)
-    .eq("family_group_id", familyGroupId)
-    .order("next_date", { ascending: true });
+  if (!familyGroupId) return null;
+
+  // 1. Buscar Estado Financeiro Completo via RPC v3
+  const { data: financialState } = await supabase.rpc('get_financial_state_v3', {
+    p_family_group_id: familyGroupId
+  });
+
+  if (!financialState) {
+    return <div>Erro ao carregar estado financeiro.</div>;
+  }
+
+  const subscriptions = financialState.recurring_transactions || [];
 
   const activeSubs = subscriptions?.filter(s => s.status === "active") || [];
   

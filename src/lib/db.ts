@@ -25,9 +25,12 @@ export class VesperDB extends Dexie {
 
   constructor() {
     super('VesperDB');
-    this.version(1).stores({
+    this.version(2).stores({
       accounts: 'id, family_group_id, type',
-      categories: 'id, family_group_id, type'
+      categories: 'id, family_group_id, type',
+      goals: 'id, family_group_id',
+      recurring_transactions: 'id, family_group_id, status',
+      budgets: 'id, family_group_id, category_id'
     });
   }
 }

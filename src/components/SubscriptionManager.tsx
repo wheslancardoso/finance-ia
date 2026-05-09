@@ -27,6 +27,7 @@ import {
   Pencil
 } from "lucide-react";
 import { useSubscriptionModal } from "@/context/SubscriptionModalContext";
+import { useFinancialData } from "@/context/FinancialDataContext";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -58,10 +59,11 @@ function CategoryIcon({ name, fallback }: { name: string | null, fallback: strin
 }
 
 interface SubscriptionManagerProps {
-  initialSubscriptions: any[];
+  initialSubscriptions?: any[];
 }
 
 export function SubscriptionManager({ initialSubscriptions }: SubscriptionManagerProps) {
+  const { recurringTransactions: contextSubs, refreshData } = useFinancialData();
   const { openModal } = useSubscriptionModal();
   const router = useRouter();
 
@@ -69,18 +71,19 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
     const supabase = createClient();
     const newStatus = currentStatus === "active" ? "paused" : "active";
     await supabase.from("recurring_transactions").update({ status: newStatus }).eq("id", id);
-    router.refresh();
+    await refreshData();
   }
 
   async function deleteSub(id: string) {
     if (!confirm("Tem certeza que deseja excluir esta assinatura?")) return;
     const supabase = createClient();
     await supabase.from("recurring_transactions").delete().eq("id", id);
-    router.refresh();
+    await refreshData();
   }
 
-  const incomes = initialSubscriptions.filter(s => s.transaction_type === 'INCOME');
-  const expenses = initialSubscriptions.filter(s => s.transaction_type === 'EXPENSE');
+  const subscriptionsToDisplay = contextSubs.length > 0 ? contextSubs : (initialSubscriptions || []);
+  const incomes = subscriptionsToDisplay.filter(s => s.transaction_type === 'INCOME');
+  const expenses = subscriptionsToDisplay.filter(s => s.transaction_type === 'EXPENSE');
 
   const renderGrid = (subs: any[], title: string, colorClass: string, icon: any) => (
     <div className="space-y-6">
@@ -109,14 +112,14 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
                     : "bg-white/5 border-white/10 text-white/60"
                 )}>
                   <CategoryIcon 
-                    name={sub.categories?.icon_name} 
+                    name={sub.category?.icon_name} 
                     fallback={sub.transaction_type === 'INCOME' ? "💰" : "📦"} 
                   />
                 </div>
                 <div>
                   <h4 className="text-white font-bold text-lg leading-tight">{sub.description}</h4>
                   <p className="text-[10px] text-white/30 font-bold uppercase tracking-tighter">
-                    {sub.categories?.name || "Sem Categoria"} • {sub.transaction_type === 'INCOME' ? 'Receita' : 'Gasto'}
+                    {sub.category?.name || "Sem Categoria"} • {sub.transaction_type === 'INCOME' ? 'Receita' : 'Gasto'}
                   </p>
                 </div>
               </div>
@@ -148,7 +151,7 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
                 </div>
                 <div className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase">
                   <CreditCard className="w-3 h-3" />
-                  {sub.accounts?.name}
+                  {sub.account?.name}
                 </div>
               </div>
 

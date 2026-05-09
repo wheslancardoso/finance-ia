@@ -9,14 +9,17 @@ export default async function AccountsPage() {
   const supabase = await createClient();
   const familyGroupId = await getFamilyGroup();
 
-  // Buscar contas do banco de dados filtrando pelo grupo
-  const { data: accounts } = await supabase
-    .from("accounts")
-    .select("*")
-    .eq("family_group_id", familyGroupId)
-    .order("created_at", { ascending: true });
+  if (!familyGroupId) {
+    return <div>Erro ao carregar seu grupo familiar.</div>;
+  }
 
-  const hasAccounts = accounts && accounts.length > 0;
+  // 1. Buscar Estado Financeiro Completo via RPC v3
+  const { data: financialState } = await supabase.rpc('get_financial_state_v3', {
+    p_family_group_id: familyGroupId
+  });
+
+  const accounts = financialState?.accounts || [];
+  const hasAccounts = accounts.length > 0;
 
   return (
     <div className="p-8 md:p-12 max-w-7xl mx-auto w-full space-y-12">

@@ -8,25 +8,18 @@ export default async function TransactionsPage() {
 
   if (!familyGroupId) return null;
 
-  // 1. Buscar Contas do grupo (com detalhes para o filtro)
-  const { data: accounts } = await supabase
-    .from("accounts")
-    .select("id, name, type, balance_cents, color_hex, closing_day, due_day")
-    .eq("family_group_id", familyGroupId)
-    .order("name");
+  // 1. Buscar Estado Financeiro Completo via RPC v3
+  const { data: financialState } = await supabase.rpc('get_financial_state_v3', {
+    p_family_group_id: familyGroupId,
+    p_target_month: new Date().toISOString()
+  });
 
-  const accountIds = accounts?.map(a => a.id) || [];
+  if (!financialState) {
+    return <div>Erro ao carregar estado financeiro.</div>;
+  }
 
-  // 2. Buscar transações vinculadas a essas contas
-  const { data: transactions } = await supabase
-    .from("transactions")
-    .select(`
-      *,
-      categories (name, color_hex, icon_name),
-      accounts (name, color_hex, type, closing_day, due_day)
-    `)
-    .in("account_id", accountIds)
-    .order("date", { ascending: false });
+  const accounts = financialState.accounts || [];
+  const transactions = financialState.recent_transactions || [];
 
   return (
     <div className="p-8 md:p-12 max-w-7xl mx-auto w-full">

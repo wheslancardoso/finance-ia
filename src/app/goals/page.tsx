@@ -21,11 +21,20 @@ export default async function GoalsPage() {
     );
   }
 
-  const { data: goals } = await supabase
-    .from("goals")
-    .select("*")
-    .eq("family_group_id", familyGroupId)
-    .order("created_at", { ascending: false });
+  // 1. Buscar Estado Financeiro Completo via RPC v3
+  const { data: financialState } = await supabase.rpc('get_financial_state_v3', {
+    p_family_group_id: familyGroupId
+  });
+
+  if (!financialState) {
+    return (
+      <div className="p-12 text-center text-white/40 font-bold uppercase tracking-widest">
+        Erro ao carregar estado financeiro.
+      </div>
+    );
+  }
+
+  const goals = financialState.goals || [];
 
   return (
     <div className="p-8 md:p-12 max-w-7xl mx-auto w-full">

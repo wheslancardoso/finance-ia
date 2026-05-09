@@ -30,6 +30,72 @@ interface Account {
   color_hex?: string;
 }
 
+interface Goal {
+  id: string;
+  name: string;
+  target_amount_cents: number;
+  current_amount_cents: number;
+  deadline?: string;
+  color_hex?: string;
+}
+
+interface RecurringTransaction {
+  id: string;
+  description: string;
+  amount_cents: number;
+  transaction_type: "INCOME" | "EXPENSE";
+  frequency: "monthly" | "weekly" | "yearly";
+  next_date: string;
+  status: "active" | "inactive";
+  category_id?: string;
+  account_id?: string;
+}
+
+interface Budget {
+  id: string;
+  category_id: string;
+  amount_cents: number;
+}
+
+interface Transaction {
+  id: string;
+  description: string;
+  amount_cents: number;
+  transaction_type: "INCOME" | "EXPENSE" | "TRANSFER";
+  date: string;
+  is_paid: boolean;
+  category_id?: string;
+  account_id: string;
+  installment_current?: number;
+  installment_total?: number;
+  is_legacy_debt?: boolean;
+  category?: Category;
+  account?: Account;
+}
+
+interface FinancialStateResponse {
+  family_group: {
+    id: string;
+    name: string;
+    monthly_income_cents: number;
+    fixed_expenses_cents: number;
+    accumulated_balance_cents: number;
+  };
+  categories: Category[];
+  accounts: Account[];
+  invoices: any[];
+  goals: Goal[];
+  recurring_transactions: (RecurringTransaction & { category?: Category; account?: Account })[];
+  budgets: Budget[];
+  recent_transactions: Transaction[];
+  month_transactions: Transaction[];
+  month_stats: {
+    income: number;
+    expense: number;
+    debit_expense: number;
+  };
+}
+
 interface FinancialDataContextType {
   categories: Category[];
   accounts: Account[];
@@ -47,6 +113,11 @@ interface FinancialDataContextType {
   accumulatedBalanceCents: number;
   recurringIncomeCents: number;
   recurringExpensesCents: number;
+  goals: Goal[];
+  recurringTransactions: RecurringTransaction[];
+  budgets: Budget[];
+  recentTransactions: any[];
+  monthTransactions: any[];
   toggleTransactionPaid: (transactionId: string, currentStatus: boolean) => Promise<void>;
 }
 
@@ -68,6 +139,11 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const [accumulatedBalanceCents, setAccumulatedBalanceCents] = useState(0);
   const [recurringIncomeCents, setRecurringIncomeCents] = useState(0);
   const [recurringExpensesCents, setRecurringExpensesCents] = useState(0);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+  const [monthTransactions, setMonthTransactions] = useState<any[]>([]);
 
   const { familyGroupId } = useAccountModal();
 
@@ -98,222 +174,127 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     if (!familyGroupId) return;
 
     setLoading(true);
-    console.log("LOCAL-FIRST: BUSCANDO ATUALIZAÇÕES DO SUPABASE...");
+    console.log("DATABASE-DRIVEN: BUSCANDO ESTADO GLOBAL VIA RPC...");
     const supabase = createClient();
     
-    // 1. Buscar Configurações do Grupo Familiar (Modo Crise)
-    const { data: familyGroup } = await supabase
-      .from("family_groups")
-      .select("monthly_income_cents, fixed_expenses_cents, accumulated_balance_cents")
-      .eq("id", familyGroupId)
-      .single();
+    // 1. Chamar a Função RPC Mestra V3
+    const { data, error } = await supabase.rpc('get_financial_state_v3', { 
+      p_family_group_id: familyGroupId 
+    });
 
-    // 2. Buscar Fluxos Recorrentes para somar ao Modo Crise
-    const { data: recurringTxs } = await supabase
-      .from("recurring_transactions")
-      .select("amount_cents, transaction_type")
-      .eq("family_group_id", familyGroupId)
-      .eq("status", "active");
+    if (error) {
+      console.error("ERRO AO BUSCAR ESTADO FINANCEIRO:", error);
+      setLoading(false);
+      return;
+    }
 
-    const recIncome = recurringTxs
-      ?.filter(r => r.transaction_type === "INCOME")
+    const state = data as FinancialStateResponse;
+
+    // 2. Atualizar Configurações do Grupo Familiar (Modo Crise)
+    if (state.family_group) {
+      const { monthly_income_cents, fixed_expenses_cents, accumulated_balance_cents } = state.family_group;
+      
+      setMonthlyIncomeCentsState(monthly_income_cents || 0);
+      setFixedExpensesCentsState(fixed_expenses_cents || 0);
+      setAccumulatedBalanceCents(accumulated_balance_cents || 0);
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("vesper_monthly_income", (monthly_income_cents || 0).toString());
+        localStorage.setItem("vesper_fixed_expenses", (fixed_expenses_cents || 0).toString());
+        localStorage.setItem("vesper_accumulated_balance", (accumulated_balance_cents || 0).toString());
+      }
+    }
+
+    // 3. Processar Fluxos Recorrentes
+    const recIncome = state.recurring_transactions
+      ?.filter(r => r.transaction_type === "INCOME" && r.status === 'active')
       .reduce((sum, r) => sum + r.amount_cents, 0) || 0;
 
-    const recExpense = recurringTxs
-      ?.filter(r => r.transaction_type === "EXPENSE")
+    const recExpense = state.recurring_transactions
+      ?.filter(r => r.transaction_type === "EXPENSE" && r.status === 'active')
       .reduce((sum, r) => sum + r.amount_cents, 0) || 0;
 
     setRecurringIncomeCents(recIncome);
     setRecurringExpensesCents(recExpense);
+
     if (typeof window !== "undefined") {
       localStorage.setItem("vesper_recurring_income", recIncome.toString());
       localStorage.setItem("vesper_recurring_expense", recExpense.toString());
     }
-      
-    if (familyGroup) {
-      if (familyGroup.monthly_income_cents !== null) {
-        setMonthlyIncomeCentsState(familyGroup.monthly_income_cents);
-        localStorage.setItem("vesper_monthly_income", familyGroup.monthly_income_cents.toString());
-      }
-      if (familyGroup.fixed_expenses_cents !== null) {
-        setFixedExpensesCentsState(familyGroup.fixed_expenses_cents);
-        localStorage.setItem("vesper_fixed_expenses", familyGroup.fixed_expenses_cents.toString());
-      }
-      if (familyGroup.accumulated_balance_cents !== null) {
-        setAccumulatedBalanceCents(familyGroup.accumulated_balance_cents);
-        localStorage.setItem("vesper_accumulated_balance", familyGroup.accumulated_balance_cents.toString());
-      }
-    }
 
-    // Buscar Categorias (Incluindo Globais)
-    let { data: catData } = await supabase
-      .from("categories")
-      .select("id, name, type")
-      .or(`family_group_id.eq.${familyGroupId},family_group_id.is.null`);
+    // 4. Atualizar Categorias
+    setCategories(state.categories);
+    await db.categories.bulkPut(state.categories.map(c => ({ ...c, family_group_id: familyGroupId })));
 
-    // Se não houver categorias, vamos semear as padrões automaticamente
-    if (catData && catData.length === 0) {
-      console.log("LOCAL-FIRST: SEMEANDO CATEGORIAS PADRÃO...");
-      const defaultCategories = [
-        { name: "Salário", type: "INCOME", color_hex: "#10B981" },
-        { name: "Investimentos", type: "INCOME", color_hex: "#3B82F6" },
-        { name: "Alimentação", type: "EXPENSE", color_hex: "#EF4444" },
-        { name: "Lazer", type: "EXPENSE", color_hex: "#F59E0B" },
-        { name: "Saúde", type: "EXPENSE", color_hex: "#EC4899" },
-        { name: "Transporte", type: "EXPENSE", color_hex: "#6366F1" },
-        { name: "Moradia", type: "EXPENSE", color_hex: "#8B5CF6" },
-        { name: "Outros", type: "EXPENSE", color_hex: "#9CA3AF" },
-      ];
-
-      const { data: seeded } = await supabase
-        .from("categories")
-        .insert(defaultCategories.map(c => ({ ...c, family_group_id: familyGroupId })))
-        .select();
-      
-      if (seeded) catData = seeded;
-    }
-
-    // Buscar Contas
-    const { data: accData } = await supabase
-      .from("accounts")
-      .select("id, name, type, balance_cents, credit_limit_cents, closing_day, due_day, color_hex")
-      .eq("family_group_id", familyGroupId);
-
-    if (catData) {
-      setCategories(catData);
-      // Atualizar Banco Local
-      await db.categories.bulkPut(catData.map(c => ({ ...c, family_group_id: familyGroupId })));
-    }
-    
-    // Buscar todas as transações do Mês Atual (para extraIncome e currentMonthExpenses)
-    const now = new Date();
-    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-    const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59)).toISOString();
-    
-    if (accData && accData.length > 0) {
-      const accountIds = accData.map(a => a.id);
-      const { data: monthTxs } = await supabase
-        .from("transactions")
-        .select("amount_cents, transaction_type, account_id, is_legacy_debt")
-        .in("account_id", accountIds)
-        .gte("date", monthStart)
-        .lte("date", monthEnd);
+    // 5. Calcular Métricas do Mês via RPC Stats (Extra Income e Gastos do Mês)
+    if (state.month_stats) {
+      const extraInc = Number(state.month_stats.income || 0);
+      const monthExp = Number(state.month_stats.debit_expense || 0);
         
-      if (monthTxs) {
-        // Filtrar as transações que NÃO são de Cartão de Crédito
-        const nonCreditCardAccIds = accData.filter(a => a.type !== "CREDIT_CARD").map(a => a.id);
-        
-        const extraInc = monthTxs
-          .filter(tx => tx.transaction_type === "INCOME")
-          .reduce((sum, tx) => sum + tx.amount_cents, 0);
-          
-        const monthExp = monthTxs
-          .filter(tx => tx.transaction_type === "EXPENSE" && nonCreditCardAccIds.includes(tx.account_id) && !tx.is_legacy_debt)
-          .reduce((sum, tx) => sum + tx.amount_cents, 0);
-          
-        setExtraIncomeCents(extraInc);
-        setCurrentMonthExpensesCents(monthExp);
-      }
-    } else {
-      setExtraIncomeCents(0);
-      setCurrentMonthExpensesCents(0);
+      setExtraIncomeCents(extraInc);
+      setCurrentMonthExpensesCents(monthExp);
     }
-    
-    if (accData) {
-      // Calcular Fatura Atual e Impacto no Teto para cada cartão
-      const creditCardIds = accData.filter(a => a.type === "CREDIT_CARD").map(a => a.id);
-      
-      let allInvoices: any[] = [];
-      let allUnpaidTxs: any[] = [];
 
-      if (creditCardIds.length > 0) {
-        // Busca as faturas reais no banco
-        const { data: invoices } = await supabase
-          .from("credit_card_invoices")
-          .select("*")
-          .in("account_id", creditCardIds);
-        if (invoices) allInvoices = invoices;
+    // 6. Processar Contas e Faturas de Cartão
+    const accountsWithInvoice = state.accounts.map(acc => {
+      if (acc.type === "CREDIT_CARD") {
+        const now = new Date();
+        const cardClosingDay = acc.closing_day || 31;
+        const todayDay = now.getDate();
 
-        // Busca apenas transações não pagas para compor o limite utilizado
-        const { data: txs } = await supabase
-          .from("transactions")
-          .select("amount_cents, is_legacy_debt, is_paid, transaction_type, account_id, date, invoice_id")
-          .in("account_id", creditCardIds)
-          .eq("is_paid", false);
-        if (txs) allUnpaidTxs = txs;
-      }
+        let openY = now.getFullYear();
+        let openM = now.getMonth();
+        let closedY = now.getFullYear();
+        let closedM = now.getMonth();
 
-      const accountsWithInvoice = await Promise.all(accData.map(async (acc) => {
-        if (acc.type === "CREDIT_CARD") {
-          const now = new Date();
-          const cardClosingDay = acc.closing_day || 31;
-          const todayDay = now.getDate();
-
-          let openY = now.getFullYear();
-          let openM = now.getMonth();
-          let closedY = now.getFullYear();
-          let closedM = now.getMonth();
-
-          if (todayDay >= cardClosingDay) {
-            closedM = openM; closedY = openY;
-            openM++;
-            if (openM > 11) { openM = 0; openY++; }
-          } else {
-            openM = closedM; openY = closedY;
-            closedM--;
-            if (closedM < 0) { closedM = 11; closedY--; }
-          }
-          
-          // Mês de referência no formato YYYY-MM
-          const openRef = `${openY}-${String(openM + 1).padStart(2, '0')}`;
-          const closedRef = `${closedY}-${String(closedM + 1).padStart(2, '0')}`;
-
-          const openMonthLabel = format(new Date(openY, openM, 1), "MMM", { locale: ptBR });
-          const closedMonthLabel = format(new Date(closedY, closedM, 1), "MMM", { locale: ptBR });
-
-          const cardInvoices = allInvoices.filter(i => i.account_id === acc.id);
-          const openInvoiceRecord = cardInvoices.find(i => i.reference_month === openRef);
-          const closedInvoiceRecord = cardInvoices.find(i => i.reference_month === closedRef);
-
-          let openInvoiceAmount = openInvoiceRecord ? Number(openInvoiceRecord.amount_cents) : 0;
-          let closedInvoiceAmount = closedInvoiceRecord ? Number(closedInvoiceRecord.amount_cents) : 0;
-
-          // Calcular Teto de Gastos e Limite Total a partir das transactions ativas e faturas em si
-          let ceilingImpact = 0;
-          let totalSpentOnCard = 0;
-
-          const cardTxs = allUnpaidTxs.filter(tx => tx.account_id === acc.id);
-          cardTxs.forEach(tx => {
-            const isIncome = tx.transaction_type === "INCOME";
-            totalSpentOnCard += isIncome ? -tx.amount_cents : tx.amount_cents;
-
-            // Se pertencer à fatura fechada recém ou aberta (simplificado)
-            if (tx.invoice_id === closedInvoiceRecord?.id) {
-               if (!tx.is_legacy_debt && !isIncome) {
-                 ceilingImpact += tx.amount_cents;
-               }
-            }
-          });
-
-          return { 
-            ...acc, 
-            current_invoice_cents: closedInvoiceAmount > 0 ? closedInvoiceAmount : openInvoiceAmount,
-            closed_invoice_cents: closedInvoiceAmount,
-            closed_invoice_month: closedMonthLabel,
-            open_invoice_cents: openInvoiceAmount,
-            open_invoice_month: openMonthLabel,
-            ceiling_impact_cents: ceilingImpact,
-            balance_cents: -totalSpentOnCard
-          };
+        if (todayDay >= cardClosingDay) {
+          closedM = openM; closedY = openY;
+          openM++;
+          if (openM > 11) { openM = 0; openY++; }
+        } else {
+          openM = closedM; openY = closedY;
+          closedM--;
+          if (closedM < 0) { closedM = 11; closedY--; }
         }
-        return acc;
-      }));
+        
+        const openRef = `${openY}-${String(openM + 1).padStart(2, '0')}`;
+        const closedRef = `${closedY}-${String(closedM + 1).padStart(2, '0')}`;
 
-      setAccounts(accountsWithInvoice as Account[]);
-      // Atualizar Banco Local
-      await db.accounts.bulkPut(accountsWithInvoice.map(a => ({ ...a, family_group_id: familyGroupId })));
-    }
+        const openMonthLabel = format(new Date(openY, openM, 1), "MMM", { locale: ptBR });
+        const closedMonthLabel = format(new Date(closedY, closedM, 1), "MMM", { locale: ptBR });
+
+        const openInvoice = state.invoices.find(i => i.account_id === acc.id && i.billing_month === openRef);
+        const closedInvoice = state.invoices.find(i => i.account_id === acc.id && i.billing_month === closedRef);
+
+        const openAmount = openInvoice ? Number(openInvoice.total_amount_cents) : 0;
+        const closedAmount = closedInvoice ? Number(closedInvoice.total_amount_cents) : 0;
+
+        return { 
+          ...acc, 
+          current_invoice_cents: closedAmount > 0 ? closedAmount : openAmount,
+          closed_invoice_cents: closedAmount,
+          closed_invoice_month: closedMonthLabel,
+          open_invoice_cents: openAmount,
+          open_invoice_month: openMonthLabel,
+        };
+      }
+      return acc;
+    });
+
+    setAccounts(accountsWithInvoice);
+    await db.accounts.bulkPut(accountsWithInvoice.map(a => ({ ...a, family_group_id: familyGroupId })));
     
+    // 7. Sincronizar Outras Entidades com State e Dexie
+    setGoals(state.goals || []);
+    setRecurringTransactions(state.recurring_transactions || []);
+    setBudgets(state.budgets || []);
+    setRecentTransactions(state.recent_transactions || []);
+    setMonthTransactions(state.month_transactions || []);
+
+    if (state.goals) await db.goals.bulkPut(state.goals.map(g => ({ ...g, family_group_id: familyGroupId })));
+    if (state.recurring_transactions) await db.recurring_transactions.bulkPut(state.recurring_transactions.map(r => ({ ...r, family_group_id: familyGroupId })));
+    if (state.budgets) await db.budgets.bulkPut(state.budgets.map(b => ({ ...b, family_group_id: familyGroupId })));
+
     setLastFetched(Date.now());
     setLoading(false);
   }, [familyGroupId]);
@@ -337,11 +318,17 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       
       const localAccounts = await db.accounts.where('family_group_id').equals(familyGroupId).toArray();
       const localCategories = await db.categories.where('family_group_id').equals(familyGroupId).toArray();
+      const localGoals = await db.goals.where('family_group_id').equals(familyGroupId).toArray();
+      const localRecurring = await db.recurring_transactions.where('family_group_id').equals(familyGroupId).toArray();
+      const localBudgets = await db.budgets.where('family_group_id').equals(familyGroupId).toArray();
 
       if (localAccounts.length > 0 || localCategories.length > 0) {
         console.log("LOCAL-FIRST: DADOS CARREGADOS DO BANCO LOCAL");
         setAccounts(localAccounts as Account[]);
         setCategories(localCategories as Category[]);
+        setGoals(localGoals as Goal[]);
+        setRecurringTransactions(localRecurring as RecurringTransaction[]);
+        setBudgets(localBudgets as Budget[]);
         setLoading(false);
       }
       
@@ -386,6 +373,11 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       fixedExpensesCents, setFixedExpensesCents,
       extraIncomeCents, currentMonthExpensesCents, accumulatedBalanceCents,
       recurringIncomeCents, recurringExpensesCents,
+      goals,
+      recurringTransactions,
+      budgets,
+      recentTransactions,
+      monthTransactions,
       toggleTransactionPaid
     }}>
       {children}

@@ -109,15 +109,15 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
               <span 
                 className="text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-tighter"
                 style={{ 
-                  backgroundColor: `${tx.categories?.color_hex}10`,
-                  borderColor: `${tx.categories?.color_hex}30`,
-                  color: tx.categories?.color_hex
+                  backgroundColor: `${tx.category?.color_hex}10`,
+                  borderColor: `${tx.category?.color_hex}30`,
+                  color: tx.category?.color_hex
                 }}
               >
-                {tx.categories?.name || "Sem Categoria"}
+                {tx.category?.name || "Sem Categoria"}
               </span>
               <span className="text-[10px] text-white/20 font-bold uppercase tracking-tighter">
-                • {tx.accounts?.name}
+                • {tx.account?.name}
               </span>
               {isInstallment && (
                 <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-500/10 border border-violet-500/20">
@@ -173,7 +173,7 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
                   const supabase = createClient();
                   const { data, error } = await supabase
                     .from("transactions")
-                    .select("*, categories(*), accounts(*)")
+                    .select("*, category:categories(*), account:accounts(*)")
                     .eq("description", tx.description)
                     .eq("installment_total", tx.installment_total)
                     .eq("account_id", tx.account_id)
