@@ -10,6 +10,11 @@ import { formatCurrency } from "@/lib/utils";
 export default function GoalsPage() {
   const { goals, loading } = useFinancialData();
 
+  useMemo(() => {
+    if (!loading) {
+      console.log("🎯 [Page:Goals] Dados carregados. Metas encontradas:", goals.length);
+    }
+  }, [goals, loading]);
   const stats = useMemo(() => {
     const totalSaved = goals.reduce((acc, g) => acc + (g.current_amount_cents || 0), 0);
     const totalTarget = goals.reduce((acc, g) => acc + (g.target_amount_cents || 0), 0);

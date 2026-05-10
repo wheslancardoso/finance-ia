@@ -218,10 +218,10 @@ async function buildFinancialState(userId: string) {
 
   return {
     user_profile: {
-      monthly_income_cents: 0,
-      fixed_expenses_cents: 0,
+      monthly_income_cents: profile?.monthly_income_cents || 0,
+      fixed_expenses_cents: profile?.fixed_expenses_cents || 0,
       accumulated_balance_cents,
-      financial_health_score: 80,
+      financial_health_score: profile?.financial_health_score || 80,
     },
     categories: categories || [],
     accounts: enrichedAccounts,

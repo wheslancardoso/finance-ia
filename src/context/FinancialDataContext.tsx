@@ -83,6 +83,9 @@ interface FinancialDataContextType {
   monthTransactions: Transaction[];
   transactions: Transaction[];
   healthScore: number;
+  scheduledIncomeCents: number;
+  scheduledExpensesCents: number;
+  cardDebtImpactCents: number;
   toggleTransactionPaid: (id: string, status: boolean) => Promise<void>;
   upsertTransaction: (data: Partial<Transaction>) => Promise<any>;
   deleteTransaction: (id: string) => Promise<void>;
@@ -131,6 +134,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [monthTransactions, setMonthTransactions] = useState<Transaction[]>([]);
   const [healthScore, setHealthScore] = useState<number>(0);
+  const [scheduledIncomeCents, setScheduledIncomeCents] = useState(0);
+  const [scheduledExpensesCents, setScheduledExpensesCents] = useState(0);
+  const [cardDebtImpactCents, setCardDebtImpactCents] = useState(0);
 
   const { userId } = useAccountModal();
 
@@ -239,7 +245,26 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         await db.budgets.bulkPut(state.budgets.map((b: Budget) => ({ ...b, user_id: userId })));
       }
       
-      // PERSISTÊNCIA DE TRANSAÇÕES NO DEXIE
+      // Cálculos de Agendados e Cartão para o mês atual
+      const now = new Date();
+      const endOfThisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      
+      const schedInc = (state.recurring_transactions || [])
+        .filter(r => r.transaction_type === "INCOME" && r.status === 'active' && new Date(r.next_date) <= endOfThisMonth && new Date(r.next_date) >= now)
+        .reduce((sum, r) => sum + r.amount_cents, 0);
+
+      const schedExp = (state.recurring_transactions || [])
+        .filter(r => r.transaction_type === "EXPENSE" && r.status === 'active' && new Date(r.next_date) <= endOfThisMonth && new Date(r.next_date) >= now)
+        .reduce((sum, r) => sum + r.amount_cents, 0);
+
+      const cardImpact = (state.accounts || [])
+        .filter(a => a.type === "CREDIT_CARD")
+        .reduce((sum, a) => sum + (a.closed_invoice_cents || 0) + (a.open_invoice_cents || 0), 0);
+
+      setScheduledIncomeCents(schedInc);
+      setScheduledExpensesCents(schedExp);
+      setCardDebtImpactCents(cardImpact);
+
       if (state.recent_transactions || state.month_transactions) {
         await db.transactions.where('user_id').equals(userId).delete();
         if (state.recent_transactions) {
@@ -518,6 +543,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       upsertGoal,
       updateGoalBalance,
       healthScore,
+      scheduledIncomeCents,
+      scheduledExpensesCents,
+      cardDebtImpactCents,
       createInstallmentSeries,
       simulatePurchaseImpact,
       getGoalRecommendations,

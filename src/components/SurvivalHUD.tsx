@@ -15,8 +15,10 @@ export default function SurvivalHUD() {
     extraIncomeCents,
     currentMonthExpensesCents,
     accumulatedBalanceCents,
-    recurringIncomeCents,
-    recurringExpensesCents,
+    scheduledIncomeCents,
+    scheduledExpensesCents,
+    cardDebtImpactCents,
+    budgets,
     setMonthlyIncomeCents,
     setFixedExpensesCents
   } = useFinancialData();
@@ -46,27 +48,41 @@ export default function SurvivalHUD() {
   }, [accounts, totalCreditCardImpact]);
 
   const survivalCeilingCents = useMemo(() => {
-    // Teto = (Renda Base + Fluxos Recorrentes) + Sobras Passadas + Bicos Extras - (Fixo Manual + Gastos Recorrentes) - Faturas de Cartão - Gastos Variáveis (Débito/Pix)
-    const totalIncome = monthlyIncomeCents + recurringIncomeCents;
-    const totalFixed = fixedExpensesCents + recurringExpensesCents;
+    // 1. O que temos agora (Liquidez)
+    const currentLiquidity = accumulatedBalanceCents;
 
-    return Math.max(0, 
-      totalIncome + 
-      accumulatedBalanceCents + 
-      extraIncomeCents - 
-      totalFixed - 
-      totalCreditCardImpact - 
-      currentMonthExpensesCents
-    );
+    // 2. O que ainda vai entrar este mês (Agendados)
+    // Somamos a renda mensal base APENAS se não houver transações de INCOME este mês 
+    // (Simulando que a renda base é o que se espera receber)
+    // Para simplificar e ser "Dinâmico", vamos usar os agendados reais.
+    const expectedIncome = scheduledIncomeCents;
+
+    // 3. O que ainda vai sair este mês (Agendados + Faturas)
+    const expectedOutflow = scheduledExpensesCents + cardDebtImpactCents;
+
+    // 4. Reservas de Orçamento (O que prometemos não gastar)
+    const remainingBudgets = budgets.reduce((sum, b) => {
+      return sum + Math.max(0, (b.limit_cents || 0) - (b.spent_cents || 0));
+    }, 0);
+
+    // Teto = Liquidez + Entradas Agendadas - Saídas Agendadas - Faturas - Orçamentos
+    const ceiling = currentLiquidity + expectedIncome - expectedOutflow - remainingBudgets;
+
+    console.log("📊 [SurvivalHUD] Cálculo do Teto:", {
+      liquidity: currentLiquidity / 100,
+      expectedIncome: expectedIncome / 100,
+      expectedOutflow: expectedOutflow / 100,
+      remainingBudgets: remainingBudgets / 100,
+      finalCeiling: ceiling / 100
+    });
+
+    return Math.max(0, ceiling);
   }, [
-    monthlyIncomeCents, 
-    recurringIncomeCents,
-    accumulatedBalanceCents, 
-    extraIncomeCents, 
-    fixedExpensesCents, 
-    recurringExpensesCents,
-    totalCreditCardImpact, 
-    currentMonthExpensesCents
+    accumulatedBalanceCents,
+    scheduledIncomeCents,
+    scheduledExpensesCents,
+    cardDebtImpactCents,
+    budgets
   ]);
 
   // Cálculos Temporais

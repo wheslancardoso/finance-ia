@@ -47,12 +47,20 @@ export default function RealtimeDashboard({
     currentMonthExpensesCents,
     accumulatedBalanceCents,
     extraIncomeCents,
-    healthScore
+    healthScore,
+    recurringTransactions: liveRecurring,
+    budgets: liveBudgets,
+    transactions: allTransactions,
+    scheduledIncomeCents,
+    scheduledExpensesCents,
+    cardDebtImpactCents
   } = useFinancialData();
 
   // Usar dados live se disponíveis, senão inicial
   const displayAccounts = liveAccounts.length > 0 ? liveAccounts : accounts;
   const displayTransactions = liveTransactions.length > 0 ? liveTransactions : initialTransactions;
+  const displayRecurring = liveRecurring.length > 0 ? liveRecurring : initialRecurring;
+  const displayBudgets = liveBudgets.length > 0 ? liveBudgets : initialBudgets;
 
   const currentBalance = useMemo(() => {
     return displayAccounts
@@ -67,67 +75,62 @@ export default function RealtimeDashboard({
 
   // 1. Cálculo da Projeção (Viagem no Tempo por Meses)
   const projection = useMemo(() => {
-    const formattedBudgets = initialBudgets.map(b => ({
-      amount_cents: b.limit,
-      spent_this_month: b.spent,
-      category: b.category
+    const formattedBudgets = (displayBudgets || []).map(b => ({
+      amount_cents: b.limit_cents || 0,
+      spent_this_month: b.spent_cents || 0,
+      category: b.category_id || 'general'
     }));
-    return getProjectedDetails(currentBalance, targetDate, initialRecurring || [], formattedBudgets, displayAccounts);
-  }, [currentBalance, initialRecurring, targetDate, initialBudgets, displayAccounts]);
+
+    const formattedRecurring = (displayRecurring || []).map(r => ({
+      ...r,
+      amount_cents: r.amount_cents || 0,
+      transaction_type: r.transaction_type as "INCOME" | "EXPENSE",
+      frequency: (r.frequency || 'monthly') as any,
+    }));
+
+    return getProjectedDetails(currentBalance, targetDate, formattedRecurring, formattedBudgets, displayAccounts);
+  }, [currentBalance, displayRecurring, targetDate, displayBudgets, displayAccounts]);
 
   const projectedBalance = projection.totalBalance;
 
   // 2. Visão Prática: "Quanto me sobra este mês?"
   const monthlyOutlook = useMemo(() => {
-    const now = new Date();
-    const endOfCurrentMonth = endOfMonth(now);
+    // Para consistência total, o "Quanto me sobra" no Dashboard 
+    // deve seguir a mesma lógica do SurvivalHUD (Teto de Sobrevivência)
     
-    // --- TOTAL DE DÍVIDA NOS CARTÕES ---
-    const todayDay = new Date().getDate();
-    const cardBreakdown = displayAccounts
-      .filter((a: any) => a.type === "CREDIT_CARD")
-      .reduce((acc: any, a: any) => {
-        const cardClosingDay = a.closing_day || 31;
-        
-        if (todayDay >= cardClosingDay) {
-          acc.immediate += Math.max(0, a.closed_invoice_cents || 0);
-          acc.upcoming += Math.max(0, a.open_invoice_cents || 0);
-        } else {
-          acc.immediate += Math.max(0, a.open_invoice_cents || 0) + Math.max(0, a.closed_invoice_cents || 0);
-          acc.upcoming += 0; 
-        }
-        return acc;
-      }, { immediate: 0, upcoming: 0 });
+    // 1. Liquidez (Saldo em contas corrente/investimento)
+    const liquidity = currentBalance;
 
-    const totalIncome = monthlyIncomeCents + recurringIncomeCents;
-    const totalFixed = fixedExpensesCents + recurringExpensesCents;
-    
-    // Gastos que ainda vão sair este mês (não provisionados ainda)
-    const scheduledOnly = (initialRecurring || [])
-      .filter(item => {
-        const d = new Date(item.next_date);
-        return d > now && d <= endOfCurrentMonth && displayAccounts.find(a => a.id === item.account_id)?.type !== "CREDIT_CARD";
-      })
-      .reduce((sum, item) => {
-        if (item.transaction_type === "EXPENSE") return sum + item.amount_cents;
-        if (item.transaction_type === "INCOME") return sum - item.amount_cents;
-        return sum;
-      }, 0);
+    // 2. Entradas que ainda não aconteceram
+    const pendingIncome = scheduledIncomeCents;
 
-    const plannedExpenses = scheduledOnly + cardBreakdown.immediate + cardBreakdown.upcoming;
-    
-    // Sobra Livre = Liquidez Atual - (Gastos que ainda vão sair)
-    const sobraLivre = currentBalance - plannedExpenses;
-    
+    // 3. Saídas que ainda não aconteceram (Recorrentes + Cartões)
+    const pendingOutflow = scheduledExpensesCents + cardDebtImpactCents;
+
+    // 4. Reservas de Orçamento
+    const budgetReserves = liveBudgets.reduce((sum, b) => {
+      return sum + Math.max(0, (b.limit_cents || 0) - (b.spent_cents || 0));
+    }, 0);
+
+    const balanceAtMonthEnd = liquidity + pendingIncome - pendingOutflow - budgetReserves;
+
+    console.log("📈 [Dashboard] Cálculo Mensal:", {
+      liquidity: liquidity / 100,
+      pendingIncome: pendingIncome / 100,
+      pendingOutflow: pendingOutflow / 100,
+      budgetReserves: budgetReserves / 100,
+      finalSobra: balanceAtMonthEnd / 100
+    });
+
     return {
-      balanceAtMonthEnd: sobraLivre,
-      plannedExpenses,
-      immediateCardDebt: cardBreakdown.immediate,
-      upcomingCardDebt: cardBreakdown.upcoming,
-      scheduledOnly,
-      isHealthy: sobraLivre >= 0
+      balanceAtMonthEnd,
+      plannedExpenses: pendingOutflow + budgetReserves,
+      immediateCardDebt: cardDebtImpactCents,
+      upcomingCardDebt: 0, // Simplificado pois cardDebtImpact já engloba o que é relevante para o teto
+      scheduledOnly: scheduledExpensesCents,
+      isHealthy: balanceAtMonthEnd >= 0
     };
-  }, [currentBalance, initialRecurring, displayAccounts, monthlyIncomeCents, recurringIncomeCents, fixedExpensesCents, recurringExpensesCents]);
+  }, [currentBalance, scheduledIncomeCents, scheduledExpensesCents, cardDebtImpactCents, liveBudgets]);
 
   const isFuture = !isSameMonth(targetDate, new Date());
   const balanceDifference = projectedBalance - initialBalance;
@@ -385,12 +388,12 @@ export default function RealtimeDashboard({
       {/* Budget Grid */}
       <div className="lg:col-span-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {initialBudgets.map((budget, i) => (
+          {(displayBudgets || []).map((budget, i) => (
             <SpendingCapacity 
-              key={i}
-              category={budget.category}
-              spent={budget.spent}
-              limit={budget.limit}
+              key={budget.id || i}
+              category={budget.category_id || 'Geral'}
+              spent={budget.spent_cents || 0}
+              limit={budget.limit_cents || 0}
             />
           ))}
         </div>
