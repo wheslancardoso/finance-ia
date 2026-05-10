@@ -497,19 +497,21 @@ export const financialService = {
       // Alocamos 20% da Sobra Real se positiva, priorizando fundo de emergência se houver
       let remainingToAllocate = realSurplus > 0 ? Math.round(realSurplus * 0.2) : 0;
       
-      const recommendations = sortedGoals.map((g: any) => {
+      const recommendations = sortedGoals.map((g: any, index: number) => {
         const remainingGoal = (g.target_cents || 0) - (g.current_cents || 0);
         const amount = Math.min(remainingToAllocate, remainingGoal);
         remainingToAllocate -= amount;
+        
+        const isNextPriority = index === 0;
 
         let advice = "";
         if (realSurplus < 0) {
           const debtToClear = Math.abs(realSurplus);
-          advice = `⚠️ Alerta Jarvis: Sua liquidez está negativa. Você precisa de ${formatCurrency(debtToClear)} adicionais para cobrir suas faturas atuais antes de focar nesta meta.`;
-        } else if (amount > 0) {
-          advice = `🎯 Estratégia Jarvis: Recomendamos aportar ${formatCurrency(amount)} aqui hoje para manter sua saúde financeira.`;
+          advice = `⚠️ Alerta: Sua liquidez está negativa. Você precisa de ${formatCurrency(debtToClear)} adicionais para cobrir suas faturas atuais antes de focar nesta meta.`;
+        } else if (isNextPriority && amount > 0) {
+          advice = `🎯 Estratégia: Recomendamos aportar ${formatCurrency(amount)} aqui hoje para manter sua saúde financeira.`;
         } else if (realSurplus > 0) {
-          advice = "⏳ Prioridade Jarvis: Esta meta está na fila. Continue mantendo sua reserva antes de avançar para o próximo objetivo.";
+          advice = "⏳ Prioridade: Esta meta está na fila. Continue mantendo sua reserva antes de avançar para o próximo objetivo.";
         } else {
           advice = "🛑 Estabilize sua liquidez e pague suas faturas fechadas primeiro.";
         }

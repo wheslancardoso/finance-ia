@@ -8,20 +8,12 @@ import { Target, Trophy, TrendingUp, ShieldCheck, AlertCircle } from "lucide-rea
 import { formatCurrency, cn } from "@/lib/utils";
 import { useEffect } from "react";
 
-export default function GoalsPage() {
-  const { goals, loading, netLiquidityCents, totalConsolidatedDebtCents } = useFinancialData();
+import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 
-  useEffect(() => {
-    if (!loading) {
-      const totalSaved = goals.reduce((acc, g) => acc + (g.current_amount_cents || 0), 0);
-      console.log("🎯 [Page:Goals] Dados carregados.");
-      console.log("📊 [Auditoria Goals] Resumo de Metas:", {
-        quantidade: goals.length,
-        totalReservado: formatCurrency(totalSaved),
-        mediaProgresso: goals.length > 0 ? (totalSaved / goals.reduce((acc, g) => acc + (g.target_amount_cents || 0), 0) * 100).toFixed(1) + "%" : "0%"
-      });
-    }
-  }, [goals, loading]);
+export default function GoalsPage() {
+  const { goals, loading } = useFinancialData();
+  const { netLiquidityCents, totalConsolidatedDebtCents, isSurvivalMode, monthlyOutlook } = useFinancialAnalysis();
+
   const stats = useMemo(() => {
     const totalSaved = goals.reduce((acc, g) => acc + (g.current_amount_cents || 0), 0);
     const totalTarget = goals.reduce((acc, g) => acc + (g.target_amount_cents || 0), 0);
@@ -69,30 +61,30 @@ export default function GoalsPage() {
         </GlassCard>
       </div>
       
-      {/* Jarvis Bridge Insight */}
+      {/* Intelligence Bridge Insight */}
       <GlassCard className={cn(
         "p-6 flex flex-col md:flex-row items-center gap-6 border-l-4 transition-all",
-        netLiquidityCents >= 0 
+        !isSurvivalMode 
           ? "border-l-emerald-500 bg-emerald-500/5 border-emerald-500/10" 
           : "border-l-red-500 bg-red-500/5 border-red-500/10"
       )}>
         <div className={cn(
           "w-16 h-16 rounded-3xl flex items-center justify-center shrink-0",
-          netLiquidityCents >= 0 ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
+          !isSurvivalMode ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
         )}>
-          {netLiquidityCents >= 0 ? <ShieldCheck className="w-8 h-8" /> : <AlertCircle className="w-8 h-8" />}
+          {!isSurvivalMode ? <ShieldCheck className="w-8 h-8" /> : <AlertCircle className="w-8 h-8" />}
         </div>
-        <div className="space-y-1 flex-1">
-          <h3 className="text-sm font-black uppercase tracking-[0.15em] text-white/80">Jarvis Insight: Capacidade de Aporte</h3>
+        <div className="space-y-1 flex-1 text-center md:text-left">
+          <h3 className="text-sm font-black uppercase tracking-[0.15em] text-white/80">Insight Estratégico: Capacidade de Aporte</h3>
           <p className="text-xs text-white/40 leading-relaxed max-w-2xl">
             {netLiquidityCents >= 0 
-              ? `Sua liquidez real de ${formatCurrency(netLiquidityCents)} permite que você continue focando em seus objetivos. Atualmente, recomendamos aportar em metas que tenham prioridade alta ou prazo mais curto.` 
-              : `Você possui uma dívida consolidada de ${formatCurrency(totalConsolidatedDebtCents)}. Sua liquidez real está negativa em ${formatCurrency(Math.abs(netLiquidityCents))}. Jarvis recomenda: Não transfira dinheiro para metas agora. Use sua sobra para reduzir as faturas de cartão e evitar juros.`}
+              ? "Com base no seu Panorama Mensal, você tem segurança para manter seus aportes conforme o planejado."
+              : `Trava de Segurança: Você possui uma dívida consolidada de ${formatCurrency(totalConsolidatedDebtCents)}. O sistema recomenda pausar os aportes em metas. Sua prioridade agora é converter sua sobra mensal em liquidez real para quitar as faturas.`}
           </p>
         </div>
-        {netLiquidityCents < 0 && (
-          <div className="px-4 py-2 bg-red-500/20 border border-red-500/20 rounded-xl text-[10px] font-black text-red-400 uppercase tracking-widest">
-            Modo Sobrevivência
+        {isSurvivalMode && (
+          <div className="px-4 py-2 bg-red-500/20 border border-red-500/20 rounded-xl text-[10px] font-black text-red-400 uppercase tracking-widest animate-pulse">
+            Ciclo de Dívida Detectado
           </div>
         )}
       </GlassCard>

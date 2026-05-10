@@ -4,26 +4,24 @@ import React, { useState, useMemo } from "react";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { Wallet, CalendarDays, Calendar, AlertTriangle, ShieldCheck, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
+import { endOfMonth, differenceInDays } from "date-fns";
 
 type ViewMode = "DAY" | "WEEK" | "MONTH";
 
 export default function SurvivalHUD() {
   const { 
     monthlyIncomeCents, 
-    fixedExpensesCents, 
-    accounts,
-    extraIncomeCents,
-    currentMonthExpensesCents,
     recurringIncomeCents,
-    recurringExpensesCents,
-    accumulatedBalanceCents,
-    scheduledIncomeCents,
-    scheduledExpensesCents,
-    cardDebtImpactCents,
-    budgets,
     setMonthlyIncomeCents,
     setFixedExpensesCents
   } = useFinancialData();
+
+  const { 
+    netLiquidityCents, 
+    monthlyOutlook, 
+    isSurvivalMode 
+  } = useFinancialAnalysis();
 
   const [viewMode, setViewMode] = useState<ViewMode>("MONTH");
 
@@ -31,68 +29,13 @@ export default function SurvivalHUD() {
   const [setupIncome, setSetupIncome] = useState("");
   const [setupExpenses, setSetupExpenses] = useState("");
 
-  // Matemática Base-Zero do Modo Crise
-  const totalCreditCardImpact = useMemo(() => {
-    return accounts
-      .filter((acc) => acc.type === "CREDIT_CARD")
-      .reduce((sum, acc) => {
-        const closed = acc.closed_invoice_cents || 0;
-        const open = acc.open_invoice_cents || 0;
-        return sum + closed + open;
-      }, 0);
-  }, [accounts]);
-
-  const netWorthCents = useMemo(() => {
-    const liquidity = accounts
-      .filter(a => a.type !== "CREDIT_CARD")
-      .reduce((sum, a) => sum + (a.balance_cents || 0), 0);
-    return liquidity - totalCreditCardImpact;
-  }, [accounts, totalCreditCardImpact]);
-
-  const survivalCeilingCents = useMemo(() => {
-    // 1. O que temos agora (Liquidez)
-    const currentLiquidity = accumulatedBalanceCents;
-
-    // 2. O que ainda vai entrar este mês (Agendados)
-    // Somamos a renda mensal base APENAS se não houver transações de INCOME este mês 
-    // (Simulando que a renda base é o que se espera receber)
-    // Para simplificar e ser "Dinâmico", vamos usar os agendados reais.
-    const expectedIncome = scheduledIncomeCents;
-
-    // 3. O que ainda vai sair este mês (Agendados + Faturas)
-    const expectedOutflow = scheduledExpensesCents + cardDebtImpactCents;
-
-    // 4. Reservas de Orçamento (O que prometemos não gastar)
-    const remainingBudgets = budgets.reduce((sum, b) => {
-      return sum + Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0));
-    }, 0);
-
-    // Teto = Liquidez + Entradas Agendadas - Saídas Agendadas - Faturas - Orçamentos
-    const ceiling = currentLiquidity + expectedIncome - expectedOutflow - remainingBudgets;
-
-    console.log("📊 [SurvivalHUD] Cálculo do Teto:", {
-      liquidity: currentLiquidity / 100,
-      expectedIncome: expectedIncome / 100,
-      expectedOutflow: expectedOutflow / 100,
-      remainingBudgets: remainingBudgets / 100,
-      finalCeiling: ceiling / 100
-    });
-
-    return Math.max(0, ceiling);
-  }, [
-    accumulatedBalanceCents,
-    scheduledIncomeCents,
-    scheduledExpensesCents,
-    cardDebtImpactCents,
-    budgets
-  ]);
+  const survivalCeilingCents = Math.max(0, monthlyOutlook.balanceAtMonthEnd);
 
   // Cálculos Temporais
   const getDisplayValue = () => {
     const today = new Date();
-    // Dias restantes no mês (simplificado para 30 ou baseado no fim do mês real)
-    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    const daysLeft = Math.max(1, endOfMonth.getDate() - today.getDate() + 1);
+    const endOfMonthDate = endOfMonth(today);
+    const daysLeft = Math.max(1, differenceInDays(endOfMonthDate, today) + 1);
     const weeksLeft = Math.max(1, Math.ceil(daysLeft / 7));
 
     switch (viewMode) {
@@ -113,9 +56,7 @@ export default function SurvivalHUD() {
   });
 
   // Determinar Estado Visual
-  const safeMonthlyIncome = monthlyIncomeCents || 0;
-  const safeRecurringIncome = recurringIncomeCents || 0;
-  const totalIncomeForStatus = safeMonthlyIncome + safeRecurringIncome;
+  const totalIncomeForStatus = (monthlyIncomeCents || 0) + (recurringIncomeCents || 0);
   const percentageOfIncome = totalIncomeForStatus > 0 ? (survivalCeilingCents / totalIncomeForStatus) * 100 : 0;
   
   let statusColor = "text-emerald-400";
@@ -215,14 +156,14 @@ export default function SurvivalHUD() {
             
             {/* Net Worth Insight */}
             <div className="mt-2 flex items-center gap-2">
-              <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Patrimônio Líquido:</span>
+              <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Liquidez Real:</span>
               <span className={cn(
                 "text-[10px] font-black tabular-nums",
-                netWorthCents >= 0 ? "text-emerald-500/60" : "text-red-500/60"
+                netLiquidityCents >= 0 ? "text-emerald-500/60" : "text-red-500/60"
               )}>
-                {(netWorthCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                {(netLiquidityCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
               </span>
-              {netWorthCents < 0 && (
+              {isSurvivalMode && (
                 <div className="flex items-center gap-1 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-md">
                   <AlertTriangle className="w-2.5 h-2.5 text-red-400" />
                   <span className="text-[8px] font-black text-red-400 uppercase tracking-tighter">Ciclo de Dívida</span>
@@ -233,13 +174,13 @@ export default function SurvivalHUD() {
         </div>
 
         {/* Salvation Goal for "Break the Cycle" */}
-        {netWorthCents < 0 && (
+        {isSurvivalMode && (
           <div className="hidden lg:flex flex-col items-center bg-white/5 border border-white/10 rounded-2xl p-4 min-w-[200px]">
              <span className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 flex items-center gap-1">
               <Zap className="w-3 h-3 text-amber-400" /> Meta de Salvação
             </span>
             <span className="text-xl font-black text-amber-400 tabular-nums">
-              {((Math.abs(netWorthCents)) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              {((Math.abs(netLiquidityCents)) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
             </span>
             <p className="text-[8px] text-white/40 mt-1 text-center font-medium leading-tight">
               Quanto você precisa para pagar <br/> tudo e ter R$ 0,00 real.
@@ -247,7 +188,7 @@ export default function SurvivalHUD() {
           </div>
         )}
 
-        {/* Right Side: Toggles and Math Summary */}
+        {/* Right Side: Toggles */}
         <div className="flex flex-col items-end gap-3 w-full md:w-auto">
           {/* Toggles */}
           <div className="flex p-1 bg-black/40 border border-white/5 rounded-xl w-full md:w-auto">
@@ -269,45 +210,6 @@ export default function SurvivalHUD() {
             >
               <Wallet className="w-3.5 h-3.5" /> Mês
             </button>
-          </div>
-
-          {/* Math Summary Miniature */}
-          <div className="flex flex-wrap items-center justify-end gap-2 text-[9px] text-white/30 font-mono">
-            <div className="flex items-center gap-1">
-              <span className="text-white/10">RENDA:</span>
-              <span title="Renda (Base + Recorrente)" className="text-emerald-500/70">
-                {((monthlyIncomeCents + recurringIncomeCents) / 100).toFixed(0)}
-              </span>
-            </div>
-            {(accumulatedBalanceCents > 0 || extraIncomeCents > 0) && (
-              <div className="flex items-center gap-1">
-                <span className="text-white/20">+</span>
-                <span title="Bicos e Sobras" className="text-blue-400/70">
-                  {((accumulatedBalanceCents + extraIncomeCents) / 100).toFixed(0)}
-                </span>
-              </div>
-            )}
-            <div className="flex items-center gap-1">
-              <span className="text-white/20">-</span>
-              <span className="text-white/10">FIXO:</span>
-              <span title="Custo Fixo (Base + Recorrente)" className="text-white/40">
-                {((fixedExpensesCents + recurringExpensesCents) / 100).toFixed(0)}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-white/20">-</span>
-              <span className="text-white/10">MÊS:</span>
-              <span title="Débitos/Pix Já Feitos" className="text-orange-400/70">
-                {(currentMonthExpensesCents / 100).toFixed(0)}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-white/20">-</span>
-              <span className="text-white/10">CARTÃO:</span>
-              <span title="Faturas Fechadas + Abertas" className="text-red-500/70">
-                {((accounts.filter(a => a.type === 'CREDIT_CARD').reduce((s, a) => s + (a.closed_invoice_cents || 0) + (a.open_invoice_cents || 0), 0)) / 100).toFixed(0)}
-              </span>
-            </div>
           </div>
         </div>
 

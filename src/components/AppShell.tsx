@@ -9,6 +9,7 @@ import { AddGoalModal } from "./AddGoalModal";
 import { ContributionModal } from "./ContributionModal";
 import { GoalDetailModal } from "./GoalDetailModal";
 import { SyncUser } from "./SyncUser";
+import { FinanceBridgeHUD } from "./FinanceBridgeHUD";
 import { cn } from "@/lib/utils";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -30,6 +31,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-fuchsia-600/20 blur-[120px] rounded-full" />
         </div>
         
+        {!isLoginPage && <FinanceBridgeHUD />}
         {children}
       </main>
       
