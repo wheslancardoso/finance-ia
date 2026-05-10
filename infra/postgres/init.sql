@@ -12,11 +12,15 @@ BEGIN
     IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'anon') THEN
         CREATE ROLE anon nologin;
     END IF;
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticated') THEN
+        CREATE ROLE authenticated nologin;
+    END IF;
     IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'authenticator') THEN
         CREATE ROLE authenticator noinherit login password 'vesper_secret_password';
     END IF;
 END $$;
 GRANT anon TO authenticator;
+GRANT authenticated TO authenticator;
 
 -- Schema Auth (Simulating Supabase)
 CREATE SCHEMA IF NOT EXISTS auth;
@@ -29,10 +33,37 @@ CREATE TABLE IF NOT EXISTS auth.users (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 🌌 NEW: Trigger for Account Isolation
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+    new_family_group_id UUID;
+BEGIN
+    -- 1. Create a new family group for the user
+    INSERT INTO public.family_groups (name)
+    VALUES ('Meu Grupo Familiar')
+    RETURNING id INTO new_family_group_id;
+
+    -- 2. Create the profile (profiles table is in public)
+    INSERT INTO public.profiles (id, full_name)
+    VALUES (NEW.id, split_part(NEW.email, '@', 1));
+
+    -- 3. Associate user with family group
+    INSERT INTO public.family_members (family_group_id, user_id, role)
+    VALUES (new_family_group_id, NEW.id, 'admin');
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
 -- Mock auth.uid() for Local Development
+-- In local dev, we will try to get it from a header set by our proxy
 CREATE OR REPLACE FUNCTION auth.uid() RETURNS UUID AS $$
-    -- In local dev, we return the first user's ID
-    SELECT id FROM auth.users LIMIT 1;
+    SELECT NULLIF(current_setting('request.jwt.claims', true)::json->>'sub', '')::uuid;
 $$ LANGUAGE sql STABLE;
 
 -- Schema Public
@@ -589,7 +620,9 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Seed Data
-INSERT INTO auth.users (id, email) VALUES ('00000000-0000-0000-0000-000000000001', 'test@example.com') ON CONFLICT DO NOTHING;
+INSERT INTO auth.users (id, email, encrypted_password) 
+VALUES ('00000000-0000-0000-0000-000000000001', 'test@example.com', crypt('vesper123', gen_salt('bf'))) 
+ON CONFLICT DO NOTHING;
 INSERT INTO public.profiles (id, full_name) VALUES ('00000000-0000-0000-0000-000000000001', 'Usuário Teste') ON CONFLICT DO NOTHING;
 INSERT INTO public.family_groups (id, name) VALUES ('00000000-0000-0000-0000-000000000001', 'Minha Família') ON CONFLICT DO NOTHING;
 INSERT INTO public.family_members (family_group_id, user_id, role) VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'admin') ON CONFLICT DO NOTHING;
@@ -883,11 +916,14 @@ END;
 $$;
 
 -- Grants for PostgREST
-GRANT USAGE ON SCHEMA public TO anon;
-GRANT USAGE ON SCHEMA auth TO anon;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO anon;
-GRANT ALL ON ALL TABLES IN SCHEMA auth TO anon;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA auth TO anon;
-GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO anon;
-GRANT ALL ON ALL FUNCTIONS IN SCHEMA auth TO anon;
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT USAGE ON SCHEMA auth TO anon, authenticated;
+
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA auth TO anon, authenticated;
+
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA auth TO anon, authenticated;
+
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated;
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated;

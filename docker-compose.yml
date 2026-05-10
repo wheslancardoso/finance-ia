@@ -1,32 +1,57 @@
-version: '3.8'
-
 services:
   db:
-    image: postgres:15
-    container_name: vesper-postgres
-    restart: always
+    image: postgres:15-alpine
+    container_name: vesper-db
     environment:
-      POSTGRES_USER: vesper_user
-      POSTGRES_PASSWORD: vesper_password
-      POSTGRES_DB: vesper_db
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
     volumes:
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vesper-network
 
   postgrest:
     image: postgrest/postgrest
-    container_name: vesper-postgrest
+    container_name: vesper-api
     ports:
-      - "3000:3000"
+      - "3002:3000"
     environment:
-      PGRST_DB_URI: postgres://authenticator:vesper_secret_password@db:5432/vesper_db
+      PGRST_DB_URI: postgres://authenticator:vesper_secret_password@db:5432/postgres
       PGRST_DB_SCHEMA: public
       PGRST_DB_ANON_ROLE: anon
-      PGRST_JWT_SECRET: "really-long-secret-key-that-should-be-kept-safe"
+      PGRST_JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    networks:
+      - vesper-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: vesper-nginx
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "3001:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - postgrest
+    networks:
+      - vesper-network
+
+networks:
+  vesper-network:
+    name: vesper-network
 
 volumes:
   postgres_data:

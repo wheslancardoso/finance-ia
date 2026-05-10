@@ -5,10 +5,17 @@ set -e
 PROJECT_ROOT="/home/lan/finance-ia"
 NETWORK_NAME="vesper-network"
 
-echo "🚀 Iniciando Vesper Finance Local Stack..."
+echo "🚀 Iniciando Vesper Finance Local Stack (Manual Mode)..."
 
 # 1. Criar rede se não existir
-docker network create $NETWORK_NAME || true
+if ! docker network inspect $NETWORK_NAME >/dev/null 2>&1; then
+    echo "🌐 Criando rede $NETWORK_NAME..."
+    docker network create $NETWORK_NAME
+fi
+
+# 1.5 Limpar containers antigos (se existirem)
+echo "🧹 Limpando containers antigos..."
+docker rm -f vesper-db vesper-api vesper-nginx postgrest || true
 
 # 2. Iniciar Postgres
 echo "🐘 Iniciando Postgres..."
@@ -31,12 +38,13 @@ done
 # 3. Iniciar PostgREST
 echo "📡 Iniciando PostgREST..."
 docker run -d \
-  --name postgrest \
+  --name vesper-api \
   --network $NETWORK_NAME \
-  -e PGRST_DB_URI=postgres://postgres:password@vesper-db:5432/postgres \
+  -e PGRST_DB_URI=postgres://authenticator:vesper_secret_password@vesper-db:5432/postgres \
   -e PGRST_DB_SCHEMA=public \
   -e PGRST_DB_ANON_ROLE=anon \
   -e PGRST_JWT_SECRET=super-secret-jwt-token-with-at-least-32-characters \
+  -p 3002:3000 \
   postgrest/postgrest
 
 # 4. Iniciar Nginx (Proxy & Auth Mock)
@@ -44,6 +52,7 @@ echo "🛡️ Iniciando Nginx (Porta 3001)..."
 docker run -d \
   --name vesper-nginx \
   --network $NETWORK_NAME \
+  --add-host host.docker.internal:host-gateway \
   -p 3001:80 \
   -v $PROJECT_ROOT/infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro \
   nginx:alpine
@@ -51,3 +60,4 @@ docker run -d \
 echo "✅ Stack iniciada com sucesso!"
 echo "📍 API / Auth Mock: http://localhost:3001"
 echo "🐘 Banco de Dados: localhost:5432"
+echo "💻 Frontend: Rode 'npm run dev' em outro terminal"
