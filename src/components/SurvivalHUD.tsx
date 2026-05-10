@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { Wallet, CalendarDays, Calendar, AlertTriangle, ShieldCheck, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,8 +13,7 @@ export default function SurvivalHUD() {
   const { 
     monthlyIncomeCents, 
     recurringIncomeCents,
-    setMonthlyIncomeCents,
-    setFixedExpensesCents
+    setMonthlyIncomeCents
   } = useFinancialData();
 
   const { 
@@ -27,7 +26,6 @@ export default function SurvivalHUD() {
 
   // Estado local para o formulário de setup
   const [setupIncome, setSetupIncome] = useState("");
-  const [setupExpenses, setSetupExpenses] = useState("");
 
   const survivalCeilingCents = Math.max(0, monthlyOutlook.balanceAtMonthEnd);
 
@@ -79,8 +77,11 @@ export default function SurvivalHUD() {
     statusMessage = "Atenção ao Orçamento";
   }
 
-  // Se a renda total (manual + recorrente) não estiver configurada, mostramos o setup
-  if (monthlyIncomeCents + recurringIncomeCents === 0) {
+  const hasFinancialData = (monthlyIncomeCents || 0) + (recurringIncomeCents || 0) > 0;
+
+  // Se não houver nenhum dado e não estiver em crise, podemos ocultar ou mostrar setup
+  // Mas se já houver dados, usamos eles automaticamente.
+  if (!hasFinancialData && !isSurvivalMode) {
     return (
       <div className="w-full bg-[#0a0a0a]/80 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-4">
@@ -88,9 +89,9 @@ export default function SurvivalHUD() {
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-white/80 font-bold mb-1">Ativar Modo Crise</h3>
+            <h3 className="text-white/80 font-bold mb-1">Configuração de Fluxo</h3>
             <p className="text-sm text-white/40 max-w-sm">
-              Configure sua renda e seus custos fixos para ativar o Teto de Sobrevivência Dinâmico.
+              Configure sua renda mensal para ativar o Teto de Sobrevivência Dinâmico.
             </p>
           </div>
         </div>
@@ -103,20 +104,11 @@ export default function SurvivalHUD() {
             value={setupIncome}
             onChange={(e) => setSetupIncome(e.target.value)}
           />
-          <input 
-            type="text" 
-            placeholder="Custo Fixo (Ex: 1500,00)" 
-            className="w-full sm:w-48 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-purple-500/50"
-            value={setupExpenses}
-            onChange={(e) => setSetupExpenses(e.target.value)}
-          />
           <button 
             onClick={() => {
               const incomeCents = parseFloat(setupIncome.replace(/\./g, "").replace(",", ".")) * 100;
-              const expensesCents = parseFloat(setupExpenses.replace(/\./g, "").replace(",", ".")) * 100;
               if (incomeCents > 0) {
                 setMonthlyIncomeCents(incomeCents || 0);
-                setFixedExpensesCents(expensesCents || 0);
               }
             }}
             className="bg-white text-black font-bold text-sm px-6 py-2.5 rounded-xl hover:bg-white/90 transition-colors"

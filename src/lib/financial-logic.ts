@@ -1,6 +1,5 @@
 
-import { Account, Budget, RecurringTransaction } from "@/lib/db";
-import { isSameMonth, endOfMonth } from "date-fns";
+import { Account, Budget, Goal } from "@/lib/db";
 
 /**
  * Calcula a Dívida Total Consolidada (Soma de faturas abertas e fechadas de todos os cartões)
@@ -137,7 +136,7 @@ export function calculateDebtExitProjection(params: {
  */
 export function calculateGoalProjections(params: {
   debtExit: DebtExitProjection;
-  goals: any[];
+  goals: Goal[];
 }): GoalProjection[] {
   const { debtExit, goals } = params;
   let currentFocusDate = debtExit.exitDate ? new Date(debtExit.exitDate) : new Date();
@@ -188,3 +187,96 @@ export function calculateGoalProjections(params: {
   });
 }
 
+
+export interface SimulationDetailedResult {
+  status: "SAFE" | "WARNING" | "DANGER";
+  message: string;
+  impact_percentage: number;
+  new_balance_cents: number;
+  new_net_liquidity_cents: number;
+  debt_exit_delay_months: number;
+  new_exit_date: Date | null;
+  installment_impact: number;
+}
+
+/**
+ * Simula o impacto de uma compra (à vista ou parcelada) nas projeções financeiras.
+ */
+export function simulateDetailedImpact(params: {
+  amountCents: number;
+  installments: number;
+  netLiquidityCents: number;
+  monthlySurplus: number;
+  currentExitDate: Date | null;
+  currentBalanceCents: number;
+}): SimulationDetailedResult {
+  const { amountCents, installments, netLiquidityCents, monthlySurplus, currentExitDate, currentBalanceCents } = params;
+  
+  const isInstallment = installments > 1;
+  const monthlyImpact = isInstallment ? Math.round(amountCents / installments) : amountCents;
+  
+  // Novo saldo de liquidez líquida (imediatamente reduz o valor total se for à vista, 
+  // ou reduz gradualmente se for parcelado - mas para fins de "saúde real", consideramos o compromisso total)
+  const newNetLiquidity = netLiquidityCents - amountCents;
+  const newMonthlySurplus = monthlySurplus - (isInstallment ? monthlyImpact : 0);
+  
+  // Novo cálculo de saída de dívida
+  let newExitDate = currentExitDate;
+  let debtExitDelay = 0;
+  
+  if (newNetLiquidity < 0 && newMonthlySurplus > 0) {
+    const monthsToExit = Math.ceil(Math.abs(newNetLiquidity) / newMonthlySurplus);
+    newExitDate = new Date();
+    newExitDate.setMonth(newExitDate.getMonth() + monthsToExit);
+    
+    if (currentExitDate) {
+      const currentMonths = Math.ceil(Math.abs(netLiquidityCents) / monthlySurplus);
+      debtExitDelay = monthsToExit - currentMonths;
+    } else {
+      debtExitDelay = monthsToExit;
+    }
+  } else if (newMonthlySurplus <= 0 && newNetLiquidity < 0) {
+    newExitDate = null;
+    debtExitDelay = 999;
+  }
+
+  // Determinar Status
+  let status: "SAFE" | "WARNING" | "DANGER" = "SAFE";
+  let message = "";
+  
+  const impactOnSurplus = monthlySurplus > 0 ? Math.round((monthlyImpact / monthlySurplus) * 100) : 100;
+  
+  if (newNetLiquidity < 0 || newMonthlySurplus < (monthlySurplus * 0.5)) {
+    status = "DANGER";
+    message = isInstallment 
+      ? `Atenção: Esta parcela de ${formatCurrency(monthlyImpact)} compromete ${impactOnSurplus}% da sua sobra mensal.`
+      : "Risco Alto: Esta compra zera sua reserva imediata ou aumenta seu ciclo de dívida.";
+  } else if (impactOnSurplus > 20) {
+    status = "WARNING";
+    message = "Moderado: A compra é possível, mas reduz consideravelmente seu fôlego mensal.";
+  } else {
+    status = "SAFE";
+    message = "Seguro: O impacto é baixo e não compromete seus objetivos principais.";
+  }
+
+  if (debtExitDelay > 0 && debtExitDelay !== 999) {
+    message += ` Isso atrasará sua saída das dívidas em ${debtExitDelay} ${debtExitDelay === 1 ? 'mês' : 'meses'}.`;
+  } else if (debtExitDelay === 999) {
+    message = "Crítico: Esta compra impede que você saia das dívidas com sua renda atual.";
+  }
+
+  return {
+    status,
+    message,
+    impact_percentage: impactOnSurplus,
+    new_balance_cents: currentBalanceCents - (isInstallment ? monthlyImpact : amountCents),
+    new_net_liquidity_cents: newNetLiquidity,
+    debt_exit_delay_months: debtExitDelay === 999 ? 0 : debtExitDelay,
+    new_exit_date: newExitDate,
+    installment_impact: monthlyImpact
+  };
+}
+
+function formatCurrency(cents: number) {
+  return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}

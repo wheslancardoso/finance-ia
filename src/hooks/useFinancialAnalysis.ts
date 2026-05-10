@@ -10,7 +10,9 @@ import {
   calculateDebtExitProjection,
   calculateGoalProjections,
   DebtExitProjection,
-  GoalProjection
+  GoalProjection,
+  simulateDetailedImpact,
+  SimulationDetailedResult
 } from "@/lib/financial-logic";
 
 export interface FinancialAnalysis {
@@ -22,6 +24,7 @@ export interface FinancialAnalysis {
   isSurvivalMode: boolean;
   debtExit: DebtExitProjection;
   goalProjections: GoalProjection[];
+  simulateDetailedImpact: (amountCents: number, installments: number) => SimulationDetailedResult;
 }
 
 /**
@@ -78,6 +81,15 @@ export function useFinancialAnalysis(): FinancialAnalysis {
     healthScore,
     isSurvivalMode: netLiquidity < 0,
     debtExit,
-    goalProjections
+    goalProjections,
+    simulateDetailedImpact: (amountCents: number, installments: number) => 
+      simulateDetailedImpact({
+        amountCents,
+        installments,
+        netLiquidityCents: netLiquidity,
+        monthlySurplus: debtExit.monthlySurplus,
+        currentExitDate: debtExit.exitDate,
+        currentBalanceCents: currentAssets
+      })
   };
 }
