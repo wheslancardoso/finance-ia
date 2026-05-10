@@ -2,56 +2,30 @@
 
 import { useEffect, useRef } from "react";
 import { useAccountModal } from "@/context/AccountModalContext";
-import { createClient } from "@/utils/supabase/client";
+import { LOCAL_USER_ID } from "@/lib/constants";
 
 /**
- * SyncUser — Componente autônomo que resolve o userId
- * diretamente no client, sem depender de props de Server Components.
+ * SyncUser — Componente autônomo que resolve o userId.
  * 
- * Deve ser montado UMA VEZ no AppShell para garantir que o contexto
- * esteja sempre populado, independentemente da página atual.
+ * Com a remoção do Supabase Auth, usa o LOCAL_USER_ID
+ * como userId padrão para desenvolvimento local.
  * 
- * Aceita opcionalmente uma prop `userId` para compatibilidade
- * retroativa com páginas que já passam o valor do server.
+ * Aceita opcionalmente uma prop `userId` para sobrescrever.
  */
 export function SyncUser({ userId: serverUserId }: { userId?: string | null }) {
   const { userId: contextUserId, setUserId } = useAccountModal();
-  const isFetching = useRef(false);
+  const hasSet = useRef(false);
 
   useEffect(() => {
-    // Se recebeu do server, usar direto
-    if (serverUserId) {
-      setUserId(serverUserId);
-      return;
+    if (hasSet.current) return;
+
+    // Prioridade: prop > contexto > LOCAL_USER_ID
+    const resolvedId = serverUserId || contextUserId || LOCAL_USER_ID;
+    
+    if (resolvedId && resolvedId !== contextUserId) {
+      setUserId(resolvedId);
+      hasSet.current = true;
     }
-
-    // Se já temos no contexto, não precisa buscar de novo
-    if (contextUserId) return;
-
-    // Buscar autonomamente via Supabase client
-    if (isFetching.current) return;
-    isFetching.current = true;
-
-    async function fetchUser() {
-      try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          isFetching.current = false;
-          return;
-        }
-
-        if (user.id) {
-          setUserId(user.id);
-        }
-      } catch (err) {
-        console.error("SyncUser: erro ao buscar userId", err);
-      } finally {
-        isFetching.current = false;
-      }
-    }
-
-    fetchUser();
   }, [serverUserId, contextUserId, setUserId]);
 
   return null;

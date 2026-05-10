@@ -1,50 +1,20 @@
-import { createClient } from "@/utils/supabase/server";
-import { getUserId } from "@/utils/supabase/auth-helpers";
 import { formatCurrency } from "@/lib/utils";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import GlassCard from "@/components/GlassCard";
 import { Zap, Bell, CreditCard } from "lucide-react";
-import { redirect } from "next/navigation";
 import { SubscriptionManager } from "@/components/SubscriptionManager";
 import { SyncUser } from "@/components/SyncUser";
 import type { RecurringTransaction } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export default async function SubscriptionsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
-
-  const userId = await getUserId();
-
-  if (!userId) return null;
-
-  // 1. Buscar Estado Financeiro Completo via RPC v5
-  const { data: financialState } = await supabase.rpc('get_financial_state_v5', {
-    p_user_id: userId
-  });
-
-  if (!financialState) {
-    return <div>Erro ao carregar estado financeiro.</div>;
-  }
-
-  const subscriptions: RecurringTransaction[] = financialState.recurring_transactions || [];
-
-  const activeSubs = subscriptions?.filter((s: RecurringTransaction) => s.status === "active") || [];
+export default function SubscriptionsPage() {
+  const userId = "local_user";
+  const subscriptions: RecurringTransaction[] = [];
+  const activeSubs: RecurringTransaction[] = [];
   
-  const totalExpenses = activeSubs
-    .filter((s: RecurringTransaction) => s.transaction_type === "EXPENSE")
-    .reduce((acc: number, curr: RecurringTransaction) => acc + (curr.amount_cents || 0), 0);
-
-  const totalIncomes = activeSubs
-    .filter((s: RecurringTransaction) => s.transaction_type === "INCOME")
-    .reduce((acc: number, curr: RecurringTransaction) => acc + (curr.amount_cents || 0), 0);
-
-  const committedBalance = totalIncomes - totalExpenses;
-  const nextBilling = activeSubs.find((s: RecurringTransaction) => s.transaction_type === "EXPENSE");
+  const totalExpenses = 0;
+  const totalIncomes = 0;
+  const committedBalance = 0;
 
   return (
     <div className="p-8 md:p-12 max-w-7xl mx-auto w-full space-y-12">

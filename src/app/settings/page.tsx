@@ -1,25 +1,12 @@
-import { createClient } from "@/utils/supabase/server";
-import { getUserId } from "@/utils/supabase/auth-helpers";
-import { redirect } from "next/navigation";
-import { Shield, Zap, Palette, Bell, CreditCard, ChevronRight, UserPlus, MessageSquare } from "lucide-react";
+"use client";
+
+import { Shield, Palette, ChevronRight, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WhatsAppSettings } from "@/components/WhatsAppSettings";
+import { LOCAL_USER_ID } from "@/lib/constants";
+import { SyncUser } from "@/components/SyncUser";
 
-export default async function SettingsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
-
-  const userId = await getUserId();
-
-  // Buscar members do grupo e o profile do usuário logado
-  const { data: profileData } = await supabase
-    .from("profiles")
-    .select("whatsapp_number")
-    .eq("id", user.id)
-    .single();
-
+export default function SettingsPage() {
   const sections = [
     {
       id: "whatsapp",
@@ -28,7 +15,7 @@ export default async function SettingsPage() {
       icon: MessageSquare,
       color: "text-emerald-400",
       bg: "bg-emerald-400/10",
-      content: <WhatsAppSettings userId={user.id} initialNumber={profileData?.whatsapp_number} />
+      content: <WhatsAppSettings userId={LOCAL_USER_ID} initialNumber={undefined} />
     },
     {
       id: "preferences",
@@ -60,6 +47,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="p-8 md:p-12 max-w-4xl mx-auto w-full space-y-12">
+      <SyncUser userId={LOCAL_USER_ID} />
       <header className="space-y-2">
         <div className="flex items-center gap-3 text-violet-400">
           <Shield className="w-5 h-5" />

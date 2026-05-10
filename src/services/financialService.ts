@@ -1,10 +1,29 @@
 import { db, type Transaction, type Account, type Goal, type Category, type RecurringTransaction, type Budget } from "@/lib/db";
+
 const generateId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 };
+
+/**
+ * Helper: chama a API interna do Next.js
+ */
+async function apiFetch(path: string, options?: RequestInit) {
+  const res = await fetch(path, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options?.headers,
+    },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `API error ${res.status}`);
+  }
+  return res.json();
+}
 
 export const financialService = {
   // --- TRANSACTIONS ---
@@ -17,18 +36,37 @@ export const financialService = {
         source: data.source ?? "MANUAL",
       };
 
+      // 1. Persistir no PostgreSQL via API
+      const saved = await apiFetch("/api/transactions", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      // 2. Atualizar cache local (Dexie)
+      await db.transactions.put({ ...payload, ...saved });
+      return { data: saved, error: null };
+    } catch (error: any) {
+      console.error("❌ upsertTransaction falhou no PostgreSQL:", error.message);
+      // Fallback: salvar apenas local
+      const payload = {
+        ...data,
+        id: data.id || generateId(),
+        is_paid: data.is_paid ?? true,
+        source: data.source ?? "MANUAL",
+      };
       await db.transactions.put(payload);
-      return { data: payload, error: null };
-    } catch (error) {
-      return { data: null, error };
+      return { data: payload, error };
     }
   },
 
   async deleteTransaction(id: string) {
     try {
+      await apiFetch(`/api/transactions?id=${id}`, { method: "DELETE" });
       await db.transactions.delete(id);
       return { data: true, error: null };
     } catch (error) {
+      console.error("❌ deleteTransaction error:", error);
+      await db.transactions.delete(id);
       return { data: null, error };
     }
   },
@@ -39,6 +77,12 @@ export const financialService = {
         .where({ account_id: accountId })
         .filter(t => t.description === description && t.installment_total === installmentTotal)
         .toArray();
+
+      // Deletar cada uma via API
+      for (const t of transactions) {
+        await apiFetch(`/api/transactions?id=${t.id}`, { method: "DELETE" }).catch(() => {});
+      }
+
       await db.transactions.bulkDelete(transactions.map(t => t.id));
       return { data: true, error: null };
     } catch (error) {
@@ -59,6 +103,15 @@ export const financialService = {
         .toArray();
       
       const updated = transactions.map(t => ({ ...t, ...updates }));
+      
+      // Atualizar cada uma via API
+      for (const t of updated) {
+        await apiFetch("/api/transactions", {
+          method: "POST",
+          body: JSON.stringify(t),
+        }).catch(() => {});
+      }
+
       await db.transactions.bulkPut(updated);
       return { data: true, error: null };
     } catch (error) {
@@ -77,13 +130,14 @@ export const financialService = {
   }) {
     try {
       const amountPerInstallment = Math.round(data.amount_total_cents / data.installments);
+      const groupId = generateId();
       const transactions: Transaction[] = [];
       
       for (let i = 0; i < data.installments; i++) {
         const date = new Date(data.start_date);
         date.setMonth(date.getMonth() + i);
         
-        transactions.push({
+        const tx: Transaction = {
           id: generateId(),
           user_id: data.user_id,
           description: `${data.description} (${i + 1}/${data.installments})`,
@@ -92,13 +146,23 @@ export const financialService = {
           date: date.toISOString(),
           account_id: data.account_id,
           category_id: data.category_id,
-          is_paid: i === 0 ? true : false,
+          is_paid: i === 0,
           installment_current: i + 1,
           installment_total: data.installments,
           source: "MANUAL"
-        });
+        };
+
+        transactions.push(tx);
       }
       
+      // Persistir cada parcela no PostgreSQL
+      for (const tx of transactions) {
+        await apiFetch("/api/transactions", {
+          method: "POST",
+          body: JSON.stringify({ ...tx, installment_group_id: groupId }),
+        }).catch((err) => console.error("installment save error:", err));
+      }
+
       await db.transactions.bulkPut(transactions);
       return { data: true, error: null };
     } catch (error) {
@@ -113,10 +177,25 @@ export const financialService = {
         ...data,
         id: data.id || generateId()
       };
+
+      // 1. Persistir no PostgreSQL via API
+      const saved = await apiFetch("/api/accounts", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      // 2. Atualizar cache local (Dexie)
+      await db.accounts.put({ ...payload, ...saved });
+      return { data: saved, error: null };
+    } catch (error: any) {
+      console.error("❌ upsertAccount falhou no PostgreSQL:", error.message);
+      // Fallback: salvar apenas local
+      const payload = {
+        ...data,
+        id: data.id || generateId()
+      };
       await db.accounts.put(payload);
-      return { data: payload, error: null };
-    } catch (error) {
-      return { data: null, error };
+      return { data: payload, error };
     }
   },
 
@@ -167,12 +246,28 @@ export const financialService = {
       const toAccount = await db.accounts.get(data.to_account_id);
       
       if (fromAccount && toAccount) {
-        // Update account balances
+        // Update account balances via API
+        await apiFetch("/api/accounts", {
+          method: "POST",
+          body: JSON.stringify({
+            ...fromAccount,
+            balance_cents: fromAccount.balance_cents - data.amount_cents
+          }),
+        });
+        await apiFetch("/api/accounts", {
+          method: "POST",
+          body: JSON.stringify({
+            ...toAccount,
+            balance_cents: (toAccount.balance_cents || 0) + data.amount_cents
+          }),
+        });
+
+        // Update local cache
         await db.accounts.update(data.from_account_id, { balance_cents: fromAccount.balance_cents - data.amount_cents });
         await db.accounts.update(data.to_account_id, { balance_cents: (toAccount.balance_cents || 0) + data.amount_cents });
         
         // Record transaction
-        await db.transactions.put({
+        const txPayload = {
           id: generateId(),
           user_id: data.user_id,
           description: `Transferência para ${toAccount.name}`,
@@ -182,7 +277,14 @@ export const financialService = {
           account_id: data.from_account_id,
           is_paid: true,
           source: "MANUAL"
-        });
+        };
+
+        await apiFetch("/api/transactions", {
+          method: "POST",
+          body: JSON.stringify(txPayload),
+        }).catch(() => {});
+
+        await db.transactions.put(txPayload as Transaction);
       }
       return { data: true, error: null };
     } catch (error) {
@@ -190,9 +292,29 @@ export const financialService = {
     }
   },
 
+  /**
+   * getFinancialState — Busca o estado financeiro completo.
+   * Prioridade: API (PostgreSQL) → Fallback para Dexie local.
+   */
   async getFinancialState(userId: string) {
     try {
-      // Local calculations
+      // Buscar do PostgreSQL via API route
+      const state = await apiFetch(`/api/financial-state?user_id=${userId}`);
+
+      return { data: state, error: null };
+    } catch (apiError: any) {
+      console.warn("⚠️ API indisponível, usando dados locais (Dexie):", apiError.message);
+      
+      // Fallback: dados locais
+      return this._getLocalFinancialState(userId);
+    }
+  },
+
+  /**
+   * Fallback local com Dexie (offline-first)
+   */
+  async _getLocalFinancialState(userId: string) {
+    try {
       const accounts = await db.accounts.where('user_id').equals(userId).toArray();
       const categories = await db.categories.where('user_id').equals(userId).toArray();
       const goals = await db.goals.where('user_id').equals(userId).toArray();
@@ -200,15 +322,12 @@ export const financialService = {
       const budgets = await db.budgets.where('user_id').equals(userId).toArray();
       const transactions = await db.transactions.where('user_id').equals(userId).toArray();
       
-      // Calculate accumulated balance
       const accumulated_balance_cents = accounts.reduce((acc, account) => acc + (account.balance_cents || 0), 0);
       
-      // Sort transactions by date desc
       transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       
       const recent_transactions = transactions.slice(0, 10);
       
-      // Filter this month's transactions
       const now = new Date();
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
@@ -218,7 +337,6 @@ export const financialService = {
         return d >= firstDayOfMonth && d <= lastDayOfMonth;
       });
       
-      // Calculate month stats
       let income = 0;
       let debit_expense = 0;
       let credit_expense = 0;
@@ -227,7 +345,6 @@ export const financialService = {
       month_transactions.forEach(t => {
         if (t.transaction_type === 'INCOME') income += t.amount_cents;
         if (t.transaction_type === 'EXPENSE') {
-          // simple approximation for credit vs debit
           const acc = accounts.find(a => a.id === t.account_id);
           if (acc?.type === 'CREDIT_CARD') {
             credit_expense += t.amount_cents;
@@ -237,15 +354,14 @@ export const financialService = {
         }
       });
       
-      // Load user profile from localStorage
       let monthly_income_cents = 0;
       let fixed_expenses_cents = 0;
-      let financial_health_score = 0;
+      let financial_health_score = 80;
       
       if (typeof window !== "undefined") {
         monthly_income_cents = parseInt(localStorage.getItem("vesper_monthly_income") || "0", 10);
         fixed_expenses_cents = parseInt(localStorage.getItem("vesper_fixed_expenses") || "0", 10);
-        financial_health_score = parseInt(localStorage.getItem("vesper_health_score") || "80", 10); // default 80
+        financial_health_score = parseInt(localStorage.getItem("vesper_health_score") || "80", 10);
       }
       
       return {
@@ -284,7 +400,7 @@ export const financialService = {
       const balance = state.data?.user_profile.accumulated_balance_cents || 0;
       
       const newBalance = balance - amountCents;
-      const status = newBalance < 0 ? "DANGER" : (newBalance < 100000 ? "WARNING" : "SAFE"); // <1000 BRL is warning
+      const status = newBalance < 0 ? "DANGER" : (newBalance < 100000 ? "WARNING" : "SAFE");
       
       return {
         data: {
@@ -307,10 +423,10 @@ export const financialService = {
       const balance = state.data?.user_profile.accumulated_balance_cents || 0;
       
       const goals = state.data?.goals || [];
-      const recommendations = goals.map(g => ({
+      const recommendations = goals.map((g: any) => ({
         goal_id: g.id,
         goal_name: g.name,
-        recommended_amount_cents: Math.round(balance * 0.1), // suggest 10%
+        recommended_amount_cents: Math.round(balance * 0.1),
         is_full_target: false
       }));
       
@@ -329,7 +445,16 @@ export const financialService = {
 
   async toggleTransactionPaid(transactionId: string, currentStatus: boolean) {
     try {
-      await db.transactions.update(transactionId, { is_paid: !currentStatus });
+      // Buscar transação local
+      const tx = await db.transactions.get(transactionId);
+      if (tx) {
+        const updated = { ...tx, is_paid: !currentStatus };
+        await apiFetch("/api/transactions", {
+          method: "POST",
+          body: JSON.stringify(updated),
+        }).catch(() => {});
+        await db.transactions.update(transactionId, { is_paid: !currentStatus });
+      }
       return { data: true, error: null };
     } catch (error) {
       return { data: null, error };
