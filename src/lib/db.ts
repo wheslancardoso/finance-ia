@@ -5,6 +5,7 @@ export interface Category {
   name: string;
   type: "EXPENSE" | "INCOME" | "TRANSFER";
   user_id?: string;
+  color_hex?: string;
 }
 
 export interface Account {
