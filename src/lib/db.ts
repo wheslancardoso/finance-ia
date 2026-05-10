@@ -88,16 +88,18 @@ export class VesperDB extends Dexie {
   recurring_transactions!: Table<RecurringTransaction>;
   budgets!: Table<Budget>;
   financial_health_score!: Table<FinancialHealthScore>;
+  transactions!: Table<Transaction>;
 
   constructor() {
     super('VesperDB');
-    this.version(3).stores({
+    this.version(4).stores({
       accounts: 'id, user_id, type',
       categories: 'id, user_id, type',
       goals: 'id, user_id',
       recurring_transactions: 'id, user_id, status',
       budgets: 'id, user_id, category_id',
-      financial_health_score: 'id'
+      financial_health_score: 'id',
+      transactions: 'id, user_id, account_id, category_id, date'
     });
   }
 }

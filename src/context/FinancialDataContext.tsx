@@ -238,21 +238,21 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       impact_percentage: 0
     };
     const { data, error } = await financialService.simulatePurchaseImpact(userId, amountCents);
-    if (error) return {
+    if (error || !data) return {
       current_surplus_cents: 0,
       simulated_surplus_cents: 0,
       status: "DANGER",
       message: "Erro ao conectar com o simulador.",
       impact_percentage: 0
     };
-    return data;
+    return data as SimulationResult;
   };
 
   const getGoalRecommendations = async (): Promise<GoalRecommendationsResponse> => {
     if (!userId) return { surplus_cents: 0, remaining_surplus_cents: 0, recommendations: [] };
     const { data, error } = await financialService.getGoalRecommendations(userId);
-    if (error) return { surplus_cents: 0, remaining_surplus_cents: 0, recommendations: [] };
-    return data;
+    if (error || !data) return { surplus_cents: 0, remaining_surplus_cents: 0, recommendations: [] };
+    return data as GoalRecommendationsResponse;
   };
 
   const getIncomeMix = useCallback((): IncomeMixItem[] => {
