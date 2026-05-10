@@ -104,7 +104,7 @@ export function AddTransactionModal() {
     } catch (e) {
       console.error("Erro ao processar data para dívida legada", e);
     }
-  }, [transactionDate, transactionToEdit, isLegacyDebt]);
+  }, [transactionDate, transactionToEdit]);
 
   useEffect(() => {
     if (isOpen) {
