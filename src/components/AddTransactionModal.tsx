@@ -242,7 +242,6 @@ export function AddTransactionModal() {
             await deleteTransactionSeries(transactionToEdit.description, transactionToEdit.installment_total, transactionToEdit.account_id);
             
             await createInstallmentSeries({
-              user_id: userId,
               description: capturedDescription,
               amount_total_cents: totalAmountCents,
               installments: capturedInstallments,
@@ -273,7 +272,6 @@ export function AddTransactionModal() {
       } else {
         if (capturedInstallments > 1) {
           await createInstallmentSeries({
-            user_id: userId,
             description: capturedDescription,
             amount_total_cents: totalAmountCents,
             installments: capturedInstallments,

@@ -22,35 +22,16 @@ import {
 import { cn, formatCurrency } from "@/lib/utils";
 
 import { InstallmentTimelineModal } from "./InstallmentTimelineModal";
+import { type Transaction } from "@/lib/db";
 
-interface Transaction {
-  id: string;
-  date: string;
-  description: string;
-  amount: number;
-  amount_cents?: number;
-  type: "EXPENSE" | "INCOME" | "TRANSFER";
-  transaction_type: "EXPENSE" | "INCOME" | "TRANSFER";
-  category_id?: string;
-  installment_current?: number;
-  installment_total?: number;
-  account_id?: string;
-  category?: {
-    name: string;
-    color_hex: string;
-  };
-  account?: {
-    id: string;
-    name: string;
-    type: string;
-  };
-}
+
+
 
 interface TransactionTimelineProps {
   transactions: Transaction[];
 }
 
-const getIcon = (description: string, categoryName: string, type: string) => {
+const getIcon = (description: string, categoryName: string, transactionType: string) => {
   const desc = description.toLowerCase();
   const name = categoryName?.toLowerCase() || "";
   
@@ -67,7 +48,7 @@ const getIcon = (description: string, categoryName: string, type: string) => {
   if (name.includes("compras") || name.includes("shop")) return ShoppingBag;
   if (name.includes("moradia") || name.includes("aluguel") || name.includes("casa")) return Home;
   
-  return type === "INCOME" ? ArrowUpRight : ArrowDownRight;
+  return transactionType === "INCOME" ? ArrowUpRight : ArrowDownRight;
 };
 
 export function TransactionTimeline({ transactions }: TransactionTimelineProps) {
@@ -122,7 +103,7 @@ export function TransactionTimeline({ transactions }: TransactionTimelineProps) 
 
             <div className="space-y-4">
               {groups[dateKey].map((tx, txIndex) => {
-                const Icon = getIcon(tx.description, tx.category?.name || "", tx.type);
+                const Icon = getIcon(tx.description, tx.category?.name || "", tx.transaction_type);
                 const isInstallment = tx.installment_total && tx.installment_total > 1;
 
                 return (
@@ -184,9 +165,9 @@ export function TransactionTimeline({ transactions }: TransactionTimelineProps) 
                       <div className="text-right space-y-1">
                         <p className={cn(
                           "text-sm font-black tabular-nums",
-                          tx.type === "INCOME" ? "text-emerald-400" : "text-white"
+                          tx.transaction_type === "INCOME" ? "text-emerald-400" : "text-white"
                         )}>
-                          {tx.type === "INCOME" ? "+" : "-"} {formatCurrency(tx.amount)}
+                          {tx.transaction_type === "INCOME" ? "+" : "-"} {formatCurrency(tx.amount_cents)}
                         </p>
                         <p className="text-[8px] font-bold text-white/10 uppercase tracking-widest group-hover:text-white/20 transition-colors">
                           {format(new Date(tx.date), "dd/MM - HH:mm")}
