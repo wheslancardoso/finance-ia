@@ -1,9 +1,9 @@
 import { createClient } from "@/utils/supabase/server";
 import RealtimeDashboard from "@/components/RealtimeDashboard";
-import { getFamilyGroup } from "@/utils/supabase/auth-helpers";
+import { getUserId } from "@/utils/supabase/auth-helpers";
 import { redirect } from "next/navigation";
 import { startOfMonth, endOfMonth } from "date-fns";
-import { SyncFamilyGroup } from "@/components/SyncFamilyGroup";
+import { SyncUser } from "@/components/SyncUser";
 import SurvivalHUD from "@/components/SurvivalHUD";
 
 export default async function Home() {
@@ -14,15 +14,15 @@ export default async function Home() {
     redirect("/login");
   }
 
-  const familyGroupId = await getFamilyGroup();
+  const userId = await getUserId();
 
-  if (!familyGroupId) {
-    return <div>Erro ao carregar seu grupo familiar.</div>;
+  if (!userId) {
+    return <div>Erro ao carregar seu perfil.</div>;
   }
 
-  // 1. Buscar Estado Financeiro Completo via RPC v3
-  const { data: financialState } = await supabase.rpc('get_financial_state_v3', {
-    p_family_group_id: familyGroupId,
+  // 1. Buscar Estado Financeiro Completo via RPC v5
+  const { data: financialState } = await supabase.rpc('get_financial_state_v5', {
+    p_user_id: userId,
     p_target_month: new Date().toISOString()
   });
 
@@ -102,7 +102,7 @@ export default async function Home() {
 
   return (
     <div className="p-8 md:p-12 max-w-7xl mx-auto w-full space-y-8">
-      <SyncFamilyGroup familyGroupId={familyGroupId} />
+      <SyncUser userId={userId} />
       <header className="flex flex-col gap-1">
         <h2 className="text-3xl font-bold tracking-tight text-white">Dashboard</h2>
         <p className="text-white/40">Bem-vindo de volta ao Centro de Comando.</p>

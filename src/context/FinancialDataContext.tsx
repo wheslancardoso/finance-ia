@@ -8,7 +8,7 @@ import { addMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface FinancialStateResponse {
-  family_group: {
+  user_profile: {
     monthly_income_cents: number;
     fixed_expenses_cents: number;
     accumulated_balance_cents: number;
@@ -113,11 +113,10 @@ const CACHE_DURATION = 10 * 60 * 1000; // 10 minutos de cache
 export function FinancialDataProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [loading, setLoading] = useState(false); // Começa como false para evitar travamentos se o ID não for resolvido
-  const [isInitialLoading, setIsInitialLoading] = useState(true); // Controle interno para o primeiro load
+  const [loading, setLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [lastFetched, setLastFetched] = useState<number | null>(null);
   
-  // Modo Crise: Variáveis Base
   const [monthlyIncomeCents, setMonthlyIncomeCentsState] = useState(0);
   const [fixedExpensesCents, setFixedExpensesCentsState] = useState(0);
   const [extraIncomeCents, setExtraIncomeCents] = useState(0);
@@ -132,156 +131,127 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const [monthTransactions, setMonthTransactions] = useState<Transaction[]>([]);
   const [healthScore, setHealthScore] = useState<number>(0);
 
-  const { familyGroupId } = useAccountModal();
+  const { userId } = useAccountModal();
 
-  // Persistência local e remota (Supabase)
   const setMonthlyIncomeCents = useCallback((val: number) => {
     setMonthlyIncomeCentsState(val);
     if (typeof window !== "undefined") {
       localStorage.setItem("vesper_monthly_income", val.toString());
     }
-    if (familyGroupId) {
-      financialService.updateFamilyGroup(familyGroupId, { monthly_income_cents: val }).then();
-    }
-  }, [familyGroupId]);
+  }, []);
 
   const setFixedExpensesCents = useCallback((val: number) => {
     setFixedExpensesCentsState(val);
     if (typeof window !== "undefined") {
       localStorage.setItem("vesper_fixed_expenses", val.toString());
     }
-    if (familyGroupId) {
-      financialService.updateFamilyGroup(familyGroupId, { fixed_expenses_cents: val }).then();
-    }
-  }, [familyGroupId]);
+  }, []);
 
   const refreshData = useCallback(async () => {
-    if (!familyGroupId) {
+    if (!userId) {
       setLoading(false);
       return;
     }
 
     try {
-      if (loading && !isInitialLoading) return; // Evitar chamadas duplicadas
+      if (loading && !isInitialLoading) return;
     
-    setLoading(true);
-    if (isInitialLoading) setIsInitialLoading(false);
-      console.log("DATABASE-DRIVEN: BUSCANDO ESTADO GLOBAL VIA RPC...");
+      setLoading(true);
+      if (isInitialLoading) setIsInitialLoading(false);
       
-      // 1. Chamar a Função RPC Mestra V5 (Elite Edition) via Service
-      console.log("DEBUG-RPC: Chamando getFinancialState com ID:", familyGroupId);
-      
-      const { data, error } = await financialService.getFinancialState(familyGroupId);
+      const { data, error } = await financialService.getFinancialState(userId);
 
-      if (error) {
-        throw error;
+      if (error) throw error;
+
+      const state = data as FinancialStateResponse;
+
+      if (state.user_profile) {
+        const { monthly_income_cents, fixed_expenses_cents, accumulated_balance_cents, financial_health_score } = state.user_profile;
+        
+        setMonthlyIncomeCentsState(monthly_income_cents || 0);
+        setFixedExpensesCentsState(fixed_expenses_cents || 0);
+        setAccumulatedBalanceCents(accumulated_balance_cents || 0);
+        setHealthScore(financial_health_score || 0);
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem("vesper_monthly_income", (monthly_income_cents || 0).toString());
+          localStorage.setItem("vesper_fixed_expenses", (fixed_expenses_cents || 0).toString());
+          localStorage.setItem("vesper_accumulated_balance", (accumulated_balance_cents || 0).toString());
+          localStorage.setItem("vesper_health_score", (financial_health_score || 0).toString());
+        }
       }
 
-    const state = data as FinancialStateResponse;
+      const recIncome = state.recurring_transactions
+        ?.filter((r: RecurringTransaction) => r.transaction_type === "INCOME" && r.status === 'active')
+        .reduce((sum: number, r: RecurringTransaction) => sum + r.amount_cents, 0) || 0;
 
-    // 2. Atualizar Configurações do Grupo Familiar (Modo Crise)
-    if (state.family_group) {
-      const { monthly_income_cents, fixed_expenses_cents, accumulated_balance_cents, financial_health_score } = state.family_group;
-      
-      setMonthlyIncomeCentsState(monthly_income_cents || 0);
-      setFixedExpensesCentsState(fixed_expenses_cents || 0);
-      setAccumulatedBalanceCents(accumulated_balance_cents || 0);
-      setHealthScore(financial_health_score || 0);
+      const recExpense = state.recurring_transactions
+        ?.filter((r: RecurringTransaction) => r.transaction_type === "EXPENSE" && r.status === 'active')
+        .reduce((sum: number, r: RecurringTransaction) => sum + r.amount_cents, 0) || 0;
+
+      setRecurringIncomeCents(recIncome);
+      setRecurringExpensesCents(recExpense);
 
       if (typeof window !== "undefined") {
-        localStorage.setItem("vesper_monthly_income", (monthly_income_cents || 0).toString());
-        localStorage.setItem("vesper_fixed_expenses", (fixed_expenses_cents || 0).toString());
-        localStorage.setItem("vesper_accumulated_balance", (accumulated_balance_cents || 0).toString());
-        localStorage.setItem("vesper_health_score", (financial_health_score || 0).toString());
+        localStorage.setItem("vesper_recurring_income", recIncome.toString());
+        localStorage.setItem("vesper_recurring_expense", recExpense.toString());
       }
-    }
 
-    // 3. Processar Fluxos Recorrentes
-    const recIncome = state.recurring_transactions
-      ?.filter((r: RecurringTransaction) => r.transaction_type === "INCOME" && r.status === 'active')
-      .reduce((sum: number, r: RecurringTransaction) => sum + r.amount_cents, 0) || 0;
+      setCategories(state.categories);
+      await db.categories.bulkPut(state.categories.map((c: Category) => ({ ...c, user_id: userId })));
 
-    const recExpense = state.recurring_transactions
-      ?.filter((r: RecurringTransaction) => r.transaction_type === "EXPENSE" && r.status === 'active')
-      .reduce((sum: number, r: RecurringTransaction) => sum + r.amount_cents, 0) || 0;
+      if (state.month_stats) {
+        const extraInc = Number(state.month_stats.income || 0);
+        const monthExp = Number(state.month_stats.debit_expense || 0);
+          
+        setExtraIncomeCents(extraInc);
+        setCurrentMonthExpensesCents(monthExp);
+      }
 
-    setRecurringIncomeCents(recIncome);
-    setRecurringExpensesCents(recExpense);
+      setAccounts(state.accounts);
+      await db.accounts.bulkPut(state.accounts.map((a: Account) => ({ ...a, user_id: userId })));
+      
+      setGoals(state.goals || []);
+      setRecurringTransactions(state.recurring_transactions || []);
+      setBudgets(state.budgets || []);
+      setRecentTransactions(state.recent_transactions || []);
+      setMonthTransactions(state.month_transactions || []);
 
-    if (typeof window !== "undefined") {
-      localStorage.setItem("vesper_recurring_income", recIncome.toString());
-      localStorage.setItem("vesper_recurring_expense", recExpense.toString());
-    }
-
-    // 4. Atualizar Categorias
-    setCategories(state.categories);
-    await db.categories.bulkPut(state.categories.map((c: Category) => ({ ...c, family_group_id: familyGroupId })));
-
-    // 5. Calcular Métricas do Mês via RPC Stats (Extra Income e Gastos do Mês)
-    if (state.month_stats) {
-      const extraInc = Number(state.month_stats.income || 0);
-      const monthExp = Number(state.month_stats.debit_expense || 0);
-        
-      setExtraIncomeCents(extraInc);
-      setCurrentMonthExpensesCents(monthExp);
-    }
-
-    // 6. Sincronizar Entidades com State e Dexie
-    setAccounts(state.accounts);
-    await db.accounts.bulkPut(state.accounts.map((a: Account) => ({ ...a, family_group_id: familyGroupId })));
-    
-    // 7. Sincronizar Outras Entidades com State e Dexie
-    setGoals(state.goals || []);
-    setRecurringTransactions(state.recurring_transactions || []);
-    setBudgets(state.budgets || []);
-    setRecentTransactions(state.recent_transactions || []);
-    setMonthTransactions(state.month_transactions || []);
-
-    if (state.goals) await db.goals.bulkPut(state.goals.map((g: Goal) => ({ ...g, family_group_id: familyGroupId })));
-    if (state.recurring_transactions) await db.recurring_transactions.bulkPut(state.recurring_transactions.map((r: RecurringTransaction) => ({ ...r, family_group_id: familyGroupId })));
-    if (state.budgets) await db.budgets.bulkPut(state.budgets.map((b: Budget) => ({ ...b, family_group_id: familyGroupId })));
+      if (state.goals) await db.goals.bulkPut(state.goals.map((g: Goal) => ({ ...g, user_id: userId })));
+      if (state.recurring_transactions) await db.recurring_transactions.bulkPut(state.recurring_transactions.map((r: RecurringTransaction) => ({ ...r, user_id: userId })));
+      if (state.budgets) await db.budgets.bulkPut(state.budgets.map((b: Budget) => ({ ...b, user_id: userId })));
 
       setLastFetched(Date.now());
     } catch (error: any) {
-      console.error("❌ ERRO AO BUSCAR ESTADO FINANCEIRO:", JSON.stringify(error, null, 2));
-      console.error("Contexto do Erro:", {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-        familyGroupId
-      });
+      console.error("❌ ERRO AO BUSCAR ESTADO FINANCEIRO:", error);
     } finally {
       setLoading(false);
     }
-  }, [familyGroupId]);
-
+  }, [userId]);
 
   const simulatePurchaseImpact = async (amountCents: number): Promise<SimulationResult> => {
-    const { data, error } = await financialService.simulatePurchaseImpact(familyGroupId!, amountCents);
-    if (error) {
-      console.error("❌ Erro na simulação (fn_simulate_spending):", JSON.stringify(error, null, 2));
-      return {
-        current_surplus_cents: 0,
-        simulated_surplus_cents: 0,
-        status: "DANGER",
-        message: "Erro ao conectar com o simulador.",
-        impact_percentage: 0
-      };
-    }
+    if (!userId) return {
+      current_surplus_cents: 0,
+      simulated_surplus_cents: 0,
+      status: "DANGER",
+      message: "Usuário não identificado.",
+      impact_percentage: 0
+    };
+    const { data, error } = await financialService.simulatePurchaseImpact(userId, amountCents);
+    if (error) return {
+      current_surplus_cents: 0,
+      simulated_surplus_cents: 0,
+      status: "DANGER",
+      message: "Erro ao conectar com o simulador.",
+      impact_percentage: 0
+    };
     return data;
   };
 
   const getGoalRecommendations = async (): Promise<GoalRecommendationsResponse> => {
-    const { data, error } = await financialService.getGoalRecommendations(familyGroupId!);
-    if (error) {
-      console.error("❌ Erro ao buscar recomendações (fn_get_goal_recommendations):", JSON.stringify(error, null, 2));
-      return {
-        surplus_cents: 0,
-        remaining_surplus_cents: 0,
-        recommendations: []
-      };
-    }
+    if (!userId) return { surplus_cents: 0, remaining_surplus_cents: 0, recommendations: [] };
+    const { data, error } = await financialService.getGoalRecommendations(userId);
+    if (error) return { surplus_cents: 0, remaining_surplus_cents: 0, recommendations: [] };
     return data;
   };
 
@@ -311,21 +281,17 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     const history: NetWorthHistoryItem[] = [];
     const now = new Date();
     
-    // 1. Saldo atual total
     let currentTotalCents = accounts.reduce((sum: number, acc: Account) => sum + (acc.balance_cents || 0), 0);
     
-    // 2. Iterar 6 meses para trás
     for (let i = 0; i < 6; i++) {
       const targetMonth = addMonths(now, -i);
       const monthStr = format(targetMonth, "MMM", { locale: ptBR });
       
-      // Adicionar ponto atual
       history.unshift({
         month: monthStr,
         amount: Math.round(currentTotalCents / 100)
       });
 
-      // 3. Subtrair o resultado líquido do mês atual para "voltar no tempo"
       const monthStart = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 1);
       const monthEnd = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0, 23, 59, 59);
 
@@ -347,9 +313,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   }, [accounts, monthTransactions]);
 
   const createTransfer = async (fromId: string, toId: string, amountCents: number) => {
-    if (!familyGroupId) return;
+    if (!userId) return;
     const { error } = await financialService.createTransfer({
-      family_group_id: familyGroupId,
+      user_id: userId,
       from_account_id: fromId,
       to_account_id: toId,
       amount_cents: amountCents
@@ -358,9 +324,10 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   };
 
   const upsertTransaction = async (data: any) => {
+    if (!userId) return;
     const res = await financialService.upsertTransaction({
       ...data,
-      family_group_id: familyGroupId!
+      user_id: userId
     });
     if (!res.error) await refreshData();
     return res;
@@ -389,25 +356,28 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     category_id?: string | null;
     start_date: string;
   }) => {
+    if (!userId) return;
     const { error } = await financialService.createInstallmentSeries({
       ...data,
-      family_group_id: familyGroupId!
+      user_id: userId
     });
     if (!error) await refreshData();
   };
 
   const upsertAccount = async (data: Partial<Account>) => {
+    if (!userId) return;
     const { error } = await financialService.upsertAccount({
       ...data,
-      family_group_id: familyGroupId!
+      user_id: userId
     });
     if (!error) await refreshData();
   };
 
   const upsertGoal = async (data: Partial<Goal> & { status?: string }) => {
+    if (!userId) return;
     const { error } = await financialService.upsertGoal({
       ...data,
-      family_group_id: familyGroupId!
+      user_id: userId
     });
     if (!error) await refreshData();
   };
@@ -426,21 +396,20 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     const loadLocalData = async () => {
-      if (!familyGroupId) {
+      if (!userId) {
         setLoading(false);
         setIsInitialLoading(false);
         return;
       }
       
       try {
-        const localAccounts = await db.accounts.where('family_group_id').equals(familyGroupId).toArray();
-        const localCategories = await db.categories.where('family_group_id').equals(familyGroupId).toArray();
-        const localGoals = await db.goals.where('family_group_id').equals(familyGroupId).toArray();
-        const localRecurring = await db.recurring_transactions.where('family_group_id').equals(familyGroupId).toArray();
-        const localBudgets = await db.budgets.where('family_group_id').equals(familyGroupId).toArray();
+        const localAccounts = await db.accounts.where('user_id').equals(userId).toArray();
+        const localCategories = await db.categories.where('user_id').equals(userId).toArray();
+        const localGoals = await db.goals.where('user_id').equals(userId).toArray();
+        const localRecurring = await db.recurring_transactions.where('user_id').equals(userId).toArray();
+        const localBudgets = await db.budgets.where('user_id').equals(userId).toArray();
 
         if (localAccounts.length > 0 || localCategories.length > 0) {
-          console.log("LOCAL-FIRST: DADOS CARREGADOS DO BANCO LOCAL");
           setAccounts(localAccounts as Account[]);
           setCategories(localCategories as Category[]);
           setGoals(localGoals as Goal[]);
@@ -455,7 +424,6 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       }
     };
 
-    // Carregar Configurações do Modo Crise do LocalStorage
     if (typeof window !== "undefined") {
       try {
         const storedIncome = localStorage.getItem("vesper_monthly_income");
@@ -478,11 +446,10 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     }
 
     loadLocalData();
-  }, [familyGroupId]);
+  }, [userId]);
 
-  // Carregar dados inicialmente se o cache expirar
   useEffect(() => {
-    if (familyGroupId) {
+    if (userId) {
       const now = Date.now();
       const isExpired = !lastFetched || (now - lastFetched > CACHE_DURATION);
       
@@ -490,7 +457,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         refreshData();
       }
     }
-  }, [familyGroupId, lastFetched, refreshData]);
+  }, [userId, lastFetched, refreshData]);
 
   return (
     <FinancialDataContext.Provider value={{ 

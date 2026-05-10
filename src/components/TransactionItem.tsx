@@ -37,14 +37,14 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
     if (tx.description.startsWith("Aporte: ")) {
       const goalName = tx.description.replace("Aporte: ", "");
       
-      const { familyGroupId } = useAccountModal();
+      const { userId } = useAccountModal();
       
       // Buscar a meta pelo nome dentro do grupo familiar
       const { data: goalData } = await supabase
         .from("goals")
         .select("*")
         .eq("name", goalName)
-        .eq("family_group_id", familyGroupId)
+        .eq("user_id", userId)
         .maybeSingle();
 
       if (goalData) {

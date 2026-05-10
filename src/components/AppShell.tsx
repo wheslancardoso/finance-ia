@@ -8,7 +8,7 @@ import { AddSubscriptionModal } from "./AddSubscriptionModal";
 import { AddGoalModal } from "./AddGoalModal";
 import { ContributionModal } from "./ContributionModal";
 import { GoalDetailModal } from "./GoalDetailModal";
-import { SyncFamilyGroup } from "./SyncFamilyGroup";
+import { SyncUser } from "./SyncUser";
 import { cn } from "@/lib/utils";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -35,7 +35,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       
       {!isLoginPage && (
         <>
-          <SyncFamilyGroup />
+          <SyncUser />
           <AddTransactionModal />
           <AddAccountModal />
           <AddSubscriptionModal />

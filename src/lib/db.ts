@@ -4,7 +4,7 @@ export interface Category {
   id: string;
   name: string;
   type: "EXPENSE" | "INCOME" | "TRANSFER";
-  family_group_id?: string;
+  user_id?: string;
 }
 
 export interface Account {
@@ -22,7 +22,7 @@ export interface Account {
   closing_day?: number;
   due_day?: number;
   color_hex?: string;
-  family_group_id: string;
+  user_id: string;
 }
 
 export interface Goal {
@@ -34,7 +34,7 @@ export interface Goal {
   deadline?: string;
   projected_completion_date?: string;
   color_hex?: string;
-  family_group_id?: string;
+  user_id?: string;
 }
 
 export interface RecurringTransaction {
@@ -47,14 +47,14 @@ export interface RecurringTransaction {
   status: "active" | "inactive";
   category_id?: string;
   account_id?: string;
-  family_group_id?: string;
+  user_id?: string;
 }
 
 export interface Budget {
   id: string;
   category_id: string;
   amount_cents: number;
-  family_group_id?: string;
+  user_id?: string;
 }
 
 export interface FinancialHealthScore {
@@ -71,7 +71,7 @@ export interface Transaction {
   date: string;
   account_id: string;
   category_id?: string | null;
-  family_group_id: string;
+  user_id: string;
   is_paid: boolean;
   is_legacy_debt?: boolean;
   installment_current?: number;
@@ -92,11 +92,11 @@ export class VesperDB extends Dexie {
   constructor() {
     super('VesperDB');
     this.version(3).stores({
-      accounts: 'id, family_group_id, type',
-      categories: 'id, family_group_id, type',
-      goals: 'id, family_group_id',
-      recurring_transactions: 'id, family_group_id, status',
-      budgets: 'id, family_group_id, category_id',
+      accounts: 'id, user_id, type',
+      categories: 'id, user_id, type',
+      goals: 'id, user_id',
+      recurring_transactions: 'id, user_id, status',
+      budgets: 'id, user_id, category_id',
       financial_health_score: 'id'
     });
   }

@@ -47,17 +47,7 @@ docker run -d \
   -p 3002:3000 \
   postgrest/postgrest
 
-# 4. Iniciar Nginx (Proxy & Auth Mock)
-echo "🛡️ Iniciando Nginx (Porta 3001)..."
-docker run -d \
-  --name vesper-nginx \
-  --network $NETWORK_NAME \
-  --add-host host.docker.internal:host-gateway \
-  -p 3001:80 \
-  -v $PROJECT_ROOT/infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro \
-  nginx:alpine
-
 echo "✅ Stack iniciada com sucesso!"
-echo "📍 API / Auth Mock: http://localhost:3001"
+echo "📍 API / Auth Mock (via Next.js): http://localhost:3000"
 echo "🐘 Banco de Dados: localhost:5432"
 echo "💻 Frontend: Rode 'npm run dev' em outro terminal"

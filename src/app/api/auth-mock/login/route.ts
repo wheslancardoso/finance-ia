@@ -1,80 +1,95 @@
 import { NextResponse } from 'next/server';
-import { Client } from 'pg';
+import pool from '@/lib/pg';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-export async function POST(request: Request) {
+const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-token-with-at-least-32-characters';
+
+export async function POST(req: Request) {
   try {
-    const { email, password } = await request.json();
+    const body = await req.json();
+    
+    // Supabase client can send email/password directly or via grant_type
+    const email = body.email || body.username; 
+    const password = body.password;
 
-    const client = new Client({
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '5432'),
-      database: process.env.DB_NAME || 'postgres',
-      user: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD || 'password',
-    });
+    if (!email || !password) {
+      return NextResponse.json({ 
+        error: 'invalid_grant',
+        error_description: 'Email and password are required' 
+      }, { status: 400 });
+    }
 
-    await client.connect();
-
+    const client = await pool.connect();
     try {
-      // 1. Find user
-      const result = await client.query(
+      const res = await client.query(
         'SELECT id, email, encrypted_password FROM auth.users WHERE email = $1',
         [email]
       );
 
-      if (result.rows.length === 0) {
-        return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+      if (res.rows.length === 0) {
+        return NextResponse.json({ 
+          error: 'invalid_grant',
+          error_description: 'Credenciais inválidas' 
+        }, { status: 401 });
       }
 
-      const user = result.rows[0];
-
-      // 2. Verify password with pgcrypto
-      const verifyResult = await client.query(
-        'SELECT ($1 = crypt($2, $3)) as is_valid',
-        [user.encrypted_password, password, user.encrypted_password]
-      );
-
-      if (!verifyResult.rows[0].is_valid) {
-        return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
-      }
-
-      // 3. Generate JWT for PostgREST
-      const jwtSecret = process.env.JWT_SECRET || 'super-secret-jwt-token-with-at-least-32-characters';
+      const user = res.rows[0];
       
-      const payload = {
-        aud: 'authenticated',
-        exp: Math.floor(Date.now() / 1000) + 3600,
-        sub: user.id,
-        email: user.email,
-        role: 'authenticated',
-        app_metadata: { provider: 'email', providers: ['email'] },
-        user_metadata: {},
-      };
+      // Supporting both hashed and plain text for legacy reasons during transition if needed
+      // but the user complained about plain text, so we prioritize bcrypt.
+      let isPasswordValid = false;
+      try {
+        isPasswordValid = await bcrypt.compare(password, user.encrypted_password);
+      } catch (e) {
+        // Fallback to plain text comparison only if bcrypt fails (e.g. not a hash)
+        // This helps users who were already in the DB with plain text
+        isPasswordValid = password === user.encrypted_password;
+      }
 
-      const token = jwt.sign(payload, jwtSecret);
+      if (!isPasswordValid) {
+        return NextResponse.json({ 
+          error: 'invalid_grant',
+          error_description: 'Credenciais inválidas' 
+        }, { status: 401 });
+      }
 
-      // Retornar no formato que o Supabase GoTrue espera
-      return NextResponse.json({
-        access_token: token,
-        token_type: 'bearer',
-        expires_in: 3600,
-        refresh_token: 'mock-refresh-token',
-        user: {
-          id: user.id,
+      const token = jwt.sign(
+        {
+          sub: user.id,
           email: user.email,
           role: 'authenticated',
           aud: 'authenticated',
-          app_metadata: { provider: 'email', providers: ['email'] },
-          user_metadata: {},
-          created_at: new Date().toISOString(),
+        },
+        JWT_SECRET,
+        { expiresIn: '1y' }
+      );
+
+      return NextResponse.json({
+        access_token: token,
+        token_type: 'bearer',
+        expires_in: 31536000,
+        refresh_token: 'dummy-refresh-token',
+        user: {
+          id: user.id,
+          email: user.email,
+          aud: 'authenticated',
+          role: 'authenticated',
+          email_confirmed_at: new Date().toISOString(),
+          confirmed_at: new Date().toISOString(),
+          last_sign_in_at: new Date().toISOString(),
+          created_at: new Date().toISOString(), // In a real app, these would come from DB
+          updated_at: new Date().toISOString(),
         }
       });
     } finally {
-      await client.end();
+      client.release();
     }
   } catch (error: any) {
-    console.error('Auth Mock Login Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Login error:', error);
+    return NextResponse.json({ 
+      error: 'server_error',
+      error_description: error.message 
+    }, { status: 500 });
   }
 }

@@ -1,5 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
-import { getFamilyGroup } from "@/utils/supabase/auth-helpers";
+import { getUserId } from "@/utils/supabase/auth-helpers";
 import { formatCurrency } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -7,7 +7,7 @@ import GlassCard from "@/components/GlassCard";
 import { Zap, Bell, CreditCard } from "lucide-react";
 import { redirect } from "next/navigation";
 import { SubscriptionManager } from "@/components/SubscriptionManager";
-import { SyncFamilyGroup } from "@/components/SyncFamilyGroup";
+import { SyncUser } from "@/components/SyncUser";
 import type { RecurringTransaction } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -18,13 +18,13 @@ export default async function SubscriptionsPage() {
 
   if (!user) redirect("/login");
 
-  const familyGroupId = await getFamilyGroup();
+  const userId = await getUserId();
 
-  if (!familyGroupId) return null;
+  if (!userId) return null;
 
-  // 1. Buscar Estado Financeiro Completo via RPC v3
-  const { data: financialState } = await supabase.rpc('get_financial_state_v3', {
-    p_family_group_id: familyGroupId
+  // 1. Buscar Estado Financeiro Completo via RPC v5
+  const { data: financialState } = await supabase.rpc('get_financial_state_v5', {
+    p_user_id: userId
   });
 
   if (!financialState) {
@@ -48,7 +48,7 @@ export default async function SubscriptionsPage() {
 
   return (
     <div className="p-8 md:p-12 max-w-7xl mx-auto w-full space-y-12">
-      <SyncFamilyGroup familyGroupId={familyGroupId} />
+      <SyncUser userId={userId} />
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <GlassCard className="p-8 space-y-4 border-emerald-500/20 bg-emerald-500/5">

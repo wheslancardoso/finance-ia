@@ -5,11 +5,11 @@ import React, { createContext, useContext, useState, ReactNode } from "react";
 interface AccountModalContextType {
   isOpen: boolean;
   accountToEdit: any | null;
-  familyGroupId: string | null;
+  userId: string | null;
   openAdd: () => void;
   openEdit: (account: any) => void;
   closeModal: () => void;
-  setFamilyGroupId: (id: string) => void;
+  setUserId: (id: string) => void;
 }
 
 const AccountModalContext = createContext<AccountModalContextType | undefined>(undefined);
@@ -17,7 +17,7 @@ const AccountModalContext = createContext<AccountModalContextType | undefined>(u
 export function AccountModalProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [accountToEdit, setAccountToEdit] = useState<any | null>(null);
-  const [familyGroupId, setFamilyGroupId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const openAdd = () => {
     setAccountToEdit(null);
@@ -39,11 +39,11 @@ export function AccountModalProvider({ children }: { children: ReactNode }) {
       value={{ 
         isOpen, 
         accountToEdit, 
-        familyGroupId, 
+        userId, 
         openAdd, 
         openEdit, 
         closeModal,
-        setFamilyGroupId 
+        setUserId 
       }}
     >
       {children}

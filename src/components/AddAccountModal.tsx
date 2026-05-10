@@ -15,7 +15,7 @@ export function AddAccountModal() {
     isOpen, 
     accountToEdit, 
     closeModal, 
-    familyGroupId 
+    userId 
   } = useAccountModal();
   
   const { 
@@ -171,8 +171,8 @@ export function AddAccountModal() {
     e.preventDefault();
     setLoading(true);
 
-    if (familyGroupId === null && !accountToEdit) {
-      alert("Erro: ID do grupo familiar não encontrado.");
+    if (userId === null && !accountToEdit) {
+      alert("Erro: Usuário não autenticado.");
       setLoading(false);
       return;
     }

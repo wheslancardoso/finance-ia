@@ -11,7 +11,7 @@ import { useFinancialData } from "@/context/FinancialDataContext";
 
 export function AddGoalModal() {
   const { isOpen, closeModal } = useGoalModal();
-  const { familyGroupId } = useAccountModal();
+  const { userId } = useAccountModal();
   const { upsertGoal, refreshData } = useFinancialData();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -31,9 +31,9 @@ export function AddGoalModal() {
 
     try {
       
-      if (!familyGroupId) {
-        console.error("Erro: familyGroupId não encontrado no contexto.");
-        alert("Não foi possível identificar seu grupo familiar. Tente recarregar a página.");
+      if (!userId) {
+        console.error("Erro: userId não encontrado no contexto.");
+        alert("Usuário não autenticado. Tente recarregar a página.");
         setLoading(false);
         return;
       }

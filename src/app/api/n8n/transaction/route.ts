@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { 
-      familyGroupId, 
+      userId, 
       accountId, 
       categoryId, 
       amountCents, 
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       isLegacyDebt = false
     } = body;
 
-    if (!familyGroupId || !accountId || !amountCents || !description) {
+    if (!userId || !accountId || !amountCents || !description) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from("transactions")
       .insert({
-        family_group_id: familyGroupId,
+        user_id: userId,
         account_id: accountId,
         category_id: categoryId || null, // Optional
         amount_cents: amountCents,

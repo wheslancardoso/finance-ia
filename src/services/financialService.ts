@@ -51,7 +51,7 @@ export const financialService = {
   },
 
   async createInstallmentSeries(data: {
-    family_group_id: string;
+    user_id: string;
     description: string;
     amount_total_cents: number;
     installments: number;
@@ -61,7 +61,7 @@ export const financialService = {
   }) {
     const supabase = createClient();
     return await supabase.rpc('create_installment_series', {
-      p_family_group_id: data.family_group_id,
+      p_user_id: data.user_id,
       p_description: data.description,
       p_amount_total_cents: data.amount_total_cents,
       p_installments: data.installments,
@@ -98,57 +98,54 @@ export const financialService = {
     return await supabase.from("goals").update({ current_amount_cents: currentAmountCents }).eq("id", goalId);
   },
 
-  async findGoalByName(name: string, familyGroupId: string) {
+  async findGoalByName(name: string, userId: string) {
     const supabase = createClient();
     return await supabase
       .from("goals")
       .select("*")
       .eq("name", name)
-      .eq("family_group_id", familyGroupId)
+      .eq("user_id", userId)
       .maybeSingle();
   },
 
   // --- TRANSFERS & OTHERS ---
 
   async createTransfer(data: {
-    family_group_id: string;
+    user_id: string;
     from_account_id: string;
     to_account_id: string;
     amount_cents: number;
   }) {
     const supabase = createClient();
     return await supabase.rpc('create_transfer', {
-      p_family_group_id: data.family_group_id,
+      p_user_id: data.user_id,
       p_from_id: data.from_account_id,
       p_to_id: data.to_account_id,
       p_amount_cents: data.amount_cents
     });
   },
 
-  async updateFamilyGroup(familyGroupId: string, updates: Record<string, any>) {
-    const supabase = createClient();
-    return await supabase.from("family_groups").update(updates).eq("id", familyGroupId);
-  },
 
-  async getFinancialState(familyGroupId: string) {
+
+  async getFinancialState(userId: string) {
     const supabase = createClient();
     return await supabase.rpc('get_financial_state_v5', { 
-      p_family_group_id: familyGroupId 
+      p_user_id: userId 
     });
   },
 
-  async simulatePurchaseImpact(familyGroupId: string, amountCents: number) {
+  async simulatePurchaseImpact(userId: string, amountCents: number) {
     const supabase = createClient();
     return await supabase.rpc('fn_simulate_spending', {
-      p_family_group_id: familyGroupId,
+      p_user_id: userId,
       p_amount_cents: amountCents
     });
   },
 
-  async getGoalRecommendations(familyGroupId: string) {
+  async getGoalRecommendations(userId: string) {
     const supabase = createClient();
     return await supabase.rpc('fn_get_goal_recommendations', {
-      p_family_group_id: familyGroupId
+      p_user_id: userId
     });
   },
 

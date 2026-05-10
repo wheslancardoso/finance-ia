@@ -1,7 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
-import { getFamilyGroup } from "@/utils/supabase/auth-helpers";
+import { getUserId } from "@/utils/supabase/auth-helpers";
 import { redirect } from "next/navigation";
-import { Users, Shield, Zap, Palette, Bell, CreditCard, ChevronRight, UserPlus, MessageSquare } from "lucide-react";
+import { Shield, Zap, Palette, Bell, CreditCard, ChevronRight, UserPlus, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WhatsAppSettings } from "@/components/WhatsAppSettings";
 
@@ -11,71 +11,16 @@ export default async function SettingsPage() {
 
   if (!user) redirect("/login");
 
-  const familyGroupId = await getFamilyGroup();
+  const userId = await getUserId();
 
-  // Buscar membros do grupo e o profile do usuário logado
+  // Buscar members do grupo e o profile do usuário logado
   const { data: profileData } = await supabase
     .from("profiles")
     .select("whatsapp_number")
     .eq("id", user.id)
     .single();
 
-  const { data: members } = await supabase
-    .from("family_members")
-    .select(`
-      role,
-      profiles (
-        full_name,
-        avatar_url,
-        id,
-        whatsapp_number
-      )
-    `)
-    .eq("family_group_id", familyGroupId);
-
   const sections = [
-    {
-      id: "family",
-      title: "Grupo Familiar",
-      subtitle: "Gerencie quem compartilha o financeiro com você.",
-      icon: Users,
-      color: "text-violet-400",
-      bg: "bg-violet-400/10",
-      content: (
-        <div className="space-y-4">
-          <div className="grid gap-3">
-            {members?.map((member: any) => (
-              <div 
-                key={member.profiles.id} 
-                className="flex items-center justify-between p-4 rounded-3xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 border border-white/10 flex items-center justify-center text-lg font-bold text-white overflow-hidden">
-                    {member.profiles.avatar_url ? (
-                      <img src={member.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      member.profiles.full_name?.charAt(0) || "U"
-                    )}
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-white">{member.profiles.full_name || "Usuário Vesper"}</h4>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-white/20">{member.role === 'admin' ? 'Administrador' : 'Membro'}</p>
-                  </div>
-                </div>
-                {member.profiles.id === user.id && (
-                  <span className="text-[9px] font-black text-violet-400 bg-violet-400/10 px-2 py-1 rounded-full border border-violet-400/20">VOCÊ</span>
-                )}
-              </div>
-            ))}
-          </div>
-          
-          <button className="w-full py-4 rounded-3xl border border-dashed border-white/10 text-white/40 hover:text-white hover:border-white/20 hover:bg-white/2 transition-all flex items-center justify-center gap-2 group">
-            <UserPlus className="w-4 h-4 group-hover:scale-110 transition-transform" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Convidar Parceira(o)</span>
-          </button>
-        </div>
-      )
-    },
     {
       id: "whatsapp",
       title: "Protocolo WhatsApp",

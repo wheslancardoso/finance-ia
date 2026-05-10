@@ -2,21 +2,21 @@ import { createClient } from "@/utils/supabase/server";
 import { AccountCard } from "@/components/AccountCard";
 import { Plus } from "lucide-react";
 import { AccountsHeader } from "@/components/AccountsHeader";
-import { getFamilyGroup } from "@/utils/supabase/auth-helpers";
-import { SyncFamilyGroup } from "@/components/SyncFamilyGroup";
+import { getUserId } from "@/utils/supabase/auth-helpers";
+import { SyncUser } from "@/components/SyncUser";
 import { type Account } from "@/lib/db";
 
 export default async function AccountsPage() {
   const supabase = await createClient();
-  const familyGroupId = await getFamilyGroup();
+  const userId = await getUserId();
 
-  if (!familyGroupId) {
-    return <div>Erro ao carregar seu grupo familiar.</div>;
+  if (!userId) {
+    return <div>Erro ao carregar seu perfil.</div>;
   }
 
-  // 1. Buscar Estado Financeiro Completo via RPC v3
-  const { data: financialState } = await supabase.rpc('get_financial_state_v3', {
-    p_family_group_id: familyGroupId
+  // 1. Buscar Estado Financeiro Completo via RPC v5
+  const { data: financialState } = await supabase.rpc('get_financial_state_v5', {
+    p_user_id: userId
   });
 
   const accounts: Account[] = financialState?.accounts || [];
@@ -25,7 +25,7 @@ export default async function AccountsPage() {
   return (
     <div className="p-8 md:p-12 max-w-7xl mx-auto w-full space-y-12">
       <AccountsHeader />
-      <SyncFamilyGroup familyGroupId={familyGroupId} />
+      <SyncUser userId={userId} />
 
       {!hasAccounts ? (
         <div className="py-24 flex flex-col items-center text-center border-2 border-dashed border-white/5 rounded-[32px]">

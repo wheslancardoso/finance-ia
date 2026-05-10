@@ -36,21 +36,10 @@ CREATE TABLE IF NOT EXISTS auth.users (
 -- 🌌 NEW: Trigger for Account Isolation
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
-DECLARE
-    new_family_group_id UUID;
 BEGIN
-    -- 1. Create a new family group for the user
-    INSERT INTO public.family_groups (name)
-    VALUES ('Meu Grupo Familiar')
-    RETURNING id INTO new_family_group_id;
-
-    -- 2. Create the profile (profiles table is in public)
+    -- 1. Create the profile (profiles table is in public)
     INSERT INTO public.profiles (id, full_name)
     VALUES (NEW.id, split_part(NEW.email, '@', 1));
-
-    -- 3. Associate user with family group
-    INSERT INTO public.family_members (family_group_id, user_id, role)
-    VALUES (new_family_group_id, NEW.id, 'admin');
 
     RETURN NEW;
 END;
@@ -69,39 +58,24 @@ $$ LANGUAGE sql STABLE;
 -- Schema Public
 CREATE SCHEMA IF NOT EXISTS public;
 
--- 1. Family Groups
-CREATE TABLE IF NOT EXISTS public.family_groups (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(100) NOT NULL,
-    monthly_income_cents BIGINT DEFAULT 0,
-    accumulated_balance_cents BIGINT DEFAULT 0,
-    financial_health_score INTEGER DEFAULT 100,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 2. Profiles
+-- 1. Profiles
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     full_name VARCHAR(100),
     avatar_url TEXT,
     whatsapp_number TEXT UNIQUE,
     preferred_language TEXT DEFAULT 'pt-BR',
+    monthly_income_cents BIGINT DEFAULT 0,
+    fixed_expenses_cents BIGINT DEFAULT 0,
+    accumulated_balance_cents BIGINT DEFAULT 0,
+    financial_health_score INTEGER DEFAULT 0,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Family Members
-CREATE TABLE IF NOT EXISTS public.family_members (
-    family_group_id UUID REFERENCES public.family_groups(id) ON DELETE CASCADE,
-    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-    role VARCHAR(20) DEFAULT 'admin',
-    PRIMARY KEY (family_group_id, user_id)
-);
-
--- 4. Categories
+-- 2. Categories
 CREATE TABLE IF NOT EXISTS public.categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    family_group_id UUID REFERENCES public.family_groups(id) ON DELETE CASCADE,
+    user_id UUID DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
     parent_category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
     name VARCHAR(100) NOT NULL,
     type VARCHAR(20) NOT NULL, -- 'INCOME', 'EXPENSE', 'TRANSFER'
@@ -111,10 +85,10 @@ CREATE TABLE IF NOT EXISTS public.categories (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. Accounts
+-- 3. Accounts
 CREATE TABLE IF NOT EXISTS public.accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    family_group_id UUID REFERENCES public.family_groups(id) ON DELETE CASCADE,
+    user_id UUID DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
     type VARCHAR(50) NOT NULL, -- 'CHECKING', 'SAVINGS', 'CREDIT_CARD', 'CASH'
     currency_code VARCHAR(3) DEFAULT 'BRL',
@@ -142,10 +116,10 @@ CREATE TABLE IF NOT EXISTS public.invoices (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. Goals
+-- 5. Goals
 CREATE TABLE IF NOT EXISTS public.goals (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    family_group_id UUID REFERENCES public.family_groups(id) ON DELETE CASCADE,
+    user_id UUID DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
     target_amount_cents BIGINT NOT NULL,
     current_amount_cents BIGINT DEFAULT 0,
@@ -155,10 +129,10 @@ CREATE TABLE IF NOT EXISTS public.goals (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 8. Transactions
+-- 6. Transactions
 CREATE TABLE IF NOT EXISTS public.transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    family_group_id UUID REFERENCES public.family_groups(id) ON DELETE CASCADE,
+    user_id UUID DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
     account_id UUID REFERENCES public.accounts(id) ON DELETE CASCADE,
     category_id UUID REFERENCES public.categories(id) ON DELETE RESTRICT,
     invoice_id UUID REFERENCES public.invoices(id) ON DELETE SET NULL,
@@ -181,10 +155,10 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 9. Recurring Transactions
+-- 7. Recurring Transactions
 CREATE TABLE IF NOT EXISTS public.recurring_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    family_group_id UUID REFERENCES public.family_groups(id) ON DELETE CASCADE,
+    user_id UUID DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
     account_id UUID REFERENCES public.accounts(id) ON DELETE CASCADE,
     category_id UUID REFERENCES public.categories(id) ON DELETE RESTRICT,
     amount_cents BIGINT NOT NULL,
@@ -196,10 +170,10 @@ CREATE TABLE IF NOT EXISTS public.recurring_transactions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 10. Budgets
+-- 8. Budgets
 CREATE TABLE IF NOT EXISTS public.budgets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    family_group_id UUID REFERENCES public.family_groups(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     category_id UUID REFERENCES public.categories(id) ON DELETE CASCADE,
     limit_cents BIGINT NOT NULL,
     period VARCHAR(20) DEFAULT 'MONTHLY',
@@ -209,11 +183,11 @@ CREATE TABLE IF NOT EXISTS public.budgets (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 11. WhatsApp & AI Tables
+-- 9. WhatsApp & AI Tables
 CREATE TABLE IF NOT EXISTS public.whatsapp_sessions (
   id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id          UUID        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  family_group_id     UUID        NOT NULL REFERENCES public.family_groups(id) ON DELETE CASCADE,
+  user_id             UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   wa_id               TEXT        NOT NULL UNIQUE,
   context_state       JSONB       NOT NULL DEFAULT '{"step": "idle"}'::jsonb,
   last_interaction_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -234,7 +208,7 @@ CREATE TABLE IF NOT EXISTS public.n8n_webhook_events (
 
 CREATE TABLE IF NOT EXISTS public.ai_message_log (
   id                    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_group_id       UUID        NOT NULL REFERENCES public.family_groups(id) ON DELETE CASCADE,
+  user_id               UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   profile_id            UUID        REFERENCES public.profiles(id),
   wa_message_id         TEXT,
   sender                TEXT        NOT NULL CHECK (sender IN ('user', 'ai', 'system')),
@@ -252,7 +226,7 @@ CREATE TABLE IF NOT EXISTS public.ai_message_log (
 
 CREATE TABLE IF NOT EXISTS public.financial_snapshots (
   id                      UUID   PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_group_id         UUID   NOT NULL REFERENCES public.family_groups(id) ON DELETE CASCADE,
+  user_id                 UUID   NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   snapshot_date           DATE   NOT NULL DEFAULT CURRENT_DATE,
   total_liquid_cents      BIGINT NOT NULL DEFAULT 0,
   total_credit_debt_cents BIGINT NOT NULL DEFAULT 0,
@@ -263,26 +237,26 @@ CREATE TABLE IF NOT EXISTS public.financial_snapshots (
   daily_safe_spend_cents  BIGINT NOT NULL DEFAULT 0,
   payload                 JSONB  NOT NULL DEFAULT '{}'::jsonb,
   created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT financial_snapshots_group_date UNIQUE (family_group_id, snapshot_date)
+  CONSTRAINT financial_snapshots_user_date UNIQUE (user_id, snapshot_date)
 );
 
 CREATE TABLE IF NOT EXISTS public.spending_advice_cache (
   id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  family_group_id UUID        NOT NULL REFERENCES public.family_groups(id) ON DELETE CASCADE,
+  user_id         UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   context_hash    TEXT        NOT NULL,
   advice_text     TEXT        NOT NULL,
   impact_analysis JSONB,
   expires_at      TIMESTAMPTZ NOT NULL,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT spending_advice_cache_hash_key UNIQUE (family_group_id, context_hash)
+  CONSTRAINT spending_advice_cache_hash_key UNIQUE (user_id, context_hash)
 );
 
 -- Indices
 CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_wa_message_id ON public.transactions (wa_message_id) WHERE wa_message_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_transactions_installment_group ON public.transactions (installment_group_id) WHERE installment_group_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_transactions_family_month ON public.transactions (family_group_id, date DESC);
-CREATE INDEX IF NOT EXISTS idx_whatsapp_sessions_family ON public.whatsapp_sessions (family_group_id);
-CREATE INDEX IF NOT EXISTS idx_ai_message_log_family ON public.ai_message_log (family_group_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_user_month ON public.transactions (user_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_sessions_user ON public.whatsapp_sessions (user_id);
+CREATE INDEX IF NOT EXISTS idx_ai_message_log_user ON public.ai_message_log (user_id, created_at DESC);
 
 -- ============================================================
 -- BLOCO: FUNÇÕES E TRIGGERS (CONSOLIDADO)
@@ -297,7 +271,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER tr_update_family_groups_updated_at BEFORE UPDATE ON public.family_groups FOR EACH ROW EXECUTE FUNCTION public.fn_update_updated_at_column();
 CREATE TRIGGER tr_update_profiles_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.fn_update_updated_at_column();
 CREATE TRIGGER tr_update_accounts_updated_at BEFORE UPDATE ON public.accounts FOR EACH ROW EXECUTE FUNCTION public.fn_update_updated_at_column();
 CREATE TRIGGER tr_update_invoices_updated_at BEFORE UPDATE ON public.invoices FOR EACH ROW EXECUTE FUNCTION public.fn_update_updated_at_column();
@@ -553,7 +526,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION public.trg_auto_close_invoices();
 
 -- RPC: get_financial_state_v5 (Melhorado para Cartão de Crédito)
 CREATE OR REPLACE FUNCTION public.get_financial_state_v5(
-    p_family_group_id UUID, 
+    p_user_id UUID, 
     p_target_month TIMESTAMPTZ DEFAULT NOW()
 )
 RETURNS JSON AS $$
@@ -568,14 +541,8 @@ BEGIN
     WHERE status = 'OPEN' AND closing_date < CURRENT_DATE;
 
     SELECT json_build_object(
-        'family_group', (
-            SELECT json_build_object(
-                'id', fg.id,
-                'name', fg.name,
-                'monthly_income_cents', fg.monthly_income_cents,
-                'accumulated_balance_cents', fg.accumulated_balance_cents,
-                'financial_health_score', COALESCE(fg.financial_health_score, 100)
-            ) FROM public.family_groups fg WHERE id = p_family_group_id
+        'user_profile', (
+            SELECT row_to_json(p) FROM public.profiles p WHERE id = p_user_id
         ),
         'accounts', (
             SELECT COALESCE(json_agg(row_to_json(a_with_invoices)), '[]'::json) 
@@ -586,17 +553,17 @@ BEGIN
                     (SELECT reference_month FROM public.invoices WHERE account_id = a.id AND status = 'OPEN' ORDER BY closing_date ASC LIMIT 1) as open_invoice_month,
                     (SELECT reference_month FROM public.invoices WHERE account_id = a.id AND status = 'CLOSED' ORDER BY closing_date DESC LIMIT 1) as closed_invoice_month
                 FROM public.accounts a 
-                WHERE family_group_id = p_family_group_id AND is_active = true
+                WHERE user_id = p_user_id AND is_active = true
             ) a_with_invoices
         ),
         'invoices', (
             SELECT COALESCE(json_agg(row_to_json(i)), '[]'::json) FROM public.invoices i 
             JOIN public.accounts a ON i.account_id = a.id 
-            WHERE a.family_group_id = p_family_group_id AND i.status != 'PAID'
+            WHERE a.user_id = p_user_id AND i.status != 'PAID'
         ),
         'goals', (
             SELECT COALESCE(json_agg(row_to_json(g)), '[]'::json) FROM public.goals g 
-            WHERE family_group_id = p_family_group_id AND status = 'active'
+            WHERE user_id = p_user_id AND status = 'active'
         ),
         'recent_transactions', (
             SELECT COALESCE(json_agg(t_joined), '[]'::json) FROM (
@@ -604,14 +571,14 @@ BEGIN
                 FROM public.transactions t
                 LEFT JOIN public.categories c ON t.category_id = c.id
                 LEFT JOIN public.accounts a ON t.account_id = a.id
-                WHERE t.family_group_id = p_family_group_id
+                WHERE t.user_id = p_user_id
                 ORDER BY t.date DESC
                 LIMIT 50
             ) t_joined
         ),
         'categories', (
             SELECT COALESCE(json_agg(row_to_json(c)), '[]'::json) FROM public.categories c 
-            WHERE family_group_id = p_family_group_id OR is_system_default = true
+            WHERE user_id = p_user_id OR is_system_default = true
         )
     ) INTO result;
     
@@ -624,11 +591,9 @@ INSERT INTO auth.users (id, email, encrypted_password)
 VALUES ('00000000-0000-0000-0000-000000000001', 'test@example.com', crypt('vesper123', gen_salt('bf'))) 
 ON CONFLICT DO NOTHING;
 INSERT INTO public.profiles (id, full_name) VALUES ('00000000-0000-0000-0000-000000000001', 'Usuário Teste') ON CONFLICT DO NOTHING;
-INSERT INTO public.family_groups (id, name) VALUES ('00000000-0000-0000-0000-000000000001', 'Minha Família') ON CONFLICT DO NOTHING;
-INSERT INTO public.family_members (family_group_id, user_id, role) VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'admin') ON CONFLICT DO NOTHING;
 
 -- Categorias Padrão
-INSERT INTO public.categories (family_group_id, name, type, icon_name, color_hex, is_system_default) VALUES
+INSERT INTO public.categories (user_id, name, type, icon_name, color_hex, is_system_default) VALUES
 ('00000000-0000-0000-0000-000000000001', 'Salário', 'INCOME', 'Briefcase', '#10B981', true),
 ('00000000-0000-0000-0000-000000000001', 'Alimentação', 'EXPENSE', 'Utensils', '#F59E0B', true),
 ('00000000-0000-0000-0000-000000000001', 'Transporte', 'EXPENSE', 'Car', '#3B82F6', true),
@@ -637,11 +602,11 @@ INSERT INTO public.categories (family_group_id, name, type, icon_name, color_hex
 ON CONFLICT DO NOTHING;
 
 -- Contas Iniciais
-INSERT INTO public.accounts (id, family_group_id, name, type, balance_cents, color_hex) VALUES
+INSERT INTO public.accounts (id, user_id, name, type, balance_cents, color_hex) VALUES
 ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'Conta Corrente', 'CHECKING', 100000, '#7C3AED')
 ON CONFLICT DO NOTHING;
 
-INSERT INTO public.accounts (id, family_group_id, name, type, credit_limit_cents, closing_day, due_day, color_hex) VALUES
+INSERT INTO public.accounts (id, user_id, name, type, credit_limit_cents, closing_day, due_day, color_hex) VALUES
 ('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001', 'Cartão Vesper', 'CREDIT_CARD', 500000, 5, 12, '#1E293B')
 ON CONFLICT DO NOTHING;
 
@@ -723,7 +688,7 @@ CREATE OR REPLACE FUNCTION public.create_installment_series(
   p_installments    INTEGER    DEFAULT 1,
   p_purchase_date   TIMESTAMPTZ DEFAULT NOW(),
   p_source          TEXT       DEFAULT 'MANUAL',
-  p_family_group_id UUID       DEFAULT NULL,
+  p_user_id         UUID       DEFAULT NULL,
   p_source_metadata JSONB      DEFAULT '{}'::jsonb
 )
 RETURNS JSONB
@@ -760,11 +725,11 @@ BEGIN
 
     INSERT INTO public.transactions (
       account_id, category_id, amount_cents, transaction_type, date, description, merchant_name,
-      installment_current, installment_total, installment_group_id, invoice_id, source, source_metadata, family_group_id
+      installment_current, installment_total, installment_group_id, invoice_id, source, source_metadata, user_id
     ) VALUES (
       p_account_id, p_category_id, v_current_amount, 'EXPENSE', v_current_date, 
       p_description || ' (' || v_i || '/' || p_installments || ')', p_merchant_name,
-      v_i, p_installments, v_group_id, v_invoice_id, p_source, p_source_metadata, p_family_group_id
+      v_i, p_installments, v_group_id, v_invoice_id, p_source, p_source_metadata, p_user_id
     ) RETURNING id INTO v_transaction_id;
 
     v_inserted_ids := array_append(v_inserted_ids, v_transaction_id);
@@ -782,7 +747,7 @@ CREATE OR REPLACE FUNCTION public.create_transfer(
   p_description     TEXT,
   p_date            TIMESTAMPTZ DEFAULT NOW(),
   p_category_id     UUID        DEFAULT NULL,
-  p_family_group_id UUID        DEFAULT NULL,
+  p_user_id         UUID        DEFAULT NULL,
   p_source          TEXT        DEFAULT 'MANUAL'
 )
 RETURNS JSONB
@@ -794,12 +759,12 @@ DECLARE
 BEGIN
   IF p_from_account_id = p_to_account_id THEN RAISE EXCEPTION 'Contas iguais.'; END IF;
 
-  INSERT INTO public.transactions (account_id, category_id, amount_cents, transaction_type, date, description, source, family_group_id)
-  VALUES (p_from_account_id, p_category_id, p_amount_cents, 'TRANSFER', p_date, p_description, p_source, p_family_group_id)
+  INSERT INTO public.transactions (account_id, category_id, amount_cents, transaction_type, date, description, source, user_id, linked_transaction_id)
+  VALUES (p_from_account_id, p_category_id, p_amount_cents, 'TRANSFER', p_date, p_description, p_source, p_user_id)
   RETURNING id INTO v_out_id;
 
-  INSERT INTO public.transactions (account_id, category_id, amount_cents, transaction_type, date, description, source, family_group_id, linked_transaction_id)
-  VALUES (p_to_account_id, p_category_id, p_amount_cents, 'INCOME', p_date, p_description, p_source, p_family_group_id, v_out_id)
+  INSERT INTO public.transactions (account_id, category_id, amount_cents, transaction_type, date, description, source, user_id, linked_transaction_id)
+  VALUES (p_to_account_id, p_category_id, p_amount_cents, 'INCOME', p_date, p_description, p_source, p_user_id, v_out_id)
   RETURNING id INTO v_in_id;
 
   UPDATE public.transactions SET linked_transaction_id = v_in_id WHERE id = v_out_id;
@@ -811,7 +776,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.delete_installment_series(
   p_group_id        UUID,
   p_delete_from     INTEGER    DEFAULT 1,
-  p_family_group_id UUID       DEFAULT NULL
+  p_user_id         UUID       DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -820,7 +785,7 @@ DECLARE v_count INTEGER;
 BEGIN
   DELETE FROM public.transactions
   WHERE installment_group_id = p_group_id AND installment_current >= p_delete_from
-    AND (p_family_group_id IS NULL OR family_group_id = p_family_group_id);
+    AND (p_user_id IS NULL OR user_id = p_user_id);
   GET DIAGNOSTICS v_count = ROW_COUNT;
   RETURN jsonb_build_object('success', true, 'deleted_count', v_count);
 END;
@@ -849,7 +814,7 @@ $$;
 
 -- RPC: get_month_projection
 CREATE OR REPLACE FUNCTION public.get_month_projection(
-  p_family_group_id UUID,
+  p_user_id UUID,
   p_target_month    DATE DEFAULT CURRENT_DATE
 )
 RETURNS JSONB
@@ -865,7 +830,7 @@ BEGIN
     'current_liquid_cents', (
       SELECT COALESCE(SUM(balance_cents), 0)
       FROM public.accounts
-      WHERE family_group_id = p_family_group_id AND type != 'CREDIT_CARD' AND is_active = true
+      WHERE user_id = p_user_id AND type != 'CREDIT_CARD' AND is_active = true
     ),
     'installments_due', (
       SELECT COALESCE(jsonb_agg(t ORDER BY t.date), '[]'::jsonb)
@@ -874,7 +839,7 @@ BEGIN
         FROM public.transactions t
         LEFT JOIN public.categories c ON t.category_id = c.id
         LEFT JOIN public.accounts   a ON t.account_id  = a.id
-        WHERE t.family_group_id  = p_family_group_id AND t.transaction_type = 'EXPENSE' AND t.date >= v_month_start AND t.date <= v_month_end AND t.installment_total > 1 AND t.is_paid = false
+        WHERE t.user_id  = p_user_id AND t.transaction_type = 'EXPENSE' AND t.date >= v_month_start AND t.date <= v_month_end AND t.installment_total > 1 AND t.is_paid = false
       ) t
     ),
     'recurring_due', (
@@ -884,7 +849,7 @@ BEGIN
         FROM public.recurring_transactions rt
         LEFT JOIN public.categories c ON rt.category_id = c.id
         LEFT JOIN public.accounts   a ON rt.account_id  = a.id
-        WHERE rt.family_group_id = p_family_group_id AND rt.status = 'active' AND rt.next_date >= v_month_start::date AND rt.next_date <= v_month_end::date
+        WHERE rt.user_id = p_user_id AND rt.status = 'active' AND rt.next_date >= v_month_start::date AND rt.next_date <= v_month_end::date
       ) r
     ),
     'invoices_due', (
@@ -893,19 +858,19 @@ BEGIN
         SELECT i.id, i.reference_month, i.due_date, i.status, i.amount_cents, a.name AS account_name, a.color_hex
         FROM public.invoices i
         JOIN public.accounts a ON i.account_id = a.id
-        WHERE a.family_group_id = p_family_group_id AND i.due_date >= v_month_start::date AND i.due_date <= v_month_end::date AND i.status IN ('OPEN', 'CLOSED')
+        WHERE a.user_id = p_user_id AND i.due_date >= v_month_start::date AND i.due_date <= v_month_end::date AND i.status IN ('OPEN', 'CLOSED')
       ) i
     ),
     'summary', (
       SELECT jsonb_build_object(
         'projected_income_cents', (
           SELECT COALESCE(SUM(amount_cents), 0) FROM public.recurring_transactions
-          WHERE family_group_id = p_family_group_id AND transaction_type = 'INCOME' AND status = 'active' AND next_date BETWEEN v_month_start::date AND v_month_end::date
+          WHERE user_id = p_user_id AND transaction_type = 'INCOME' AND status = 'active' AND next_date BETWEEN v_month_start::date AND v_month_end::date
         ),
         'projected_expense_cents', (
-          COALESCE((SELECT SUM(amount_cents) FROM public.transactions WHERE family_group_id = p_family_group_id AND transaction_type = 'EXPENSE' AND date BETWEEN v_month_start AND v_month_end AND installment_total > 1 AND t.is_paid = false), 0) +
-          COALESCE((SELECT SUM(i.amount_cents) FROM public.invoices i JOIN public.accounts a ON i.account_id = a.id WHERE a.family_group_id = p_family_group_id AND i.due_date BETWEEN v_month_start::date AND v_month_end::date AND i.status IN ('OPEN', 'CLOSED')), 0) +
-          COALESCE((SELECT SUM(amount_cents) FROM public.recurring_transactions WHERE family_group_id = p_family_group_id AND transaction_type = 'EXPENSE' AND status = 'active' AND next_date BETWEEN v_month_start::date AND v_month_end::date), 0)
+          COALESCE((SELECT SUM(amount_cents) FROM public.transactions WHERE user_id = p_user_id AND transaction_type = 'EXPENSE' AND date BETWEEN v_month_start AND v_month_end AND installment_total > 1 AND is_paid = false), 0) +
+          COALESCE((SELECT SUM(i.amount_cents) FROM public.invoices i JOIN public.accounts a ON i.account_id = a.id WHERE a.user_id = p_user_id AND i.due_date BETWEEN v_month_start::date AND v_month_end::date AND i.status IN ('OPEN', 'CLOSED')), 0) +
+          COALESCE((SELECT SUM(amount_cents) FROM public.recurring_transactions WHERE user_id = p_user_id AND transaction_type = 'EXPENSE' AND status = 'active' AND next_date BETWEEN v_month_start::date AND v_month_end::date), 0)
         ),
         'month_start', v_month_start,
         'month_end',   v_month_end

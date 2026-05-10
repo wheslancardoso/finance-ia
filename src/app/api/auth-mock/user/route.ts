@@ -1,59 +1,55 @@
 import { NextResponse } from 'next/server';
-import { Client } from 'pg';
+import pool from '@/lib/pg';
 import jwt from 'jsonwebtoken';
 
-export async function GET(request: Request) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Missing or invalid token' }, { status: 401 });
-  }
+const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-token-with-at-least-32-characters';
 
-  const token = authHeader.split(' ')[1];
-  const jwtSecret = process.env.JWT_SECRET || 'super-secret-jwt-token-with-at-least-32-characters';
-
+export async function GET(req: Request) {
   try {
-    const payload: any = jwt.verify(token, jwtSecret);
-    const userId = payload.sub;
-
-    if (!userId) {
-      return NextResponse.json({ error: 'Invalid token payload' }, { status: 401 });
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
     }
 
-    const client = new Client({
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '5432'),
-      database: process.env.DB_NAME || 'postgres',
-      user: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD || 'password',
-    });
-    await client.connect();
-
+    const token = authHeader.split(' ')[1];
+    let decoded: any;
     try {
-      const result = await client.query(
-        'SELECT id, email, created_at FROM auth.users WHERE id = $1',
-        [userId]
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    const client = await pool.connect();
+    try {
+      const res = await client.query(
+        'SELECT id, email, created_at, updated_at FROM auth.users WHERE id = $1',
+        [decoded.sub]
       );
 
-      if (result.rows.length === 0) {
+      if (res.rows.length === 0) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
 
-      const user = result.rows[0];
+      const user = res.rows[0];
 
       return NextResponse.json({
         id: user.id,
         email: user.email,
-        role: 'authenticated',
         aud: 'authenticated',
+        role: 'authenticated',
+        email_confirmed_at: new Date().toISOString(),
+        confirmed_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString(),
+        created_at: user.created_at,
+        updated_at: user.updated_at,
         app_metadata: { provider: 'email', providers: ['email'] },
-        user_metadata: {},
-        created_at: user.created_at
+        user_metadata: {}
       });
     } finally {
-      await client.end();
+      client.release();
     }
-  } catch (error) {
-    console.error('Auth Mock User Error:', error);
-    return NextResponse.json({ error: 'Token verification failed' }, { status: 401 });
+  } catch (error: any) {
+    console.error('User route error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

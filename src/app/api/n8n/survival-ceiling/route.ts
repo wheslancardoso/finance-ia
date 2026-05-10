@@ -2,10 +2,10 @@ import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
-  // O n8n vai mandar o familyGroupId via query param ou header.
+  // O n8n vai mandar o userId via query param ou header.
   // Para maior segurança, poderíamos checar um x-api-key, mas assumindo MVP local-first:
   const { searchParams } = new URL(request.url);
-  const familyGroupId = searchParams.get("familyGroupId");
+  const userId = searchParams.get("userId");
   const apiKey = request.headers.get("x-api-key");
 
   // TODO: Em prod, colocar o x-api-key real no .env
@@ -13,29 +13,29 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!familyGroupId) {
-    return NextResponse.json({ error: "familyGroupId is required" }, { status: 400 });
+  if (!userId) {
+    return NextResponse.json({ error: "userId is required" }, { status: 400 });
   }
 
   try {
     const supabase = await createClient();
 
-    // 1. Buscar as configurações de Renda do Grupo Familiar
-    const { data: familyGroup, error: fgError } = await supabase
-      .from("family_groups")
+    // 1. Buscar as configurações de Renda do Perfil do Usuário
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
       .select("monthly_income_cents, fixed_expenses_cents, accumulated_balance_cents")
-      .eq("id", familyGroupId)
+      .eq("id", userId)
       .single();
 
-    if (fgError || !familyGroup) {
-      return NextResponse.json({ error: "Family group not found or without income settings" }, { status: 404 });
+    if (profileError || !profile) {
+      return NextResponse.json({ error: "User profile not found or without income settings" }, { status: 404 });
     }
 
     // 2. Buscar Contas para somar faturas de cartão
     const { data: accounts } = await supabase
       .from("accounts")
       .select("id, type, closing_day")
-      .eq("family_group_id", familyGroupId);
+      .eq("user_id", userId);
 
     let totalCreditCardInvoices = 0;
     let extraIncomeCents = 0;
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
       const { data: monthTxs } = await supabase
         .from("transactions")
         .select("amount_cents, transaction_type, account_id, date, is_legacy_debt")
-        .eq("family_group_id", familyGroupId)
+        .eq("user_id", userId)
         .gte("date", monthStart);
 
       if (monthTxs) {
@@ -106,10 +106,10 @@ export async function GET(request: Request) {
 
     // 5. Matemática do Teto de Sobrevivência
     const survivalCeilingCents = Math.max(0, 
-      (familyGroup.monthly_income_cents || 0) + 
-      (familyGroup.accumulated_balance_cents || 0) + 
+      (profile.monthly_income_cents || 0) + 
+      (profile.accumulated_balance_cents || 0) + 
       extraIncomeCents - 
-      (familyGroup.fixed_expenses_cents || 0) - 
+      (profile.fixed_expenses_cents || 0) - 
       totalCreditCardInvoices - 
       currentMonthExpensesCents
     );
@@ -118,10 +118,10 @@ export async function GET(request: Request) {
       survivalCeilingCents,
       survivalCeilingFormatted: (survivalCeilingCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
       breakdown: {
-        monthlyIncomeCents: familyGroup.monthly_income_cents,
-        accumulatedBalanceCents: familyGroup.accumulated_balance_cents,
+        monthlyIncomeCents: profile.monthly_income_cents,
+        accumulatedBalanceCents: profile.accumulated_balance_cents,
         extraIncomeCents,
-        fixedExpensesCents: familyGroup.fixed_expenses_cents,
+        fixedExpensesCents: profile.fixed_expenses_cents,
         currentMonthExpensesCents,
         totalCreditCardInvoices
       }

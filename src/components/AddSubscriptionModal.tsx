@@ -12,7 +12,7 @@ import { useFinancialData } from "@/context/FinancialDataContext";
 
 export function AddSubscriptionModal() {
   const { isOpen, closeModal, editingSubscription } = useSubscriptionModal();
-  const { familyGroupId } = useAccountModal();
+  const { userId } = useAccountModal();
   const router = useRouter();
   const { categories, accounts, refreshData } = useFinancialData();
   const [loading, setLoading] = useState(false);
@@ -85,8 +85,8 @@ export function AddSubscriptionModal() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     
-    if (!familyGroupId) {
-      alert("Grupo familiar não identificado. Recarregue a página.");
+    if (!userId) {
+      alert("Usuário não identificado. Recarregue a página.");
       setLoading(false);
       return;
     }
@@ -124,7 +124,7 @@ export function AddSubscriptionModal() {
         .eq("id", editingSubscription.id);
       error = err;
     } else {
-      payload.family_group_id = familyGroupId;
+      payload.user_id = userId;
       const { error: err } = await supabase
         .from("recurring_transactions")
         .insert(payload);

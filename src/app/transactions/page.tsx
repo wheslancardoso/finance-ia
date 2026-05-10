@@ -1,16 +1,16 @@
 import { createClient } from "@/utils/supabase/server";
 import { TransactionsContent } from "@/components/TransactionsContent";
-import { getFamilyGroup } from "@/utils/supabase/auth-helpers";
+import { getUserId } from "@/utils/supabase/auth-helpers";
 
 export default async function TransactionsPage() {
   const supabase = await createClient();
-  const familyGroupId = await getFamilyGroup();
+  const userId = await getUserId();
 
-  if (!familyGroupId) return null;
+  if (!userId) return null;
 
-  // 1. Buscar Estado Financeiro Completo via RPC v3
-  const { data: financialState } = await supabase.rpc('get_financial_state_v3', {
-    p_family_group_id: familyGroupId,
+  // 1. Buscar Estado Financeiro Completo via RPC v5
+  const { data: financialState } = await supabase.rpc('get_financial_state_v5', {
+    p_user_id: userId,
     p_target_month: new Date().toISOString()
   });
 

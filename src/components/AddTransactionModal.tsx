@@ -14,7 +14,7 @@ import { type Category, type Account, type Transaction } from "@/lib/db";
 
 export function AddTransactionModal() {
   const { isOpen, transactionToEdit, closeModal, openAdd } = useTransactionModal();
-  const { familyGroupId } = useAccountModal();
+  const { userId } = useAccountModal();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -146,7 +146,7 @@ export function AddTransactionModal() {
     const capturedIsLegacyDebt = isLegacyDebt;
 
     try {
-      if (!capturedAccountId || !capturedAmount || !familyGroupId) {
+      if (!capturedAccountId || !capturedAmount || !userId) {
         alert("Por favor, preencha a conta e o valor. (ID do grupo familiar não encontrado)");
         setLoading(false);
         return;

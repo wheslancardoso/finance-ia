@@ -50,7 +50,7 @@ export function QuickSyncModal({ isOpen, onClose, account }: QuickSyncModalProps
       const { data: categories } = await supabase
         .from("categories")
         .select("id")
-        .eq("family_group_id", account.family_group_id)
+        .eq("user_id", account.user_id)
         .limit(1);
 
       const categoryId = categories && categories.length > 0 ? categories[0].id : null;
