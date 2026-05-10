@@ -6,16 +6,16 @@ import {
   calculateMonthlyOutlook, 
   calculateTotalConsolidatedDebt,
   calculateAccumulatedBalance,
-  MonthlyOutlook,
+  type MonthlyOutlook,
   calculateDebtExitProjection,
   calculateGoalProjections,
-  DebtExitProjection,
-  GoalProjection,
+  type DebtExitProjection,
+  type GoalProjection,
   simulateDetailedImpact,
-  SimulationDetailedResult
+  type SimulationDetailedResult
 } from "@/lib/financial-logic";
 
-export type { SimulationDetailedResult };
+export type { SimulationDetailedResult, MonthlyOutlook, DebtExitProjection, GoalProjection };
 
 export interface FinancialAnalysis {
   netLiquidityCents: number;

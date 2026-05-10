@@ -1,5 +1,6 @@
 import { db, type Transaction, type Account, type Goal, type Category, type RecurringTransaction, type Budget } from "@/lib/db";
 import { formatCurrency } from "@/lib/utils";
+import { calculateTotalConsolidatedDebt, calculateAccumulatedBalance } from "@/lib/financial-logic";
 
 const generateId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -13,18 +14,34 @@ const generateId = () => {
  */
 async function apiFetch(path: string, options?: RequestInit) {
   console.log(`🌐 [API Fetch] ${options?.method || 'GET'} ${path}`);
-  const res = await fetch(path, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `API error ${res.status}`);
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+  try {
+    const res = await fetch(path, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
+    });
+    
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `API error ${res.status}`);
+    }
+    return res.json();
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('API timeout exceeded');
+    }
+    throw error;
   }
-  return res.json();
 }
 
 export const financialService = {
@@ -68,6 +85,7 @@ export const financialService = {
         id: data.id || generateId(),
         is_paid: data.is_paid ?? (isPastMonth ? true : false),
         source: data.source ?? "MANUAL",
+        amount: (data.amount_cents || 0) / 100,
       };
       await db.transactions.put(payload);
       console.warn("⚠️ Transação salva apenas localmente (Dexie)");
@@ -161,7 +179,7 @@ export const financialService = {
         const tx: Transaction = {
           id: generateId(),
           user_id: data.user_id,
-          description: `${data.description} (${i + 1}/${data.installments})`,
+          description: data.description,
           amount_cents: amountPerInstallment,
           transaction_type: "EXPENSE",
           date: date.toISOString(),
@@ -257,9 +275,11 @@ export const financialService = {
       await db.goals.put({ ...payload, ...saved });
       console.log("✅ Meta salva no PostgreSQL e Dexie:", saved.id);
       return { data: saved, error: null };
-      const payload = { ...data, id: data.id || generateId() };
-      await db.goals.put(payload);
-      return { data: payload, error: null };
+    } catch (error: any) {
+      console.error("❌ upsertGoal falhou no PostgreSQL:", error.message);
+      const fallbackPayload = { ...data, id: data.id || generateId() };
+      await db.goals.put(fallbackPayload);
+      return { data: fallbackPayload, error };
     }
   },
 
@@ -364,15 +384,21 @@ export const financialService = {
    * Fallback local com Dexie (offline-first)
    */
   async _getLocalFinancialState(userId: string) {
+    try {
       const goals = await db.goals.where('user_id').equals(userId).toArray();
       
       const accounts = await db.accounts.where('user_id').equals(userId).toArray();
       const categories = await db.categories.where('user_id').equals(userId).toArray();
       const recurring_transactions = await db.recurring_transactions.where('user_id').equals(userId).toArray();
       const budgets = await db.budgets.where('user_id').equals(userId).toArray();
-      const transactions = await db.transactions.where('user_id').equals(userId).toArray();
+      const rawTransactions = await db.transactions.where('user_id').equals(userId).toArray();
+      const transactions = rawTransactions.map(t => ({
+        ...t,
+        amount_cents: Number(t.amount_cents || 0),
+        amount: (Number(t.amount_cents || 0) / 100)
+      }));
       
-      const accumulated_balance_cents = accounts.reduce((acc, account) => acc + (account.balance_cents || 0), 0);
+      const accumulated_balance_cents = calculateAccumulatedBalance(accounts);
       
       transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       
@@ -393,13 +419,14 @@ export const financialService = {
       let investments = 0;
       
       month_transactions.forEach(t => {
-        if (t.transaction_type === 'INCOME') income += t.amount_cents;
+        const amt = Number(t.amount_cents || 0);
+        if (t.transaction_type === 'INCOME') income += amt;
         if (t.transaction_type === 'EXPENSE') {
           const acc = accounts.find(a => a.id === t.account_id);
           if (acc?.type === 'CREDIT_CARD') {
-            credit_expense += t.amount_cents;
+            credit_expense += amt;
           } else {
-            debit_expense += t.amount_cents;
+            debit_expense += amt;
           }
         }
       });
@@ -509,7 +536,9 @@ export const financialService = {
       let remainingToAllocate = realSurplus > 0 ? Math.round(realSurplus * 0.2) : 0;
       
       const recommendations = sortedGoals.map((g: any, index: number) => {
-        const remainingGoal = (g.target_cents || 0) - (g.current_cents || 0);
+        const target_amount_cents = g.target_amount_cents || g.target_cents || 0;
+        const current_amount_cents = g.current_amount_cents || g.current_cents || 0;
+        const remainingGoal = target_amount_cents - current_amount_cents;
         const amount = Math.min(remainingToAllocate, remainingGoal);
         remainingToAllocate -= amount;
         

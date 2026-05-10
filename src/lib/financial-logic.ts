@@ -5,18 +5,20 @@ import { Account, Budget, Goal } from "@/lib/db";
  * Calcula a Dívida Total Consolidada (Soma de faturas abertas e fechadas de todos os cartões)
  */
 export function calculateTotalConsolidatedDebt(accounts: Account[]): number {
+  if (!accounts || !Array.isArray(accounts)) return 0;
   return accounts
-    .filter((a) => a.type === "CREDIT_CARD")
-    .reduce((sum, a) => sum + (a.closed_invoice_cents || 0) + (a.open_invoice_cents || 0), 0);
+    .filter((a) => a && a.type === "CREDIT_CARD")
+    .reduce((sum, a) => sum + (Number(a.closed_invoice_cents) || 0) + (Number(a.open_invoice_cents) || 0), 0);
 }
 
 /**
  * Calcula a Liquidez Acumulada (Soma de saldos de contas corrente e investimento)
  */
 export function calculateAccumulatedBalance(accounts: Account[]): number {
+  if (!accounts || !Array.isArray(accounts)) return 0;
   return accounts
-    .filter((a) => a.type !== "CREDIT_CARD")
-    .reduce((sum, a) => sum + (a.balance_cents || 0), 0);
+    .filter((a) => a && a.type !== "CREDIT_CARD")
+    .reduce((sum, a) => sum + (Number(a.balance_cents) || 0), 0);
 }
 
 /**
@@ -94,16 +96,16 @@ export function calculateMonthlyOutlook(params: {
   const isCrisisMode = isCritical && netLiquidityCents < 0;
 
   return {
-    balanceAtMonthEnd,
-    plannedExpenses: pendingOutflow + budgetReserves,
-    immediateCardDebt,
-    upcomingCardDebt,
-    scheduledOnly: scheduledExpensesCents,
-    budgetReserves,
+    balanceAtMonthEnd: Number(balanceAtMonthEnd) || 0,
+    plannedExpenses: Number(pendingOutflow + budgetReserves) || 0,
+    immediateCardDebt: Number(immediateCardDebt) || 0,
+    upcomingCardDebt: Number(upcomingCardDebt) || 0,
+    scheduledOnly: Number(scheduledExpensesCents) || 0,
+    budgetReserves: Number(budgetReserves) || 0,
     isHealthy: balanceAtMonthEnd >= 0 && netLiquidityCents >= 0,
     isRecovering: balanceAtMonthEnd >= 0 && netLiquidityCents < 0,
     isCritical,
-    isCrisisMode // Ativado se saldo final for negativo e liquidez total também
+    isCrisisMode 
   };
 }
 
@@ -150,16 +152,18 @@ export function calculateGoalProjections(params: {
   const sortedGoals = [...goals].sort((a, b) => (b.priority || 0) - (a.priority || 0));
   
   return sortedGoals.map((goal) => {
-    const remainingCents = goal.target_amount_cents - goal.current_amount_cents;
-    const monthsToComplete = (debtExit.monthlySurplus > 0 && remainingCents > 0)
-      ? Math.ceil(remainingCents / (debtExit.monthlySurplus * 0.5)) // Usamos 50% da sobra para metas
+    const remainingCents = (goal.target_amount_cents || 0) - (goal.current_amount_cents || 0);
+    const surplusForGoals = (debtExit.monthlySurplus || 0) * 0.5;
+    
+    const monthsToComplete = (surplusForGoals > 0 && remainingCents > 0)
+      ? Math.ceil(remainingCents / surplusForGoals)
       : (remainingCents <= 0 ? 0 : 999);
       
     const focusDate = new Date(currentFocusDate);
     const completionDate = new Date(focusDate);
     
     if (monthsToComplete !== 999) {
-      completionDate.setMonth(completionDate.getMonth() + monthsToComplete);
+      completionDate.setMonth(completionDate.getMonth() + (monthsToComplete || 0));
     } else {
       completionDate.setFullYear(completionDate.getFullYear() + 10); // 10 anos se não houver sobra
     }
@@ -168,8 +172,8 @@ export function calculateGoalProjections(params: {
     const monthsToStart = Math.max(0, (focusDate.getFullYear() - today.getFullYear()) * 12 + (focusDate.getMonth() - today.getMonth()));
     
     // Sugerimos alocar 50% da sobra se for o foco atual, senão 0
-    const recommendedAmountCents = (monthsToStart === 0 && debtExit.monthsToExit === 0)
-      ? Math.round(debtExit.monthlySurplus * 0.5)
+    const recommendedAmountCents = (monthsToStart === 0 && (debtExit.monthsToExit || 0) === 0)
+      ? Math.round((debtExit.monthlySurplus || 0) * 0.5)
       : 0;
 
     const projection = {
@@ -177,11 +181,11 @@ export function calculateGoalProjections(params: {
       goalName: goal.name,
       focusDate,
       completionDate,
-      canFocusNow: monthsToStart === 0 && debtExit.monthsToExit === 0,
+      canFocusNow: monthsToStart === 0 && (debtExit.monthsToExit || 0) === 0,
       monthsToStart,
       recommendedAmountCents,
       reasoning: monthsToStart > 0 
-        ? `Aguardando ${monthsToStart} meses (${debtExit.monthsToExit > 0 ? 'quitação de dívidas' : 'metas prioritárias'})`
+        ? `Aguardando ${monthsToStart} meses (${(debtExit.monthsToExit || 0) > 0 ? 'quitação de dívidas' : 'metas prioritárias'})`
         : "Pronto para foco imediato."
     };
     
@@ -283,5 +287,8 @@ export function simulateDetailedImpact(params: {
 }
 
 function formatCurrency(cents: number) {
+  if (isNaN(cents) || cents === null || cents === undefined) {
+    return "R$ 0,00";
+  }
   return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }

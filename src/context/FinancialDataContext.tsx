@@ -6,6 +6,7 @@ import { db, type Account, type Category, type Goal, type RecurringTransaction, 
 import { useAccountModal } from "./AccountModalContext";
 import { addMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { calculateTotalConsolidatedDebt, calculateNetLiquidity } from "@/lib/financial-logic";
 
 interface FinancialStateResponse {
   user_profile: {
@@ -104,13 +105,14 @@ interface FinancialDataContextType {
   }) => Promise<void>;
   upsertAccount: (data: Partial<Account>) => Promise<void>;
   deleteAccount: (id: string) => Promise<void>;
-  upsertGoal: (data: Partial<Goal> & { status?: string }) => Promise<void>;
+  upsertGoal: (data: Partial<Goal> & { status?: string }) => Promise<any>;
   updateGoalBalance: (id: string, amount: number) => Promise<void>;
   simulatePurchaseImpact: (amount: number) => Promise<SimulationResult>;
   getGoalRecommendations: () => Promise<GoalRecommendationsResponse>;
   getIncomeMix: () => IncomeMixItem[];
   getNetWorthHistory: () => NetWorthHistoryItem[];
   createTransfer: (fromId: string, toId: string, amountCents: number) => Promise<void>;
+  userId: string | null;
 }
 
 const FinancialDataContext = createContext<FinancialDataContextType | undefined>(undefined);
@@ -144,14 +146,12 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const { userId } = useAccountModal();
 
   const totalConsolidatedDebtCents = useMemo(() => {
-    return accounts
-      .filter((a) => a.type === "CREDIT_CARD")
-      .reduce((sum, a) => sum + (a.closed_invoice_cents || 0) + (a.open_invoice_cents || 0), 0);
+    return calculateTotalConsolidatedDebt(accounts);
   }, [accounts]);
 
   const netLiquidityCents = useMemo(() => {
-    return accumulatedBalanceCents - totalConsolidatedDebtCents;
-  }, [accumulatedBalanceCents, totalConsolidatedDebtCents]);
+    return calculateNetLiquidity(accounts);
+  }, [accounts]);
 
   const setMonthlyIncomeCents = useCallback((val: number) => {
     setMonthlyIncomeCentsState(val);
@@ -174,8 +174,6 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     }
 
     try {
-      if (loading && !isInitialLoading) return;
-    
       setLoading(true);
       if (isInitialLoading) setIsInitialLoading(false);
       
@@ -188,16 +186,16 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       if (state.user_profile) {
         const { monthly_income_cents, fixed_expenses_cents, accumulated_balance_cents, financial_health_score } = state.user_profile;
         
-        setMonthlyIncomeCentsState(monthly_income_cents || 0);
-        setFixedExpensesCentsState(fixed_expenses_cents || 0);
-        setAccumulatedBalanceCents(accumulated_balance_cents || 0);
-        setHealthScore(financial_health_score || 0);
+        setMonthlyIncomeCentsState(Number(monthly_income_cents || 0));
+        setFixedExpensesCentsState(Number(fixed_expenses_cents || 0));
+        setAccumulatedBalanceCents(Number(accumulated_balance_cents || 0));
+        setHealthScore(Number(financial_health_score || 0));
 
         if (typeof window !== "undefined") {
-          localStorage.setItem("vesper_monthly_income", (monthly_income_cents || 0).toString());
-          localStorage.setItem("vesper_fixed_expenses", (fixed_expenses_cents || 0).toString());
-          localStorage.setItem("vesper_accumulated_balance", (accumulated_balance_cents || 0).toString());
-          localStorage.setItem("vesper_health_score", (financial_health_score || 0).toString());
+          localStorage.setItem("vesper_monthly_income", Number(monthly_income_cents || 0).toString());
+          localStorage.setItem("vesper_fixed_expenses", Number(fixed_expenses_cents || 0).toString());
+          localStorage.setItem("vesper_accumulated_balance", Number(accumulated_balance_cents || 0).toString());
+          localStorage.setItem("vesper_health_score", Number(financial_health_score || 0).toString());
         }
       }
 
@@ -258,19 +256,17 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       
       const schedInc = (state.recurring_transactions || [])
         .filter(r => r.transaction_type === "INCOME" && r.status === 'active' && new Date(r.next_date) <= endOfThisMonth && new Date(r.next_date) >= now)
-        .reduce((sum, r) => sum + r.amount_cents, 0);
+        .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
 
       const schedExp = (state.recurring_transactions || [])
         .filter(r => r.transaction_type === "EXPENSE" && r.status === 'active' && new Date(r.next_date) <= endOfThisMonth && new Date(r.next_date) >= now)
-        .reduce((sum, r) => sum + r.amount_cents, 0);
+        .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
 
-      const cardImpact = (state.accounts || [])
-        .filter(a => a.type === "CREDIT_CARD")
-        .reduce((sum, a) => sum + (a.closed_invoice_cents || 0) + (a.open_invoice_cents || 0), 0);
+      const cardImpact = calculateTotalConsolidatedDebt(state.accounts || []);
 
-      setScheduledIncomeCents(schedInc);
-      setScheduledExpensesCents(schedExp);
-      setCardDebtImpactCents(cardImpact);
+      setScheduledIncomeCents(Number(schedInc) || 0);
+      setScheduledExpensesCents(Number(schedExp) || 0);
+      setCardDebtImpactCents(Number(cardImpact) || 0);
 
       if (state.recent_transactions || state.month_transactions) {
         await db.transactions.where('user_id').equals(userId).delete();
@@ -284,7 +280,32 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
       setLastFetched(Date.now());
     } catch (error: any) {
-      console.error("❌ ERRO AO BUSCAR ESTADO FINANCEIRO:", error);
+      console.error("❌ ERRO AO BUSCAR ESTADO FINANCEIRO, TENTANDO DEXIE:", error);
+      
+      // Fallback: Busca o estado completo do Dexie
+      const { data: localState } = await financialService.getFinancialState(userId);
+      
+      if (localState) {
+        setAccounts(localState.accounts || []);
+        setGoals(localState.goals || []);
+        setRecurringTransactions(localState.recurring_transactions || []);
+        setBudgets(localState.budgets || []);
+        setRecentTransactions(localState.recent_transactions || []);
+        setMonthTransactions(localState.month_transactions || []);
+        
+        if (localState.month_stats) {
+          setExtraIncomeCents(localState.month_stats.income || 0);
+          setCurrentMonthExpensesCents(localState.month_stats.debit_expense || 0);
+        }
+        
+        // Sincronizar acumulado e score via localStorage como fallback
+        if (typeof window !== "undefined") {
+          const storedBalance = localStorage.getItem("vesper_accumulated_balance");
+          const storedScore = localStorage.getItem("vesper_health_score");
+          if (storedBalance) setAccumulatedBalanceCents(parseInt(storedBalance));
+          if (storedScore) setHealthScore(parseInt(storedScore));
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -381,7 +402,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       to_account_id: toId,
       amount_cents: amountCents
     });
-    if (!error) await refreshData();
+    await refreshData();
   };
 
   const upsertTransaction = async (data: any) => {
@@ -390,23 +411,23 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       ...data,
       user_id: userId
     });
-    if (!res.error) await refreshData();
+    await refreshData();
     return res;
   };
 
   const deleteTransaction = async (id: string) => {
     const { error } = await financialService.deleteTransaction(id);
-    if (!error) await refreshData();
+    await refreshData();
   };
 
   const deleteTransactionSeries = async (description: string, total: number, accId: string) => {
     const { error } = await financialService.deleteTransactionSeries(description, total, accId);
-    if (!error) await refreshData();
+    await refreshData();
   };
 
   const updateTransactionSeries = async (description: string, total: number, accId: string, updates: any) => {
     const { error } = await financialService.updateTransactionSeries(description, total, accId, updates);
-    if (!error) await refreshData();
+    await refreshData();
   };
 
   const createInstallmentSeries = async (data: {
@@ -425,7 +446,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       ...data,
       user_id: userId
     });
-    if (!error) await refreshData();
+    await refreshData();
   };
 
   const upsertAccount = async (data: Partial<Account>) => {
@@ -437,12 +458,12 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       ...data,
       user_id: userId
     });
-    if (!error) await refreshData();
+    await refreshData();
   };
 
   const deleteAccount = async (id: string) => {
     const { error } = await financialService.deleteAccount(id);
-    if (!error) await refreshData();
+    await refreshData();
   };
 
   const upsertGoal = async (data: Partial<Goal> & { status?: string }) => {
@@ -450,23 +471,22 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       console.warn("⚠️ [Context:FinancialData] Tentativa de upsertGoal sem userId identificado.");
       return;
     }
-    const { error } = await financialService.upsertGoal({
+    const res = await financialService.upsertGoal({
       ...data,
       user_id: userId
     });
-    if (!error) await refreshData();
+    await refreshData();
+    return res;
   };
 
   const updateGoalBalance = async (id: string, amount: number) => {
     const { error } = await financialService.updateGoalBalance(id, amount);
-    if (!error) await refreshData();
+    await refreshData();
   };
 
   const toggleTransactionPaid = async (transactionId: string, currentStatus: boolean) => {
     const { error } = await financialService.toggleTransactionPaid(transactionId, currentStatus);
-    if (!error) {
-      await refreshData();
-    }
+    await refreshData();
   };
 
   useEffect(() => {
@@ -567,7 +587,8 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       createInstallmentSeries,
       simulatePurchaseImpact,
       getGoalRecommendations,
-      toggleTransactionPaid
+      toggleTransactionPaid,
+      userId
     }}>
       {children}
     </FinancialDataContext.Provider>

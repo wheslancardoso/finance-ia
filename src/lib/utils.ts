@@ -6,6 +6,9 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(cents: number) {
+  if (isNaN(cents) || cents === null || cents === undefined) {
+    return "R$ 0,00";
+  }
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
