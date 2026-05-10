@@ -1,9 +1,9 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { Calculator, AlertTriangle, CheckCircle2, XCircle, TrendingDown, Calendar, PlusCircle } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 import GlassCard from "./GlassCard";
-import { useFinancialAnalysis, SimulationDetailedResult } from "@/hooks/useFinancialAnalysis";
+import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -13,17 +13,13 @@ export default function SpendingSimulator() {
   const { upsertGoal } = useFinancialData();
   const [amount, setAmount] = useState<string>("");
   const [installments, setInstallments] = useState<number>(1);
-  const [result, setResult] = useState<SimulationDetailedResult | null>(null);
 
-  useEffect(() => {
+  const result = useMemo(() => {
     const valueCents = Math.round(parseFloat(amount.replace(",", ".")) * 100);
     if (isNaN(valueCents) || valueCents <= 0) {
-      setResult(null);
-      return;
+      return null;
     }
-
-    const res = simulateDetailedImpact(valueCents, installments);
-    setResult(res);
+    return simulateDetailedImpact(valueCents, installments);
   }, [amount, installments, simulateDetailedImpact]);
 
   const handleSaveAsGoal = async () => {
@@ -35,7 +31,8 @@ export default function SpendingSimulator() {
       target_amount_cents: valueCents,
       current_amount_cents: 0,
       priority: 1,
-      status: "PLANNING"
+      status: "PLANNING",
+      monthly_contribution_cents: 0 // Adicionado para satisfazer a interface Goal
     });
     
     setAmount("");
@@ -156,7 +153,7 @@ export default function SpendingSimulator() {
         ) : (
           <div className="py-6 text-center px-4 bg-white/2 rounded-2xl border border-dashed border-white/5">
             <p className="text-xs text-white/20 font-medium italic">
-              "Quanto custa seu desejo? Simule o impacto antes de comprometer seu futuro."
+              &quot;Quanto custa seu desejo? Simule o impacto antes de comprometer seu futuro.&quot;
             </p>
           </div>
         )}

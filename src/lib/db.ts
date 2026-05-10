@@ -31,6 +31,8 @@ export interface Goal {
   target_amount_cents: number;
   current_amount_cents: number;
   monthly_contribution_cents: number;
+  priority: number;
+  status: "PLANNING" | "ACTIVE" | "COMPLETED";
   deadline?: string;
   projected_completion_date?: string;
   color_hex?: string;

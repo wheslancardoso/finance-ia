@@ -1,0 +1,23 @@
+
+/home/lan/finance-ia/src/components/SpendingSimulator.tsx
+   22:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/lan/finance-ia/src/components/SpendingSimulator.tsx:22:7
+  20 |     const valueCents = Math.round(parseFloat(amount.replace(",", ".")) * 100);
+  21 |     if (isNaN(valueCents) || valueCents <= 0) {
+> 22 |       setResult(null);
+     |       ^^^^^^^^^ Avoid calling setState() directly within an effect
+  23 |       return;
+  24 |     }
+  25 |  react-hooks/set-state-in-effect
+  160:15  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  react/no-unescaped-entities
+  160:90  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  react/no-unescaped-entities
+
+✖ 3 problems (3 errors, 0 warnings)
+

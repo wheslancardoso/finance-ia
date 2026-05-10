@@ -12,8 +12,9 @@ import {
   DebtExitProjection,
   GoalProjection,
   simulateDetailedImpact,
-  SimulationDetailedResult
 } from "@/lib/financial-logic";
+
+export type { SimulationDetailedResult } from "@/lib/financial-logic";
 
 export interface FinancialAnalysis {
   netLiquidityCents: number;
