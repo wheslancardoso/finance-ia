@@ -52,7 +52,7 @@ async function buildFinancialState(userId: string) {
     budgetsResult,
     transactionsResult,
   ] = await Promise.all([
-    pool.query(`SELECT * FROM public.accounts WHERE user_id = $1 AND is_active = true ORDER BY created_at`, [userId]),
+    pool.query(`SELECT * FROM public.accounts WHERE user_id = $1 ORDER BY created_at`, [userId]),
     pool.query(`SELECT * FROM public.categories WHERE user_id = $1 ORDER BY name`, [userId]),
     pool.query(`SELECT * FROM public.goals WHERE user_id = $1 ORDER BY created_at`, [userId]),
     pool.query(`SELECT * FROM public.recurring_transactions WHERE user_id = $1 ORDER BY created_at`, [userId]),

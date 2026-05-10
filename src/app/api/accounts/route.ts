@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const { rows } = await pool.query(
-      `SELECT * FROM public.accounts WHERE user_id = $1 AND is_active = true ORDER BY created_at`,
+      `SELECT * FROM public.accounts WHERE user_id = $1 ORDER BY created_at`,
       [userId]
     );
     return NextResponse.json(rows);
@@ -97,7 +97,7 @@ export async function DELETE(request: NextRequest) {
 
   try {
     await pool.query(
-      `UPDATE public.accounts SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      `DELETE FROM public.accounts WHERE id = $1`,
       [accountId]
     );
     return NextResponse.json({ success: true });
