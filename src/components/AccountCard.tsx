@@ -11,8 +11,9 @@ import { ActionMenu } from "./ActionMenu";
 import { PayInvoiceModal } from "./PayInvoiceModal";
 import { ConfirmModal } from "./ConfirmModal";
 import { StatusModal } from "./StatusModal";
-import { format } from "date-fns";
+import { format, subMonths, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { financialService } from "@/services/financialService";
 
 interface AccountCardProps {
   account: any;
@@ -44,6 +45,9 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
     title: "",
     type: "error"
   });
+  const [migrationValue, setMigrationValue] = useState("");
+  const [isMigrationLoading, setIsMigrationLoading] = useState(false);
+  const [showMigrationInput, setShowMigrationInput] = useState(false);
 
   // Detectar status da fatura
   const openAmount = liveAccount.open_invoice_cents || 0;
@@ -146,9 +150,68 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
                   Fatura {showClosed ? "Fechada" : "Aberta"} — {invoiceMonth}
                 </p>
               </div>
-              <h2 className="text-3xl font-bold tracking-tight tabular-nums text-amber-500">
-                {formatCurrency(invoiceAmount)}
-              </h2>
+              
+              {showMigrationInput ? (
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="text"
+                    value={migrationValue}
+                    onChange={(e) => setMigrationValue(e.target.value)}
+                    placeholder="Valor (ex: 250,00)"
+                    autoFocus
+                    className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-lg font-bold text-white w-40 focus:outline-none focus:border-violet-500/50"
+                  />
+                  <button
+                    disabled={isMigrationLoading}
+                    onClick={async () => {
+                      const cents = Math.round(parseFloat(migrationValue.replace(",", ".")) * 100);
+                      if (isNaN(cents)) return;
+                      setIsMigrationLoading(true);
+                      const now = new Date();
+                      // Se a fatura é a fechada do mês atual, usamos uma data antes do dia de fechamento
+                      const migrationDate = new Date(now.getFullYear(), now.getMonth(), (closing_day || 5) - 1);
+                      
+                      await financialService.createMigrationBalanceTransaction({
+                        user_id: liveAccount.user_id,
+                        account_id: id,
+                        amount_cents: cents,
+                        description: `Saldo Inicial (${invoiceMonth})`,
+                        date: migrationDate.toISOString(),
+                        is_paid: false // Nasce como a pagar, o usuário clica em Pagar depois se quiser
+                      });
+                      
+                      setIsMigrationLoading(false);
+                      setShowMigrationInput(false);
+                      setMigrationValue("");
+                      window.dispatchEvent(new CustomEvent('financial-data-updated'));
+                    }}
+                    className="p-2 rounded-lg bg-violet-500 text-white hover:bg-violet-600 transition-colors"
+                  >
+                    <CalendarDays className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onClick={() => setShowMigrationInput(false)}
+                    className="text-white/20 hover:text-white/40 text-xs font-bold uppercase"
+                  >
+                    X
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-baseline gap-3">
+                  <h2 className="text-3xl font-bold tracking-tight tabular-nums text-amber-500">
+                    {formatCurrency(invoiceAmount)}
+                  </h2>
+                  
+                  {isCreditCard && invoiceAmount === 0 && (
+                    <button 
+                      onClick={() => setShowMigrationInput(true)}
+                      className="text-[9px] font-bold text-violet-400/60 uppercase tracking-widest hover:text-violet-400 transition-colors border-b border-violet-400/20"
+                    >
+                      Informar Saldo
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           );
         })() : (
@@ -172,9 +235,17 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
                 style={{ width: `${percentage}%`, backgroundColor: colorHex }}
               />
             </div>
-            <div className="flex justify-between text-[10px] font-medium text-white/20">
-              <span>Disponível: {formatCurrency(available)}</span>
-              <span>Total: {formatCurrency(limit)}</span>
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between text-[10px] font-medium text-white/20">
+                <span>Disponível: {formatCurrency(available)}</span>
+                <span>Total: {formatCurrency(limit)}</span>
+              </div>
+              <div className="flex justify-between text-[9px] font-bold text-violet-400/40 uppercase tracking-tight">
+                <span>Dívida Total: {formatCurrency(liveAccount.total_debt_cents || spent)}</span>
+                {liveAccount.next_month_impact_cents > 0 && (
+                  <span className="text-emerald-400/50">Liberará {formatCurrency(liveAccount.next_month_impact_cents)} em breve</span>
+                )}
+              </div>
             </div>
           </div>
         )}

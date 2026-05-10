@@ -30,10 +30,15 @@ export const financialService = {
   async upsertTransaction(data: any) {
     console.log("🚀 Iniciando upsertTransaction:", data.description, data.amount_cents);
     try {
+      const txDate = new Date(data.date || new Date());
+      const now = new Date();
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const isPastMonth = txDate < currentMonthStart;
+
       const payload = {
         ...data,
         id: data.id || generateId(),
-        is_paid: data.is_paid ?? true,
+        is_paid: data.is_paid ?? (isPastMonth ? true : false),
         source: data.source ?? "MANUAL",
       };
 
@@ -51,10 +56,15 @@ export const financialService = {
     } catch (error: any) {
       console.error("❌ upsertTransaction falhou no PostgreSQL:", error.message);
       // Fallback: salvar apenas local
+      const txDate = new Date(data.date || new Date());
+      const now = new Date();
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const isPastMonth = txDate < currentMonthStart;
+
       const payload = {
         ...data,
         id: data.id || generateId(),
-        is_paid: data.is_paid ?? true,
+        is_paid: data.is_paid ?? (isPastMonth ? true : false),
         source: data.source ?? "MANUAL",
       };
       await db.transactions.put(payload);
@@ -143,9 +153,8 @@ export const financialService = {
         const date = new Date(data.start_date);
         date.setMonth(date.getMonth() + i);
         
-        const isPastMonth = 
-          date.getFullYear() < now.getFullYear() || 
-          (date.getFullYear() === now.getFullYear() && date.getMonth() < now.getMonth());
+        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const isPastMonth = date < currentMonthStart;
         
         const tx: Transaction = {
           id: generateId(),
@@ -488,5 +497,22 @@ export const financialService = {
     } catch (error) {
       return { data: null, error };
     }
+  },
+
+  async createMigrationBalanceTransaction(data: {
+    user_id: string;
+    account_id: string;
+    amount_cents: number;
+    description: string;
+    date: string;
+    is_paid: boolean;
+  }) {
+    console.log("🛠️ Criando transação de ajuste de migração:", data.description);
+    return this.upsertTransaction({
+      ...data,
+      transaction_type: "EXPENSE",
+      category_id: null, // Ajuste técnico
+      source: "MIGRATION"
+    });
   }
 };

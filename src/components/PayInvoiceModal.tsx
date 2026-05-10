@@ -69,30 +69,52 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
 
     const { data: cardTxs } = await supabase
       .from("transactions")
-      .select("id, amount_cents, date, is_paid")
+      .select("id, amount_cents, date, is_paid, invoice_id")
       .eq("account_id", creditCardAccount.id)
       .eq("is_paid", false);
 
     if (!cardTxs) return false;
 
+    // Filtra transações que pertencem ao mês de referência da fatura fechada
     const invoiceTxIds = cardTxs
       .filter(tx => {
         const txDate = new Date(tx.date);
         let tY = txDate.getUTCFullYear();
         let tM = txDate.getUTCMonth();
+        // Lógica simplificada: se a data >= dia de fechamento, pertence ao próximo mês
         if (txDate.getUTCDate() >= cDay) { tM++; if (tM > 11) { tM = 0; tY++; } }
         return `${tY}-${String(tM + 1).padStart(2, '0')}-01` === closedInvoiceStr;
       })
       .map(tx => tx.id);
 
+    // Identificar os IDs das faturas envolvidas
+    const invoiceIds = Array.from(new Set(cardTxs.filter(tx => invoiceTxIds.includes(tx.id)).map(tx => tx.invoice_id).filter(Boolean)));
+
     if (invoiceTxIds.length > 0) {
-      const { error } = await supabase
+      // 1. Marcar transações como pagas
+      const { error: txError } = await supabase
         .from("transactions")
         .update({ is_paid: true })
         .in("id", invoiceTxIds);
-      if (error) {
-        console.error("Erro ao marcar transações como pagas:", error);
+      
+      if (txError) {
+        console.error("Erro ao marcar transações como pagas:", txError);
         return false;
+      }
+
+      // 2. Marcar a(s) fatura(s) como paga(s) no banco de dados
+      if (invoiceIds.length > 0) {
+        await supabase
+          .from("credit_card_invoices")
+          .update({ status: "PAID", updated_at: new Date().toISOString() })
+          .in("id", invoiceIds);
+      } else {
+        // Se não houver invoice_id vinculado às transações (raro), tentamos buscar pela referência
+        await supabase
+          .from("credit_card_invoices")
+          .update({ status: "PAID", updated_at: new Date().toISOString() })
+          .eq("account_id", creditCardAccount.id)
+          .eq("reference_month", closedInvoiceStr.substring(0, 7)); // YYYY-MM
       }
     }
 

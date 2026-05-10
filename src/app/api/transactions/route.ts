@@ -74,6 +74,11 @@ export async function POST(request: NextRequest) {
     
     console.log(`📝 [API] Processando transação: ${description} (${amount_cents} cents)`);
 
+    const txDate = new Date(date);
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const isPastMonth = txDate < currentMonthStart;
+
     const txData = {
       ...(id ? { id } : {}),
       user_id,
@@ -86,7 +91,7 @@ export async function POST(request: NextRequest) {
       installment_current,
       installment_total,
       installment_group_id: installment_group_id || null,
-      is_paid,
+      is_paid: is_paid ?? (isPastMonth ? true : false),
       source,
       updated_at: new Date().toISOString()
     };

@@ -125,12 +125,15 @@ async function buildFinancialState(userId: string) {
   let credit_expense = 0;
   let investments = 0;
 
-  // Buscar faturas para contas de cartão de crédito
+  // Buscar faturas para contas de cartão de crédito (todas, para processar histórico)
   const { data: allInvoices } = await supabase
     .from('credit_card_invoices')
-    .select('*, accounts!inner(user_id)')
-    .eq('accounts.user_id', userId)
-    .neq('status', 'PAID');
+    .select('*, accounts!inner(user_id, closing_day, due_day)')
+    .eq('accounts.user_id', userId);
+
+  const currentMonthRef = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const nextMonthRef = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
   // Enriquecer contas com dados de fatura
   const enrichedAccounts = (accounts || []).map((acc: any) => {
@@ -138,23 +141,62 @@ async function buildFinancialState(userId: string) {
 
     const accountInvoices = (allInvoices || []).filter((i: any) => i.account_id === acc.id);
     
-    const sortedInvoices = [...accountInvoices].sort((a, b) => 
-      (a.reference_month || "").localeCompare(b.reference_month || "")
-    );
+    // 1. Processar faturas virtuais para o passado
+    const processedInvoices = accountInvoices.map(inv => {
+      // Se a fatura é de um mês anterior ao atual e ainda está OPEN ou CLOSED, tratamos como PAID
+      // (conforme pedido pelo usuário para entrar contando como pago)
+      if (inv.reference_month < currentMonthRef && inv.status !== 'PAID') {
+        return { ...inv, status: 'PAID' };
+      }
+      return inv;
+    });
 
-    const openInvoice = sortedInvoices.find((i: any) => i.status === "OPEN");
-    const closedInvoices = sortedInvoices.filter((i: any) => i.status === "CLOSED");
+    // 2. Determinar qual mês deve estar aberto baseado no dia de fechamento
+    // Se hoje >= dia de fechamento, a fatura do mês atual já "fechou" e a aberta deve ser a próxima
+    const today = now.getDate();
+    const isCurrentMonthClosed = acc.closing_day && today >= acc.closing_day;
+    const targetOpenMonth = isCurrentMonthClosed ? nextMonthRef : currentMonthRef;
+
+    // 3. Filtrar e ordenar faturas ativas (não pagas após o processamento acima)
+    const activeInvoices = processedInvoices
+      .filter(i => i.status !== 'PAID')
+      .sort((a, b) => (a.reference_month || "").localeCompare(b.reference_month || ""));
+
+    // Tentar encontrar a fatura aberta do mês alvo ou a mais próxima futura
+    let openInvoice = activeInvoices.find(i => i.status === 'OPEN' && i.reference_month >= targetOpenMonth);
+    
+    if (!openInvoice) {
+      openInvoice = activeInvoices.find(i => i.status === 'OPEN');
+    }
+
+    const closedInvoices = activeInvoices.filter(i => i.status === 'CLOSED' && i.id !== openInvoice?.id);
 
     const openCents = openInvoice ? Number(openInvoice.amount_cents) : 0;
     const closedCents = closedInvoices.reduce((sum, i) => sum + Number(i.amount_cents), 0);
-    const totalDebt = accountInvoices.reduce((sum, i) => sum + Number(i.amount_cents), 0);
+    
+    // IMPORTANTE: totalDebt deve ser a soma de TODAS as transações não pagas do cartão,
+    // inclusive parcelas futuras que ainda não entraram em faturas geradas.
+    const accountTransactions = allTransactions.filter(t => t.account_id === acc.id && !t.is_paid);
+    const totalDebt = accountTransactions.reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+    // Próximo mês de alívio: quanto será liberado no próximo mês (fatura que vence após a atual)
+    // Buscamos transações que terminam ou que têm parcelas no próximo mês
+    const nextMonthTransactions = allTransactions.filter(t => {
+      if (t.account_id !== acc.id || t.is_paid) return false;
+      const d = new Date(t.date);
+      const mRef = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return mRef === targetOpenMonth;
+    });
+    const nextMonthReleaseCandidate = nextMonthTransactions.reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
     return {
       ...acc,
       open_invoice_cents: openCents,
       closed_invoice_cents: closedCents,
       balance_cents: -totalDebt,
-      open_invoice_month: openInvoice ? openInvoice.reference_month : null,
+      total_debt_cents: totalDebt,
+      next_month_impact_cents: nextMonthReleaseCandidate,
+      open_invoice_month: openInvoice ? openInvoice.reference_month : targetOpenMonth,
       closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
     };
   });
