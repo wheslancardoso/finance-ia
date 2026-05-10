@@ -13,7 +13,7 @@ import { StatusModal } from "./StatusModal";
 
 export function ContributionModal() {
   const { isContributionOpen, closeModal, selectedGoal } = useGoalModal();
-  const { accounts, categories } = useFinancialData();
+  const { accounts, categories, upsertTransaction, upsertGoal, userId, refreshData } = useFinancialData();
   const router = useRouter();
   
   const [loading, setLoading] = useState(false);
@@ -45,59 +45,68 @@ export function ContributionModal() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedGoal || !selectedAccountId) return;
+    if (!selectedGoal || !selectedAccountId || !userId) return;
     setLoading(true);
 
-    const supabase = createClient();
-    const amountCents = Math.round(parseFloat(amount.replace(",", ".")) * 100);
-    
-    // 1. Criar a transação de "Aporte"
-    // Procurar uma categoria de 'Investimento' ou 'Outros'
-    const targetCategory = categories.find(c => c.name.toLowerCase().includes("investimento") || c.name.toLowerCase().includes("reserva")) || categories[0];
+    try {
+      const amountCents = Math.round(parseFloat(amount.replace(",", ".")) * 100);
+      
+      // 1. Criar a transação de "Aporte"
+      const targetCategory = categories.find(c => c.name.toLowerCase().includes("investimento") || c.name.toLowerCase().includes("reserva")) || categories[0];
 
-    const { error: txError } = await supabase.from("transactions").insert({
-      account_id: selectedAccountId,
-      category_id: targetCategory?.id,
-      description: `Aporte: ${selectedGoal.name}`,
-      amount_cents: amountCents,
-      transaction_type: "EXPENSE",
-      date: new Date().toISOString(),
-    });
+      const txResult = await upsertTransaction({
+        account_id: selectedAccountId,
+        category_id: targetCategory?.id,
+        description: `Aporte: ${selectedGoal.name}`,
+        amount_cents: amountCents,
+        transaction_type: "EXPENSE",
+        date: new Date().toISOString(),
+      });
 
-    if (txError) {
+      if (txResult?.error) {
+        setStatusModal({
+          isOpen: true,
+          status: "error",
+          title: "Erro no Aporte",
+          message: "Não foi possível criar a transação de aporte."
+        });
+        setLoading(false);
+        return;
+      }
+
+      // 2. Atualizar o saldo da Meta
+      const newTotal = (selectedGoal.current_amount_cents || 0) + amountCents;
+      const goalResult = await upsertGoal({
+        ...selectedGoal,
+        current_amount_cents: newTotal
+      });
+
+      if (goalResult) {
+        setStatusModal({
+          isOpen: true,
+          status: "success",
+          title: "Aporte Realizado",
+          message: `Seu aporte de ${formatCurrency(amountCents)} na meta ${selectedGoal.name} foi concluído!`
+        });
+      } else {
+        setStatusModal({
+          isOpen: true,
+          status: "error",
+          title: "Erro na Meta",
+          message: "Não foi possível atualizar o saldo da meta."
+        });
+      }
+    } catch (err) {
+      console.error("Erro no aporte:", err);
       setStatusModal({
         isOpen: true,
         status: "error",
-        title: "Erro no Aporte",
-        message: "Não foi possível criar a transação de aporte."
+        title: "Erro Inesperado",
+        message: "Ocorreu um problema ao processar o aporte."
       });
+    } finally {
       setLoading(false);
-      return;
     }
-
-    // 2. Atualizar o saldo da Meta
-    const newTotal = (selectedGoal.current_amount_cents || 0) + amountCents;
-    const { error: goalError } = await supabase
-      .from("goals")
-      .update({ current_amount_cents: newTotal })
-      .eq("id", selectedGoal.id);
-
-    if (!goalError) {
-      setStatusModal({
-        isOpen: true,
-        status: "success",
-        title: "Aporte Realizado",
-        message: `Seu aporte de ${formatCurrency(amountCents)} na meta ${selectedGoal.name} foi concluído!`
-      });
-    } else {
-      setStatusModal({
-        isOpen: true,
-        status: "error",
-        title: "Erro na Meta",
-        message: "Não foi possível atualizar o saldo da meta."
-      });
-    }
-    setLoading(false);
   }
 
   return (
@@ -164,11 +173,13 @@ export function ContributionModal() {
                   <span className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20 font-black text-2xl">R$</span>
                   <input
                     autoFocus
+                    inputMode="decimal"
                     placeholder="0,00"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     className="w-full bg-white/5 border border-white/10 rounded-3xl py-6 pl-16 pr-8 text-4xl text-white outline-none focus:border-white/20 focus:bg-white/[0.07] transition-all font-black tabular-nums placeholder:text-white/5"
                     required
+                    data-testid="contribution-amount-input"
                   />
                 </div>
               </div>
@@ -190,6 +201,7 @@ export function ContributionModal() {
                             ? "bg-white/10 border-white/30 text-white"
                             : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10"
                         )}
+                        data-testid="contribution-account-item"
                       >
                         <div 
                           className="w-8 h-8 rounded-lg flex items-center justify-center border"
@@ -227,6 +239,7 @@ export function ContributionModal() {
                 disabled={loading || !amount || !selectedAccountId || parseFloat(amount.replace(",", ".")) <= 0}
                 type="submit"
                 className="w-full bg-white text-black font-black text-xs uppercase tracking-[0.3em] py-6 rounded-2xl hover:bg-white/90 active:scale-[0.98] transition-all shadow-xl shadow-white/5 flex items-center justify-center gap-3"
+                data-testid="contribution-submit-button"
               >
                 {loading ? (
                    "Processando..."
@@ -247,8 +260,8 @@ export function ContributionModal() {
         onClose={() => {
           setStatusModal(prev => ({ ...prev, isOpen: false }));
           if (statusModal.status === "success") {
+            refreshData();
             closeModal();
-            router.refresh();
           }
         }}
         type={statusModal.status}

@@ -99,6 +99,7 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
   return (
     <>
       <GlassCard 
+        data-testid="transaction-item"
         className={cn(
           "p-4 flex items-center justify-between group hover:border-white/20 transition-all",
           isInstallment && "cursor-pointer",
@@ -161,7 +162,7 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
               isIncome ? "text-green-400" : "text-white",
               tx.is_paid && "text-white/20"
             )}>
-              {isIncome ? "+" : "-"} {formatCurrency(tx.amount_cents)}
+              {isIncome ? "+" : "-"} {isNaN(Number(tx.amount_cents)) ? "R$ ---" : formatCurrency(tx.amount_cents)}
             </p>
             <p className="text-[10px] text-white/20 font-medium">
               {format(new Date(tx.date), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}

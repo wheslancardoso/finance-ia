@@ -122,7 +122,10 @@ export default function SpendingSimulator() {
         </div>
 
         {result ? (
-          <div className={cn("rounded-2xl border p-4 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500", getStatusBg(result.status))}>
+          <div 
+            data-testid="simulator-status-indicator"
+            className={cn("rounded-2xl border p-4 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500", getStatusBg(result.status))}
+          >
             <div className="flex items-start gap-3">
               <div className="mt-0.5">{getStatusIcon(result.status)}</div>
               <p className={cn("text-xs font-bold leading-relaxed", getStatusColor(result.status))}>

@@ -65,6 +65,7 @@ export function TransactionDeleteModal({
                       onConfirm("all");
                       onClose();
                     }}
+                    data-testid="confirm-delete-all"
                     className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] text-white bg-red-500 hover:bg-red-600 transition-all active:scale-[0.98] shadow-xl shadow-red-500/10"
                   >
                     <Layers className="w-4 h-4" />
@@ -75,6 +76,7 @@ export function TransactionDeleteModal({
                       onConfirm("single");
                       onClose();
                     }}
+                    data-testid="confirm-delete-single"
                     className="w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] text-white/70 hover:text-white bg-white/5 hover:bg-white/10 transition-all border border-white/5"
                   >
                     Excluir apenas esta
@@ -86,6 +88,7 @@ export function TransactionDeleteModal({
                     onConfirm("single");
                     onClose();
                   }}
+                  data-testid="confirm-delete-button"
                   className="w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] text-white bg-red-500 hover:bg-red-600 transition-all active:scale-[0.98] shadow-xl shadow-red-500/10"
                 >
                   Confirmar Exclusão

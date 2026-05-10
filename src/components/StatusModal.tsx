@@ -105,6 +105,7 @@ export function StatusModal({
 
             <button
               onClick={onClose}
+              data-testid="status-modal-close"
               className={cn(
                 "w-full py-5 rounded-[22px] font-black text-[10px] uppercase tracking-[0.4em] transition-all active:scale-[0.98] shadow-2xl relative z-10",
                 type === "success" ? "bg-emerald-500 hover:bg-emerald-400 text-white shadow-emerald-500/20" :

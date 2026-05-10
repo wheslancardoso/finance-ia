@@ -42,6 +42,7 @@ export function ActionMenu({ onEdit, onDelete, className }: ActionMenuProps) {
         type="button"
         onClick={toggleMenu}
         className="p-2 rounded-xl text-white/20 hover:text-white hover:bg-white/5 transition-all outline-none"
+        data-testid="action-menu-button"
       >
         <MoreVertical className="w-5 h-5" />
       </button>
@@ -67,6 +68,7 @@ export function ActionMenu({ onEdit, onDelete, className }: ActionMenuProps) {
               type="button"
               onClick={handleEdit}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white/70 hover:text-white hover:bg-white/10 transition-all text-left"
+              data-testid="action-edit-button"
             >
               <Edit2 className="w-4 h-4 text-violet-400" />
               Editar
@@ -75,6 +77,7 @@ export function ActionMenu({ onEdit, onDelete, className }: ActionMenuProps) {
               type="button"
               onClick={handleDelete}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-red-400/70 hover:text-red-400 hover:bg-red-500/10 transition-all text-left"
+              data-testid="action-delete-button"
             >
               <Trash2 className="w-4 h-4" />
               Excluir

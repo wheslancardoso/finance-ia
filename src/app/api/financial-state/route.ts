@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/server";
 
 export const dynamic = 'force-dynamic';
 
@@ -13,13 +13,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "user_id obrigatório" }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   try {
-    // Tentar usar a função RPC se existir
-    const { data, error } = await supabase.rpc('get_financial_state_v5', {
-      p_user_id: userId
-    });
+    // Tentar usar a função RPC se existir (com retry simples)
+    let rpcResult: any;
+    let retries = 0;
+    while (retries < 2) {
+      rpcResult = await supabase.rpc('get_financial_state_v5', { p_user_id: userId });
+      if (!rpcResult.error) break;
+      retries++;
+      if (retries < 2) await new Promise(r => setTimeout(r, 500));
+    }
+    const { data, error } = rpcResult;
 
     if (error) {
       console.warn("RPC get_financial_state_v5 failed, using manual build:", error.message);
@@ -38,9 +44,9 @@ export async function GET(request: NextRequest) {
         const openInvoice = sortedInvoices.find((i: any) => i.status === "OPEN");
         const closedInvoices = sortedInvoices.filter((i: any) => i.status === "CLOSED");
 
-        const openCents = openInvoice ? Number(openInvoice.amount_cents) : 0;
-        const closedCents = closedInvoices.reduce((sum: number, i: any) => sum + Number(i.amount_cents), 0);
-        const totalDebt = accountInvoices.reduce((sum: number, i: any) => sum + Number(i.amount_cents), 0);
+        const openCents = openInvoice ? (Number(openInvoice.amount_cents) || 0) : 0;
+        const closedCents = closedInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
+        const totalDebt = accountInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
 
         return {
           ...acc,
@@ -70,7 +76,7 @@ export async function GET(request: NextRequest) {
  * Serve como fallback caso a RPC não exista ou falhe.
  */
 async function buildFinancialState(userId: string) {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   const [
     accountsRes,
@@ -96,6 +102,7 @@ async function buildFinancialState(userId: string) {
 
   if (accountsRes.error || categoriesRes.error || goalsRes.error) {
     const error = accountsRes.error || categoriesRes.error || goalsRes.error;
+    console.error("Database error in buildFinancialState:", error);
     throw new Error(`Database connection failed: ${error?.message}`);
   }
 
@@ -184,8 +191,8 @@ async function buildFinancialState(userId: string) {
 
     const closedInvoices = activeInvoices.filter(i => i.status === 'CLOSED' && i.id !== openInvoice?.id);
 
-    const openCents = openInvoice ? Number(openInvoice.amount_cents) : 0;
-    const closedCents = closedInvoices.reduce((sum, i) => sum + Number(i.amount_cents), 0);
+    const openCents = openInvoice ? (Number(openInvoice.amount_cents) || 0) : 0;
+    const closedCents = closedInvoices.reduce((sum, i) => sum + (Number(i.amount_cents) || 0), 0);
     
     // IMPORTANTE: totalDebt deve ser a soma de TODAS as transações não pagas do cartão,
     // inclusive parcelas futuras que ainda não entraram em faturas geradas.
@@ -251,3 +258,4 @@ async function buildFinancialState(userId: string) {
     },
   };
 }
+

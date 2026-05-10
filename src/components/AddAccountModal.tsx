@@ -236,7 +236,7 @@ export function AddAccountModal() {
     <>
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div data-testid="add-account-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -271,6 +271,7 @@ export function AddAccountModal() {
                     key={t.id}
                     type="button"
                     onClick={() => setType(t.id)}
+                    data-testid={`account-type-${t.id}`}
                     className={cn(
                       "flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all",
                       type === t.id ? "bg-white/10 border-white/20" : "bg-transparent border-white/5 opacity-40"
@@ -289,6 +290,7 @@ export function AddAccountModal() {
                     placeholder="Ex: Nubank, Itaú..."
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    data-testid="account-name-input"
                     className="w-full bg-white/5 border border-white/5 rounded-2xl py-4 px-5 text-white outline-none focus:border-white/20 transition-all font-medium"
                     required
                   />
@@ -305,6 +307,7 @@ export function AddAccountModal() {
                       value={type === "CREDIT_CARD" ? balance.replace("-", "") : balance}
                       onChange={(e) => setBalance(e.target.value)}
                       disabled={type === "CREDIT_CARD"}
+                      data-testid="account-balance-input"
                       className={cn(
                         "w-full bg-white/5 border border-white/5 rounded-2xl py-4 pl-10 pr-4 text-white text-xl font-bold outline-none transition-all tabular-nums",
                         type === "CREDIT_CARD" ? "opacity-50 cursor-not-allowed border-violet-500/20" : "focus:border-white/20"
@@ -333,6 +336,7 @@ export function AddAccountModal() {
                         onChange={(e) => setCreditLimit(e.target.value)}
                         className="w-full bg-transparent border-b border-white/10 py-2 text-white font-bold outline-none focus:border-violet-500/50"
                         required
+                        data-testid="account-limit-input"
                       />
                     </div>
                     
@@ -356,6 +360,7 @@ export function AddAccountModal() {
                           }}
                           className="w-full bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-white font-bold outline-none tabular-nums no-spinner"
                           required
+                          data-testid="account-closing-day-input"
                         />
                       </div>
                       <div className="space-y-2">
@@ -368,6 +373,7 @@ export function AddAccountModal() {
                           onChange={(e) => setDueDay(parseInt(e.target.value) || 1)}
                           className="w-full bg-white/5 border border-white/5 rounded-xl py-3 px-4 text-white font-bold outline-none tabular-nums no-spinner"
                           required
+                          data-testid="account-due-day-input"
                         />
                       </div>
                     </div>
@@ -462,6 +468,7 @@ export function AddAccountModal() {
                   <button
                     disabled={loading}
                     type="submit"
+                    data-testid="account-submit-button"
                     className="flex-1 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] transition-all active:scale-[0.98] shadow-xl"
                     style={{ backgroundColor: colorHex, color: '#fff' }}
                   >

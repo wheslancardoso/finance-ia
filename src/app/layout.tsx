@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+// Fontes temporariamente desativadas para evitar erros de rede no build
+/*
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -11,6 +13,9 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+*/
+const geistSans = { variable: "" };
+const geistMono = { variable: "" };
 
 export const metadata: Metadata = {
   title: "Vesper | Finance Command Center",

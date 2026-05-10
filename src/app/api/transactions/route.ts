@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/server";
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = await createAdminClient();
 
     const { data, error } = await supabase
       .from('transactions')
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
+    const supabase = await createAdminClient();
     
     console.log(`📝 [API] Processando transação: ${description} (${amount_cents} cents)`);
 
@@ -84,12 +84,12 @@ export async function POST(request: NextRequest) {
       user_id,
       account_id: account_id || null,
       category_id: category_id || null,
-      amount_cents,
+      amount_cents: Number(amount_cents) || 0,
       transaction_type,
       date,
       description,
-      installment_current,
-      installment_total,
+      installment_current: Number(installment_current) || 1,
+      installment_total: Number(installment_total) || 1,
       installment_group_id: installment_group_id || null,
       is_paid: is_paid ?? (isPastMonth ? true : false),
       source,
@@ -106,8 +106,12 @@ export async function POST(request: NextRequest) {
       throw error;
     }
     
+    if (!data || data.length === 0) {
+      throw new Error("Falha ao persistir transação: Nenhum dado retornado");
+    }
+
     console.log(`✅ [API] Transação persistida com sucesso: ${data[0]?.id}`);
-    return NextResponse.json(data ? data[0] : null);
+    return NextResponse.json(data[0]);
   } catch (error: any) {
     console.error("❌ [API] POST /api/transactions error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -125,7 +129,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = await createAdminClient();
     const { error } = await supabase
       .from('transactions')
       .delete()
@@ -138,3 +142,4 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+

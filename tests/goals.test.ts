@@ -42,10 +42,41 @@ test.describe('Fluxo de Metas e Simulador', () => {
     // 5. Navegar para a página de Metas e verificar persistência
     await page.goto('/goals');
 
-    // O nome gerado é "Compra Planejada: R$ 1.500,50"
-    // Usamos um locator mais flexível para o texto da meta
-    const goalTitle = page.getByTestId('goal-card-title').filter({ hasText: /Compra Planejada:/ });
+    // O nome gerado é "Parcelamento: 1500,50"
+    const goalTitle = page.getByTestId('goal-card-title').filter({ hasText: /Parcelamento:/ });
     await expect(goalTitle).toBeVisible({ timeout: 15000 });
-    await expect(goalTitle).toContainText('1.500,50');
+    await expect(goalTitle).toContainText('1500,50');
+  });
+
+  test('deve criar uma meta manual e realizar um aporte', async ({ page }) => {
+    // 1. Criar uma conta para o aporte
+    await page.goto('/accounts');
+    await page.getByTestId('add-account-button').click();
+    await page.getByTestId('account-name-input').fill('Conta de Teste');
+    await page.getByTestId('account-balance-input').fill('5000,00');
+    await page.getByTestId('account-type-CHECKING').click();
+    await page.getByTestId('account-submit-button').click();
+    await page.waitForTimeout(2000);
+
+    // 2. Criar a meta
+    await page.goto('/goals');
+    await page.getByTestId('add-goal-button').click();
+    await page.getByTestId('goal-name-input').fill('Meta E2E');
+    await page.getByTestId('goal-target-input').fill('1000,00');
+    await page.getByTestId('goal-submit-button').click();
+    await page.waitForTimeout(2000);
+
+    // 3. Realizar aporte
+    const goalCard = page.getByTestId('goal-card').filter({ hasText: 'Meta E2E' });
+    await goalCard.getByTestId('goal-contribution-button').click();
+
+    // 4. Preencher aporte
+    await page.getByTestId('contribution-amount-input').fill('200,00');
+    await page.getByTestId('contribution-account-item').first().click();
+    await page.getByTestId('contribution-submit-button').click();
+
+    // 5. Verificar progresso (200 / 1000 = 20%)
+    // Usamos regex para ser resiliente a 20% ou 20.0% e evitar problemas de ponto/vírgula
+    await expect(goalCard).toContainText(/20.*Completo/, { timeout: 15000 });
   });
 });

@@ -169,10 +169,22 @@ export function AddTransactionModal() {
         return;
       }
 
-      const totalAmountCents = Math.round(parseFloat(capturedAmount.replace(",", ".")) * 100);
+      const parsedAmount = parseFloat(capturedAmount.replace(",", "."));
+      if (isNaN(parsedAmount)) {
+        setStatusModal({
+          isOpen: true,
+          title: "Valor Inválido",
+          message: "O valor informado não é um número válido.",
+          type: "error"
+        });
+        setLoading(false);
+        return;
+      }
+      const totalAmountCents = Math.round(parsedAmount * 100);
       const installmentAmountCents = Math.floor(totalAmountCents / capturedInstallments);
 
       const basePayload = {
+        user_id: userId,
         account_id: capturedAccountId,
         category_id: (capturedCategoryId && capturedCategoryId.trim() !== "") ? capturedCategoryId : null,
         transaction_type: capturedType,
@@ -230,6 +242,7 @@ export function AddTransactionModal() {
             await deleteTransactionSeries(transactionToEdit.description, transactionToEdit.installment_total, transactionToEdit.account_id);
             
             await createInstallmentSeries({
+              user_id: userId,
               description: capturedDescription,
               amount_total_cents: totalAmountCents,
               installments: capturedInstallments,
@@ -260,6 +273,7 @@ export function AddTransactionModal() {
       } else {
         if (capturedInstallments > 1) {
           await createInstallmentSeries({
+            user_id: userId,
             description: capturedDescription,
             amount_total_cents: totalAmountCents,
             installments: capturedInstallments,
@@ -346,6 +360,7 @@ export function AddTransactionModal() {
       <button
         onClick={openAdd}
         className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-violet-600 text-white shadow-2xl shadow-violet-600/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-40 border border-white/20"
+        data-testid="add-transaction-button"
       >
         <Plus className="w-8 h-8" />
       </button>
@@ -515,6 +530,8 @@ export function AddTransactionModal() {
                                   setAccountId(acc.id);
                                   setOpenAccount(false);
                                 }}
+                                data-testid={`account-option-${acc.id}`}
+                                data-testname={acc.name}
                                 className={cn(
                                   "px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-medium text-white/80 hover:text-white transition-colors border-b border-white/5 last:border-0 flex items-center gap-3",
                                   acc.id === accountId && "bg-violet-500/10 text-violet-300"
@@ -614,6 +631,7 @@ export function AddTransactionModal() {
                           onChange={(e) => setTransactionDate(e.target.value)}
                           className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white outline-none focus:border-violet-500/50 font-bold"
                           required
+                          data-testid="transaction-date-input"
                         />
                       </div>
                       <div className="relative shrink-0 flex items-center gap-0 bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4">
@@ -680,6 +698,7 @@ export function AddTransactionModal() {
                             if (installments < 1) setInstallments(1);
                           }}
                           className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-5 text-sm text-white outline-none focus:border-violet-500/50 font-bold tabular-nums no-spinner"
+                          data-testid="transaction-installments-input"
                         />
                       </div>
                     </div>

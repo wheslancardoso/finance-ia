@@ -34,6 +34,7 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
         <button 
           onClick={openModal}
           className="bg-white text-black font-black py-4 px-8 rounded-2xl transition-all flex items-center justify-center gap-2 group active:scale-95 shadow-xl shadow-white/10"
+          data-testid="add-goal-button"
         >
           <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
           Novo Objetivo
@@ -67,7 +68,7 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
             const remaining = goal.target_amount_cents - goal.current_amount_cents;
             
             return (
-              <div key={goal.id} className="group relative">
+              <div key={goal.id} className="group relative" data-testid="goal-card">
                 <GlassCard className="h-full flex flex-col gap-8 transition-all hover:border-white/20">
                   <div className="flex items-start justify-between">
                     <div 
@@ -124,6 +125,7 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
                     <button 
                       onClick={() => openContribution(goal)}
                       className="bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl text-[10px] font-bold text-white uppercase tracking-widest transition-all"
+                      data-testid="goal-contribution-button"
                     >
                       Aportar
                     </button>
@@ -136,6 +138,7 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
           <button 
             onClick={openModal}
             className="p-8 border-2 border-dashed border-white/5 rounded-[40px] flex flex-col items-center justify-center gap-4 text-white/10 hover:text-white/20 hover:border-white/10 transition-all group"
+            data-testid="add-goal-button"
           >
             <div className="w-14 h-14 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
               <Plus className="w-8 h-8" />

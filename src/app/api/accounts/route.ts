@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/server";
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = await createAdminClient();
 
     const { data, error } = await supabase
       .from('accounts')
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
+    const supabase = await createAdminClient();
     
     console.log(`🏦 [API] Processando conta: ${name} (${type})`);
 
@@ -65,10 +65,10 @@ export async function POST(request: NextRequest) {
       user_id,
       name,
       type,
-      balance_cents,
-      credit_limit_cents,
-      closing_day: closing_day || null,
-      due_day: due_day || null,
+      balance_cents: Number(balance_cents) || 0,
+      credit_limit_cents: Number(credit_limit_cents) || 0,
+      closing_day: closing_day ? Number(closing_day) : null,
+      due_day: due_day ? Number(due_day) : null,
       color_hex,
       updated_at: new Date().toISOString()
     };
@@ -83,8 +83,12 @@ export async function POST(request: NextRequest) {
       throw error;
     }
     
+    if (!data || data.length === 0) {
+      throw new Error("Falha ao persistir conta: Nenhum dado retornado");
+    }
+
     console.log(`✅ [API] Conta persistida com sucesso: ${data[0]?.id}`);
-    return NextResponse.json(data ? data[0] : null);
+    return NextResponse.json(data[0]);
   } catch (error: any) {
     console.error("❌ [API] POST /api/accounts error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -102,7 +106,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = await createAdminClient();
     const { error } = await supabase
       .from('accounts')
       .delete()
@@ -115,3 +119,4 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
