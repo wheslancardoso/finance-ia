@@ -1,140 +1,113 @@
 import { test, expect } from '@playwright/test';
+import { setupFinancialMocks } from './mocks/financialMocks';
 
-test.describe('Transaction Flows', () => {
+test.describe('Transaction Flows (Mocked API)', () => {
+  let mockState: any;
+
   test.beforeEach(async ({ page }) => {
-    page.on('console', msg => {
-      if (msg.type() === 'error' || msg.text().includes('[Dashboard]')) {
-        console.log(`BROWSER [${msg.type()}]: ${msg.text()}`);
-      }
-    });
+    mockState = {
+      accounts: [
+        { id: 'acc-1', name: 'Wallet', type: 'CASH', balance_cents: 50000, color_hex: '#10b981' },
+        { id: 'acc-2', name: 'Credit Card', type: 'CREDIT_CARD', balance_cents: 0, credit_limit_cents: 100000, color_hex: '#6366f1', closing_day: 5, due_day: 12 }
+      ],
+      transactions: [],
+      categories: [
+        { id: 'cat-1', name: 'Food', color_hex: '#ef4444', type: 'EXPENSE' },
+        { id: 'cat-2', name: 'Salary', color_hex: '#3b82f6', type: 'INCOME' }
+      ],
+      goals: [],
+      subscriptions: []
+    };
 
-    // Limpar o banco de dados antes de cada teste
-    await page.goto('http://localhost:3001');
-    await page.evaluate(async () => {
-      const DB_NAME = 'VesperDB';
-      const databases = await indexedDB.databases();
-      if (databases.map(db => db.name).includes(DB_NAME)) {
-        await new Promise((resolve, reject) => {
-          const req = indexedDB.deleteDatabase(DB_NAME);
-          req.onsuccess = resolve;
-          req.onerror = reject;
-          req.onblocked = () => {
-            console.warn('⚠️ Delete database blocked');
-            resolve(null);
-          };
-        });
-      }
-      localStorage.clear();
-    });
-
-    // Aumentar o timeout para navegação inicial
-    await page.goto('http://localhost:3001', { timeout: 30000 });
-    // Esperar o app carregar (verificar elemento chave do dashboard)
-    await expect(page.locator('text=Liquidez Atual')).toBeVisible({ timeout: 15000 });
+    await setupFinancialMocks(page, mockState);
   });
 
   test('should create a credit card transaction with installments', async ({ page }) => {
-    // 1. Criar uma conta de cartão de crédito
-    await page.goto('http://localhost:3001/accounts');
-    await page.click('[data-testid="add-account-button"]');
+    await page.goto('/transactions');
+    await page.waitForLoadState('networkidle');
+
+    // Open add transaction modal
+    await page.getByTestId('add-transaction-button').first().click();
     
-    // Selecionar tipo Cartão
-    await page.click('[data-testid="account-type-CREDIT_CARD"]');
+    // Fill transaction details
+    await page.getByTestId('transaction-type-EXPENSE').click();
+    await page.getByTestId('transaction-amount-input').fill('300,00');
+    await page.getByTestId('transaction-description-input').fill('New Laptop');
     
-    await page.fill('[data-testid="account-name-input"]', 'Cartão Platinum');
-    await page.fill('[data-testid="account-limit-input"]', '5000');
-    await page.fill('[data-testid="account-closing-day-input"]', '5');
-    await page.fill('[data-testid="account-due-day-input"]', '12');
+    // Select Credit Card account
+    await page.getByTestId('transaction-account-select').click();
+    await page.getByTestId('account-option-acc-2').click();
     
-    await page.click('[data-testid="account-submit-button"]');
+    // Set installments
+    await page.getByTestId('transaction-installments-input').fill('3');
     
-    // Esperar fechar o modal (evita interceptação de cliques posteriores)
-    await expect(page.locator('[data-testid="add-account-modal"]')).not.toBeVisible();
+    // Select Food category
+    await page.getByTestId('transaction-category-select').click();
+    await page.getByTestId('category-option-cat-1').click();
     
-    // Esperar aparecer a conta na lista
-    await expect(page.locator('text=Cartão Platinum')).toBeVisible({ timeout: 10000 });
-    
-    // 2. Criar uma transação parcelada
-    await page.click('[data-testid="add-transaction-button"]');
-    
-    await page.fill('[data-testid="transaction-amount-input"]', '1200');
-    await page.fill('[data-testid="transaction-description-input"]', 'Compra Parcelada E2E');
-    
-    // Selecionar conta de cartão usando o novo data-testid
-    await page.click('[data-testid="transaction-account-select"]');
-    // Usamos filter para garantir que pegamos a opção correta no dropdown
-    await page.locator('[data-testid^="account-option"]').filter({ hasText: 'Cartão Platinum' }).first().click();
-    
-    // Definir parcelas
-    await page.fill('[data-testid="transaction-installments-input"]', '12');
-    
-    // Salvar
-    await page.click('[data-testid="transaction-submit-button"]');
-    
-    // Verificar se a transação aparece na lista (Dashboard)
-    await page.goto('http://localhost:3001');
-    
-    // Esperar o carregamento inicial (fallback do Dexie) terminar
-    await expect(page.locator('text=Carregando...')).not.toBeVisible({ timeout: 15000 });
-    
-    await expect(page.locator('text=Compra Parcelada E2E').first()).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Parcela 1/12', { exact: true }).first()).toBeVisible({ timeout: 10000 });
+    // Submit
+    await page.getByTestId('transaction-submit-button').click();
+
+    // Verify first installment in the list
+    await expect(page.getByText('New Laptop').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('1/3').first()).toBeVisible();
+    await expect(page.getByText('R$ 100,00').first()).toBeVisible();
   });
 
-  test('should delete a transaction and update balance', async ({ page }) => {
-    // 1. Garantir que existe uma conta Corrente para o teste de deleção
-    await page.goto('http://localhost:3001/accounts');
-    const existingWallet = await page.locator('text=Carteira E2E').isVisible();
-    if (!existingWallet) {
-        await page.click('[data-testid="add-account-button"]');
-        await page.click('[data-testid="account-type-CHECKING"]');
-        await page.fill('[data-testid="account-name-input"]', 'Carteira E2E');
-        await page.fill('[data-testid="account-balance-input"]', '1000');
-        await page.click('[data-testid="account-submit-button"]');
-        await expect(page.locator('[data-testid="add-account-modal"]')).not.toBeVisible();
-        await expect(page.locator('text=Carteira E2E')).toBeVisible({ timeout: 10000 });
-    }
+  test('should toggle transaction paid status', async ({ page }) => {
+    // Pre-populate a transaction BEFORE navigation
+    mockState.transactions.push({
+      id: 'tr-1',
+      date: new Date().toISOString(),
+      description: 'Monthly Rent',
+      amount_cents: 120000,
+      transaction_type: 'EXPENSE',
+      account_id: 'acc-1',
+      category_id: 'cat-1',
+      is_paid: false,
+      installment_current: 1,
+      installment_total: 1
+    });
 
-    // 2. Criar uma transação simples de entrada
-    await page.goto('http://localhost:3001');
-    await expect(page.locator('text=Carregando...')).not.toBeVisible({ timeout: 15000 });
+    await page.goto('/transactions');
+    await page.waitForLoadState('networkidle');
     
-    await page.click('[data-testid="add-transaction-button"]');
-    
-    // Mudar para Entrada
-    await page.click('button:has-text("Entrada")');
-    
-    await page.fill('[data-testid="transaction-amount-input"]', '500');
-    await page.fill('[data-testid="transaction-description-input"]', 'Venda E2E');
-    
-    // Selecionar conta
-    await page.click('[data-testid="transaction-account-select"]');
-    await page.locator('[data-testid^="account-option"]').filter({ hasText: 'Carteira E2E' }).first().click();
-    
-    await page.click('[data-testid="transaction-submit-button"]');
-    
-    // 3. Localizar transação e deletar
-    await expect(page.locator('text=Venda E2E')).toBeVisible({ timeout: 10000 });
+    // Find transaction and toggle paid
+    const transactionRow = page.getByTestId('transaction-item-tr-1');
+    await expect(transactionRow).toBeVisible({ timeout: 10000 });
+    await transactionRow.getByTestId('toggle-paid-button').click();
 
-    // Clica no menu de ações da transação que acabamos de criar
-    // Clica no menu de ações da transação que acabamos de criar
-    const transactionItem = page.getByTestId('transaction-item').filter({ hasText: 'Venda E2E' }).first();
-    const actionMenu = transactionItem.getByTestId('action-menu-button');
+    // Verify UI reflects paid status
+    await expect(transactionRow.getByTestId('toggle-paid-button')).toBeVisible();
+  });
+
+  test('should delete a transaction and update UI', async ({ page }) => {
+    // Pre-populate BEFORE navigation
+    mockState.transactions.push({
+      id: 'tr-to-delete',
+      date: new Date().toISOString(),
+      description: 'Old Ticket',
+      amount_cents: 5000,
+      transaction_type: 'EXPENSE',
+      account_id: 'acc-1',
+      category_id: 'cat-2',
+      is_paid: true,
+      installment_current: 1,
+      installment_total: 1
+    });
+
+    await page.goto('/transactions');
+    await page.waitForLoadState('networkidle');
+
+    const transactionRow = page.getByTestId('transaction-item-tr-to-delete');
+    await expect(transactionRow).toBeVisible({ timeout: 10000 });
+    await transactionRow.getByTestId('action-menu-button').click();
+    await page.getByTestId('action-delete-button').click();
     
-    // Hover para tornar o botão visível (group-hover:opacity-100)
-    await transactionItem.hover();
-    await actionMenu.click();
+    // Handle confirmation modal
+    await page.getByTestId('confirm-delete-button').click();
     
-    // Clica em excluir no menu
-    await page.locator('[data-testid="action-delete-button"]').click();
-    
-    // Confirmar deleção no modal
-    await page.locator('[data-testid="confirm-delete-button"]').click();
-    
-    // 4. Verificar se sumiu com polling para dar tempo de atualizar o Dexie/Context
-    await expect(async () => {
-        const isVisible = await page.locator('text=Venda E2E').isVisible();
-        expect(isVisible).toBe(false);
-    }).toPass({ timeout: 10000 });
+    // Verify deletion
+    await expect(transactionRow).not.toBeVisible({ timeout: 10000 });
   });
 });

@@ -92,6 +92,14 @@ Identificamos que o principal gargalo de performance e a origem de bugs intermit
 
 ---
 
+## 🧪 Engenharia de Qualidade & Testes (Maio/2026)
+*   **E2E Testing Suite (Playwright)**: Implementação de uma suíte de testes ponta-a-ponta para garantir a estabilidade das operações críticas. Foco em CRUD de transações, parcelamentos e transições de estado.
+*   **Deterministic Mocking**: Arquitetura de mocks que sincroniza o estado do banco de dados (API) com o estado do frontend (UI), eliminando condições de corrida durante os testes.
+*   **Seed-then-Navigate Pattern**: Estratégia de teste que injeta dados no mock antes da navegação do navegador, garantindo que o estado inicial da página seja sempre previsível e livre de inconsistências de carregamento assíncrono.
+*   **Hybrid Data Loading Strategy**: Refinamento do `TransactionsContent` para utilizar uma flag `hasFetchedOnce`, permitindo uma transição suave e sem flickers entre dados SSR e dados em tempo real do Contexto Financeiro.
+
+---
+
 ## 🗺️ Roadmap de Implementação
 
 ### Fase 1: Fundação & Fricção Zero (CONCLUÍDA ✅)
@@ -99,6 +107,12 @@ Identificamos que o principal gargalo de performance e a origem de bugs intermit
 - [x] Modais de Transação e Histórico Filtrável.
 - [x] Lógica de Faturas e Limites Dinâmicos.
 - [x] Sincronização Local-First e Cache Global.
+
+### Fase 1.5: Estabilidade & Confiança (EM PROGRESSO 🚀)
+- [x] Suíte de Testes E2E (Transações - CRUD e Status).
+- [ ] Testes E2E (Metas e Aportes).
+- [ ] Testes E2E (Gestão de Contas e Faturas).
+- [ ] Verificação Automática de Migrações de DB.
 
 ### Fase 2: O Centro de Comando (Foco Atual 🎯)
 - [x] **Gestão de Metas**: Criação e Aportes básicos.

@@ -10,10 +10,12 @@ import {
   Calendar as CalendarIcon,
   CreditCard,
   Wallet,
-  LayoutGrid
+  LayoutGrid,
+  Plus
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useFinancialData } from "@/context/FinancialDataContext";
+import { useTransactionModal } from "@/context/TransactionModalContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -23,15 +25,29 @@ interface TransactionsContentProps {
 }
 
 export function TransactionsContent({ initialTransactions, accounts: serverAccounts }: TransactionsContentProps) {
-  const { accounts: contextAccounts } = useFinancialData();
+  const { accounts: contextAccounts, transactions: monthTransactions, isLoading } = useFinancialData();
+  const { openAdd } = useTransactionModal();
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const [hasFetchedOnce, setHasFetchedOnce] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isLoading && !hasFetchedOnce) {
+      setHasFetchedOnce(true);
+    }
+  }, [isLoading, hasFetchedOnce]);
+
+  // Use transactions from context once the first fetch has completed.
+  // This prevents the UI from flashing empty while loading, but ensures
+  // that once live data is available, it's used exclusively.
+  const displayTransactions = hasFetchedOnce ? monthTransactions : (monthTransactions.length > 0 ? monthTransactions : initialTransactions);
+
   // Usar as contas do contexto se disponíveis (pois têm o cálculo da fatura)
   const accounts = contextAccounts.length > 0 ? contextAccounts : serverAccounts;
-
+  
   const filteredTransactions = useMemo(() => {
-    const filtered = initialTransactions.filter(tx => {
+    const filtered = displayTransactions.filter(tx => {
       const matchesAccount = !selectedAccountId || tx.account_id === selectedAccountId;
       const matchesSearch = !searchQuery || 
         tx.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -48,7 +64,7 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
     }
 
     return filtered;
-  }, [initialTransactions, selectedAccountId, searchQuery, accounts]);
+  }, [displayTransactions, selectedAccountId, searchQuery, accounts]);
 
   // Agrupar transações por data ou fatura
   const groupedTransactions = useMemo(() => {
@@ -164,6 +180,15 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
           </div>
           <button className="p-3 rounded-2xl bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all">
             <Filter className="w-5 h-5" />
+          </button>
+
+          <button 
+            onClick={openAdd}
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-5 py-3 rounded-2xl font-semibold transition-all shadow-lg shadow-violet-600/20 active:scale-95"
+            data-testid="add-transaction-button"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden md:inline">Nova Transação</span>
           </button>
         </div>
       </header>

@@ -22,71 +22,50 @@ interface TransactionItemProps {
 }
 
 export function TransactionItem({ transaction: tx }: TransactionItemProps) {
-  const { toggleTransactionPaid } = useFinancialData();
+  const { toggleTransactionPaid, deleteTransaction, deleteTransactionSeries, updateGoalBalance, goals } = useFinancialData();
+  const { userId } = useAccountModal();
   const [isTimelineOpen, setIsTimelineOpen] = React.useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
   const [statusModal, setStatusModal] = React.useState<{ isOpen: boolean; message: string; title: string; type: "success" | "error" }>({
     isOpen: false,
     message: "",
     title: "",
-    type: "error"
+    type: "success"
   });
+
   const router = useRouter();
   const { openEdit } = useTransactionModal();
+
   const isIncome = tx.transaction_type === "INCOME";
-  const isInstallment = tx.installment_total && tx.installment_total > 1;
+  const isInstallment = (tx.installment_total || 0) > 1;
 
-  async function handleDelete() {
+  const handleDelete = () => {
     setIsDeleteModalOpen(true);
-  }
+  };
 
-  async function confirmDelete(deleteType: "single" | "all") {
+  const confirmDelete = async (deleteType: "single" | "all") => {
+    setIsDeleteModalOpen(false);
     const isGroup = deleteType === "all";
-
-    const supabase = createClient();
-
-    // Lógica de Reversão de Aporte
-    if (tx.description.startsWith("Aporte: ")) {
+    
+    // --- SINCRONIZAÇÃO COM METAS (Reversão de Aporte) ---
+    if (tx.description?.startsWith("Aporte: ")) {
       const goalName = tx.description.replace("Aporte: ", "");
       
-      const { userId } = useAccountModal();
-      
-      // Buscar a meta pelo nome dentro do grupo familiar
-      const { data: goalData } = await supabase
-        .from("goals")
-        .select("*")
-        .eq("name", goalName)
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      if (goalData) {
-        // Diminuir o valor da meta
-        const newTotal = (goalData.current_amount_cents || 0) - tx.amount_cents;
-        await supabase
-          .from("goals")
-          .update({ current_amount_cents: Math.max(0, newTotal) })
-          .eq("id", goalData.id);
-        
-        console.log(`REVERSÃO: Meta '${goalName}' atualizada para ${newTotal}`);
+      const goal = goals.find((g: any) => g.name === goalName && g.user_id === userId);
+      if (goal) {
+        await updateGoalBalance(goal.id, -tx.amount_cents);
+        console.log(`REVERSÃO: Meta '${goalName}' atualizada.`);
       }
     }
     
-    let query = supabase.from("transactions").delete();
-    
-    if (isGroup) {
-      query = query
-        .eq("description", tx.description)
-        .eq("installment_total", tx.installment_total)
-        .eq("account_id", tx.account_id);
-    } else {
-      query = query.eq("id", tx.id);
-    }
-
-    const { error } = await query;
-
-    if (!error) {
+    try {
+      if (isGroup) {
+        await deleteTransactionSeries(tx.description, tx.installment_total || 0, tx.account_id);
+      } else {
+        await deleteTransaction(tx.id);
+      }
       router.refresh();
-    } else {
+    } catch (error) {
       setStatusModal({
         isOpen: true,
         title: "Erro na Transação",
@@ -94,12 +73,12 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
         type: "error"
       });
     }
-  }
+  };
 
   return (
     <>
       <GlassCard 
-        data-testid="transaction-item"
+        data-testid={`transaction-item-${tx.id}`}
         className={cn(
           "p-4 flex items-center justify-between group hover:border-white/20 transition-all",
           isInstallment && "cursor-pointer",
@@ -177,6 +156,7 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
                   await toggleTransactionPaid(tx.id, tx.is_paid || false);
                   router.refresh();
                 }}
+                data-testid="toggle-paid-button"
                 className={cn(
                   "w-10 h-10 rounded-2xl flex items-center justify-center transition-all border shrink-0",
                   tx.is_paid 
