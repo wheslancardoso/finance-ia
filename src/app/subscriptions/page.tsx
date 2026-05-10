@@ -2,12 +2,13 @@ import { createClient } from "@/utils/supabase/server";
 import { getFamilyGroup } from "@/utils/supabase/auth-helpers";
 import { formatCurrency } from "@/lib/utils";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import GlassCard from "@/components/GlassCard";
 import { Zap, Bell, CreditCard } from "lucide-react";
 import { redirect } from "next/navigation";
 import { SubscriptionManager } from "@/components/SubscriptionManager";
 import { SyncFamilyGroup } from "@/components/SyncFamilyGroup";
-import { RecurringTransaction } from "@/context/FinancialDataContext";
+import type { RecurringTransaction } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -36,11 +37,11 @@ export default async function SubscriptionsPage() {
   
   const totalExpenses = activeSubs
     .filter((s: RecurringTransaction) => s.transaction_type === "EXPENSE")
-    .reduce((acc: number, curr: RecurringTransaction) => acc + curr.amount_cents, 0);
+    .reduce((acc: number, curr: RecurringTransaction) => acc + (curr.amount_cents || 0), 0);
 
   const totalIncomes = activeSubs
     .filter((s: RecurringTransaction) => s.transaction_type === "INCOME")
-    .reduce((acc: number, curr: RecurringTransaction) => acc + curr.amount_cents, 0);
+    .reduce((acc: number, curr: RecurringTransaction) => acc + (curr.amount_cents || 0), 0);
 
   const committedBalance = totalIncomes - totalExpenses;
   const nextBilling = activeSubs.find((s: RecurringTransaction) => s.transaction_type === "EXPENSE");

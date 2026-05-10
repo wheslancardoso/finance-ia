@@ -2,10 +2,32 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { financialService } from "@/services/financialService";
-import { db, type Account, type Category, type Goal, type RecurringTransaction, type Budget, type FinancialHealthScore } from "@/lib/db";
+import { db, type Account, type Category, type Goal, type RecurringTransaction, type Budget, type FinancialHealthScore, type Transaction } from "@/lib/db";
 import { useAccountModal } from "./AccountModalContext";
 import { addMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+interface FinancialStateResponse {
+  family_group: {
+    monthly_income_cents: number;
+    fixed_expenses_cents: number;
+    accumulated_balance_cents: number;
+    financial_health_score: number;
+  };
+  categories: Category[];
+  accounts: Account[];
+  goals: Goal[];
+  recurring_transactions: RecurringTransaction[];
+  budgets: Budget[];
+  recent_transactions: Transaction[];
+  month_transactions: Transaction[];
+  month_stats: {
+    income: number;
+    debit_expense: number;
+    credit_expense: number;
+    investments: number;
+  };
+}
 
 export interface IncomeMixItem {
   name: string;
@@ -57,19 +79,27 @@ interface FinancialDataContextType {
   goals: Goal[];
   recurringTransactions: RecurringTransaction[];
   budgets: Budget[];
-  recentTransactions: any[];
-  monthTransactions: any[];
-  healthScore: FinancialHealthScore | null;
+  recentTransactions: Transaction[];
+  monthTransactions: Transaction[];
+  transactions: Transaction[];
+  healthScore: number;
   toggleTransactionPaid: (id: string, status: boolean) => Promise<void>;
-  upsertTransaction: (data: any) => Promise<any>;
+  upsertTransaction: (data: Partial<Transaction>) => Promise<any>;
   deleteTransaction: (id: string) => Promise<void>;
   deleteTransactionSeries: (description: string, total: number, accId: string) => Promise<void>;
-  updateTransactionSeries: (description: string, total: number, accId: string, updates: any) => Promise<void>;
-  createInstallmentSeries: (data: any) => Promise<void>;
-  upsertAccount: (data: any) => Promise<void>;
-  upsertGoal: (data: any) => Promise<void>;
+  updateTransactionSeries: (description: string, total: number, accId: string, updates: Partial<Transaction>) => Promise<void>;
+  createInstallmentSeries: (data: {
+    description: string;
+    amount_total_cents: number;
+    installments: number;
+    account_id: string;
+    category_id?: string | null;
+    start_date: string;
+  }) => Promise<void>;
+  upsertAccount: (data: Partial<Account>) => Promise<void>;
+  upsertGoal: (data: Partial<Goal> & { status?: string }) => Promise<void>;
   updateGoalBalance: (id: string, amount: number) => Promise<void>;
-  simulatePurchaseImpact: (amount: number, installments: number) => Promise<SimulationResult>;
+  simulatePurchaseImpact: (amount: number) => Promise<SimulationResult>;
   getGoalRecommendations: () => Promise<GoalRecommendationsResponse>;
   getIncomeMix: () => IncomeMixItem[];
   getNetWorthHistory: () => NetWorthHistoryItem[];
@@ -98,9 +128,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const [goals, setGoals] = useState<Goal[]>([]);
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
-  const [monthTransactions, setMonthTransactions] = useState<any[]>([]);
-  const [healthScore, setHealthScore] = useState(0);
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [monthTransactions, setMonthTransactions] = useState<Transaction[]>([]);
+  const [healthScore, setHealthScore] = useState<number>(0);
 
   const { familyGroupId } = useAccountModal();
 
@@ -111,8 +141,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       localStorage.setItem("vesper_monthly_income", val.toString());
     }
     if (familyGroupId) {
-      const supabase = createClient();
-      supabase.from("family_groups").update({ monthly_income_cents: val }).eq("id", familyGroupId).then();
+      financialService.updateFamilyGroup(familyGroupId, { monthly_income_cents: val }).then();
     }
   }, [familyGroupId]);
 
@@ -122,8 +151,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       localStorage.setItem("vesper_fixed_expenses", val.toString());
     }
     if (familyGroupId) {
-      const supabase = createClient();
-      supabase.from("family_groups").update({ fixed_expenses_cents: val }).eq("id", familyGroupId).then();
+      financialService.updateFamilyGroup(familyGroupId, { fixed_expenses_cents: val }).then();
     }
   }, [familyGroupId]);
 
@@ -139,14 +167,11 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     setLoading(true);
     if (isInitialLoading) setIsInitialLoading(false);
       console.log("DATABASE-DRIVEN: BUSCANDO ESTADO GLOBAL VIA RPC...");
-      const supabase = createClient();
       
-      // 1. Chamar a Função RPC Mestra V5 (Elite Edition)
-      console.log("DEBUG-RPC: Chamando get_financial_state_v5 com ID:", familyGroupId);
+      // 1. Chamar a Função RPC Mestra V5 (Elite Edition) via Service
+      console.log("DEBUG-RPC: Chamando getFinancialState com ID:", familyGroupId);
       
-      const { data, error } = await supabase.rpc('get_financial_state_v5', { 
-        p_family_group_id: familyGroupId 
-      });
+      const { data, error } = await financialService.getFinancialState(familyGroupId);
 
       if (error) {
         throw error;
@@ -173,12 +198,12 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
     // 3. Processar Fluxos Recorrentes
     const recIncome = state.recurring_transactions
-      ?.filter(r => r.transaction_type === "INCOME" && r.status === 'active')
-      .reduce((sum, r) => sum + r.amount_cents, 0) || 0;
+      ?.filter((r: RecurringTransaction) => r.transaction_type === "INCOME" && r.status === 'active')
+      .reduce((sum: number, r: RecurringTransaction) => sum + r.amount_cents, 0) || 0;
 
     const recExpense = state.recurring_transactions
-      ?.filter(r => r.transaction_type === "EXPENSE" && r.status === 'active')
-      .reduce((sum, r) => sum + r.amount_cents, 0) || 0;
+      ?.filter((r: RecurringTransaction) => r.transaction_type === "EXPENSE" && r.status === 'active')
+      .reduce((sum: number, r: RecurringTransaction) => sum + r.amount_cents, 0) || 0;
 
     setRecurringIncomeCents(recIncome);
     setRecurringExpensesCents(recExpense);
@@ -190,7 +215,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
     // 4. Atualizar Categorias
     setCategories(state.categories);
-    await db.categories.bulkPut(state.categories.map(c => ({ ...c, family_group_id: familyGroupId })));
+    await db.categories.bulkPut(state.categories.map((c: Category) => ({ ...c, family_group_id: familyGroupId })));
 
     // 5. Calcular Métricas do Mês via RPC Stats (Extra Income e Gastos do Mês)
     if (state.month_stats) {
@@ -203,7 +228,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
     // 6. Sincronizar Entidades com State e Dexie
     setAccounts(state.accounts);
-    await db.accounts.bulkPut(state.accounts.map(a => ({ ...a, family_group_id: familyGroupId })));
+    await db.accounts.bulkPut(state.accounts.map((a: Account) => ({ ...a, family_group_id: familyGroupId })));
     
     // 7. Sincronizar Outras Entidades com State e Dexie
     setGoals(state.goals || []);
@@ -212,9 +237,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     setRecentTransactions(state.recent_transactions || []);
     setMonthTransactions(state.month_transactions || []);
 
-    if (state.goals) await db.goals.bulkPut(state.goals.map(g => ({ ...g, family_group_id: familyGroupId })));
-    if (state.recurring_transactions) await db.recurring_transactions.bulkPut(state.recurring_transactions.map(r => ({ ...r, family_group_id: familyGroupId })));
-    if (state.budgets) await db.budgets.bulkPut(state.budgets.map(b => ({ ...b, family_group_id: familyGroupId })));
+    if (state.goals) await db.goals.bulkPut(state.goals.map((g: Goal) => ({ ...g, family_group_id: familyGroupId })));
+    if (state.recurring_transactions) await db.recurring_transactions.bulkPut(state.recurring_transactions.map((r: RecurringTransaction) => ({ ...r, family_group_id: familyGroupId })));
+    if (state.budgets) await db.budgets.bulkPut(state.budgets.map((b: Budget) => ({ ...b, family_group_id: familyGroupId })));
 
       setLastFetched(Date.now());
     } catch (error: any) {
@@ -231,38 +256,11 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     }
   }, [familyGroupId]);
 
-  const createInstallmentSeries = async (data: any) => {
-    const supabase = createClient();
-    const { error } = await supabase.rpc('create_installment_series', {
-      p_family_group_id: familyGroupId,
-      p_description: data.description,
-      p_amount_total_cents: data.amount_total_cents,
-      p_installments: data.installments,
-      p_account_id: data.account_id,
-      p_category_id: data.category_id,
-      p_start_date: data.date || new Date().toISOString()
-    });
-    
-    if (!error) await refreshData();
-    else console.error("Erro ao criar parcelamento:", error);
-  };
 
   const simulatePurchaseImpact = async (amountCents: number): Promise<SimulationResult> => {
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc('fn_simulate_spending', {
-      p_family_group_id: familyGroupId,
-      p_amount_cents: amountCents
-    });
+    const { data, error } = await financialService.simulatePurchaseImpact(familyGroupId!, amountCents);
     if (error) {
       console.error("❌ Erro na simulação (fn_simulate_spending):", JSON.stringify(error, null, 2));
-      console.error("Contexto do Erro:", {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-        familyGroupId,
-        amountCents
-      });
       return {
         current_surplus_cents: 0,
         simulated_surplus_cents: 0,
@@ -275,19 +273,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   };
 
   const getGoalRecommendations = async (): Promise<GoalRecommendationsResponse> => {
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc('fn_get_goal_recommendations', {
-      p_family_group_id: familyGroupId
-    });
+    const { data, error } = await financialService.getGoalRecommendations(familyGroupId!);
     if (error) {
       console.error("❌ Erro ao buscar recomendações (fn_get_goal_recommendations):", JSON.stringify(error, null, 2));
-      console.error("Contexto do Erro:", {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-        familyGroupId
-      });
       return {
         surplus_cents: 0,
         remaining_surplus_cents: 0,
@@ -308,7 +296,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
     const mixMap: Record<string, number> = {};
     
-    incomeTransactions.forEach(tx => {
+    incomeTransactions.forEach((tx: Transaction) => {
       const catName = tx.category?.name || "Outros";
       mixMap[catName] = (mixMap[catName] || 0) + (tx.amount_cents / 100);
     });
@@ -324,7 +312,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     const now = new Date();
     
     // 1. Saldo atual total
-    let currentTotalCents = accounts.reduce((sum, acc) => sum + (acc.balance_cents || 0), 0);
+    let currentTotalCents = accounts.reduce((sum: number, acc: Account) => sum + (acc.balance_cents || 0), 0);
     
     // 2. Iterar 6 meses para trás
     for (let i = 0; i < 6; i++) {
@@ -341,12 +329,12 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       const monthStart = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 1);
       const monthEnd = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0, 23, 59, 59);
 
-      const mTransactions = monthTransactions.filter(tx => {
+      const mTransactions = monthTransactions.filter((tx: any) => {
         const d = new Date(tx.date);
         return d >= monthStart && d <= monthEnd;
       });
 
-      const netChangeCents = mTransactions.reduce((net, tx) => {
+      const netChangeCents = mTransactions.reduce((net: number, tx: any) => {
         if (tx.transaction_type === "INCOME") return net + tx.amount_cents;
         if (tx.transaction_type === "EXPENSE") return net - tx.amount_cents;
         return net;
@@ -367,7 +355,6 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       amount_cents: amountCents
     });
     if (!error) await refreshData();
-    return { error };
   };
 
   const upsertTransaction = async (data: any) => {
@@ -394,7 +381,14 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     if (!error) await refreshData();
   };
 
-  const createInstallmentSeries = async (data: any) => {
+  const createInstallmentSeries = async (data: {
+    description: string;
+    amount_total_cents: number;
+    installments: number;
+    account_id: string;
+    category_id?: string | null;
+    start_date: string;
+  }) => {
     const { error } = await financialService.createInstallmentSeries({
       ...data,
       family_group_id: familyGroupId!
@@ -402,7 +396,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     if (!error) await refreshData();
   };
 
-  const upsertAccount = async (data: any) => {
+  const upsertAccount = async (data: Partial<Account>) => {
     const { error } = await financialService.upsertAccount({
       ...data,
       family_group_id: familyGroupId!
@@ -410,7 +404,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     if (!error) await refreshData();
   };
 
-  const upsertGoal = async (data: any) => {
+  const upsertGoal = async (data: Partial<Goal> & { status?: string }) => {
     const { error } = await financialService.upsertGoal({
       ...data,
       family_group_id: familyGroupId!
@@ -424,12 +418,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   };
 
   const toggleTransactionPaid = async (transactionId: string, currentStatus: boolean) => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("transactions")
-      .update({ is_paid: !currentStatus })
-      .eq("id", transactionId);
-    
+    const { error } = await financialService.toggleTransactionPaid(transactionId, currentStatus);
     if (!error) {
       await refreshData();
     }
@@ -515,6 +504,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       budgets,
       recentTransactions,
       monthTransactions,
+      transactions: monthTransactions,
       getIncomeMix,
       getNetWorthHistory,
       createTransfer,
@@ -524,7 +514,12 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       updateTransactionSeries,
       upsertAccount,
       upsertGoal,
-      updateGoalBalance
+      updateGoalBalance,
+      healthScore,
+      createInstallmentSeries,
+      simulatePurchaseImpact,
+      getGoalRecommendations,
+      toggleTransactionPaid
     }}>
       {children}
     </FinancialDataContext.Provider>

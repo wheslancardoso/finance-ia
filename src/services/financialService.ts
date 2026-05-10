@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/client";
+import { type Transaction } from "@/lib/db";
 
 export const financialService = {
   // --- TRANSACTIONS ---
@@ -52,7 +53,7 @@ export const financialService = {
     description: string, 
     installmentTotal: number, 
     accountId: string,
-    updates: any
+    updates: Partial<Transaction>
   ) {
     const supabase = createClient();
     return await supabase
@@ -157,8 +158,38 @@ export const financialService = {
     });
   },
 
-  async updateFamilyGroup(familyGroupId: string, updates: any) {
+  async updateFamilyGroup(familyGroupId: string, updates: Record<string, any>) {
     const supabase = createClient();
     return await supabase.from("family_groups").update(updates).eq("id", familyGroupId);
+  },
+
+  async getFinancialState(familyGroupId: string) {
+    const supabase = createClient();
+    return await supabase.rpc('get_financial_state_v5', { 
+      p_family_group_id: familyGroupId 
+    });
+  },
+
+  async simulatePurchaseImpact(familyGroupId: string, amountCents: number) {
+    const supabase = createClient();
+    return await supabase.rpc('fn_simulate_spending', {
+      p_family_group_id: familyGroupId,
+      p_amount_cents: amountCents
+    });
+  },
+
+  async getGoalRecommendations(familyGroupId: string) {
+    const supabase = createClient();
+    return await supabase.rpc('fn_get_goal_recommendations', {
+      p_family_group_id: familyGroupId
+    });
+  },
+
+  async toggleTransactionPaid(transactionId: string, currentStatus: boolean) {
+    const supabase = createClient();
+    return await supabase
+      .from("transactions")
+      .update({ is_paid: !currentStatus })
+      .eq("id", transactionId);
   }
 };

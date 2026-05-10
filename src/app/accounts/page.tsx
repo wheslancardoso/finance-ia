@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { AccountsHeader } from "@/components/AccountsHeader";
 import { getFamilyGroup } from "@/utils/supabase/auth-helpers";
 import { SyncFamilyGroup } from "@/components/SyncFamilyGroup";
-import { Account } from "@/context/FinancialDataContext";
+import { type Account } from "@/lib/db";
 
 export default async function AccountsPage() {
   const supabase = await createClient();

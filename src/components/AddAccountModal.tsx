@@ -8,6 +8,7 @@ import { cn, formatCurrency, getTransactionInvoiceMonth } from "@/lib/utils";
 import { useAccountModal } from "@/context/AccountModalContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useFinancialData } from "@/context/FinancialDataContext";
 
 export function AddAccountModal() {
   const { 

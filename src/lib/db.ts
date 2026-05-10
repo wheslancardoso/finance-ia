@@ -63,6 +63,23 @@ export interface FinancialHealthScore {
   updated_at: string;
 }
 
+export interface Transaction {
+  id: string;
+  description: string;
+  amount_cents: number;
+  transaction_type: "INCOME" | "EXPENSE" | "TRANSFER";
+  date: string;
+  account_id: string;
+  category_id?: string | null;
+  family_group_id: string;
+  is_paid: boolean;
+  installment_current?: number;
+  installment_total?: number;
+  source?: string;
+  category?: Category;
+  account?: Account;
+}
+
 export class VesperDB extends Dexie {
   accounts!: Table<Account>;
   categories!: Table<Category>;

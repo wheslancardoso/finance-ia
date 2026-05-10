@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useGoalModal } from "@/context/GoalModalContext";
 import { useAccountModal } from "@/context/AccountModalContext";
 import { useRouter } from "next/navigation";
+import { useFinancialData } from "@/context/FinancialDataContext";
 
 export function AddGoalModal() {
   const { isOpen, closeModal } = useGoalModal();

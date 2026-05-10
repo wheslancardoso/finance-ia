@@ -10,20 +10,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { addMonths, format, isBefore, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useFinancialData } from "@/context/FinancialDataContext";
-
-interface Category {
-  id: string;
-  name: string;
-  type: "EXPENSE" | "INCOME" | "TRANSFER";
-}
-
-interface Account {
-  id: string;
-  name: string;
-  type: string;
-  balance_cents: number;
-  credit_limit_cents?: number;
-}
+import { type Category, type Account, type Transaction } from "@/lib/db";
 
 export function AddTransactionModal() {
   const { isOpen, transactionToEdit, closeModal, openAdd } = useTransactionModal();
