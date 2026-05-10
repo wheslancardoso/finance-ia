@@ -4,6 +4,9 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, TrendingUp, Calendar, Trash2, ArrowRight, Clock, Target, History } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import { createPortal } from "react-dom";
+import { ConfirmModal } from "./ConfirmModal";
+import { StatusModal } from "./StatusModal";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useGoalModal } from "@/context/GoalModalContext";
 import { useRouter } from "next/navigation";
@@ -15,6 +18,13 @@ export function GoalDetailModal() {
   const [contributions, setContributions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [statusModal, setStatusModal] = useState<{ isOpen: boolean; message: string; title: string; type: "success" | "error" }>({
+    isOpen: false,
+    message: "",
+    title: "",
+    type: "error"
+  });
   const router = useRouter();
 
   useEffect(() => {
@@ -41,7 +51,10 @@ export function GoalDetailModal() {
   }
 
   async function handleDeleteGoal() {
-    if (!confirm("Tem certeza que deseja excluir este objetivo? Isso NÃO excluirá as transações de aporte já realizadas, mas a meta deixará de existir.")) return;
+    setConfirmDeleteOpen(true);
+  }
+
+  async function onConfirmDelete() {
     
     setDeleting(true);
     const supabase = createClient();
@@ -54,7 +67,12 @@ export function GoalDetailModal() {
       closeModal();
       router.refresh();
     } else {
-      alert("Erro ao excluir objetivo");
+      setStatusModal({
+        isOpen: true,
+        title: "Erro ao Excluir",
+        message: "Não foi possível remover este objetivo. Tente novamente em instantes.",
+        type: "error"
+      });
     }
     setDeleting(false);
   }
@@ -62,6 +80,7 @@ export function GoalDetailModal() {
   const percentage = selectedGoal ? Math.min((selectedGoal.current_amount_cents / selectedGoal.target_amount_cents) * 100, 100) : 0;
 
   return (
+    <>
     <AnimatePresence>
       {isDetailOpen && selectedGoal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -211,5 +230,30 @@ export function GoalDetailModal() {
         </div>
       )}
     </AnimatePresence>
+
+    {typeof document !== "undefined" && createPortal(
+      <>
+        <ConfirmModal
+          isOpen={confirmDeleteOpen}
+          onClose={() => setConfirmDeleteOpen(false)}
+          onConfirm={onConfirmDelete}
+          title="Excluir Objetivo"
+          message="Tem certeza que deseja excluir este objetivo? Isso NÃO excluirá as transações de aporte já realizadas, mas a meta deixará de existir permanentemente."
+          confirmText="Excluir"
+          cancelText="Manter"
+          variant="danger"
+        />
+
+        <StatusModal
+          isOpen={statusModal.isOpen}
+          onClose={() => setStatusModal({ ...statusModal, isOpen: false })}
+          title={statusModal.title}
+          message={statusModal.message}
+          type={statusModal.type}
+        />
+      </>,
+      document.body
+    )}
+    </>
   );
 }

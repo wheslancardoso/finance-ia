@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, RefreshCw, AlertCircle, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import { createPortal } from "react-dom";
+import { StatusModal } from "./StatusModal";
 import { useRouter } from "next/navigation";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -17,6 +19,12 @@ export function QuickSyncModal({ isOpen, onClose, account }: QuickSyncModalProps
   const [newBalance, setNewBalance] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [statusModal, setStatusModal] = useState<{ isOpen: boolean; message: string; title: string; type: "success" | "error" }>({
+    isOpen: false,
+    message: "",
+    title: "",
+    type: "error"
+  });
   const router = useRouter();
 
   useEffect(() => {
@@ -82,13 +90,19 @@ export function QuickSyncModal({ isOpen, onClose, account }: QuickSyncModalProps
       }, 1500);
     } catch (error) {
       console.error("Erro ao sincronizar:", error);
-      alert("Erro ao sincronizar saldo. Tente novamente.");
+      setStatusModal({
+        isOpen: true,
+        title: "Erro na Sincronização",
+        message: "Não conseguimos atualizar o saldo agora. Por favor, verifique os valores e tente novamente.",
+        type: "error"
+      });
     } finally {
       setLoading(false);
     }
   }
 
   return (
+    <>
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -184,5 +198,17 @@ export function QuickSyncModal({ isOpen, onClose, account }: QuickSyncModalProps
         </div>
       )}
     </AnimatePresence>
+
+    {typeof document !== "undefined" && createPortal(
+      <StatusModal
+        isOpen={statusModal.isOpen}
+        onClose={() => setStatusModal({ ...statusModal, isOpen: false })}
+        title={statusModal.title}
+        message={statusModal.message}
+        type={statusModal.type}
+      />,
+      document.body
+    )}
+    </>
   );
 }

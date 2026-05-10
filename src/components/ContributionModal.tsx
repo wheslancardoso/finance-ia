@@ -9,6 +9,7 @@ import GlassCard from "@/components/GlassCard";
 import { useGoalModal } from "@/context/GoalModalContext";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { useRouter } from "next/navigation";
+import { StatusModal } from "./StatusModal";
 
 export function ContributionModal() {
   const { isContributionOpen, closeModal, selectedGoal } = useGoalModal();
@@ -18,6 +19,17 @@ export function ContributionModal() {
   const [loading, setLoading] = useState(false);
   const [amount, setAmount] = useState("");
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [statusModal, setStatusModal] = useState<{
+    isOpen: boolean;
+    status: "success" | "error" | "info";
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    status: "info",
+    title: "",
+    message: "",
+  });
 
   // Filtrar apenas contas que podem ter saldo positivo ou cartões que permitem gastos
   const availableAccounts = useMemo(() => {
@@ -53,7 +65,12 @@ export function ContributionModal() {
     });
 
     if (txError) {
-      alert("Erro ao criar transação de aporte");
+      setStatusModal({
+        isOpen: true,
+        status: "error",
+        title: "Erro no Aporte",
+        message: "Não foi possível criar a transação de aporte."
+      });
       setLoading(false);
       return;
     }
@@ -66,10 +83,19 @@ export function ContributionModal() {
       .eq("id", selectedGoal.id);
 
     if (!goalError) {
-      closeModal();
-      router.refresh();
+      setStatusModal({
+        isOpen: true,
+        status: "success",
+        title: "Aporte Realizado",
+        message: `Seu aporte de ${formatCurrency(amountCents)} na meta ${selectedGoal.name} foi concluído!`
+      });
     } else {
-      alert("Erro ao atualizar saldo da meta");
+      setStatusModal({
+        isOpen: true,
+        status: "error",
+        title: "Erro na Meta",
+        message: "Não foi possível atualizar o saldo da meta."
+      });
     }
     setLoading(false);
   }
@@ -215,6 +241,20 @@ export function ContributionModal() {
           </motion.div>
         </div>
       )}
+
+      <StatusModal
+        isOpen={statusModal.isOpen}
+        onClose={() => {
+          setStatusModal(prev => ({ ...prev, isOpen: false }));
+          if (statusModal.status === "success") {
+            closeModal();
+            router.refresh();
+          }
+        }}
+        type={statusModal.status}
+        title={statusModal.title}
+        message={statusModal.message}
+      />
     </AnimatePresence>
   );
 }

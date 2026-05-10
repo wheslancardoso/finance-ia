@@ -29,6 +29,9 @@ import {
 import { useSubscriptionModal } from "@/context/SubscriptionModalContext";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { createClient } from "@/utils/supabase/client";
+import { ConfirmModal } from "./ConfirmModal";
+import { createPortal } from "react-dom";
+import { useState } from "react";
 
 // Mapeamento de ícones de categorias
 const ICON_MAP: Record<string, any> = {
@@ -64,6 +67,7 @@ interface SubscriptionManagerProps {
 export function SubscriptionManager({ initialSubscriptions }: SubscriptionManagerProps) {
   const { recurringTransactions: contextSubs, refreshData } = useFinancialData();
   const { openModal } = useSubscriptionModal();
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   async function toggleStatus(id: string, currentStatus: string) {
     const supabase = createClient();
@@ -72,10 +76,11 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
     await refreshData();
   }
 
-  async function deleteSub(id: string) {
-    if (!confirm("Tem certeza que deseja excluir esta assinatura?")) return;
+  async function deleteSub() {
+    if (!deleteId) return;
     const supabase = createClient();
-    await supabase.from("recurring_transactions").delete().eq("id", id);
+    await supabase.from("recurring_transactions").delete().eq("id", deleteId);
+    setDeleteId(null);
     await refreshData();
   }
 
@@ -167,7 +172,7 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
                   {sub.status === "active" ? "Pausar" : "Ativar"}
                 </button>
                 <button 
-                  onClick={() => deleteSub(sub.id)}
+                  onClick={() => setDeleteId(sub.id)}
                   className="w-12 h-12 flex items-center justify-center bg-red-500/10 hover:bg-red-500/20 rounded-xl text-red-400 transition-all border border-red-500/10"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -210,6 +215,20 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
 
       {incomes.length > 0 && renderGrid(incomes, "Receitas Fixas", "text-emerald-400", TrendingUp)}
       {renderGrid(expenses, "Gastos Fixos", "text-violet-400", Zap)}
+
+      {typeof document !== "undefined" && createPortal(
+        <ConfirmModal
+          isOpen={!!deleteId}
+          onClose={() => setDeleteId(null)}
+          onConfirm={deleteSub}
+          title="Excluir Assinatura"
+          message="Tem certeza que deseja excluir este fluxo recorrente? As transações futuras deixarão de ser geradas automaticamente."
+          confirmText="Excluir"
+          cancelText="Manter"
+          variant="danger"
+        />,
+        document.body
+      )}
     </div>
   );
 }

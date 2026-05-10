@@ -9,6 +9,7 @@ import { useSubscriptionModal } from "@/context/SubscriptionModalContext";
 import { useAccountModal } from "@/context/AccountModalContext";
 import { useRouter } from "next/navigation";
 import { useFinancialData } from "@/context/FinancialDataContext";
+import { StatusModal } from "./StatusModal";
 
 export function AddSubscriptionModal() {
   const { isOpen, closeModal, editingSubscription } = useSubscriptionModal();
@@ -16,6 +17,17 @@ export function AddSubscriptionModal() {
   const router = useRouter();
   const { categories, accounts, refreshData } = useFinancialData();
   const [loading, setLoading] = useState(false);
+  const [statusModal, setStatusModal] = useState<{
+    isOpen: boolean;
+    status: "success" | "error" | "info";
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    status: "info",
+    title: "",
+    message: "",
+  });
 
   // Form State
   const [description, setDescription] = useState("");
@@ -86,7 +98,12 @@ export function AddSubscriptionModal() {
     if (!user) return;
     
     if (!userId) {
-      alert("Usuário não identificado. Recarregue a página.");
+      setStatusModal({
+        isOpen: true,
+        status: "error",
+        title: "Usuário não identificado",
+        message: "Recarregue a página e tente novamente."
+      });
       setLoading(false);
       return;
     }
@@ -132,14 +149,25 @@ export function AddSubscriptionModal() {
     }
 
     if (!error) {
+      setStatusModal({
+        isOpen: true,
+        status: "success",
+        title: editingSubscription ? "Fluxo Atualizado" : "Fluxo Criado",
+        message: editingSubscription 
+          ? `O fluxo "${description}" foi atualizado com sucesso.`
+          : `O fluxo "${description}" foi criado com sucesso.`
+      });
       await refreshData();
-      closeModal();
       setDescription("");
       setAmount("");
-      router.refresh();
     } else {
       console.error("Erro ao salvar fluxo:", error);
-      alert(`Erro ao salvar: ${error.message || "Erro desconhecido"}`);
+      setStatusModal({
+        isOpen: true,
+        status: "error",
+        title: "Erro ao Salvar",
+        message: `Não foi possível salvar o fluxo: ${error.message || "Erro desconhecido"}`
+      });
     }
     setLoading(false);
   }
@@ -382,6 +410,20 @@ export function AddSubscriptionModal() {
           </motion.div>
         </div>
       )}
+
+      <StatusModal
+        isOpen={statusModal.isOpen}
+        onClose={() => {
+          setStatusModal(prev => ({ ...prev, isOpen: false }));
+          if (statusModal.status === "success") {
+            closeModal();
+            router.refresh();
+          }
+        }}
+        type={statusModal.status}
+        title={statusModal.title}
+        message={statusModal.message}
+      />
     </AnimatePresence>
 
   );

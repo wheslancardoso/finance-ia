@@ -9,6 +9,8 @@ import { useAccountModal } from "@/context/AccountModalContext";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { ActionMenu } from "./ActionMenu";
 import { PayInvoiceModal } from "./PayInvoiceModal";
+import { ConfirmModal } from "./ConfirmModal";
+import { StatusModal } from "./StatusModal";
 import { format, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -35,6 +37,13 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
   const { openEdit } = useAccountModal();
   const isCreditCard = type === "CREDIT_CARD";
   const [payModalOpen, setPayModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [statusModal, setStatusModal] = useState<{ isOpen: boolean; message: string; title: string; type: "success" | "error" }>({
+    isOpen: false,
+    message: "",
+    title: "",
+    type: "error"
+  });
 
   // Detectar status da fatura
   const openAmount = liveAccount.open_invoice_cents || 0;
@@ -50,12 +59,19 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
   const percentage = limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
 
   async function handleDelete() {
-    if (!confirm(`Tem certeza que deseja excluir a conta "${name}"? Todas as transações vinculadas serão apagadas.`)) return;
+    setDeleteModalOpen(true);
+  }
 
+  async function confirmDelete() {
     try {
       await deleteAccount(id);
     } catch (err) {
-      alert("Erro ao excluir conta");
+      setStatusModal({
+        isOpen: true,
+        title: "Erro na Exclusão",
+        message: "Ocorreu um problema ao tentar excluir esta conta. Verifique sua conexão e tente novamente.",
+        type: "error"
+      });
     }
   }
 
@@ -194,13 +210,42 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
       </div>
     </GlassCard>
 
-    {isCreditCard && typeof document !== "undefined" && createPortal(
-      <PayInvoiceModal
-        isOpen={payModalOpen}
-        onClose={() => setPayModalOpen(false)}
-        creditCardAccount={liveAccount}
-      />,
-      document.body
+    {typeof document !== "undefined" && (
+      <>
+        {isCreditCard && createPortal(
+          <PayInvoiceModal
+            isOpen={payModalOpen}
+            onClose={() => setPayModalOpen(false)}
+            creditCardAccount={liveAccount}
+          />,
+          document.body
+        )}
+
+        {createPortal(
+          <ConfirmModal
+            isOpen={deleteModalOpen}
+            onClose={() => setDeleteModalOpen(false)}
+            onConfirm={confirmDelete}
+            title="Excluir Conta"
+            message={`Tem certeza que deseja excluir a conta "${name}"? Todas as transações vinculadas serão apagadas permanentemente.`}
+            confirmText="Excluir"
+            cancelText="Manter"
+            variant="danger"
+          />,
+          document.body
+        )}
+
+        {createPortal(
+          <StatusModal
+            isOpen={statusModal.isOpen}
+            onClose={() => setStatusModal({ ...statusModal, isOpen: false })}
+            title={statusModal.title}
+            message={statusModal.message}
+            type={statusModal.type}
+          />,
+          document.body
+        )}
+      </>
     )}
     </>
   );

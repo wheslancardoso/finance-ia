@@ -9,6 +9,7 @@ import { useAccountModal } from "@/context/AccountModalContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useFinancialData } from "@/context/FinancialDataContext";
+import { StatusModal, type StatusType } from "./StatusModal";
 
 export function AddAccountModal() {
   const { 
@@ -26,6 +27,17 @@ export function AddAccountModal() {
   } = useFinancialData();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [statusModal, setStatusModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: StatusType;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info"
+  });
 
   // Form State
   const [name, setName] = useState("");
@@ -172,7 +184,12 @@ export function AddAccountModal() {
     setLoading(true);
 
     if (userId === null && !accountToEdit) {
-      alert("Erro: Usuário não autenticado.");
+      setStatusModal({
+        isOpen: true,
+        title: "Sessão Expirada",
+        message: "Parece que você não está autenticado. Por favor, faça login novamente.",
+        type: "error"
+      });
       setLoading(false);
       return;
     }
@@ -198,7 +215,12 @@ export function AddAccountModal() {
       closeModal();
     } catch (error) {
       console.error("Erro ao salvar conta:", error);
-      alert("Erro ao salvar conta no banco de dados.");
+      setStatusModal({
+        isOpen: true,
+        title: "Erro ao Salvar",
+        message: "Ocorreu um problema ao tentar salvar os dados da conta.",
+        type: "error"
+      });
     }
     setLoading(false);
   }
@@ -211,6 +233,7 @@ export function AddAccountModal() {
   ];
 
   return (
+    <>
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -451,5 +474,12 @@ export function AddAccountModal() {
         </div>
       )}
     </AnimatePresence>
-  );
-}
+
+    <StatusModal
+      isOpen={statusModal.isOpen}
+      onClose={() => setStatusModal(prev => ({ ...prev, isOpen: false }))}
+      title={statusModal.title}
+      message={statusModal.message}
+      type={statusModal.type}
+    />
+    </>

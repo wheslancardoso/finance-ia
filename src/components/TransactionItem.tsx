@@ -13,6 +13,9 @@ import { useAccountModal } from "@/context/AccountModalContext";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { ActionMenu } from "./ActionMenu";
 import { InstallmentTimelineModal } from "./InstallmentTimelineModal";
+import { TransactionDeleteModal } from "./TransactionDeleteModal";
+import { StatusModal } from "./StatusModal";
+import { createPortal } from "react-dom";
 
 interface TransactionItemProps {
   transaction: any;
@@ -21,15 +24,24 @@ interface TransactionItemProps {
 export function TransactionItem({ transaction: tx }: TransactionItemProps) {
   const { toggleTransactionPaid } = useFinancialData();
   const [isTimelineOpen, setIsTimelineOpen] = React.useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
+  const [statusModal, setStatusModal] = React.useState<{ isOpen: boolean; message: string; title: string; type: "success" | "error" }>({
+    isOpen: false,
+    message: "",
+    title: "",
+    type: "error"
+  });
   const router = useRouter();
   const { openEdit } = useTransactionModal();
   const isIncome = tx.transaction_type === "INCOME";
   const isInstallment = tx.installment_total && tx.installment_total > 1;
 
   async function handleDelete() {
-    const isGroup = isInstallment && confirm("Deseja excluir TODAS as parcelas desta compra? Clique em 'Cancelar' para excluir apenas esta parcela.");
-    
-    if (!confirm(isGroup ? "Tem certeza que deseja excluir toda a série?" : "Tem certeza que deseja excluir esta transação?")) return;
+    setIsDeleteModalOpen(true);
+  }
+
+  async function confirmDelete(deleteType: "single" | "all") {
+    const isGroup = deleteType === "all";
 
     const supabase = createClient();
 
@@ -75,7 +87,12 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
     if (!error) {
       router.refresh();
     } else {
-      alert("Erro ao excluir transação");
+      setStatusModal({
+        isOpen: true,
+        title: "Erro na Transação",
+        message: "Ocorreu um erro ao tentar excluir esta transação. Por favor, tente novamente.",
+        type: "error"
+      });
     }
   }
 
@@ -205,6 +222,32 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
         onClose={() => setIsTimelineOpen(false)}
         transaction={tx}
       />
+
+      {typeof document !== "undefined" && (
+        <>
+          {createPortal(
+            <TransactionDeleteModal
+              isOpen={isDeleteModalOpen}
+              onClose={() => setIsDeleteModalOpen(false)}
+              onConfirm={confirmDelete}
+              isInstallment={isInstallment}
+              description={tx.description}
+            />,
+            document.body
+          )}
+
+          {createPortal(
+            <StatusModal
+              isOpen={statusModal.isOpen}
+              onClose={() => setStatusModal({ ...statusModal, isOpen: false })}
+              title={statusModal.title}
+              message={statusModal.message}
+              type={statusModal.type}
+            />,
+            document.body
+          )}
+        </>
+      )}
     </>
   );
 }

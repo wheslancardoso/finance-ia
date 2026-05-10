@@ -11,6 +11,7 @@ import { addMonths, format, isBefore, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { type Category, type Account, type Transaction } from "@/lib/db";
+import { StatusModal, type StatusType } from "./StatusModal";
 
 export function AddTransactionModal() {
   const { isOpen, transactionToEdit, closeModal, openAdd } = useTransactionModal();
@@ -31,6 +32,17 @@ export function AddTransactionModal() {
   } = useFinancialData();
 
   const [loading, setLoading] = useState(false);
+  const [statusModal, setStatusModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: StatusType;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info"
+  });
 
   // Form State
   const [amount, setAmount] = useState("");
@@ -147,7 +159,12 @@ export function AddTransactionModal() {
 
     try {
       if (!capturedAccountId || !capturedAmount || !userId) {
-        alert("Por favor, preencha a conta e o valor. (ID do grupo familiar não encontrado)");
+        setStatusModal({
+          isOpen: true,
+          title: "Campos Incompletos",
+          message: "Por favor, preencha a conta e o valor para prosseguir.",
+          type: "error"
+        });
         setLoading(false);
         return;
       }
@@ -172,7 +189,12 @@ export function AddTransactionModal() {
         if (isNaN(dateObj.getTime())) throw new Error("Data inválida");
         finalDateISO = dateObj.toISOString();
       } catch (err) {
-        alert("Data ou hora inválida.");
+        setStatusModal({
+          isOpen: true,
+          title: "Data Inválida",
+          message: "A data ou hora informada parece estar incorreta.",
+          type: "error"
+        });
         setLoading(false);
         return;
       }
@@ -260,11 +282,21 @@ export function AddTransactionModal() {
         closeModal();
         router.refresh();
       } else {
-        alert("Erro ao salvar transação no banco de dados.");
+        setStatusModal({
+          isOpen: true,
+          title: "Erro ao Salvar",
+          message: "Não foi possível salvar a transação no banco de dados.",
+          type: "error"
+        });
       }
     } catch (err) {
       console.error("Erro no handleSubmit:", err);
-      alert("Ocorreu um erro inesperado ao salvar.");
+      setStatusModal({
+        isOpen: true,
+        title: "Erro Inesperado",
+        message: "Ocorreu um erro inesperado ao processar sua solicitação.",
+        type: "error"
+      });
     } finally {
       setLoading(false);
     }
@@ -701,6 +733,14 @@ export function AddTransactionModal() {
           </div>
         )}
       </AnimatePresence>
+
+      <StatusModal
+        isOpen={statusModal.isOpen}
+        onClose={() => setStatusModal(prev => ({ ...prev, isOpen: false }))}
+        title={statusModal.title}
+        message={statusModal.message}
+        type={statusModal.type}
+      />
     </>
   );
 }

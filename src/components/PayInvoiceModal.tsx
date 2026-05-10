@@ -9,6 +9,7 @@ import { useFinancialData } from "@/context/FinancialDataContext";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { StatusModal } from "./StatusModal";
 
 interface PayInvoiceModalProps {
   isOpen: boolean;
@@ -25,6 +26,17 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(false);
+  const [statusModal, setStatusModal] = useState<{
+    isOpen: boolean;
+    status: "success" | "error" | "info";
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    status: "info",
+    title: "",
+    message: "",
+  });
 
   const debitAccounts = accounts.filter(a => a.type !== "CREDIT_CARD");
   const invoiceAmount = creditCardAccount?.closed_invoice_cents || 0;
@@ -120,7 +132,12 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
 
     if (error) {
       console.error("Erro ao criar transação de pagamento:", error);
-      alert("Erro ao registrar pagamento.");
+      setStatusModal({
+        isOpen: true,
+        status: "error",
+        title: "Erro no Pagamento",
+        message: "Não foi possível registrar a transação de pagamento da fatura."
+      });
     } else {
       await finishSuccess();
     }
@@ -134,7 +151,12 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
     if (ok) {
       await finishSuccess();
     } else {
-      alert("Erro ao marcar fatura como paga.");
+      setStatusModal({
+        isOpen: true,
+        status: "error",
+        title: "Erro na Fatura",
+        message: "Não foi possível marcar a fatura como paga."
+      });
     }
     setLoading(false);
   }
@@ -284,6 +306,20 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
           </motion.div>
         </div>
       )}
+
+      <StatusModal
+        isOpen={statusModal.isOpen}
+        onClose={() => {
+          setStatusModal(prev => ({ ...prev, isOpen: false }));
+          if (statusModal.status === "success") {
+            onClose();
+            router.refresh();
+          }
+        }}
+        type={statusModal.status}
+        title={statusModal.title}
+        message={statusModal.message}
+      />
     </AnimatePresence>
   );
 }

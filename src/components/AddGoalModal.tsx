@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Target, Palette, Sparkles, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGoalModal } from "@/context/GoalModalContext";
+import { createPortal } from "react-dom";
+import { StatusModal } from "./StatusModal";
 import { useAccountModal } from "@/context/AccountModalContext";
 import { useRouter } from "next/navigation";
 import { useFinancialData } from "@/context/FinancialDataContext";
@@ -15,6 +17,12 @@ export function AddGoalModal() {
   const { upsertGoal, refreshData } = useFinancialData();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [statusModal, setStatusModal] = useState<{ isOpen: boolean; message: string; title: string; type: "success" | "error" }>({
+    isOpen: false,
+    message: "",
+    title: "",
+    type: "error"
+  });
 
   // Form State
   const [name, setName] = useState("");
@@ -33,7 +41,12 @@ export function AddGoalModal() {
       
       if (!userId) {
         console.error("Erro: userId não encontrado no contexto.");
-        alert("Usuário não autenticado. Tente recarregar a página.");
+        setStatusModal({
+          isOpen: true,
+          title: "Usuário não Autenticado",
+          message: "Por favor, recarregue a página e tente novamente.",
+          type: "error"
+        });
         setLoading(false);
         return;
       }
@@ -46,7 +59,12 @@ export function AddGoalModal() {
       const currentCents = currentAmount ? Math.round(parseFloat(currentStr) * 100) : 0;
 
       if (isNaN(targetCents)) {
-        alert("Valor alvo inválido.");
+        setStatusModal({
+          isOpen: true,
+          title: "Valor Inválido",
+          message: "O valor alvo informado parece estar incorreto. Verifique e tente novamente.",
+          type: "error"
+        });
         setLoading(false);
         return;
       }
@@ -64,7 +82,12 @@ export function AddGoalModal() {
       resetForm();
     } catch (err) {
       console.error("Erro inesperado no cadastro de meta:", err);
-      alert("Ocorreu um erro inesperado. Verifique os dados e tente novamente.");
+      setStatusModal({
+        isOpen: true,
+        title: "Erro Inesperado",
+        message: "Ocorreu um erro ao tentar salvar seu objetivo. Verifique os dados e tente novamente.",
+        type: "error"
+      });
     } finally {
       setLoading(false);
     }
@@ -79,6 +102,7 @@ export function AddGoalModal() {
   }
 
   return (
+    <>
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -197,5 +221,17 @@ export function AddGoalModal() {
         </div>
       )}
     </AnimatePresence>
+
+    {typeof document !== "undefined" && createPortal(
+      <StatusModal
+        isOpen={statusModal.isOpen}
+        onClose={() => setStatusModal({ ...statusModal, isOpen: false })}
+        title={statusModal.title}
+        message={statusModal.message}
+        type={statusModal.type}
+      />,
+      document.body
+    )}
+    </>
   );
 }
