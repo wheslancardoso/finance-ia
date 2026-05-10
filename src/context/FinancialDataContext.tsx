@@ -199,6 +199,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       }
 
       setCategories(state.categories);
+      await db.categories.where('user_id').equals(userId).delete();
       await db.categories.bulkPut(state.categories.map((c: Category) => ({ ...c, user_id: userId })));
 
       if (state.month_stats) {
@@ -210,6 +211,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       }
 
       setAccounts(state.accounts);
+      await db.accounts.where('user_id').equals(userId).delete();
       await db.accounts.bulkPut(state.accounts.map((a: Account) => ({ ...a, user_id: userId })));
       
       setGoals(state.goals || []);
@@ -218,9 +220,29 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       setRecentTransactions(state.recent_transactions || []);
       setMonthTransactions(state.month_transactions || []);
 
-      if (state.goals) await db.goals.bulkPut(state.goals.map((g: Goal) => ({ ...g, user_id: userId })));
-      if (state.recurring_transactions) await db.recurring_transactions.bulkPut(state.recurring_transactions.map((r: RecurringTransaction) => ({ ...r, user_id: userId })));
-      if (state.budgets) await db.budgets.bulkPut(state.budgets.map((b: Budget) => ({ ...b, user_id: userId })));
+      if (state.goals) {
+        await db.goals.where('user_id').equals(userId).delete();
+        await db.goals.bulkPut(state.goals.map((g: Goal) => ({ ...g, user_id: userId })));
+      }
+      if (state.recurring_transactions) {
+        await db.recurring_transactions.where('user_id').equals(userId).delete();
+        await db.recurring_transactions.bulkPut(state.recurring_transactions.map((r: RecurringTransaction) => ({ ...r, user_id: userId })));
+      }
+      if (state.budgets) {
+        await db.budgets.where('user_id').equals(userId).delete();
+        await db.budgets.bulkPut(state.budgets.map((b: Budget) => ({ ...b, user_id: userId })));
+      }
+      
+      // PERSISTÊNCIA DE TRANSAÇÕES NO DEXIE
+      if (state.recent_transactions || state.month_transactions) {
+        await db.transactions.where('user_id').equals(userId).delete();
+        if (state.recent_transactions) {
+          await db.transactions.bulkPut(state.recent_transactions.map((t: any) => ({ ...t, user_id: userId })));
+        }
+        if (state.month_transactions) {
+          await db.transactions.bulkPut(state.month_transactions.map((t: any) => ({ ...t, user_id: userId })));
+        }
+      }
 
       setLastFetched(Date.now());
     } catch (error: any) {

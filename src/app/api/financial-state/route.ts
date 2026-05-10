@@ -100,7 +100,34 @@ async function buildFinancialState(userId: string) {
   let credit_expense = 0;
   let investments = 0;
 
-  const accountMap = new Map(accounts.map((a: any) => [a.id, a]));
+  // Buscar faturas para contas de cartão de crédito
+  const invoicesResult = await pool.query(
+    `SELECT i.* 
+     FROM public.invoices i
+     JOIN public.accounts a ON i.account_id = a.id
+     WHERE a.user_id = $1 AND i.status != 'PAID'`,
+    [userId]
+  );
+  const allInvoices = invoicesResult.rows;
+
+  // Enriquecer contas com dados de fatura
+  const enrichedAccounts = accounts.map((acc: any) => {
+    if (acc.type !== "CREDIT_CARD") return acc;
+
+    const accountInvoices = allInvoices.filter(i => i.account_id === acc.id);
+    const openInvoice = accountInvoices.find(i => i.status === "OPEN");
+    const closedInvoices = accountInvoices.filter(i => i.status === "CLOSED");
+
+    return {
+      ...acc,
+      open_invoice_cents: openInvoice ? Number(openInvoice.amount_cents) : 0,
+      closed_invoice_cents: closedInvoices.reduce((sum, i) => sum + Number(i.amount_cents), 0),
+      open_invoice_month: openInvoice ? openInvoice.reference_month : null,
+      closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
+    };
+  });
+
+  const accountMap = new Map(enrichedAccounts.map((a: any) => [a.id, a]));
 
   month_transactions.forEach((t: any) => {
     const amountCents = Number(t.amount_cents) || 0;
@@ -123,7 +150,7 @@ async function buildFinancialState(userId: string) {
       financial_health_score: 80,
     },
     categories,
-    accounts,
+    accounts: enrichedAccounts,
     goals,
     recurring_transactions,
     budgets,
