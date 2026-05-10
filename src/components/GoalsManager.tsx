@@ -13,8 +13,15 @@ interface GoalsManagerProps {
 }
 
 export function GoalsManager({ initialGoals }: GoalsManagerProps) {
-  const { goals: contextGoals } = useFinancialData();
+  const { goals: contextGoals, loading } = useFinancialData();
   const { openModal, openContribution, openDetail } = useGoalModal();
+
+  React.useEffect(() => {
+    console.log("🎯 [Component:GoalsManager] Metas sincronizadas:", {
+      count: contextGoals.length,
+      loading
+    });
+  }, [contextGoals, loading]);
 
   const goalsToDisplay = contextGoals.length > 0 ? contextGoals : (initialGoals || []);
 

@@ -160,11 +160,17 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       setLoading(true);
       if (isInitialLoading) setIsInitialLoading(false);
       
+      console.log("🔄 [Context:FinancialData] Iniciando sincronização para o usuário:", userId);
       const { data, error } = await financialService.getFinancialState(userId);
 
       if (error) throw error;
 
       const state = data as FinancialStateResponse;
+      console.log("📦 [Context:FinancialData] Estado recebido do backend:", {
+        accounts: state.accounts?.length,
+        recurring: state.recurring_transactions?.length,
+        goals: state.goals?.length
+      });
 
       if (state.user_profile) {
         const { monthly_income_cents, fixed_expenses_cents, accumulated_balance_cents, financial_health_score } = state.user_profile;
