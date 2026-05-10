@@ -5,8 +5,6 @@ import { createPortal } from "react-dom";
 import GlassCard from "./GlassCard";
 import { cn, formatCurrency } from "@/lib/utils";
 import { CreditCard, Wallet, Banknote, CalendarDays } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
-import { useRouter } from "next/navigation";
 import { useAccountModal } from "@/context/AccountModalContext";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { ActionMenu } from "./ActionMenu";
@@ -19,7 +17,7 @@ interface AccountCardProps {
 }
 
 export function AccountCard({ account: initialAccount }: AccountCardProps) {
-  const { accounts } = useFinancialData();
+  const { accounts, deleteAccount } = useFinancialData();
   const liveAccount = accounts.find(a => a.id === initialAccount.id) || initialAccount;
   
   const { 
@@ -34,7 +32,6 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
     current_invoice_cents
   } = liveAccount;
 
-  const router = useRouter();
   const { openEdit } = useAccountModal();
   const isCreditCard = type === "CREDIT_CARD";
   const [payModalOpen, setPayModalOpen] = useState(false);
@@ -55,12 +52,9 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
   async function handleDelete() {
     if (!confirm(`Tem certeza que deseja excluir a conta "${name}"? Todas as transações vinculadas serão apagadas.`)) return;
 
-    const supabase = createClient();
-    const { error } = await supabase.from("accounts").delete().eq("id", id);
-
-    if (!error) {
-      router.refresh();
-    } else {
+    try {
+      await deleteAccount(id);
+    } catch (err) {
       alert("Erro ao excluir conta");
     }
   }

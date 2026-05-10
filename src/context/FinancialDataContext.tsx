@@ -97,6 +97,7 @@ interface FinancialDataContextType {
     start_date: string;
   }) => Promise<void>;
   upsertAccount: (data: Partial<Account>) => Promise<void>;
+  deleteAccount: (id: string) => Promise<void>;
   upsertGoal: (data: Partial<Goal> & { status?: string }) => Promise<void>;
   updateGoalBalance: (id: string, amount: number) => Promise<void>;
   simulatePurchaseImpact: (amount: number) => Promise<SimulationResult>;
@@ -373,6 +374,11 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     if (!error) await refreshData();
   };
 
+  const deleteAccount = async (id: string) => {
+    const { error } = await financialService.deleteAccount(id);
+    if (!error) await refreshData();
+  };
+
   const upsertGoal = async (data: Partial<Goal> & { status?: string }) => {
     if (!userId) return;
     const { error } = await financialService.upsertGoal({
@@ -480,6 +486,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       deleteTransactionSeries,
       updateTransactionSeries,
       upsertAccount,
+      deleteAccount,
       upsertGoal,
       updateGoalBalance,
       healthScore,

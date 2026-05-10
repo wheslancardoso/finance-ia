@@ -171,6 +171,18 @@ export const financialService = {
   },
 
   // --- ACCOUNTS ---
+  async deleteAccount(id: string) {
+    try {
+      await apiFetch(`/api/accounts?id=${id}`, { method: "DELETE" });
+      await db.accounts.delete(id);
+      return { data: true, error: null };
+    } catch (error) {
+      console.error("❌ deleteAccount error:", error);
+      await db.accounts.delete(id);
+      return { data: null, error };
+    }
+  },
+
   async upsertAccount(data: any) {
     try {
       const payload = {

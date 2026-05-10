@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/pg";
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/accounts?user_id=xxx
  * Lista todas as contas de um usuário.

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/pg";
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/financial-state?user_id=xxx
  * Retorna o estado financeiro completo via RPC get_financial_state_v5.
