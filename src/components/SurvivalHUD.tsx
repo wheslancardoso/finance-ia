@@ -14,6 +14,8 @@ export default function SurvivalHUD() {
     accounts,
     extraIncomeCents,
     currentMonthExpensesCents,
+    recurringIncomeCents,
+    recurringExpensesCents,
     accumulatedBalanceCents,
     scheduledIncomeCents,
     scheduledExpensesCents,
