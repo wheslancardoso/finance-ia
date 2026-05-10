@@ -73,6 +73,7 @@ export interface Transaction {
   category_id?: string | null;
   family_group_id: string;
   is_paid: boolean;
+  is_legacy_debt?: boolean;
   installment_current?: number;
   installment_total?: number;
   source?: string;

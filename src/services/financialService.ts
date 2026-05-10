@@ -4,21 +4,7 @@ import { type Transaction } from "@/lib/db";
 export const financialService = {
   // --- TRANSACTIONS ---
   
-  async upsertTransaction(data: {
-    id?: string;
-    description: string;
-    amount_cents: number;
-    transaction_type: "INCOME" | "EXPENSE" | "TRANSFER";
-    date: string;
-    account_id: string;
-    category_id?: string | null;
-    family_group_id: string;
-    is_legacy_debt?: boolean;
-    is_paid?: boolean;
-    installment_current?: number;
-    installment_total?: number;
-    source?: string;
-  }) {
+  async upsertTransaction(data: any) {
     const supabase = createClient();
     
     const payload = {
@@ -87,17 +73,7 @@ export const financialService = {
 
   // --- ACCOUNTS ---
 
-  async upsertAccount(data: {
-    id?: string;
-    name: string;
-    type: string;
-    balance_cents: number;
-    credit_limit_cents?: number;
-    closing_day?: number;
-    due_day?: number;
-    color_hex?: string;
-    family_group_id: string;
-  }) {
+  async upsertAccount(data: any) {
     const supabase = createClient();
     if (data.id) {
       return await supabase.from("accounts").update(data).eq("id", data.id);
@@ -108,16 +84,7 @@ export const financialService = {
 
   // --- GOALS ---
 
-  async upsertGoal(data: {
-    id?: string;
-    name: string;
-    target_amount_cents: number;
-    current_amount_cents: number;
-    monthly_contribution_cents: number;
-    deadline?: string;
-    color_hex?: string;
-    family_group_id: string;
-  }) {
+  async upsertGoal(data: any) {
     const supabase = createClient();
     if (data.id) {
       return await supabase.from("goals").update(data).eq("id", data.id);
