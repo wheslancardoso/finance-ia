@@ -483,3 +483,5 @@ export function AddAccountModal() {
       type={statusModal.type}
     />
     </>
+  );
+}
