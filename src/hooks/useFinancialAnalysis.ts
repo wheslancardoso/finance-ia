@@ -24,6 +24,7 @@ export interface FinancialAnalysis {
   monthlyOutlook: MonthlyOutlook;
   healthScore: number;
   isSurvivalMode: boolean;
+  isCrisisMode: boolean;
   debtExit: DebtExitProjection;
   goalProjections: GoalProjection[];
   simulateDetailedImpact: (amountCents: number, installments: number) => SimulationDetailedResult;
@@ -82,6 +83,7 @@ export function useFinancialAnalysis(): FinancialAnalysis {
     monthlyOutlook,
     healthScore,
     isSurvivalMode: netLiquidity < 0,
+    isCrisisMode: monthlyOutlook.isCrisisMode,
     debtExit,
     goalProjections,
     simulateDetailedImpact: (amountCents: number, installments: number) => 

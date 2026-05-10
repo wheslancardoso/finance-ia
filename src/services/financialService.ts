@@ -12,6 +12,7 @@ const generateId = () => {
  * Helper: chama a API interna do Next.js
  */
 async function apiFetch(path: string, options?: RequestInit) {
+  console.log(`🌐 [API Fetch] ${options?.method || 'GET'} ${path}`);
   const res = await fetch(path, {
     ...options,
     headers: {
@@ -245,10 +246,20 @@ export const financialService = {
         ...data,
         id: data.id || generateId()
       };
+
+      // 1. Persistir no PostgreSQL via API
+      const saved = await apiFetch("/api/goals", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      // 2. Atualizar cache local (Dexie)
+      await db.goals.put({ ...payload, ...saved });
+      console.log("✅ Meta salva no PostgreSQL e Dexie:", saved.id);
+      return { data: saved, error: null };
+      const payload = { ...data, id: data.id || generateId() };
       await db.goals.put(payload);
       return { data: payload, error: null };
-    } catch (error) {
-      return { data: null, error };
     }
   },
 
@@ -353,10 +364,10 @@ export const financialService = {
    * Fallback local com Dexie (offline-first)
    */
   async _getLocalFinancialState(userId: string) {
-    try {
+      const goals = await db.goals.where('user_id').equals(userId).toArray();
+      
       const accounts = await db.accounts.where('user_id').equals(userId).toArray();
       const categories = await db.categories.where('user_id').equals(userId).toArray();
-      const goals = await db.goals.where('user_id').equals(userId).toArray();
       const recurring_transactions = await db.recurring_transactions.where('user_id').equals(userId).toArray();
       const budgets = await db.budgets.where('user_id').equals(userId).toArray();
       const transactions = await db.transactions.where('user_id').equals(userId).toArray();

@@ -75,7 +75,7 @@ export function AddGoalModal() {
         current_amount_cents: currentCents,
         deadline: deadline || undefined,
         color_hex: colorHex,
-        status: "active"
+        status: "ACTIVE"
       });
 
       closeModal();
@@ -152,6 +152,7 @@ export function AddGoalModal() {
                   onChange={(e) => setName(e.target.value)}
                   className="w-full bg-white/5 border border-white/5 rounded-2xl py-4 px-5 text-white outline-none focus:border-violet-500/50 transition-all font-medium"
                   required
+                  data-testid="goal-name-input"
                 />
               </div>
 
@@ -166,6 +167,7 @@ export function AddGoalModal() {
                       onChange={(e) => setTargetAmount(e.target.value)}
                       className="w-full bg-white/5 border border-white/5 rounded-2xl py-4 pl-10 pr-4 text-white outline-none focus:border-violet-500/50 transition-all font-bold tabular-nums"
                       required
+                      data-testid="goal-target-input"
                     />
                   </div>
                 </div>
@@ -179,6 +181,7 @@ export function AddGoalModal() {
                       value={currentAmount}
                       onChange={(e) => setCurrentAmount(e.target.value)}
                       className="w-full bg-white/5 border border-white/5 rounded-2xl py-4 pl-10 pr-4 text-white outline-none focus:border-violet-500/50 transition-all font-bold tabular-nums"
+                      data-testid="goal-current-input"
                     />
                   </div>
                 </div>
@@ -212,6 +215,7 @@ export function AddGoalModal() {
                   disabled={loading || !targetAmount || !name}
                   type="submit"
                   className="flex-1 bg-white text-black font-black text-xs uppercase tracking-[0.3em] py-5 rounded-2xl hover:bg-white/90 active:scale-[0.98] transition-all shadow-xl shadow-white/5"
+                  data-testid="goal-submit-button"
                 >
                   {loading ? "Criando Meta..." : "Começar a Poupar"}
                 </button>

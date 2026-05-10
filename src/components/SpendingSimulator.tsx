@@ -14,30 +14,38 @@ export default function SpendingSimulator() {
   const [amount, setAmount] = useState<string>("");
   const [installments, setInstallments] = useState<number>(1);
 
+  console.log("🔄 [SpendingSimulator] Render:", { amount, installments });
+
   const result = useMemo(() => {
     const valueCents = Math.round(parseFloat(amount.replace(",", ".")) * 100);
     if (isNaN(valueCents) || valueCents <= 0) {
       return null;
     }
-    return simulateDetailedImpact(valueCents, installments);
+    const res = simulateDetailedImpact(valueCents, installments);
+    console.log("📊 [SpendingSimulator] Simulação atualizada:", { valueCents, installments, impact: res?.installment_impact });
+    return res;
   }, [amount, installments, simulateDetailedImpact]);
 
   const handleSaveAsGoal = async () => {
-    if (!result || !amount) return;
+    console.log("💾 [SpendingSimulator] handleSaveAsGoal chamado. Amount:", amount, "Result:", result);
+    if (!result || !amount) {
+      console.warn("⚠️ [SpendingSimulator] Simulação incompleta, não é possível salvar.");
+      return;
+    }
     const valueCents = Math.round(parseFloat(amount.replace(",", ".")) * 100);
     
     await upsertGoal({
-      name: `Compra Planejada: ${formatCurrency(valueCents)}`,
+      name: `${installments > 1 ? 'Parcelamento' : 'Compra'}: ${amount}`,
       target_amount_cents: valueCents,
       current_amount_cents: 0,
-      priority: 1,
+      priority: 3, // Prioridade alta para compras planejadas
       status: "PLANNING",
-      monthly_contribution_cents: 0 // Adicionado para satisfazer a interface Goal
+      monthly_contribution_cents: result.installment_impact 
     });
     
     setAmount("");
     setInstallments(1);
-    alert("Salvo como objetivo de planejamento!");
+    // alert("Salvo como objetivo de planejamento!");
   };
 
   const getStatusColor = (status: string) => {
@@ -90,8 +98,13 @@ export default function SpendingSimulator() {
               inputMode="decimal"
               placeholder="0,00"
               value={amount}
-              onChange={(e) => setAmount(e.target.value.replace(/[^0-9,.]/g, ""))}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9,.]/g, "");
+                console.log("⌨️ [SpendingSimulator] Input change:", val);
+                setAmount(val);
+              }}
               className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-4 text-lg font-bold text-white placeholder:text-white/10 focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all"
+              data-testid="simulator-amount-input"
             />
           </div>
           <div className="col-span-4">
@@ -99,6 +112,7 @@ export default function SpendingSimulator() {
               value={installments}
               onChange={(e) => setInstallments(parseInt(e.target.value))}
               className="w-full h-full bg-white/5 border border-white/10 rounded-2xl px-3 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50 appearance-none"
+              data-testid="simulator-installments-select"
              >
                {[1,2,3,4,5,6,10,12,18,24].map(n => (
                  <option key={n} value={n} className="bg-[#121212]">{n}x</option>
@@ -142,9 +156,33 @@ export default function SpendingSimulator() {
               </div>
             )}
 
+            {installments > 1 && (
+              <div className="space-y-2">
+                <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Cronograma de Parcelas</p>
+                <div className="flex gap-1 overflow-hidden h-1.5 rounded-full bg-white/5">
+                  {Array.from({ length: installments }).map((_, i) => (
+                    <div 
+                      key={i} 
+                      className={cn(
+                        "flex-1 transition-all duration-500",
+                        result.status === "SAFE" ? "bg-emerald-500/40" : 
+                        result.status === "WARNING" ? "bg-amber-500/40" : "bg-rose-500/40"
+                      )} 
+                      style={{ transitionDelay: `${i * 50}ms` }}
+                    />
+                  ))}
+                </div>
+                <div className="flex justify-between text-[8px] font-bold text-white/40">
+                  <span>Mês 1</span>
+                  <span>Mês {installments}</span>
+                </div>
+              </div>
+            )}
+
             <button 
               onClick={handleSaveAsGoal}
               className="w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center justify-center gap-2 transition-all group"
+              data-testid="simulator-save-button"
             >
               <PlusCircle className="w-4 h-4 text-white/40 group-hover:text-violet-400" />
               <span className="text-[10px] font-black text-white/60 uppercase tracking-widest group-hover:text-white">Planejar esta Compra</span>

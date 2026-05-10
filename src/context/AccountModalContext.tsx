@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
+import { LOCAL_USER_ID } from "@/lib/constants";
 
 interface AccountModalContextType {
   isOpen: boolean;
@@ -17,7 +18,24 @@ const AccountModalContext = createContext<AccountModalContextType | undefined>(u
 export function AccountModalProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [accountToEdit, setAccountToEdit] = useState<any | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [userId, setUserIdState] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("vesper_user_id");
+      if (stored) return stored;
+      // Fallback para o ID padrão caso não exista no localStorage
+      const defaultId = LOCAL_USER_ID;
+      localStorage.setItem("vesper_user_id", defaultId);
+      return defaultId;
+    }
+    return null;
+  });
+
+  const setUserId = (id: string) => {
+    setUserIdState(id);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("vesper_user_id", id);
+    }
+  };
 
   const openAdd = () => {
     setAccountToEdit(null);

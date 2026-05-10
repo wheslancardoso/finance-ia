@@ -73,13 +73,13 @@ async function buildFinancialState(userId: string) {
   const supabase = await createClient();
 
   const [
-    { data: accounts },
-    { data: categories },
-    { data: goals },
-    { data: recurring_transactions },
-    { data: budgets },
-    { data: transactionsData },
-    { data: profile },
+    accountsRes,
+    categoriesRes,
+    goalsRes,
+    recurringRes,
+    budgetsRes,
+    transactionsRes,
+    profileRes,
   ] = await Promise.all([
     supabase.from('accounts').select('*').eq('user_id', userId).order('created_at'),
     supabase.from('categories').select('*').or(`user_id.eq.${userId},is_system_default.eq.true`).order('name'),
@@ -93,6 +93,19 @@ async function buildFinancialState(userId: string) {
       .limit(500),
     supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
   ]);
+
+  if (accountsRes.error || categoriesRes.error || goalsRes.error) {
+    const error = accountsRes.error || categoriesRes.error || goalsRes.error;
+    throw new Error(`Database connection failed: ${error?.message}`);
+  }
+
+  const accounts = accountsRes.data;
+  const categories = categoriesRes.data;
+  const goals = goalsRes.data;
+  const recurring_transactions = recurringRes.data;
+  const budgets = budgetsRes.data;
+  const transactionsData = transactionsRes.data;
+  const profile = profileRes.data;
 
   const allTransactions = (transactionsData || []).map((t: any) => ({
     ...t,

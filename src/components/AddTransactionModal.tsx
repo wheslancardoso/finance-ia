@@ -417,6 +417,7 @@ export function AddTransactionModal() {
                         "bg-transparent text-6xl font-black outline-none w-full max-w-[280px] text-center placeholder:text-white/5 tabular-nums transition-colors",
                         type === "EXPENSE" ? "text-white" : "text-emerald-400"
                       )}
+                      data-testid="transaction-amount-input"
                     />
                   </div>
 
@@ -457,6 +458,7 @@ export function AddTransactionModal() {
                         onChange={(e) => setDescription(e.target.value)}
                         className="w-full bg-white/[0.02] border border-white/10 rounded-[22px] py-5 px-14 text-white text-lg font-medium outline-none focus:border-white/20 focus:bg-white/[0.05] transition-all placeholder:text-white/5"
                         required
+                        data-testid="transaction-description-input"
                       />
                     </div>
                   </div>
@@ -475,6 +477,7 @@ export function AddTransactionModal() {
                           "w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-sm text-white font-bold flex justify-between items-center transition-all cursor-pointer hover:border-white/20",
                           accounts.length === 0 && !contextLoading && "opacity-80"
                         )}
+                        data-testid="transaction-account-select"
                       >
                         <span className="flex items-center gap-2 truncate">
                           {accounts.length === 0 ? (
@@ -538,6 +541,7 @@ export function AddTransactionModal() {
                           "w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-sm text-white font-bold flex justify-between items-center transition-all cursor-pointer hover:border-white/20",
                           categories.length === 0 && !contextLoading && "opacity-80"
                         )}
+                        data-testid="transaction-category-select"
                       >
                         <span className="truncate">
                           {categories.length === 0 ? (
@@ -725,6 +729,7 @@ export function AddTransactionModal() {
                       ? "bg-white text-black hover:bg-white/90 shadow-white/5"
                       : "bg-emerald-500 text-white hover:bg-emerald-400 shadow-emerald-500/20"
                   )}
+                  data-testid="transaction-submit-button"
                 >
                   {loading ? "Processando..." : transactionToEdit ? (editAllInstallments ? "Atualizar Série" : "Salvar Parcela") : "Ativar Registro"}
                 </button>

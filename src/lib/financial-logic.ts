@@ -41,6 +41,7 @@ export interface MonthlyOutlook {
   isHealthy: boolean;
   isRecovering: boolean;
   isCritical: boolean;
+  isCrisisMode: boolean; // Novo campo
 }
 
 export interface GoalProjection {
@@ -89,6 +90,9 @@ export function calculateMonthlyOutlook(params: {
     .filter((a) => a.type === "CREDIT_CARD")
     .reduce((sum, a) => sum + (a.open_invoice_cents || 0), 0);
 
+  const isCritical = balanceAtMonthEnd < 0;
+  const isCrisisMode = isCritical && netLiquidityCents < 0;
+
   return {
     balanceAtMonthEnd,
     plannedExpenses: pendingOutflow + budgetReserves,
@@ -98,7 +102,8 @@ export function calculateMonthlyOutlook(params: {
     budgetReserves,
     isHealthy: balanceAtMonthEnd >= 0 && netLiquidityCents >= 0,
     isRecovering: balanceAtMonthEnd >= 0 && netLiquidityCents < 0,
-    isCritical: balanceAtMonthEnd < 0
+    isCritical,
+    isCrisisMode // Ativado se saldo final for negativo e liquidez total também
   };
 }
 

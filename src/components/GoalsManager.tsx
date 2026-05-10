@@ -16,12 +16,6 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
   const { goals: contextGoals, loading, netLiquidityCents } = useFinancialData();
   const { openModal, openContribution, openDetail } = useGoalModal();
 
-  React.useEffect(() => {
-    console.log("🎯 [Component:GoalsManager] Metas sincronizadas:", {
-      count: contextGoals.length,
-      loading
-    });
-  }, [contextGoals, loading]);
 
   const goalsToDisplay = contextGoals.length > 0 ? contextGoals : (initialGoals || []);
 
@@ -100,7 +94,7 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
                   )}
 
                   <div className="space-y-2">
-                    <h3 className="text-2xl font-bold text-white tracking-tight">{goal.name}</h3>
+                    <h3 className="text-2xl font-bold text-white tracking-tight" data-testid="goal-card-title">{goal.name}</h3>
                     <div className="flex items-baseline gap-1.5">
                       <span className="text-white font-bold">{formatCurrency(goal.current_amount_cents)}</span>
                       <span className="text-white/20 text-xs">de {formatCurrency(goal.target_amount_cents)}</span>

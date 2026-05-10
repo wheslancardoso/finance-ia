@@ -19,7 +19,8 @@ export default function SurvivalHUD() {
   const { 
     netLiquidityCents, 
     monthlyOutlook, 
-    isSurvivalMode 
+    isSurvivalMode,
+    isCrisisMode
   } = useFinancialAnalysis();
 
   const [viewMode, setViewMode] = useState<ViewMode>("MONTH");
@@ -63,7 +64,13 @@ export default function SurvivalHUD() {
   let StatusIcon = ShieldCheck;
   let statusMessage = "Fluxo Estável";
 
-  if (percentageOfIncome < 15) {
+  if (isCrisisMode) {
+    statusColor = "text-rose-500";
+    statusGlow = "shadow-[0_0_25px_rgba(244,63,94,0.5)]";
+    bgGradient = "from-rose-500/20 to-transparent";
+    StatusIcon = Zap;
+    statusMessage = "MODO CRISE ATIVADO";
+  } else if (percentageOfIncome < 15) {
     statusColor = "text-red-400";
     statusGlow = "shadow-[0_0_15px_rgba(239,68,68,0.4)]";
     bgGradient = "from-red-500/10 to-transparent";
@@ -124,6 +131,10 @@ export default function SurvivalHUD() {
     <div className={`relative w-full bg-[#0a0a0a]/90 backdrop-blur-xl border border-white/10 rounded-[24px] overflow-hidden mb-8 ${statusGlow} transition-all duration-500`}>
       {/* Background Gradient Effect */}
       <div className={`absolute inset-0 bg-gradient-to-b ${bgGradient} opacity-50 pointer-events-none`}></div>
+      
+      {isCrisisMode && (
+        <div className="absolute inset-0 bg-rose-500/5 animate-pulse pointer-events-none" />
+      )}
       
       <div className="relative p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         
