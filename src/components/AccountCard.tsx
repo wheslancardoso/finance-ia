@@ -11,7 +11,7 @@ import { ActionMenu } from "./ActionMenu";
 import { PayInvoiceModal } from "./PayInvoiceModal";
 import { ConfirmModal } from "./ConfirmModal";
 import { StatusModal } from "./StatusModal";
-import { format, addMonths } from "date-fns";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface AccountCardProps {
@@ -128,8 +128,8 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
           if (invoiceMonthRaw) {
             try {
               const [y, m] = invoiceMonthRaw.split("-");
-              // Mostramos o mês de VENCIMENTO (mês de referência + 1)
-              invoiceMonth = format(addMonths(new Date(parseInt(y), parseInt(m) - 1, 1), 1), "MMM", { locale: ptBR });
+              // O reference_month já é o mês da fatura, não precisamos adicionar 1
+              invoiceMonth = format(new Date(parseInt(y), parseInt(m) - 1, 1), "MMM", { locale: ptBR });
             } catch (e) {
               invoiceMonth = invoiceMonthRaw;
             }

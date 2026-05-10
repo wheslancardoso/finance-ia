@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/lib/pg";
+import { createClient } from "@/utils/supabase/server";
 
 export const dynamic = 'force-dynamic';
 
@@ -13,29 +13,55 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "user_id obrigatório" }, { status: 400 });
   }
 
+  const supabase = await createClient();
+
   try {
     // Tentar usar a função RPC se existir
-    const { rows } = await pool.query(
-      `SELECT get_financial_state_v5($1::uuid) as state`,
-      [userId]
-    );
+    const { data, error } = await supabase.rpc('get_financial_state_v5', {
+      p_user_id: userId
+    });
 
-    if (rows[0]?.state) {
-      return NextResponse.json(rows[0].state);
+    if (error) {
+      console.warn("RPC get_financial_state_v5 failed, using manual build:", error.message);
+    } else if (data) {
+      // Enriquecer contas de cartão com dados de fatura retornados na própria RPC
+      const enrichedAccounts = (data.accounts || []).map((acc: any) => {
+        if (acc.type !== "CREDIT_CARD") return acc;
+
+        const accountInvoices = (data.invoices || []).filter((i: any) => i.account_id === acc.id);
+        
+        // Ordenar faturas por reference_month de forma crescente (mais antigas primeiro)
+        const sortedInvoices = [...accountInvoices].sort((a, b) => 
+          (a.reference_month || "").localeCompare(b.reference_month || "")
+        );
+
+        const openInvoice = sortedInvoices.find((i: any) => i.status === "OPEN");
+        const closedInvoices = sortedInvoices.filter((i: any) => i.status === "CLOSED");
+
+        const openCents = openInvoice ? Number(openInvoice.amount_cents) : 0;
+        const closedCents = closedInvoices.reduce((sum: number, i: any) => sum + Number(i.amount_cents), 0);
+        const totalDebt = accountInvoices.reduce((sum: number, i: any) => sum + Number(i.amount_cents), 0);
+
+        return {
+          ...acc,
+          open_invoice_cents: openCents,
+          closed_invoice_cents: closedCents,
+          balance_cents: -totalDebt,
+          open_invoice_month: openInvoice ? openInvoice.reference_month : null,
+          closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
+        };
+      });
+
+      data.accounts = enrichedAccounts;
+      return NextResponse.json(data);
     }
 
-    // Fallback: montar o estado manualmente a partir das tabelas
-    return NextResponse.json(await buildFinancialState(userId));
+    // Fallback: montar o estado manualmente a partir das tabelas usando Supabase
+    const state = await buildFinancialState(userId);
+    return NextResponse.json(state);
   } catch (error: any) {
-    console.error("GET /api/financial-state RPC failed, using fallback:", error.message);
-    
-    try {
-      const state = await buildFinancialState(userId);
-      return NextResponse.json(state);
-    } catch (fallbackError: any) {
-      console.error("Fallback also failed:", fallbackError);
-      return NextResponse.json({ error: fallbackError.message }, { status: 500 });
-    }
+    console.error("GET /api/financial-state failed:", error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
@@ -44,39 +70,38 @@ export async function GET(request: NextRequest) {
  * Serve como fallback caso a RPC não exista ou falhe.
  */
 async function buildFinancialState(userId: string) {
+  const supabase = await createClient();
+
   const [
-    accountsResult,
-    categoriesResult,
-    goalsResult,
-    recurringResult,
-    budgetsResult,
-    transactionsResult,
+    { data: accounts },
+    { data: categories },
+    { data: goals },
+    { data: recurring_transactions },
+    { data: budgets },
+    { data: transactionsData },
+    { data: profile },
   ] = await Promise.all([
-    pool.query(`SELECT * FROM public.accounts WHERE user_id = $1 ORDER BY created_at`, [userId]),
-    pool.query(`SELECT * FROM public.categories WHERE user_id = $1 ORDER BY name`, [userId]),
-    pool.query(`SELECT * FROM public.goals WHERE user_id = $1 ORDER BY created_at`, [userId]),
-    pool.query(`SELECT * FROM public.recurring_transactions WHERE user_id = $1 ORDER BY created_at`, [userId]),
-    pool.query(`SELECT * FROM public.budgets WHERE user_id = $1`, [userId]),
-    pool.query(
-      `SELECT t.*, c.name as category_name, c.type as category_type
-       FROM public.transactions t
-       LEFT JOIN public.categories c ON t.category_id = c.id
-       WHERE t.user_id = $1
-       ORDER BY t.date DESC
-       LIMIT 500`,
-      [userId]
-    ),
+    supabase.from('accounts').select('*').eq('user_id', userId).order('created_at'),
+    supabase.from('categories').select('*').or(`user_id.eq.${userId},is_system_default.eq.true`).order('name'),
+    supabase.from('goals').select('*').eq('user_id', userId).order('created_at'),
+    supabase.from('recurring_transactions').select('*').eq('user_id', userId).order('created_at'),
+    supabase.from('budgets').select('*').eq('user_id', userId),
+    supabase.from('transactions')
+      .select('*, categories(name, type)')
+      .eq('user_id', userId)
+      .order('date', { ascending: false })
+      .limit(500),
+    supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
   ]);
 
-  const accounts = accountsResult.rows;
-  const categories = categoriesResult.rows;
-  const goals = goalsResult.rows;
-  const recurring_transactions = recurringResult.rows;
-  const budgets = budgetsResult.rows;
-  const allTransactions = transactionsResult.rows;
+  const allTransactions = (transactionsData || []).map((t: any) => ({
+    ...t,
+    category_name: t.categories?.name,
+    category_type: t.categories?.type,
+  }));
 
   // Saldo acumulado
-  const accumulated_balance_cents = accounts.reduce(
+  const accumulated_balance_cents = (accounts || []).reduce(
     (acc: number, a: any) => acc + (Number(a.balance_cents) || 0),
     0
   );
@@ -101,27 +126,34 @@ async function buildFinancialState(userId: string) {
   let investments = 0;
 
   // Buscar faturas para contas de cartão de crédito
-  const invoicesResult = await pool.query(
-    `SELECT i.* 
-     FROM public.invoices i
-     JOIN public.accounts a ON i.account_id = a.id
-     WHERE a.user_id = $1 AND i.status != 'PAID'`,
-    [userId]
-  );
-  const allInvoices = invoicesResult.rows;
+  const { data: allInvoices } = await supabase
+    .from('credit_card_invoices')
+    .select('*, accounts!inner(user_id)')
+    .eq('accounts.user_id', userId)
+    .neq('status', 'PAID');
 
   // Enriquecer contas com dados de fatura
-  const enrichedAccounts = accounts.map((acc: any) => {
+  const enrichedAccounts = (accounts || []).map((acc: any) => {
     if (acc.type !== "CREDIT_CARD") return acc;
 
-    const accountInvoices = allInvoices.filter(i => i.account_id === acc.id);
-    const openInvoice = accountInvoices.find(i => i.status === "OPEN");
-    const closedInvoices = accountInvoices.filter(i => i.status === "CLOSED");
+    const accountInvoices = (allInvoices || []).filter((i: any) => i.account_id === acc.id);
+    
+    const sortedInvoices = [...accountInvoices].sort((a, b) => 
+      (a.reference_month || "").localeCompare(b.reference_month || "")
+    );
+
+    const openInvoice = sortedInvoices.find((i: any) => i.status === "OPEN");
+    const closedInvoices = sortedInvoices.filter((i: any) => i.status === "CLOSED");
+
+    const openCents = openInvoice ? Number(openInvoice.amount_cents) : 0;
+    const closedCents = closedInvoices.reduce((sum, i) => sum + Number(i.amount_cents), 0);
+    const totalDebt = accountInvoices.reduce((sum, i) => sum + Number(i.amount_cents), 0);
 
     return {
       ...acc,
-      open_invoice_cents: openInvoice ? Number(openInvoice.amount_cents) : 0,
-      closed_invoice_cents: closedInvoices.reduce((sum, i) => sum + Number(i.amount_cents), 0),
+      open_invoice_cents: openCents,
+      closed_invoice_cents: closedCents,
+      balance_cents: -totalDebt,
       open_invoice_month: openInvoice ? openInvoice.reference_month : null,
       closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
     };
@@ -149,11 +181,11 @@ async function buildFinancialState(userId: string) {
       accumulated_balance_cents,
       financial_health_score: 80,
     },
-    categories,
+    categories: categories || [],
     accounts: enrichedAccounts,
-    goals,
-    recurring_transactions,
-    budgets,
+    goals: goals || [],
+    recurring_transactions: recurring_transactions || [],
+    budgets: budgets || [],
     recent_transactions,
     month_transactions,
     month_stats: {

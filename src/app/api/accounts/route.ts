@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/lib/pg";
+import { createClient } from "@/utils/supabase/server";
 
 export const dynamic = 'force-dynamic';
 
@@ -14,11 +14,16 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { rows } = await pool.query(
-      `SELECT * FROM public.accounts WHERE user_id = $1 ORDER BY created_at`,
-      [userId]
-    );
-    return NextResponse.json(rows);
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from('accounts')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at');
+
+    if (error) throw error;
+    return NextResponse.json(data);
   } catch (error: any) {
     console.error("GET /api/accounts error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -51,43 +56,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const query = `
-      INSERT INTO public.accounts (id, user_id, name, type, balance_cents, credit_limit_cents, closing_day, due_day, color_hex)
-      VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9)
-      ON CONFLICT (id) DO UPDATE SET
-        name = EXCLUDED.name,
-        type = EXCLUDED.type,
-        balance_cents = EXCLUDED.balance_cents,
-        credit_limit_cents = EXCLUDED.credit_limit_cents,
-        closing_day = EXCLUDED.closing_day,
-        due_day = EXCLUDED.due_day,
-        color_hex = EXCLUDED.color_hex,
-        updated_at = CURRENT_TIMESTAMP
-      RETURNING *
-    `;
+    const supabase = await createClient();
+    
+    console.log(`🏦 [API] Processando conta: ${name} (${type})`);
 
-    const { rows } = await pool.query(query, [
-      id || null,
+    const accountData = {
+      ...(id ? { id } : {}),
       user_id,
       name,
       type,
       balance_cents,
       credit_limit_cents,
-      closing_day || null,
-      due_day || null,
+      closing_day: closing_day || null,
+      due_day: due_day || null,
       color_hex,
-    ]);
+      updated_at: new Date().toISOString()
+    };
 
-    return NextResponse.json(rows[0]);
+    const { data, error } = await supabase
+      .from('accounts')
+      .upsert(accountData, { onConflict: 'id' })
+      .select();
+
+    if (error) {
+      console.error("❌ [API] Erro no upsert de conta no Supabase:", error.message);
+      throw error;
+    }
+    
+    console.log(`✅ [API] Conta persistida com sucesso: ${data[0]?.id}`);
+    return NextResponse.json(data ? data[0] : null);
   } catch (error: any) {
-    console.error("POST /api/accounts error:", error);
+    console.error("❌ [API] POST /api/accounts error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 /**
  * DELETE /api/accounts?id=xxx
- * Desativa uma conta (soft delete).
+ * Remove uma conta.
  */
 export async function DELETE(request: NextRequest) {
   const accountId = request.nextUrl.searchParams.get("id");
@@ -96,10 +102,13 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    await pool.query(
-      `DELETE FROM public.accounts WHERE id = $1`,
-      [accountId]
-    );
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('accounts')
+      .delete()
+      .eq('id', accountId);
+
+    if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("DELETE /api/accounts error:", error);

@@ -28,6 +28,7 @@ async function apiFetch(path: string, options?: RequestInit) {
 export const financialService = {
   // --- TRANSACTIONS ---
   async upsertTransaction(data: any) {
+    console.log("🚀 Iniciando upsertTransaction:", data.description, data.amount_cents);
     try {
       const payload = {
         ...data,
@@ -42,6 +43,8 @@ export const financialService = {
         body: JSON.stringify(payload),
       });
 
+      console.log("✅ Transação salva no PostgreSQL:", saved.id);
+
       // 2. Atualizar cache local (Dexie)
       await db.transactions.put({ ...payload, ...saved });
       return { data: saved, error: null };
@@ -55,6 +58,7 @@ export const financialService = {
         source: data.source ?? "MANUAL",
       };
       await db.transactions.put(payload);
+      console.warn("⚠️ Transação salva apenas localmente (Dexie)");
       return { data: payload, error };
     }
   },
@@ -128,14 +132,20 @@ export const financialService = {
     category_id?: string | null;
     start_date: string;
   }) {
+    console.log(`📦 Criando série de parcelamento: ${data.description} (${data.installments}x)`);
     try {
       const amountPerInstallment = Math.round(data.amount_total_cents / data.installments);
       const groupId = generateId();
       const transactions: Transaction[] = [];
       
+      const now = new Date();
       for (let i = 0; i < data.installments; i++) {
         const date = new Date(data.start_date);
         date.setMonth(date.getMonth() + i);
+        
+        const isPastMonth = 
+          date.getFullYear() < now.getFullYear() || 
+          (date.getFullYear() === now.getFullYear() && date.getMonth() < now.getMonth());
         
         const tx: Transaction = {
           id: generateId(),
@@ -146,7 +156,7 @@ export const financialService = {
           date: date.toISOString(),
           account_id: data.account_id,
           category_id: data.category_id,
-          is_paid: i === 0,
+          is_paid: isPastMonth,
           installment_current: i + 1,
           installment_total: data.installments,
           source: "MANUAL"
@@ -156,16 +166,19 @@ export const financialService = {
       }
       
       // Persistir cada parcela no PostgreSQL
+      console.log(`⏳ Enviando ${transactions.length} parcelas para o servidor...`);
       for (const tx of transactions) {
         await apiFetch("/api/transactions", {
           method: "POST",
           body: JSON.stringify({ ...tx, installment_group_id: groupId }),
-        }).catch((err) => console.error("installment save error:", err));
+        }).catch((err) => console.error(`❌ Erro ao salvar parcela ${tx.installment_current}:`, err));
       }
 
       await db.transactions.bulkPut(transactions);
+      console.log("✅ Todas as parcelas foram processadas.");
       return { data: true, error: null };
     } catch (error) {
+      console.error("❌ Falha crítica ao criar série de parcelamento:", error);
       return { data: null, error };
     }
   },
@@ -184,6 +197,7 @@ export const financialService = {
   },
 
   async upsertAccount(data: any) {
+    console.log("🏦 Iniciando upsertAccount:", data.name);
     try {
       const payload = {
         ...data,
@@ -196,6 +210,8 @@ export const financialService = {
         body: JSON.stringify(payload),
       });
 
+      console.log("✅ Conta salva no PostgreSQL:", saved.id);
+
       // 2. Atualizar cache local (Dexie)
       await db.accounts.put({ ...payload, ...saved });
       return { data: saved, error: null };
@@ -207,6 +223,7 @@ export const financialService = {
         id: data.id || generateId()
       };
       await db.accounts.put(payload);
+      console.warn("⚠️ Conta salva apenas localmente (Dexie)");
       return { data: payload, error };
     }
   },

@@ -6,4 +6,4 @@
  */
 
 // O email correspondente é wheslancardoso1064@gmail.com
-export const LOCAL_USER_ID = "7198536e-f7a9-436b-93c5-08783e62acc4";
+export const LOCAL_USER_ID = "2a8d83e2-17b5-434d-91d9-2a963bc841da";

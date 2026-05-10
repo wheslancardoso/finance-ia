@@ -4,7 +4,7 @@ import { type NextRequest, NextResponse } from "next/server";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-export const updateSession = (request: NextRequest) => {
+export const updateSession = async (request: NextRequest) => {
   // Create an unmodified response
   let supabaseResponse = NextResponse.next({
     request: {
@@ -32,6 +32,11 @@ export const updateSession = (request: NextRequest) => {
       },
     },
   );
+
+  // IMPORTANT: DO NOT REMOVE. 
+  // Refreshing the auth token is required for Server Components to have a valid session.
+  // getUser() triggers the setAll logic above if the cookie is expired.
+  await supabase.auth.getUser();
 
   return supabaseResponse
 };
