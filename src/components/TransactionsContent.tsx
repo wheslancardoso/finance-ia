@@ -119,10 +119,12 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
                 "text-xs font-black tabular-nums truncate w-full mt-0.5",
                 isSelected ? "text-white" : "text-white/60"
               )}>
-                {isCredit 
-                  ? `${(acc.closed_invoice_cents || 0) > 0 ? "Fechada" : "Aberta"}: ` 
-                  : ""}
-                {formatCurrency(isCredit ? (acc.current_invoice_cents || 0) : (acc.balance_cents || 0))}
+                {isCredit ? (() => {
+                  const closedAmount = acc.closed_invoice_cents || 0;
+                  const openAmount = acc.open_invoice_cents || 0;
+                  const showClosed = closedAmount > 0;
+                  return `${showClosed ? "Fechada" : "Aberta"}: ${formatCurrency(showClosed ? closedAmount : openAmount)}`;
+                })() : formatCurrency(acc.balance_cents || 0)}
               </p>
             </button>
           );
