@@ -42,7 +42,8 @@ export default function RealtimeDashboard({
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const { 
     accounts: liveAccounts, 
-    recentTransactions: liveTransactions,
+    recentTransactions: liveRecentTransactions,
+    monthTransactions: liveMonthTransactions,
     monthlyIncomeCents,
     fixedExpensesCents,
     recurringIncomeCents,
@@ -62,7 +63,13 @@ export default function RealtimeDashboard({
 
   // Usar dados live se disponíveis, senão inicial
   const displayAccounts = liveAccounts.length > 0 ? liveAccounts : accounts;
-  const displayTransactions = liveTransactions.length > 0 ? liveTransactions : initialTransactions;
+  const isCurrentMonth = isSameMonth(targetDate, new Date());
+  const displayTransactions = isCurrentMonth 
+    ? (liveMonthTransactions.length > 0 ? liveMonthTransactions : liveRecentTransactions)
+    : [];
+
+  console.log(`[Dashboard] View: ${isCurrentMonth ? 'Current' : 'Future/Past'}, Transactions: ${displayTransactions.length}, MonthTx: ${liveMonthTransactions.length}, RecentTx: ${liveRecentTransactions.length}`);
+
   const displayRecurring = liveRecurring.length > 0 ? liveRecurring : initialRecurring;
   const displayBudgets = liveBudgets.length > 0 ? liveBudgets : initialBudgets;
 

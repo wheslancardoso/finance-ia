@@ -17,6 +17,7 @@ export function AccountsHeader() {
       <button 
         onClick={openAdd}
         className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-6 py-3 rounded-2xl font-semibold transition-all shadow-lg shadow-violet-600/20 active:scale-95"
+        data-testid="add-account-button"
       >
         <Plus className="w-5 h-5" />
         Nova Conta

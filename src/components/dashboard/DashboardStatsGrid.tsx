@@ -29,10 +29,13 @@ export function DashboardStatsGrid() {
             "text-[10px] font-black uppercase tracking-widest",
             netLiquidityCents >= 0 ? "text-emerald-400/60" : "text-red-400/60"
           )}>Liquidez Líquida (Real)</span>
-          <span className={cn(
-            "text-3xl font-black tabular-nums",
-            netLiquidityCents >= 0 ? "text-emerald-400" : "text-red-400"
-          )}>
+          <span 
+            className={cn(
+              "text-3xl font-black tabular-nums",
+              netLiquidityCents >= 0 ? "text-emerald-400" : "text-red-400"
+            )}
+            data-testid="net-liquidity-value"
+          >
             {formatCurrency(netLiquidityCents)}
           </span>
           <p className="text-[10px] text-white/40 mt-2 italic">
@@ -47,7 +50,7 @@ export function DashboardStatsGrid() {
             <History className="w-8 h-8" />
           </div>
           <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Dívida Total Consolidada</span>
-          <span className="text-3xl font-black text-white tabular-nums">
+          <span className="text-3xl font-black text-white tabular-nums" data-testid="total-debt-value">
             {formatCurrency(totalConsolidatedDebtCents)}
           </span>
           <p className="text-[10px] text-white/40 mt-2 italic">
@@ -59,11 +62,14 @@ export function DashboardStatsGrid() {
       {/* Row de Saúde e Sobra */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white/5 rounded-3xl p-5 border border-white/10 flex items-center gap-4 group hover:bg-white/10 transition-all">
-          <div className={cn(
-            "w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black",
-            (healthScore > 70 && netLiquidityCents >= 0) ? "bg-emerald-500/20 text-emerald-400" : 
-            (healthScore > 40 && netLiquidityCents >= 0) ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"
-          )}>
+          <div 
+            className={cn(
+              "w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black",
+              (healthScore > 70 && netLiquidityCents >= 0) ? "bg-emerald-500/20 text-emerald-400" : 
+              (healthScore > 40 && netLiquidityCents >= 0) ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"
+            )}
+            data-testid="health-score-value"
+          >
             {healthScore}
           </div>
           <div>
@@ -90,11 +96,14 @@ export function DashboardStatsGrid() {
             <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">
               {monthlyOutlook.isRecovering ? "Sobra Comprometida" : "Sobra Livre"}
             </p>
-            <p className={cn(
-              "text-sm font-black",
-              monthlyOutlook.isHealthy ? "text-emerald-400" : 
-              monthlyOutlook.isRecovering ? "text-amber-400" : "text-red-400"
-            )}>
+            <p 
+              className={cn(
+                "text-sm font-black",
+                monthlyOutlook.isHealthy ? "text-emerald-400" : 
+                monthlyOutlook.isRecovering ? "text-amber-400" : "text-red-400"
+              )}
+              data-testid="month-end-balance-value"
+            >
               {formatCurrency(monthlyOutlook.balanceAtMonthEnd)}
             </p>
           </div>

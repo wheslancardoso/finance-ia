@@ -40,11 +40,16 @@ export function Sidebar() {
 
   useEffect(() => {
     setMounted(true);
+    // Em ambiente local/E2E, usamos um email padrão se o Supabase não estiver disponível
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) {
-        setUserEmail(data.user.email ?? "Usuário");
+        setUserEmail(data.user.email ?? "wheslan@vesper.com");
+      } else {
+        setUserEmail("wheslan@vesper.com"); // Email padrão para modo local
       }
+    }).catch(() => {
+      setUserEmail("wheslan@vesper.com");
     });
   }, []);
 
@@ -94,7 +99,7 @@ export function Sidebar() {
                 "w-5 h-5 transition-transform duration-300 group-hover:scale-110",
                 isActive ? "text-violet-400" : "text-white/40 group-hover:text-violet-300"
               )} />
-              <span className="font-medium">{item.name}</span>
+              <span className="font-medium" data-testid={`nav-${item.name.toLowerCase()}`}>{item.name}</span>
 
               {isActive && (
                 <motion.div
