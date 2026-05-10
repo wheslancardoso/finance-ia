@@ -54,6 +54,8 @@ export interface Budget {
   id: string;
   category_id: string;
   amount_cents: number;
+  spent_cents?: number;
+  limit_cents?: number;
   user_id?: string;
 }
 

@@ -1,4 +1,5 @@
 import { db, type Transaction, type Account, type Goal, type Category, type RecurringTransaction, type Budget } from "@/lib/db";
+import { formatCurrency } from "@/lib/utils";
 
 const generateId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -436,16 +437,33 @@ export const financialService = {
     try {
       const state = await this.getFinancialState(userId);
       const balance = state.data?.user_profile.accumulated_balance_cents || 0;
+      const accounts = state.data?.accounts || [];
       
+      const consolidatedDebt = accounts
+        .filter((a: any) => a.type === "CREDIT_CARD")
+        .reduce((sum: number, a: any) => sum + (a.closed_invoice_cents || 0) + (a.open_invoice_cents || 0), 0);
+      
+      const realSurplus = balance - consolidatedDebt;
       const newBalance = balance - amountCents;
-      const status = newBalance < 0 ? "DANGER" : (newBalance < 100000 ? "WARNING" : "SAFE");
+      const newRealSurplus = realSurplus - amountCents;
+      
+      let status: "SAFE" | "WARNING" | "DANGER" = "SAFE";
+      let message = "Você possui saldo suficiente.";
+
+      if (newRealSurplus < 0) {
+        status = "DANGER";
+        message = "⚠️ Perigo: Esta compra aumentará sua dívida líquida. Você estará pagando crédito com crédito.";
+      } else if (newBalance < (balance * 0.3)) {
+        status = "WARNING";
+        message = "Atenção: Esta compra consome grande parte da sua liquidez atual.";
+      }
       
       return {
         data: {
           current_surplus_cents: balance,
           simulated_surplus_cents: newBalance,
           status,
-          message: status === "SAFE" ? "Você possui saldo suficiente." : "Atenção: Saldo ficará negativo ou baixo.",
+          message,
           impact_percentage: balance > 0 ? Math.round((amountCents / balance) * 100) : 100
         },
         error: null
@@ -458,20 +476,57 @@ export const financialService = {
   async getGoalRecommendations(userId: string) {
     try {
       const state = await this.getFinancialState(userId);
-      const balance = state.data?.user_profile.accumulated_balance_cents || 0;
+      const profile = state.data?.user_profile;
+      const accounts = state.data?.accounts || [];
+      const balance = profile?.accumulated_balance_cents || 0;
       
+      // Calcular Dívida Consolidada para saber se temos "Sobra Real"
+      const consolidatedDebt = accounts
+        .filter((a: any) => a.type === "CREDIT_CARD")
+        .reduce((sum: number, a: any) => sum + (a.closed_invoice_cents || 0) + (a.open_invoice_cents || 0), 0);
+      
+      const realSurplus = balance - consolidatedDebt;
       const goals = state.data?.goals || [];
-      const recommendations = goals.map((g: any) => ({
-        goal_id: g.id,
-        goal_name: g.name,
-        recommended_amount_cents: Math.round(balance * 0.1),
-        is_full_target: false
-      }));
+      
+      // Ordenar metas por prioridade e prazo
+      const sortedGoals = [...goals].sort((a: any, b: any) => {
+        if (a.priority !== b.priority) return (b.priority || 0) - (a.priority || 0);
+        return new Date(a.deadline || 0).getTime() - new Date(b.deadline || 0).getTime();
+      });
+
+      // Alocamos 20% da Sobra Real se positiva, priorizando fundo de emergência se houver
+      let remainingToAllocate = realSurplus > 0 ? Math.round(realSurplus * 0.2) : 0;
+      
+      const recommendations = sortedGoals.map((g: any) => {
+        const remainingGoal = (g.target_cents || 0) - (g.current_cents || 0);
+        const amount = Math.min(remainingToAllocate, remainingGoal);
+        remainingToAllocate -= amount;
+
+        let advice = "";
+        if (realSurplus < 0) {
+          const debtToClear = Math.abs(realSurplus);
+          advice = `⚠️ Alerta Jarvis: Sua liquidez está negativa. Você precisa de ${formatCurrency(debtToClear)} adicionais para cobrir suas faturas atuais antes de focar nesta meta.`;
+        } else if (amount > 0) {
+          advice = `🎯 Estratégia Jarvis: Recomendamos aportar ${formatCurrency(amount)} aqui hoje para manter sua saúde financeira.`;
+        } else if (realSurplus > 0) {
+          advice = "⏳ Prioridade Jarvis: Esta meta está na fila. Continue mantendo sua reserva antes de avançar para o próximo objetivo.";
+        } else {
+          advice = "🛑 Estabilize sua liquidez e pague suas faturas fechadas primeiro.";
+        }
+
+        return {
+          goal_id: g.id,
+          goal_name: g.name,
+          recommended_amount_cents: amount,
+          is_full_target: amount >= remainingGoal && remainingGoal > 0,
+          advice
+        };
+      });
       
       return {
         data: {
           surplus_cents: balance,
-          remaining_surplus_cents: balance,
+          real_surplus_cents: realSurplus,
           recommendations
         },
         error: null

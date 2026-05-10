@@ -64,7 +64,7 @@ export default function SurvivalHUD() {
 
     // 4. Reservas de Orçamento (O que prometemos não gastar)
     const remainingBudgets = budgets.reduce((sum, b) => {
-      return sum + Math.max(0, (b.limit_cents || 0) - (b.spent_cents || 0));
+      return sum + Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0));
     }, 0);
 
     // Teto = Liquidez + Entradas Agendadas - Saídas Agendadas - Faturas - Orçamentos
@@ -113,7 +113,9 @@ export default function SurvivalHUD() {
   });
 
   // Determinar Estado Visual
-  const totalIncomeForStatus = monthlyIncomeCents + recurringIncomeCents;
+  const safeMonthlyIncome = monthlyIncomeCents || 0;
+  const safeRecurringIncome = recurringIncomeCents || 0;
+  const totalIncomeForStatus = safeMonthlyIncome + safeRecurringIncome;
   const percentageOfIncome = totalIncomeForStatus > 0 ? (survivalCeilingCents / totalIncomeForStatus) * 100 : 0;
   
   let statusColor = "text-emerald-400";

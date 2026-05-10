@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { financialService } from "@/services/financialService";
 import { db, type Account, type Category, type Goal, type RecurringTransaction, type Budget, type FinancialHealthScore, type Transaction } from "@/lib/db";
 import { useAccountModal } from "./AccountModalContext";
@@ -44,11 +44,12 @@ interface GoalRecommendation {
   goal_name: string;
   recommended_amount_cents: number;
   is_full_target: boolean;
+  advice: string;
 }
 
 interface GoalRecommendationsResponse {
   surplus_cents: number;
-  remaining_surplus_cents: number;
+  real_surplus_cents: number;
   recommendations: GoalRecommendation[];
 }
 
@@ -86,6 +87,8 @@ interface FinancialDataContextType {
   scheduledIncomeCents: number;
   scheduledExpensesCents: number;
   cardDebtImpactCents: number;
+  totalConsolidatedDebtCents: number;
+  netLiquidityCents: number;
   toggleTransactionPaid: (id: string, status: boolean) => Promise<void>;
   upsertTransaction: (data: Partial<Transaction>) => Promise<any>;
   deleteTransaction: (id: string) => Promise<void>;
@@ -139,6 +142,16 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const [cardDebtImpactCents, setCardDebtImpactCents] = useState(0);
 
   const { userId } = useAccountModal();
+
+  const totalConsolidatedDebtCents = useMemo(() => {
+    return accounts
+      .filter((a) => a.type === "CREDIT_CARD")
+      .reduce((sum, a) => sum + (a.closed_invoice_cents || 0) + (a.open_invoice_cents || 0), 0);
+  }, [accounts]);
+
+  const netLiquidityCents = useMemo(() => {
+    return accumulatedBalanceCents - totalConsolidatedDebtCents;
+  }, [accumulatedBalanceCents, totalConsolidatedDebtCents]);
 
   const setMonthlyIncomeCents = useCallback((val: number) => {
     setMonthlyIncomeCentsState(val);
@@ -303,9 +316,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   };
 
   const getGoalRecommendations = async (): Promise<GoalRecommendationsResponse> => {
-    if (!userId) return { surplus_cents: 0, remaining_surplus_cents: 0, recommendations: [] };
+    if (!userId) return { surplus_cents: 0, real_surplus_cents: 0, recommendations: [] };
     const { data, error } = await financialService.getGoalRecommendations(userId);
-    if (error || !data) return { surplus_cents: 0, remaining_surplus_cents: 0, recommendations: [] };
+    if (error || !data) return { surplus_cents: 0, real_surplus_cents: 0, recommendations: [] };
     return data as GoalRecommendationsResponse;
   };
 
@@ -546,6 +559,8 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       scheduledIncomeCents,
       scheduledExpensesCents,
       cardDebtImpactCents,
+      totalConsolidatedDebtCents,
+      netLiquidityCents,
       createInstallmentSeries,
       simulatePurchaseImpact,
       getGoalRecommendations,

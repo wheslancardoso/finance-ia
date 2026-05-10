@@ -31,14 +31,24 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
   const accounts = contextAccounts.length > 0 ? contextAccounts : serverAccounts;
 
   const filteredTransactions = useMemo(() => {
-    return initialTransactions.filter(tx => {
+    const filtered = initialTransactions.filter(tx => {
       const matchesAccount = !selectedAccountId || tx.account_id === selectedAccountId;
       const matchesSearch = !searchQuery || 
         tx.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         tx.category?.name?.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesAccount && matchesSearch;
     });
-  }, [initialTransactions, selectedAccountId, searchQuery]);
+
+    if (selectedAccountId) {
+      const acc = accounts.find(a => a.id === selectedAccountId);
+      console.log(`📑 [Auditoria Transactions] Filtrando por conta: ${acc?.name}`, {
+        totalEncontrado: filtered.length,
+        searchQuery
+      });
+    }
+
+    return filtered;
+  }, [initialTransactions, selectedAccountId, searchQuery, accounts]);
 
   // Agrupar transações por data ou fatura
   const groupedTransactions = useMemo(() => {

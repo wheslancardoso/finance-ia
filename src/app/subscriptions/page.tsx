@@ -20,8 +20,14 @@ export default function SubscriptionsPage() {
   const userId = "local_user";
 
   useEffect(() => {
-    console.log("📂 [Page:Subscriptions] Componente montado. Fluxos ativos:", recurringTransactions.length);
-  }, [recurringTransactions]);
+    console.log("📂 [Page:Subscriptions] Componente montado.");
+    console.log("📊 [Auditoria Subscriptions] Resumo de Custos Fixos:", {
+      totalRecurrente: formatCurrency(recurringExpensesCents),
+      receitaRecorrente: formatCurrency(recurringIncomeCents),
+      saldoAcumulado: formatCurrency(accumulatedBalanceCents),
+      fluxosAtivos: recurringTransactions.length
+    });
+  }, [recurringTransactions, recurringExpensesCents, recurringIncomeCents, accumulatedBalanceCents]);
 
   const stats = useMemo(() => {
     // Saldo livre: Dinheiro em conta + Receitas Recorrentes - Gastos Recorrentes

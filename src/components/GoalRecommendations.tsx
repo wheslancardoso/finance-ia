@@ -41,10 +41,15 @@ export default function GoalRecommendations() {
           <Sparkles className="w-4 h-4 text-violet-400" />
           <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white/50">Sugestões de Aporte</h3>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-          <Wallet className="w-3 h-3 text-emerald-400" />
-          <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
-            Sobra Projetada: {formatCurrency(data.surplus_cents)}
+        <div className={cn(
+          "flex items-center gap-2 px-3 py-1 rounded-full border",
+          data.real_surplus_cents > 0 
+            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
+            : "bg-red-500/10 border-red-500/20 text-red-400"
+        )}>
+          <Wallet className="w-3 h-3" />
+          <span className="text-[10px] font-bold uppercase tracking-wider">
+            Sobra Real: {formatCurrency(data.real_surplus_cents)}
           </span>
         </div>
       </div>
@@ -71,6 +76,10 @@ export default function GoalRecommendations() {
               <h4 className="text-sm font-bold text-white group-hover:text-violet-300 transition-colors truncate">
                 {rec.goal_name}
               </h4>
+
+              <p className="mt-1 text-[10px] text-white/40 leading-relaxed min-h-[30px]">
+                {rec.advice}
+              </p>
               
               <div className="mt-3 flex items-end justify-between">
                 <div>

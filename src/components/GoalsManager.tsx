@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Target, Plus, Sparkles } from "lucide-react";
+import { Target, Plus, Sparkles, ShieldCheck } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 import GlassCard from "@/components/GlassCard";
 import { useGoalModal } from "@/context/GoalModalContext";
@@ -13,7 +13,7 @@ interface GoalsManagerProps {
 }
 
 export function GoalsManager({ initialGoals }: GoalsManagerProps) {
-  const { goals: contextGoals, loading } = useFinancialData();
+  const { goals: contextGoals, loading, netLiquidityCents } = useFinancialData();
   const { openModal, openContribution, openDetail } = useGoalModal();
 
   React.useEffect(() => {
@@ -91,6 +91,13 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
                       </div>
                     )}
                   </div>
+
+                  {percentage >= 100 && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-2xl flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Pronto para Compra (Segurança Total)</span>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <h3 className="text-2xl font-bold text-white tracking-tight">{goal.name}</h3>

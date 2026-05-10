@@ -4,15 +4,22 @@ import { GoalsManager } from "@/components/GoalsManager";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { useMemo } from "react";
 import GlassCard from "@/components/GlassCard";
-import { Target, Trophy, TrendingUp } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { Target, Trophy, TrendingUp, ShieldCheck, AlertCircle } from "lucide-react";
+import { formatCurrency, cn } from "@/lib/utils";
+import { useEffect } from "react";
 
 export default function GoalsPage() {
-  const { goals, loading } = useFinancialData();
+  const { goals, loading, netLiquidityCents, totalConsolidatedDebtCents } = useFinancialData();
 
-  useMemo(() => {
+  useEffect(() => {
     if (!loading) {
-      console.log("🎯 [Page:Goals] Dados carregados. Metas encontradas:", goals.length);
+      const totalSaved = goals.reduce((acc, g) => acc + (g.current_amount_cents || 0), 0);
+      console.log("🎯 [Page:Goals] Dados carregados.");
+      console.log("📊 [Auditoria Goals] Resumo de Metas:", {
+        quantidade: goals.length,
+        totalReservado: formatCurrency(totalSaved),
+        mediaProgresso: goals.length > 0 ? (totalSaved / goals.reduce((acc, g) => acc + (g.target_amount_cents || 0), 0) * 100).toFixed(1) + "%" : "0%"
+      });
     }
   }, [goals, loading]);
   const stats = useMemo(() => {
@@ -61,6 +68,34 @@ export default function GoalsPage() {
           </div>
         </GlassCard>
       </div>
+      
+      {/* Jarvis Bridge Insight */}
+      <GlassCard className={cn(
+        "p-6 flex flex-col md:flex-row items-center gap-6 border-l-4 transition-all",
+        netLiquidityCents >= 0 
+          ? "border-l-emerald-500 bg-emerald-500/5 border-emerald-500/10" 
+          : "border-l-red-500 bg-red-500/5 border-red-500/10"
+      )}>
+        <div className={cn(
+          "w-16 h-16 rounded-3xl flex items-center justify-center shrink-0",
+          netLiquidityCents >= 0 ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
+        )}>
+          {netLiquidityCents >= 0 ? <ShieldCheck className="w-8 h-8" /> : <AlertCircle className="w-8 h-8" />}
+        </div>
+        <div className="space-y-1 flex-1">
+          <h3 className="text-sm font-black uppercase tracking-[0.15em] text-white/80">Jarvis Insight: Capacidade de Aporte</h3>
+          <p className="text-xs text-white/40 leading-relaxed max-w-2xl">
+            {netLiquidityCents >= 0 
+              ? `Sua liquidez real de ${formatCurrency(netLiquidityCents)} permite que você continue focando em seus objetivos. Atualmente, recomendamos aportar em metas que tenham prioridade alta ou prazo mais curto.` 
+              : `Você possui uma dívida consolidada de ${formatCurrency(totalConsolidatedDebtCents)}. Sua liquidez real está negativa em ${formatCurrency(Math.abs(netLiquidityCents))}. Jarvis recomenda: Não transfira dinheiro para metas agora. Use sua sobra para reduzir as faturas de cartão e evitar juros.`}
+          </p>
+        </div>
+        {netLiquidityCents < 0 && (
+          <div className="px-4 py-2 bg-red-500/20 border border-red-500/20 rounded-xl text-[10px] font-black text-red-400 uppercase tracking-widest">
+            Modo Sobrevivência
+          </div>
+        )}
+      </GlassCard>
 
       <GoalsManager />
     </div>

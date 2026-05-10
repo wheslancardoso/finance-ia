@@ -17,6 +17,8 @@ interface QuickSyncModalProps {
 
 export function QuickSyncModal({ isOpen, onClose, account }: QuickSyncModalProps) {
   const [newBalance, setNewBalance] = useState("");
+  const [closedBalance, setClosedBalance] = useState("");
+  const [openBalance, setOpenBalance] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [statusModal, setStatusModal] = useState<{ isOpen: boolean; message: string; title: string; type: "success" | "error" }>({
@@ -26,74 +28,95 @@ export function QuickSyncModal({ isOpen, onClose, account }: QuickSyncModalProps
     type: "error"
   });
   const router = useRouter();
+  const isCredit = account.type === "CREDIT_CARD";
 
   useEffect(() => {
     if (isOpen) {
       setNewBalance("");
+      setClosedBalance(account.closed_invoice_cents ? (account.closed_invoice_cents / 100).toString().replace(".", ",") : "");
+      setOpenBalance(account.open_invoice_cents ? (account.open_invoice_cents / 100).toString().replace(".", ",") : "");
       setSuccess(false);
     }
-  }, [isOpen]);
+  }, [isOpen, account]);
 
   async function handleSync(e: React.FormEvent) {
     e.preventDefault();
-    if (!newBalance || loading) return;
+    if (loading) return;
 
     setLoading(true);
     const supabase = createClient();
+    const isCredit = account.type === "CREDIT_CARD";
     
     try {
-      const currentBalanceCents = account.balance_cents;
-      const newBalanceCents = Math.round(parseFloat(newBalance.replace(",", ".")) * 100);
-      const delta = newBalanceCents - currentBalanceCents;
+      if (isCredit) {
+        // Lógica para Cartão de Crédito: Ajusta Faturas
+        const closedCents = Math.round(parseFloat(closedBalance.replace(/\./g, "").replace(",", ".")) * 100) || 0;
+        const openCents = Math.round(parseFloat(openBalance.replace(/\./g, "").replace(",", ".")) * 100) || 0;
 
-      if (delta === 0) {
-        onClose();
-        return;
+        const { error } = await supabase
+          .from("accounts")
+          .update({ 
+            closed_invoice_cents: closedCents,
+            open_invoice_cents: openCents,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", account.id);
+
+        if (error) throw error;
+      } else {
+        // Lógica para Conta Corrente: Ajusta Saldo
+        const currentBalanceCents = account.balance_cents;
+        const newBalanceCents = Math.round(parseFloat(newBalance.replace(/\./g, "").replace(",", ".")) * 100);
+        const delta = newBalanceCents - currentBalanceCents;
+
+        if (delta !== 0) {
+          const transactionType = delta > 0 ? "INCOME" : "EXPENSE";
+          
+          // 1. Criar Transação de Ajuste
+          const { data: categories } = await supabase
+            .from("categories")
+            .select("id")
+            .eq("user_id", account.user_id)
+            .limit(1);
+
+          const categoryId = categories && categories.length > 0 ? categories[0].id : null;
+
+          const { error: txError } = await supabase.from("transactions").insert([{
+            user_id: account.user_id,
+            account_id: account.id,
+            category_id: categoryId,
+            amount_cents: Math.abs(delta),
+            transaction_type: transactionType,
+            date: new Date().toISOString(),
+            description: `Reajuste de Saldo (${account.name})`,
+            source: "SYNC"
+          }]);
+
+          if (txError) throw txError;
+
+          // 2. Atualizar Saldo da Conta
+          const { error: accError } = await supabase
+            .from("accounts")
+            .update({ balance_cents: newBalanceCents })
+            .eq("id", account.id);
+
+          if (accError) throw accError;
+        }
       }
-
-      const transactionType = delta > 0 ? "INCOME" : "EXPENSE";
-      
-      // 1. Criar Transação de Ajuste
-      // Tentamos buscar uma categoria de "Ajuste" ou similar, senão usamos null ou a primeira disponível
-      const { data: categories } = await supabase
-        .from("categories")
-        .select("id")
-        .eq("user_id", account.user_id)
-        .limit(1);
-
-      const categoryId = categories && categories.length > 0 ? categories[0].id : null;
-
-      const { error: txError } = await supabase.from("transactions").insert([{
-        account_id: account.id,
-        category_id: categoryId,
-        amount_cents: Math.abs(delta),
-        transaction_type: transactionType,
-        date: new Date().toISOString(),
-        description: `Reajuste de Saldo (${account.name})`,
-        source: "SYNC"
-      }]);
-
-      if (txError) throw txError;
-
-      // 2. Atualizar Saldo da Conta
-      const { error: accError } = await supabase
-        .from("accounts")
-        .update({ balance_cents: newBalanceCents })
-        .eq("id", account.id);
-
-      if (accError) throw accError;
 
       setSuccess(true);
       setTimeout(() => {
         onClose();
         router.refresh();
+        // Recarrega a página para garantir que o contexto pegue os novos valores
+        window.location.reload();
       }, 1500);
     } catch (error) {
       console.error("Erro ao sincronizar:", error);
       setStatusModal({
         isOpen: true,
         title: "Erro na Sincronização",
-        message: "Não conseguimos atualizar o saldo agora. Por favor, verifique os valores e tente novamente.",
+        message: "Não conseguimos atualizar os valores agora. Verifique sua conexão e tente novamente.",
         type: "error"
       });
     } finally {
@@ -151,23 +174,53 @@ export function QuickSyncModal({ isOpen, onClose, account }: QuickSyncModalProps
               </div>
 
               <form onSubmit={handleSync} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-1">Novo Saldo no Banco</label>
-                  <div className="relative">
-                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 font-bold">R$</span>
-                    <input
-                      autoFocus
-                      placeholder="0,00"
-                      value={newBalance}
-                      onChange={(e) => setNewBalance(e.target.value)}
-                      className="w-full bg-white/5 border border-white/5 rounded-3xl py-6 pl-12 pr-6 text-white text-2xl font-black outline-none focus:border-white/20 transition-all tabular-nums no-spinner"
-                      required
-                    />
+                {account.type === "CREDIT_CARD" ? (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-1">Fatura Fechada (A pagar)</label>
+                      <div className="relative">
+                        <span className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 font-bold">R$</span>
+                        <input
+                          autoFocus
+                          placeholder="0,00"
+                          value={closedBalance}
+                          onChange={(e) => setClosedBalance(e.target.value)}
+                          className="w-full bg-white/5 border border-white/5 rounded-3xl py-4 pl-12 pr-6 text-white text-xl font-black outline-none focus:border-white/20 transition-all tabular-nums no-spinner"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-1">Fatura Aberta (Atual)</label>
+                      <div className="relative">
+                        <span className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 font-bold">R$</span>
+                        <input
+                          placeholder="0,00"
+                          value={openBalance}
+                          onChange={(e) => setOpenBalance(e.target.value)}
+                          className="w-full bg-white/5 border border-white/5 rounded-3xl py-4 pl-12 pr-6 text-white text-xl font-black outline-none focus:border-white/20 transition-all tabular-nums no-spinner"
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-1">Novo Saldo no Banco</label>
+                    <div className="relative">
+                      <span className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 font-bold">R$</span>
+                      <input
+                        autoFocus
+                        placeholder="0,00"
+                        value={newBalance}
+                        onChange={(e) => setNewBalance(e.target.value)}
+                        className="w-full bg-white/5 border border-white/5 rounded-3xl py-6 pl-12 pr-6 text-white text-2xl font-black outline-none focus:border-white/20 transition-all tabular-nums no-spinner"
+                        required
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <button
-                  disabled={loading || !newBalance || success}
+                  disabled={loading || (!isCredit && !newBalance) || (isCredit && !closedBalance && !openBalance) || success}
                   type="submit"
                   className={cn(
                     "w-full py-5 rounded-[24px] font-black text-[11px] uppercase tracking-[0.3em] transition-all active:scale-[0.98] shadow-2xl flex items-center justify-center gap-2",

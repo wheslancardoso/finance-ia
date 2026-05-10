@@ -9,7 +9,7 @@ import { getProjectedDetails, ProjectedTransaction } from "@/utils/finance-proje
 import { ProjectedTimeline } from "./ProjectedTimeline";
 import { formatCurrency } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { TrendingUp, ArrowUpRight, ArrowDownRight, Wallet, History, Zap, ShieldCheck, AlertCircle } from "lucide-react";
+import { TrendingUp, ArrowUpRight, ArrowDownRight, Wallet, History, Zap, ShieldCheck, AlertCircle, AlertTriangle } from "lucide-react";
 import { addDays, addMonths, endOfMonth, differenceInDays, isSameMonth, startOfMonth } from "date-fns";
 import { QuickSyncModal } from "./QuickSyncModal";
 import { cn } from "@/lib/utils";
@@ -53,7 +53,9 @@ export default function RealtimeDashboard({
     transactions: allTransactions,
     scheduledIncomeCents,
     scheduledExpensesCents,
-    cardDebtImpactCents
+    cardDebtImpactCents,
+    totalConsolidatedDebtCents,
+    netLiquidityCents
   } = useFinancialData();
 
   // Usar dados live se disponíveis, senão inicial
@@ -76,7 +78,7 @@ export default function RealtimeDashboard({
   // 1. Cálculo da Projeção (Viagem no Tempo por Meses)
   const projection = useMemo(() => {
     const formattedBudgets = (displayBudgets || []).map(b => ({
-      amount_cents: b.limit_cents || 0,
+      amount_cents: b.amount_cents || 0,
       spent_this_month: b.spent_cents || 0,
       category: b.category_id || 'general'
     }));
@@ -109,7 +111,7 @@ export default function RealtimeDashboard({
 
     // 4. Reservas de Orçamento
     const budgetReserves = liveBudgets.reduce((sum, b) => {
-      return sum + Math.max(0, (b.limit_cents || 0) - (b.spent_cents || 0));
+      return sum + Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0));
     }, 0);
 
     const balanceAtMonthEnd = liquidity + pendingIncome - pendingOutflow - budgetReserves;
@@ -126,11 +128,12 @@ export default function RealtimeDashboard({
       balanceAtMonthEnd,
       plannedExpenses: pendingOutflow + budgetReserves,
       immediateCardDebt: cardDebtImpactCents,
-      upcomingCardDebt: 0, // Simplificado pois cardDebtImpact já engloba o que é relevante para o teto
+      upcomingCardDebt: 0,
       scheduledOnly: scheduledExpensesCents,
-      isHealthy: balanceAtMonthEnd >= 0
+      isHealthy: balanceAtMonthEnd >= 0 && netLiquidityCents >= 0,
+      isRecovering: balanceAtMonthEnd >= 0 && netLiquidityCents < 0
     };
-  }, [currentBalance, scheduledIncomeCents, scheduledExpensesCents, cardDebtImpactCents, liveBudgets]);
+  }, [currentBalance, scheduledIncomeCents, scheduledExpensesCents, cardDebtImpactCents, liveBudgets, netLiquidityCents]);
 
   const isFuture = !isSameMonth(targetDate, new Date());
   const balanceDifference = projectedBalance - initialBalance;
@@ -182,22 +185,73 @@ export default function RealtimeDashboard({
                 </motion.div>
               )}
             </div>
+
+            {/* Jarvis Command Center: Liquidez Real vs Dívida */}
+            {!isFuture && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div className={cn(
+                  "border rounded-3xl p-6 flex flex-col gap-1 relative overflow-hidden group transition-all",
+                  netLiquidityCents >= 0 
+                    ? "bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20" 
+                    : "bg-red-500/10 border-red-500/20 hover:bg-red-500/20"
+                )}>
+                  <div className="absolute top-4 right-4 transition-colors">
+                    {netLiquidityCents >= 0 
+                      ? <ShieldCheck className="w-8 h-8 text-emerald-500/20 group-hover:text-emerald-500/40" /> 
+                      : <AlertCircle className="w-8 h-8 text-red-500/20 group-hover:text-red-500/40" />
+                    }
+                  </div>
+                  <span className={cn(
+                    "text-[10px] font-black uppercase tracking-widest",
+                    netLiquidityCents >= 0 ? "text-emerald-400/60" : "text-red-400/60"
+                  )}>Liquidez Líquida (Real)</span>
+                  <span className={cn(
+                    "text-3xl font-black tabular-nums",
+                    netLiquidityCents >= 0 ? "text-emerald-400" : "text-red-400"
+                  )}>
+                    {formatCurrency(netLiquidityCents)}
+                  </span>
+                  <p className="text-[10px] text-white/40 mt-2 italic">
+                    {netLiquidityCents >= 0 
+                      ? "Seu saldo cobre todas as suas faturas atuais." 
+                      : "⚠️ TRAVA DE SEGURANÇA: Você está em ciclo de dívida. Pare de usar o cartão e use sua sobra apenas para quitar faturas."}
+                  </p>
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col gap-1 relative overflow-hidden group hover:bg-white/10 transition-all">
+                  <div className="absolute top-4 right-4 text-white/10 group-hover:text-white/20 transition-colors">
+                    <History className="w-8 h-8" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Dívida Total Consolidada</span>
+                  <span className="text-3xl font-black text-white tabular-nums">
+                    {formatCurrency(totalConsolidatedDebtCents)}
+                  </span>
+                  <p className="text-[10px] text-white/40 mt-2 italic">
+                    Soma das faturas de todos os cartões.
+                  </p>
+                </div>
+              </div>
+            )}
             
-            {/* NOVO: Health Score & Crisis Mode HUD */}
+            {/* Health Score & Action Recommendations */}
             {!isFuture && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-white/5 rounded-3xl p-5 border border-white/10 flex items-center gap-4 group hover:bg-white/10 transition-all">
                   <div className={cn(
                     "w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black",
-                    healthScore > 70 ? "bg-emerald-500/20 text-emerald-400" : 
-                    healthScore > 40 ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"
+                    (healthScore > 70 && netLiquidityCents >= 0) ? "bg-emerald-500/20 text-emerald-400" : 
+                    (healthScore > 40 && netLiquidityCents >= 0) ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"
                   )}>
                     {healthScore}
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Saúde Financeira</p>
-                    <p className="text-sm font-black text-white">
-                      {healthScore > 70 ? "Excelente" : healthScore > 40 ? "Atenção" : "Crítico"}
+                    <p className={cn(
+                      "text-sm font-black",
+                      (healthScore > 70 && netLiquidityCents >= 0) ? "text-emerald-400" : 
+                      (healthScore > 40 && netLiquidityCents >= 0) ? "text-amber-400" : "text-red-400"
+                    )}>
+                      {netLiquidityCents < 0 ? "Em Recuperação" : (healthScore > 70 ? "Excelente" : healthScore > 40 ? "Atenção" : "Crítico")}
                     </p>
                   </div>
                 </div>
@@ -275,14 +329,20 @@ export default function RealtimeDashboard({
 
                   <div className={cn(
                     "flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all",
-                    monthlyOutlook.isHealthy ? "bg-emerald-500/5 border-emerald-500/10" : "bg-red-500/5 border-red-500/10"
+                    monthlyOutlook.isHealthy ? "bg-emerald-500/5 border-emerald-500/10" : 
+                    monthlyOutlook.isRecovering ? "bg-amber-500/5 border-amber-500/10" : "bg-red-500/5 border-red-500/10"
                   )}>
-                    {monthlyOutlook.isHealthy ? <ShieldCheck className="w-4 h-4 text-emerald-400" /> : <AlertCircle className="w-4 h-4 text-red-400" />}
+                    {monthlyOutlook.isHealthy ? <ShieldCheck className="w-4 h-4 text-emerald-400" /> : 
+                     monthlyOutlook.isRecovering ? <AlertTriangle className="w-4 h-4 text-amber-400" /> : 
+                     <AlertCircle className="w-4 h-4 text-red-400" />}
                     <div>
-                      <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Sobra Livre</p>
+                      <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">
+                        {monthlyOutlook.isRecovering ? "Sobra Comprometida" : "Sobra Livre"}
+                      </p>
                       <p className={cn(
                         "text-sm font-black",
-                        monthlyOutlook.isHealthy ? "text-emerald-400" : "text-red-400"
+                        monthlyOutlook.isHealthy ? "text-emerald-400" : 
+                        monthlyOutlook.isRecovering ? "text-amber-400" : "text-red-400"
                       )}>
                         {formatCurrency(monthlyOutlook.balanceAtMonthEnd)}
                       </p>
@@ -393,7 +453,7 @@ export default function RealtimeDashboard({
               key={budget.id || i}
               category={budget.category_id || 'Geral'}
               spent={budget.spent_cents || 0}
-              limit={budget.limit_cents || 0}
+              limit={budget.amount_cents || 0}
             />
           ))}
         </div>
