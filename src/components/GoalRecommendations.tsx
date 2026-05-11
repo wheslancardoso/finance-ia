@@ -40,6 +40,7 @@ export default function GoalRecommendations() {
             key={rec.goalId}
             onClick={() => rec.canFocusNow && openContribution({ id: rec.goalId, name: rec.goalName })}
             disabled={!rec.canFocusNow}
+            data-testid="goal-recommendation-item"
             className={cn(
               "group text-left transition-all",
               !rec.canFocusNow && "opacity-60 cursor-not-allowed"

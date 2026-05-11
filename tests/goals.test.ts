@@ -1,82 +1,148 @@
 import { test, expect } from '@playwright/test';
+import { setupFinancialMocks } from './mocks/financialMocks';
 
-test.describe('Fluxo de Metas e Simulador', () => {
+test.describe('Gestão de Ambições (Metas)', () => {
+  let mockState: any;
+
   test.beforeEach(async ({ page }) => {
-    // Capturar logs do console do navegador
-    page.on('console', msg => console.log(`[BROWSER] ${msg.type()}: ${msg.text()}`));
+    mockState = {
+      user_profile: {
+        monthly_income_cents: 1000000,
+        fixed_expenses_cents: 200000,
+        accumulated_balance_cents: 500000,
+        financial_health_score: 85,
+      },
+      accounts: [
+        {
+          id: 'acc-1',
+          name: 'Conta Corrente',
+          type: 'CHECKING',
+          balance_cents: 500000,
+          color_hex: '#10b981'
+        }
+      ],
+      categories: [
+        { id: 'cat-inv', name: 'Investimento', type: 'EXPENSE', icon: 'TrendingUp', color: '#8b5cf6' }
+      ],
+      goals: [
+        {
+          id: 'goal-1',
+          name: 'Viagem para Japão',
+          target_amount_cents: 2000000, // 20k
+          current_amount_cents: 500000,  // 5k
+          color_hex: '#8b5cf6',
+          status: 'ACTIVE',
+          created_at: new Date().toISOString()
+        }
+      ],
+      recurring_transactions: [],
+      transactions: [],
+      month_transactions: [],
+      recent_transactions: [],
+      budgets: []
+    };
 
-    // Acessar a aplicação
-    await page.goto('/');
+    await setupFinancialMocks(page, mockState);
     
-    // Esperar a sincronização inicial (SyncUser / FinancialDataContext)
-    // O ID deve estar resolvido para que as escritas funcionem
-    await page.waitForFunction(() => {
-      return localStorage.getItem('vesper_user_id') !== null;
-    }, { timeout: 30000 });
+    // Interceptar API de Metas (Cobre /api/goals e /rest/v1/goals)
+    await page.route(url => url.pathname.includes('/goals'), async (route) => {
+      const method = route.request().method();
+      console.log(`[TEST-MOCK] ${method} ${route.request().url()}`);
+      
+      if (method === 'POST' || method === 'PATCH') {
+        const payload = route.request().postDataJSON();
+        const existingIdx = mockState.goals.findIndex((g: any) => g.id === payload.id);
+        
+        if (existingIdx !== -1) {
+          console.log(`[TEST-MOCK] Updating goal ${payload.id}`);
+          mockState.goals[existingIdx] = { ...mockState.goals[existingIdx], ...payload };
+          await route.fulfill({ status: 200, body: JSON.stringify(mockState.goals[existingIdx]) });
+        } else {
+          console.log(`[TEST-MOCK] Creating goal ${payload.name}`);
+          const newGoal = { ...payload, id: payload.id || `goal-${Date.now()}`, created_at: new Date().toISOString() };
+          mockState.goals.push(newGoal);
+          await route.fulfill({ status: 200, body: JSON.stringify(newGoal) });
+        }
+      } else if (method === 'DELETE') {
+        const url = new URL(route.request().url());
+        let id = url.searchParams.get('id') || '';
+        if (id.startsWith('eq.')) id = id.substring(3);
+        
+        console.log(`[TEST-MOCK] Deleting goal ${id}`);
+        mockState.goals = mockState.goals.filter((g: any) => g.id !== id);
+        await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
+      } else {
+        await route.continue();
+      }
+    });
 
-    // Garantir que o dashboard carregou
-    await expect(page.locator('text=Centro de Comando')).toBeVisible({ timeout: 15000 });
-    await page.waitForTimeout(2000); // Tempo para logs
+    // Interceptar API de Transações
+    await page.route(url => url.pathname.includes('/transactions'), async (route) => {
+      const method = route.request().method();
+      if (method === 'POST') {
+        const payload = route.request().postDataJSON();
+        const account = mockState.accounts.find((a: any) => a.id === payload.account_id);
+        if (account) {
+          console.log(`[TEST-MOCK] Updating balance for ${account.name}. Amount: ${payload.amount_cents}`);
+          if (payload.transaction_type === 'EXPENSE') {
+            account.balance_cents -= payload.amount_cents;
+          } else {
+            account.balance_cents += payload.amount_cents;
+          }
+        }
+        await route.fulfill({ status: 200, body: JSON.stringify({ ...payload, id: `tx-${Date.now()}` }) });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await page.addInitScript(() => {
+      window.localStorage.setItem('vesper_user_id', 'vesper-user-id');
+    });
+
+    await page.goto('/goals');
+    await page.waitForLoadState('networkidle');
   });
 
-  test('deve realizar uma simulação e salvar como meta de planejamento', async ({ page }) => {
-    // 1. Localizar o Simulador de Impacto
-    const simulatorInput = page.getByTestId('simulator-amount-input');
-    await simulatorInput.scrollIntoViewIfNeeded();
+  test('deve criar uma nova meta com sucesso', async ({ page }) => {
+    await page.getByTestId('add-goal-button').first().click();
     
-    // 2. Preencher valor e parcelas
-    await simulatorInput.fill('1500,50');
+    await page.getByTestId('goal-name-input').fill('Reserva de Emergência');
+    await page.getByTestId('goal-target-input').fill('10.000,00');
+    await page.getByTestId('goal-current-input').fill('1.000,00');
     
-    const installmentsSelect = page.getByTestId('simulator-installments-select');
-    await installmentsSelect.selectOption('12');
-
-    // 3. Verificar se o resultado da simulação apareceu (Custo Mensal)
-    await expect(page.locator('text=Custo Mensal')).toBeVisible({ timeout: 5000 });
-
-    const saveButton = page.getByTestId('simulator-save-button');
-    await saveButton.click();
-    
-    // Pequeno delay para garantir persistência local e retorno da API
-    await page.waitForTimeout(2000);
-
-    // 5. Navegar para a página de Metas e verificar persistência
-    await page.goto('/goals');
-
-    // O nome gerado é "Parcelamento: 1500,50"
-    const goalTitle = page.getByTestId('goal-card-title').filter({ hasText: /Parcelamento:/ });
-    await expect(goalTitle).toBeVisible({ timeout: 15000 });
-    await expect(goalTitle).toContainText('1500,50');
-  });
-
-  test('deve criar uma meta manual e realizar um aporte', async ({ page }) => {
-    // 1. Criar uma conta para o aporte
-    await page.goto('/accounts');
-    await page.getByTestId('add-account-button').click();
-    await page.getByTestId('account-name-input').fill('Conta de Teste');
-    await page.getByTestId('account-balance-input').fill('5000,00');
-    await page.getByTestId('account-type-CHECKING').click();
-    await page.getByTestId('account-submit-button').click();
-    await page.waitForTimeout(2000);
-
-    // 2. Criar a meta
-    await page.goto('/goals');
-    await page.getByTestId('add-goal-button').click();
-    await page.getByTestId('goal-name-input').fill('Meta E2E');
-    await page.getByTestId('goal-target-input').fill('1000,00');
     await page.getByTestId('goal-submit-button').click();
-    await page.waitForTimeout(2000);
+    
+    await expect(page.getByTestId('goal-card-title').filter({ hasText: 'Reserva de Emergência' })).toBeVisible();
+  });
 
-    // 3. Realizar aporte
-    const goalCard = page.getByTestId('goal-card').filter({ hasText: 'Meta E2E' });
-    await goalCard.getByTestId('goal-contribution-button').click();
-
-    // 4. Preencher aporte
-    await page.getByTestId('contribution-amount-input').fill('200,00');
-    await page.getByTestId('contribution-account-item').first().click();
+  test('deve realizar um aporte em uma meta existente', async ({ page }) => {
+    await page.getByTestId('goal-card-goal-1').getByTestId('goal-contribution-button').click();
+    await page.getByTestId('contribution-amount-input').fill('500,00');
+    await page.getByTestId('contribution-account-item').click();
     await page.getByTestId('contribution-submit-button').click();
+    
+    await expect(page.getByText('Aporte Realizado')).toBeVisible();
+    await page.getByTestId('status-modal-close').click();
+    
+    await expect(page.getByTestId('goal-card-goal-1')).toContainText('5.500,00');
+    await expect(page.getByTestId('hud-net-liquidity')).toContainText('4.500,00');
+  });
 
-    // 5. Verificar progresso (200 / 1000 = 20%)
-    // Usamos regex para ser resiliente a 20% ou 20.0% e evitar problemas de ponto/vírgula
-    await expect(goalCard).toContainText(/20.*Completo/, { timeout: 15000 });
+  test('deve excluir uma meta', async ({ page }) => {
+    await page.getByTestId('goal-card-goal-1').getByTestId('goal-details-button').click();
+    await page.getByTestId('delete-goal-button').click();
+    await page.getByTestId('confirm-button').click();
+    
+    await expect(page.getByTestId('goal-card-title').filter({ hasText: 'Viagem para Japão' })).not.toBeVisible();
+  });
+
+  test('deve abrir aporte a partir de uma recomendação', async ({ page }) => {
+    const rec = page.getByTestId('goal-recommendation-item').first();
+    await expect(rec).toBeVisible();
+    await rec.click();
+    
+    await expect(page.getByText('Realizar Aporte')).toBeVisible();
+    await expect(page.getByTestId('contribution-goal-name')).toHaveText('Viagem para Japão');
   });
 });

@@ -19,6 +19,7 @@ export function FinanceBridgeHUD() {
     <motion.div 
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
+      data-testid="finance-bridge-hud"
       className="w-full bg-black/40 backdrop-blur-md border-b border-white/5 py-3 px-6 sticky top-0 z-[40]"
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
@@ -50,10 +51,13 @@ export function FinanceBridgeHUD() {
           {/* Liquidez Real */}
           <div className="hidden md:block">
             <p className="text-[9px] font-black text-white/20 uppercase tracking-widest leading-none mb-1">Liquidez Real</p>
-            <p className={cn(
-              "text-[11px] font-bold leading-none tabular-nums",
-              netLiquidityCents >= 0 ? "text-white" : "text-red-400"
-            )}>
+            <p 
+              data-testid="hud-net-liquidity"
+              className={cn(
+                "text-[11px] font-bold leading-none tabular-nums",
+                netLiquidityCents >= 0 ? "text-white" : "text-red-400"
+              )}
+            >
               {formatCurrency(netLiquidityCents)}
             </p>
           </div>

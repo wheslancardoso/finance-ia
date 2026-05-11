@@ -146,7 +146,12 @@ export function ContributionModal() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-white">Realizar Aporte</h2>
-                  <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">{selectedGoal.name}</p>
+                  <p 
+                    data-testid="contribution-goal-name"
+                    className="text-[10px] text-white/40 font-bold uppercase tracking-widest"
+                  >
+                    {selectedGoal.name}
+                  </p>
                 </div>
               </div>
               <button 

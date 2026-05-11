@@ -12,9 +12,11 @@ import { useGoalModal } from "@/context/GoalModalContext";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useFinancialData } from "@/context/FinancialDataContext";
 
 export function GoalDetailModal() {
   const { isDetailOpen, closeModal, selectedGoal } = useGoalModal();
+  const { refreshData } = useFinancialData();
   const [contributions, setContributions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -55,6 +57,7 @@ export function GoalDetailModal() {
   }
 
   async function onConfirmDelete() {
+    if (!selectedGoal) return;
     
     setDeleting(true);
     const supabase = createClient();
@@ -64,6 +67,7 @@ export function GoalDetailModal() {
       .eq("id", selectedGoal.id);
 
     if (!error) {
+      refreshData();
       closeModal();
       router.refresh();
     } else {
@@ -129,6 +133,7 @@ export function GoalDetailModal() {
                       handleDeleteGoal();
                     }}
                     disabled={deleting}
+                    data-testid="delete-goal-button"
                     className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 hover:bg-red-500/20 transition-all cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />

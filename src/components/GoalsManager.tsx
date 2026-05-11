@@ -118,6 +118,7 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
                   <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between">
                     <button 
                       onClick={() => openDetail(goal)}
+                      data-testid="goal-details-button"
                       className="text-[10px] font-bold text-white/40 hover:text-white uppercase tracking-widest transition-colors"
                     >
                       Detalhes

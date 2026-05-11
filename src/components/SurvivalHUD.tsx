@@ -128,7 +128,10 @@ export default function SurvivalHUD() {
   }
 
   return (
-    <div className={`relative w-full bg-[#0a0a0a]/90 backdrop-blur-xl border border-white/10 rounded-[24px] overflow-hidden mb-8 ${statusGlow} transition-all duration-500`}>
+    <div 
+      data-testid="survival-hud-container"
+      className={`relative w-full bg-[#0a0a0a]/90 backdrop-blur-xl border border-white/10 rounded-[24px] overflow-hidden mb-8 ${statusGlow} transition-all duration-500`}
+    >
       {/* Background Gradient Effect */}
       <div className={`absolute inset-0 bg-gradient-to-b ${bgGradient} opacity-50 pointer-events-none`}></div>
       
@@ -146,7 +149,10 @@ export default function SurvivalHUD() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-[10px] font-bold uppercase tracking-widest text-white/50">Teto de Sobrevivência</span>
-              <span className={`text-[9px] px-2 py-0.5 rounded-full border bg-black/40 ${percentageOfIncome < 15 ? 'border-red-500/30 text-red-400' : 'border-white/10 text-white/40'}`}>
+              <span 
+                data-testid="survival-status-message"
+                className={`text-[9px] px-2 py-0.5 rounded-full border bg-black/40 ${percentageOfIncome < 15 ? 'border-red-500/30 text-red-400' : 'border-white/10 text-white/40'}`}
+              >
                 {statusMessage}
               </span>
             </div>
@@ -185,7 +191,10 @@ export default function SurvivalHUD() {
              <span className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 flex items-center gap-1">
               <Zap className="w-3 h-3 text-amber-400" /> Meta de Salvação
             </span>
-            <span className="text-xl font-black text-amber-400 tabular-nums">
+            <span 
+              data-testid="salvation-goal-value"
+              className="text-xl font-black text-amber-400 tabular-nums"
+            >
               {((Math.abs(netLiquidityCents)) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
             </span>
             <p className="text-[8px] text-white/40 mt-1 text-center font-medium leading-tight">
@@ -200,18 +209,21 @@ export default function SurvivalHUD() {
           <div className="flex p-1 bg-black/40 border border-white/5 rounded-xl w-full md:w-auto">
             <button
               onClick={() => setViewMode("DAY")}
+              data-testid="survival-view-mode-day"
               className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 ${viewMode === "DAY" ? "bg-white/10 text-white" : "text-white/40 hover:text-white/70"}`}
             >
               <Calendar className="w-3.5 h-3.5" /> Dia
             </button>
             <button
               onClick={() => setViewMode("WEEK")}
+              data-testid="survival-view-mode-week"
               className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 ${viewMode === "WEEK" ? "bg-white/10 text-white" : "text-white/40 hover:text-white/70"}`}
             >
               <CalendarDays className="w-3.5 h-3.5" /> Sem
             </button>
             <button
               onClick={() => setViewMode("MONTH")}
+              data-testid="survival-view-mode-month"
               className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2 ${viewMode === "MONTH" ? "bg-white/10 text-white" : "text-white/40 hover:text-white/70"}`}
             >
               <Wallet className="w-3.5 h-3.5" /> Mês

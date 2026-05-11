@@ -102,11 +102,31 @@ export async function setupFinancialMocks(page: Page, state: any) {
     await route.fulfill({ status: 200, body: JSON.stringify([{ success: true }]) });
   });
 
-  // Mock for recurring_transactions
-  await page.route('**/rest/v1/recurring_transactions*', async (route) => {
+  // Mock for goals (Supabase REST + Internal API)
+  await page.route(url => url.pathname.includes('/goals'), async (route) => {
     const method = route.request().method();
     if (method === 'PATCH' || method === 'POST' || method === 'UPDATE' || method === 'DELETE') {
-      await route.fulfill({ status: 200, body: JSON.stringify([{ success: true }]) });
+      await route.fulfill({ status: 200, body: JSON.stringify({ id: 'mock-goal-id', success: true }) });
+    } else {
+      await route.continue();
+    }
+  });
+
+  // Mock for transactions (Supabase REST + Internal API)
+  await page.route(url => url.pathname.includes('/transactions'), async (route) => {
+    const method = route.request().method();
+    if (method === 'PATCH' || method === 'POST' || method === 'UPDATE' || method === 'DELETE') {
+      await route.fulfill({ status: 200, body: JSON.stringify({ id: 'mock-tx-id', success: true }) });
+    } else {
+      await route.continue();
+    }
+  });
+
+  // Mock for recurring_transactions (Supabase REST + Internal API)
+  await page.route(url => url.pathname.includes('/recurring_transactions'), async (route) => {
+    const method = route.request().method();
+    if (method === 'PATCH' || method === 'POST' || method === 'UPDATE' || method === 'DELETE') {
+      await route.fulfill({ status: 200, body: JSON.stringify({ id: 'mock-rec-id', success: true }) });
     } else {
       await route.continue();
     }

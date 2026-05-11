@@ -26,23 +26,22 @@ Este documento descreve os fluxos de testes End-to-End implementados e o planeja
   - **Exclusão**: Remoção definitiva de recorrências com confirmação via modal.
   - **Sincronização**: Verificação do "Survival HUD" (Teto de Sobrevivência) após alterações.
 
+### 3. Dashboard e Inteligência Financeira (`tests/dashboard.test.ts`)
+- **Cenários Cobertos**:
+  - **Métricas**: Validação do Health Score e Liquidez Real.
+  - **Crise**: Ativação automática do "Modo Sobrevivência" e HUD de Salvação quando o caixa é negativo.
+  - **Projeção**: Verificação do Teto de Sobrevivência (Saldo ao fim do mês).
+
+### 4. Gestão de Ambições (Metas) (`tests/goals.test.ts`)
+- **Cenários Cobertos**:
+  - **Criação**: Cadastro de novos objetivos com valor alvo e inicial.
+  - **Aporte**: Realização de depósitos em metas com atualização automática de saldo da conta e progresso.
+  - **Exclusão**: Remoção de metas via detalhes.
+  - **Recomendações**: Integração com o sistema de recomendações para abrir aporte rápido.
+
 ---
 
 ## 🚀 Fluxos Planejados (Próximas Etapas)
-
-### 3. Dashboard e Projeções Financeiras
-- **Objetivo**: Garantir que as visualizações de gráficos e métricas refletem a realidade dos dados.
-- **Cenários**:
-  - Renderização do gráfico de evolução de patrimônio líquido.
-  - Cálculo dinâmico do Health Score.
-  - Alternância entre visões "Atual" e "Projetada".
-
-### 4. Gestão de Metas (Goals)
-- **Objetivo**: Validar o ciclo de vida de objetivos financeiros.
-- **Cenários**:
-  - Criação de meta com cálculo automático de prazo.
-  - Aporte manual em metas existentes.
-  - Visualização de progresso e recomendações de aporte.
 
 ### 5. Transferências entre Contas
 - **Objetivo**: Validar a integridade de saldos entre múltiplas contas.
@@ -55,6 +54,13 @@ Este documento descreve os fluxos de testes End-to-End implementados e o planeja
 - **Cenários**:
   - Troca de `user_id` e recarregamento de estado.
   - Persistência de configurações locais no LocalStorage.
+
+### 7. Histórico de Transações e Filtros
+- **Objetivo**: Garantir que a busca e filtros de transações funcionam.
+- **Cenários**:
+  - Busca por descrição.
+  - Filtro por categoria.
+  - Edição de transação pontual.
 
 ---
 
