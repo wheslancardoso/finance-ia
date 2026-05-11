@@ -255,13 +255,43 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const endOfThisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
       
+      console.log(`📊 [DataContext] Recurring Transactions: ${state.recurring_transactions?.length || 0}`);
       const schedInc = (state.recurring_transactions || [])
-        .filter(r => r.transaction_type === "INCOME" && r.status === 'active' && new Date(r.next_date) <= endOfThisMonth && new Date(r.next_date) >= startOfToday)
+        .filter(r => {
+          const nextDate = new Date(r.next_date);
+          const nextTime = nextDate.getTime();
+          const startTime = startOfToday.getTime();
+          const endTime = endOfThisMonth.getTime();
+          
+          return (
+            r.transaction_type === "INCOME" && 
+            r.status === 'active' && 
+            nextTime <= endTime && 
+            nextTime >= startTime
+          );
+        })
         .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
 
-      const schedExp = (state.recurring_transactions || [])
-        .filter(r => r.transaction_type === "EXPENSE" && r.status === 'active' && new Date(r.next_date) <= endOfThisMonth && new Date(r.next_date) >= startOfToday)
-        .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
+          const isMatch = (
+            r.transaction_type === "EXPENSE" && 
+            r.status === 'active' && 
+            nextTime <= endTime && 
+            nextTime >= startTime
+          );
+          
+          if (r.description === 'Aluguel') {
+            console.log(`🔍 [Filter Debug] Aluguel Final Match: ${isMatch}`);
+          }
+          
+          return isMatch;
+        })
+        .reduce((sum, r) => {
+          const val = Number(r.amount_cents) || 0;
+          console.log(`➕ [Reduce Debug] Adding ${r.description}: ${val}`);
+          return sum + val;
+        }, 0);
+      
+      console.log(`💰 [DataContext] Final schedExp: ${schedExp}`);
 
       const cardImpact = calculateTotalConsolidatedDebt(state.accounts || []);
 

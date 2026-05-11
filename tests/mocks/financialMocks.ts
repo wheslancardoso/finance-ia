@@ -3,13 +3,46 @@ import { Page } from '@playwright/test';
 export async function setupFinancialMocks(page: Page, state: any) {
   // Mock GET /api/financial-state
   await page.route('**/api/financial-state*', async (route) => {
-    // Serializamos o objeto state no momento da requisição para refletir mutações
     const body = JSON.stringify(state);
+    console.log(`📡 [Mock API] Keys in state: ${Object.keys(state).join(', ')}`);
+    if (body.includes('Aluguel')) {
+      console.log(`📡 [Mock API] Returning state with Aluguel: ${body.length} bytes`);
+    } else {
+      console.log(`📡 [Mock API] Returning state WITHOUT Aluguel! Length: ${body.length} bytes`);
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body,
     });
+  });
+
+  await page.route('**/api/accounts*', async (route) => {
+    const method = route.request().method();
+    if (method === 'POST') {
+      const payload = route.request().postDataJSON();
+      if (payload.id) {
+        // Edit
+        const idx = state.accounts.findIndex((a: any) => a.id === payload.id);
+        if (idx !== -1) {
+          state.accounts[idx] = { ...state.accounts[idx], ...payload };
+        } else {
+          state.accounts.push({ ...payload });
+        }
+      } else {
+        // New
+        const newAccount = { ...payload, id: `acc-${Date.now()}` };
+        state.accounts.push(newAccount);
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
+    } else if (method === 'DELETE') {
+      const url = new URL(route.request().url());
+      const id = url.searchParams.get('id');
+      state.accounts = state.accounts.filter((a: any) => a.id !== id);
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
+    } else {
+      await route.continue();
+    }
   });
 
   // Mock POST /api/transactions (Upsert)
@@ -73,15 +106,6 @@ export async function setupFinancialMocks(page: Page, state: any) {
     }
   });
 
-  // Mock POST /api/accounts (Upsert)
-  await page.route('**/api/accounts', async (route) => {
-    const payload = route.request().postDataJSON();
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ ...payload, id: payload.id || `mock-acc-${Date.now()}` }),
-    });
-  });
 
   // Mock Supabase calls (Postgrest) - specifically for the direct calls in PayInvoiceModal
   await page.route('**/rest/v1/transactions*', async (route) => {

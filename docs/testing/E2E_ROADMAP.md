@@ -19,12 +19,19 @@ Este documento descreve os fluxos de testes End-to-End implementados e o planeja
   - Atualização em tempo real do limite do cartão.
 
 ### 2. Gestão de Fluxos Recorrentes / Assinaturas (`tests/subscriptions.test.ts`)
-- **Cenários Cobertos**:
-  - **Criação**: Cadastro de novos gastos fixos e receitas recorrentes.
-  - **Edição**: Alteração de valores e descrições de assinaturas existentes.
-  - **Status**: Pausar e reativar fluxos.
-  - **Exclusão**: Remoção definitiva de recorrências com confirmação via modal.
-  - **Sincronização**: Verificação do "Survival HUD" (Teto de Sobrevivência) após alterações.
+- [x] **Auditoria e Transações**
+  - CRUD de transações com mocks.
+  - Criação de parcelados e validação de timelines.
+  - Filtros e busca.
+- [ ] **Projeções e Dashboard** (⚠️ BLOQUEADO POR BUG DE DATA)
+  - Validação do Survival HUD.
+  - Sincronização de assinaturas recorrentes.
+  - Modo Crise.
+- **Criação**: Cadastro de novos gastos fixos e receitas recorrentes.
+- **Edição**: Alteração de valores e descrições de assinaturas existentes.
+- **Status**: Pausar e reativar fluxos.
+- **Exclusão**: Remoção definitiva de recorrências com confirmação via modal.
+- **Sincronização**: Verificação do "Survival HUD" (Teto de Sobrevivência) após alterações.
 
 ### 3. Dashboard e Inteligência Financeira (`tests/dashboard.test.ts`)
 - **Cenários Cobertos**:
@@ -64,6 +71,23 @@ Este documento descreve os fluxos de testes End-to-End implementados e o planeja
   - **Diretrizes**: Carregamento e salvamento de renda e gastos fixos via API de perfil.
   - **Multi-usuário**: Troca de `user_id` com atualização instantânea de todo o ecossistema de dados.
   - **Sessão**: Persistência de `user_id` em reloads e redirecionamento de logout para tela de login.
+
+---
+
+### 8. Gestão de Contas (`tests/accounts.test.ts`)
+- **Cenários Cobertos**:
+  - **Criação**: Adição de contas Corrente, Investimento e Cartão de Crédito.
+  - **Validação de Cartão**: Cálculo automático de vencimento baseado no dia de fechamento.
+  - **Edição**: Alteração de nomes e saldos com reflexo imediato no Dashboard.
+  - **Exclusão**: Remoção de ativos com atualização automática da Liquidez Real no HUD.
+
+---
+
+### 9. Relatórios e Insights (`tests/reports.test.ts`)
+- **Cenários Cobertos**:
+  - **Saúde Financeira**: Exibição do Vesper Score e feedbacks dinâmicos (Resiliente vs Atenção).
+  - **Visualizações**: Renderização de SVGs para Evolução Patrimonial e Mix de Receitas.
+  - **IA Insights**: Validação de textos de análise automática baseados no estado financeiro.
 
 ---
 

@@ -38,7 +38,7 @@ export default function ReportsPage() {
           <NetWorthEvolutionChart />
         </GlassCard>
 
-        <GlassCard className="p-8 flex flex-col justify-between">
+        <GlassCard data-testid="health-score-card" className="p-8 flex flex-col justify-between">
           <div className="space-y-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
@@ -75,7 +75,7 @@ export default function ReportsPage() {
                 </defs>
               </svg>
               <div className="absolute bottom-4 flex flex-col items-center">
-                <span className="text-5xl font-black text-white">{healthScore}</span>
+                <span data-testid="health-score-value" className="text-5xl font-black text-white">{healthScore}</span>
                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">Score Vesper</span>
               </div>
             </div>
