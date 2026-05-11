@@ -5,7 +5,7 @@ export async function setupFinancialMocks(page: Page, state: any) {
   await page.route('**/api/financial-state*', async (route) => {
     // Serializamos o objeto state no momento da requisição para refletir mutações
     const body = JSON.stringify(state);
-    console.log(`[MOCK] Providing state. Balance: ${state.user_profile?.accumulated_balance_cents}`);
+    console.log(`[MOCK] GET state. Accounts: ${state.accounts?.length} | Rec: ${state.recurring_transactions?.length} | Balance: ${state.user_profile?.accumulated_balance_cents}`);
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -40,6 +40,40 @@ export async function setupFinancialMocks(page: Page, state: any) {
     });
   });
 
+  // Mock POST /api/recurring-transactions (Upsert)
+  await page.route('**/api/recurring-transactions*', async (route) => {
+    const method = route.request().method();
+    if (method === 'POST') {
+      const payload = route.request().postDataJSON();
+      console.log(`[MOCK] POST recurring-transaction: ${payload.description} | Amount: ${payload.amount_cents} | ID: ${payload.id}`);
+      
+      // Atualizar o estado local do mock para que o próximo refreshData veja a mudança
+      if (state.recurring_transactions) {
+        const idx = state.recurring_transactions.findIndex((r: any) => r.id === payload.id);
+        if (idx >= 0) {
+          state.recurring_transactions[idx] = { ...state.recurring_transactions[idx], ...payload };
+        } else {
+          state.recurring_transactions.push({ ...payload, id: payload.id || `mock-rec-${Date.now()}` });
+        }
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...payload, id: payload.id || `mock-rec-${Date.now()}` }),
+      });
+    } else if (method === 'DELETE') {
+      const url = new URL(route.request().url());
+      const id = url.searchParams.get('id');
+      if (id && state.recurring_transactions) {
+        state.recurring_transactions = state.recurring_transactions.filter((r: any) => r.id !== id);
+      }
+      await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
+    } else {
+      await route.continue();
+    }
+  });
+
   // Mock POST /api/accounts (Upsert)
   await page.route('**/api/accounts', async (route) => {
     const payload = route.request().postDataJSON();
@@ -68,8 +102,23 @@ export async function setupFinancialMocks(page: Page, state: any) {
     await route.fulfill({ status: 200, body: JSON.stringify([{ success: true }]) });
   });
 
-  // Mock para o localStorage (User ID)
-  await page.addInitScript((userId: string) => {
-    window.localStorage.setItem('vesper_user_id', userId);
-  }, '2a8d83e2-17b5-434d-91d9-2a963bc841da');
+  // Mock for recurring_transactions
+  await page.route('**/rest/v1/recurring_transactions*', async (route) => {
+    const method = route.request().method();
+    if (method === 'PATCH' || method === 'POST' || method === 'UPDATE' || method === 'DELETE') {
+      await route.fulfill({ status: 200, body: JSON.stringify([{ success: true }]) });
+    } else {
+      await route.continue();
+    }
+  });
+
+  // Mock Supabase Auth
+  await page.route('**/auth/v1/user', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ id: '2a8d83e2-17b5-434d-91d9-2a963bc841da', email: 'test@example.com' }),
+    });
+  });
+
 }

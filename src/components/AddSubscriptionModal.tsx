@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Zap, Wallet, Tag, CreditCard, ChevronDown, Loader2 } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
-import { cn } from "@/lib/utils";
+import { financialService } from "@/services/financialService";
+import { cn, formatCurrency } from "@/lib/utils";
 import { useSubscriptionModal } from "@/context/SubscriptionModalContext";
 import { useAccountModal } from "@/context/AccountModalContext";
 import { useRouter } from "next/navigation";
@@ -92,84 +92,68 @@ export function AddSubscriptionModal() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    
-    if (!userId) {
-      setStatusModal({
-        isOpen: true,
-        status: "error",
-        title: "Usuário não identificado",
-        message: "Recarregue a página e tente novamente."
-      });
-      setLoading(false);
-      return;
-    }
-
     const amountCents = Math.round(parseFloat(amount.replace(/\./g, "").replace(",", ".")) * 100);
     
-    // Calcular a próxima data baseada no dia escolhido
-    const nextDate = new Date();
-    nextDate.setDate(day);
-    if (nextDate < new Date()) {
-      nextDate.setMonth(nextDate.getMonth() + 1);
-    }
+    try {
+      // Calcular a próxima data baseada no dia escolhido
+      const nextDate = new Date();
+      nextDate.setDate(day);
+      if (nextDate < new Date()) {
+        nextDate.setMonth(nextDate.getMonth() + 1);
+      }
 
-    // Fallback para categorias caso esteja vazio (o banco exige category_id)
-    const fallbackCategoryId = type === "EXPENSE" 
-      ? "fe7555b9-5019-4cad-8d57-b2472d660c0f" // Outros (Gasto)
-      : "6e0e37fc-4104-4e2a-929e-170758d76d41"; // Outros (Receita)
+      // Fallback para categorias caso esteja vazio (o banco exige category_id)
+      const fallbackCategoryId = type === "EXPENSE" 
+        ? "fe7555b9-5019-4cad-8d57-b2472d660c0f" // Outros (Gasto)
+        : "6e0e37fc-4104-4e2a-929e-170758d76d41"; // Outros (Receita)
 
-    const payload: any = {
-      account_id: accountId,
-      category_id: categoryId || fallbackCategoryId,
-      description,
-      amount_cents: amountCents,
-      transaction_type: type,
-      frequency: "monthly",
-      next_date: nextDate.toISOString(),
-      status: editingSubscription ? editingSubscription.status : "active"
-    };
+      const payload: any = {
+        ...(editingSubscription ? { id: editingSubscription.id } : {}),
+        user_id: userId,
+        account_id: accountId,
+        category_id: categoryId || fallbackCategoryId,
+        description,
+        amount_cents: amountCents,
+        transaction_type: type,
+        frequency: "monthly",
+        next_date: nextDate.toISOString(),
+        status: editingSubscription ? editingSubscription.status : "active"
+      };
 
-    let error;
-    if (editingSubscription) {
-      const { error: err } = await supabase
-        .from("recurring_transactions")
-        .update(payload)
-        .eq("id", editingSubscription.id);
-      error = err;
-    } else {
-      payload.user_id = userId;
-      const { error: err } = await supabase
-        .from("recurring_transactions")
-        .insert(payload);
-      error = err;
-    }
+      const { error } = await financialService.upsertRecurringTransaction(payload);
 
-    if (!error) {
-      setStatusModal({
-        isOpen: true,
-        status: "success",
-        title: editingSubscription ? "Fluxo Atualizado" : "Fluxo Criado",
-        message: editingSubscription 
-          ? `O fluxo "${description}" foi atualizado com sucesso.`
-          : `O fluxo "${description}" foi criado com sucesso.`
-      });
-      await refreshData();
-      setDescription("");
-      setAmount("");
-    } else {
-      console.error("Erro ao salvar fluxo:", error);
+      if (!error) {
+        setStatusModal({
+          isOpen: true,
+          status: "success",
+          title: editingSubscription ? "Fluxo Atualizado" : "Fluxo Criado",
+          message: editingSubscription 
+            ? `O fluxo "${description}" foi atualizado com sucesso.`
+            : `O fluxo "${description}" foi criado com sucesso.`
+        });
+        await refreshData();
+        setDescription("");
+        setAmount("");
+      } else {
+        console.error("Erro ao salvar fluxo:", error);
+        setStatusModal({
+          isOpen: true,
+          status: "error",
+          title: "Erro ao Salvar",
+          message: `Não foi possível salvar o fluxo: ${error.message || "Erro desconhecido"}`
+        });
+      }
+    } catch (err: any) {
+      console.error("Exceção ao salvar fluxo:", err);
       setStatusModal({
         isOpen: true,
         status: "error",
-        title: "Erro ao Salvar",
-        message: `Não foi possível salvar o fluxo: ${error.message || "Erro desconhecido"}`
+        title: "Erro Inesperado",
+        message: "Ocorreu um erro ao processar sua solicitação."
       });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   const filteredCategories = categories.filter(c => c.type === type);
@@ -177,7 +161,7 @@ export function AddSubscriptionModal() {
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div data-testid="add-subscription-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -215,6 +199,7 @@ export function AddSubscriptionModal() {
                     key={t}
                     type="button"
                     onClick={() => setType(t)}
+                    data-testid={`subscription-type-${t}`}
                     className={cn(
                       "flex-1 py-3 rounded-xl text-[10px] font-black transition-all uppercase tracking-widest",
                       type === t
@@ -231,6 +216,7 @@ export function AddSubscriptionModal() {
                 <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">Descrição</label>
                 <input
                   autoFocus
+                  data-testid="subscription-description-input"
                   placeholder={type === "EXPENSE" ? "Ex: Netflix, Internet, Aluguel" : "Ex: Salário, Pro-labore, Pensão"}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -246,6 +232,7 @@ export function AddSubscriptionModal() {
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 font-bold text-sm">R$</span>
                     <input
                       placeholder="0,00"
+                      data-testid="subscription-amount-input"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       className={cn(
@@ -263,6 +250,7 @@ export function AddSubscriptionModal() {
                     type="number"
                     min="1"
                     max="31"
+                    data-testid="subscription-day-input"
                     value={day}
                     onChange={(e) => setDay(parseInt(e.target.value))}
                     className="w-full bg-white/5 border border-white/5 rounded-2xl py-4 px-5 text-white outline-none focus:border-violet-500/50 transition-all font-bold tabular-nums no-spinner"
@@ -281,6 +269,7 @@ export function AddSubscriptionModal() {
                       setOpenCategory(!openCategory);
                       setOpenAccount(false);
                     }}
+                    data-testid="subscription-category-select"
                     className={cn(
                       "w-full bg-white/5 border border-white/5 rounded-2xl py-4 px-5 text-white font-bold flex justify-between items-center transition-all",
                       categories.length === 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-white/10"
@@ -306,6 +295,7 @@ export function AddSubscriptionModal() {
                         className="absolute z-50 left-0 right-0 bottom-full mb-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto"
                       >
                         <div
+                          key="no-category"
                           onClick={() => {
                             setCategoryId("");
                             setOpenCategory(false);
@@ -325,6 +315,7 @@ export function AddSubscriptionModal() {
                               "px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-medium text-white/80 hover:text-white transition-colors border-b border-white/5 last:border-0",
                               cat.id === categoryId && "bg-violet-500/10 text-violet-300"
                             )}
+                            data-testid={`category-option-${cat.id}`}
                           >
                             {cat.name}
                           </div>
@@ -343,6 +334,7 @@ export function AddSubscriptionModal() {
                       setOpenAccount(!openAccount);
                       setOpenCategory(false);
                     }}
+                    data-testid="subscription-account-select"
                     className={cn(
                       "w-full bg-white/5 border border-white/5 rounded-2xl py-4 px-5 text-white font-bold flex justify-between items-center transition-all",
                       accounts.length === 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-white/10"
@@ -372,9 +364,9 @@ export function AddSubscriptionModal() {
                         exit={{ opacity: 0, y: 10 }}
                         className="absolute z-50 left-0 right-0 bottom-full mb-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto"
                       >
-                        {accounts.map(acc => (
+                        {accounts.map((acc, idx) => (
                           <div
-                            key={acc.id}
+                            key={acc.id || `acc-${idx}`}
                             onClick={() => {
                               setAccountId(acc.id);
                               setOpenAccount(false);
@@ -383,6 +375,7 @@ export function AddSubscriptionModal() {
                               "px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-medium text-white/80 hover:text-white transition-colors border-b border-white/5 last:border-0 flex items-center gap-3",
                               acc.id === accountId && "bg-violet-500/10 text-violet-300"
                             )}
+                            data-testid={`account-option-${acc.id}`}
                           >
                             <span>{acc.type === "CREDIT_CARD" ? "💳" : "💰"}</span>
                             {acc.name}
@@ -397,6 +390,7 @@ export function AddSubscriptionModal() {
               <button
                 disabled={loading || !amount || !description}
                 type="submit"
+                data-testid="subscription-submit-button"
                 className={cn(
                   "w-full font-black text-xs uppercase tracking-[0.3em] py-5 rounded-2xl active:scale-[0.98] transition-all shadow-xl",
                   type === "EXPENSE" 

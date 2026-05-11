@@ -28,8 +28,8 @@ import {
 } from "lucide-react";
 import { useSubscriptionModal } from "@/context/SubscriptionModalContext";
 import { useFinancialData } from "@/context/FinancialDataContext";
-import { createClient } from "@/utils/supabase/client";
 import { ConfirmModal } from "./ConfirmModal";
+import { financialService } from "@/services/financialService";
 import { createPortal } from "react-dom";
 import { useState } from "react";
 
@@ -70,16 +70,13 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   async function toggleStatus(id: string, currentStatus: string) {
-    const supabase = createClient();
-    const newStatus = currentStatus === "active" ? "paused" : "active";
-    await supabase.from("recurring_transactions").update({ status: newStatus }).eq("id", id);
+    await financialService.toggleRecurringStatus(id, currentStatus);
     await refreshData();
   }
 
   async function deleteSub() {
     if (!deleteId) return;
-    const supabase = createClient();
-    await supabase.from("recurring_transactions").delete().eq("id", deleteId);
+    await financialService.deleteRecurringTransaction(deleteId);
     setDeleteId(null);
     await refreshData();
   }
@@ -100,8 +97,11 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {subs.map((sub) => (
-          <GlassCard key={sub.id} className={cn(
+        {subs.map((sub, idx) => (
+          <GlassCard 
+            key={sub.id || `sub-${idx}`} 
+            data-testid={`subscription-card-${sub.id}`}
+            className={cn(
             "p-6 group relative overflow-hidden transition-all hover:border-white/20",
             sub.status === "paused" && "opacity-50 grayscale",
             sub.transaction_type === 'INCOME' ? "hover:shadow-[0_0_40px_-15px_rgba(16,185,129,0.1)]" : "hover:shadow-[0_0_40px_-15px_rgba(139,92,246,0.1)]"
@@ -129,6 +129,7 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
               <div className="flex gap-2">
                 <button
                   onClick={() => openModal(sub)}
+                  data-testid={`edit-subscription-${sub.id}`}
                   className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-white/40 hover:text-white hover:bg-white/10 transition-all"
                   title="Editar"
                 >
@@ -161,6 +162,7 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => toggleStatus(sub.id, sub.status)}
+                  data-testid={`toggle-status-${sub.id}`}
                   className={cn(
                     "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
                     sub.status === "active" 
@@ -173,6 +175,7 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
                 </button>
                 <button 
                   onClick={() => setDeleteId(sub.id)}
+                  data-testid={`delete-subscription-${sub.id}`}
                   className="w-12 h-12 flex items-center justify-center bg-red-500/10 hover:bg-red-500/20 rounded-xl text-red-400 transition-all border border-red-500/10"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -206,6 +209,7 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
         </div>
         <button 
           onClick={() => openModal()}
+          data-testid="add-subscription-button"
           className="flex items-center gap-3 bg-white text-black px-8 py-4 rounded-[22px] font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-white/10"
         >
           <Plus className="w-5 h-5" />

@@ -74,6 +74,7 @@ export function ConfirmModal({
 
               <div className="flex flex-col w-full gap-3">
                 <button
+                  data-testid="confirm-button"
                   onClick={() => {
                     onConfirm();
                     onClose();
@@ -88,6 +89,7 @@ export function ConfirmModal({
                   {confirmText}
                 </button>
                 <button
+                  data-testid="cancel-button"
                   onClick={onClose}
                   className="w-full py-5 rounded-[22px] font-black text-[10px] uppercase tracking-[0.3em] text-white/20 hover:text-white hover:bg-white/5 transition-all"
                 >

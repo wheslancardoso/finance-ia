@@ -151,7 +151,10 @@ export default function SurvivalHUD() {
               </span>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className={`text-3xl md:text-4xl font-bold tracking-tight ${statusColor}`}>
+              <span 
+                data-testid="survival-ceiling-value"
+                className={`text-3xl md:text-4xl font-bold tracking-tight ${statusColor}`}
+              >
                 {formattedTeto}
               </span>
               <span className="text-sm font-medium text-white/30 lowercase">/ {viewMode.toLowerCase()}</span>

@@ -21,6 +21,7 @@ async function apiFetch(path: string, options?: RequestInit) {
   try {
     const res = await fetch(path, {
       ...options,
+      cache: 'no-store',
       signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
@@ -630,6 +631,63 @@ export const financialService = {
       return { data: result, error: null };
     } catch (error: any) {
       console.error("❌ payInvoice falhou:", error.message);
+      return { data: null, error };
+    }
+  },
+
+  // --- RECURRING TRANSACTIONS ---
+  async upsertRecurringTransaction(data: any) {
+    console.log("🔁 Iniciando upsertRecurringTransaction:", data.description);
+    try {
+      const payload = {
+        ...data,
+        id: data.id || generateId()
+      };
+
+      const saved = await apiFetch("/api/recurring-transactions", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      await db.recurring_transactions.put({ ...payload, ...saved });
+      return { data: saved, error: null };
+    } catch (error: any) {
+      console.error("❌ upsertRecurringTransaction falhou:", error.message);
+      const fallbackPayload = { ...data, id: data.id || generateId() };
+      await db.recurring_transactions.put(fallbackPayload);
+      return { data: fallbackPayload, error };
+    }
+  },
+
+  async deleteRecurringTransaction(id: string) {
+    try {
+      await apiFetch(`/api/recurring-transactions?id=${id}`, { method: "DELETE" });
+      await db.recurring_transactions.delete(id);
+      return { data: true, error: null };
+    } catch (error) {
+      console.error("❌ deleteRecurringTransaction error:", error);
+      await db.recurring_transactions.delete(id);
+      return { data: null, error };
+    }
+  },
+
+  async toggleRecurringStatus(id: string, currentStatus: string) {
+    try {
+      const sub = await db.recurring_transactions.get(id);
+      if (!sub) throw new Error("Fluxo não encontrado");
+
+      const newStatus = currentStatus === "active" ? "paused" : "active";
+      const updated = { ...sub, status: newStatus };
+
+      const saved = await apiFetch("/api/recurring-transactions", {
+        method: "POST",
+        body: JSON.stringify(updated),
+      });
+
+      await db.recurring_transactions.put({ ...updated, ...saved });
+      return { data: saved, error: null };
+    } catch (error: any) {
+      console.error("❌ toggleRecurringStatus error:", error);
       return { data: null, error };
     }
   }

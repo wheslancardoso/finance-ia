@@ -8,12 +8,14 @@ interface GlassCardProps {
   children: ReactNode;
   className?: string;
   onClick?: () => void;
+  "data-testid"?: string;
 }
 
-export default function GlassCard({ children, className, onClick }: GlassCardProps) {
+export default function GlassCard({ children, className, onClick, "data-testid": dataTestId }: GlassCardProps) {
   return (
     <motion.div
       onClick={onClick}
+      data-testid={dataTestId}
       whileHover={{ scale: 1.02, translateY: -5 }}
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 400, damping: 17 }}

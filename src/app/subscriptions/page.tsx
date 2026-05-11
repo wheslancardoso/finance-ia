@@ -12,7 +12,6 @@ import { useEffect, useMemo } from "react";
 export default function SubscriptionsPage() {
   const { monthlyOutlook, netLiquidityCents, isSurvivalMode } = useFinancialAnalysis();
   const { recurringTransactions, recurringExpensesCents, recurringIncomeCents } = useFinancialData();
-  const userId = "local_user";
 
   const stats = useMemo(() => {
     const expenseCount = recurringTransactions.filter(s => s.status === "active" && s.transaction_type === "EXPENSE").length;
@@ -26,7 +25,7 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="p-8 md:p-12 max-w-7xl mx-auto w-full space-y-12">
-      <SyncUser userId={userId} />
+      <SyncUser />
       
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

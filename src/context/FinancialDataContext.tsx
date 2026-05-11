@@ -252,14 +252,15 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       
       // Cálculos de Agendados e Cartão para o mês atual
       const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const endOfThisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
       
       const schedInc = (state.recurring_transactions || [])
-        .filter(r => r.transaction_type === "INCOME" && r.status === 'active' && new Date(r.next_date) <= endOfThisMonth && new Date(r.next_date) >= now)
+        .filter(r => r.transaction_type === "INCOME" && r.status === 'active' && new Date(r.next_date) <= endOfThisMonth && new Date(r.next_date) >= startOfToday)
         .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
 
       const schedExp = (state.recurring_transactions || [])
-        .filter(r => r.transaction_type === "EXPENSE" && r.status === 'active' && new Date(r.next_date) <= endOfThisMonth && new Date(r.next_date) >= now)
+        .filter(r => r.transaction_type === "EXPENSE" && r.status === 'active' && new Date(r.next_date) <= endOfThisMonth && new Date(r.next_date) >= startOfToday)
         .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
 
       const cardImpact = calculateTotalConsolidatedDebt(state.accounts || []);
