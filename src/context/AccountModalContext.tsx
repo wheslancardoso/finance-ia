@@ -5,11 +5,14 @@ import { LOCAL_USER_ID } from "@/lib/constants";
 
 interface AccountModalContextType {
   isOpen: boolean;
+  isTransferOpen: boolean;
   accountToEdit: any | null;
   userId: string | null;
   openAdd: () => void;
   openEdit: (account: any) => void;
+  openTransfer: () => void;
   closeModal: () => void;
+  closeTransfer: () => void;
   setUserId: (id: string) => void;
 }
 
@@ -17,6 +20,7 @@ const AccountModalContext = createContext<AccountModalContextType | undefined>(u
 
 export function AccountModalProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isTransferOpen, setIsTransferOpen] = useState(false);
   const [accountToEdit, setAccountToEdit] = useState<any | null>(null);
   const [userId, setUserIdState] = useState<string | null>(() => {
     if (typeof window !== "undefined") {
@@ -47,20 +51,31 @@ export function AccountModalProvider({ children }: { children: ReactNode }) {
     setIsOpen(true);
   };
 
+  const openTransfer = () => {
+    setIsTransferOpen(true);
+  };
+
   const closeModal = () => {
     setIsOpen(false);
     setAccountToEdit(null);
+  };
+
+  const closeTransfer = () => {
+    setIsTransferOpen(false);
   };
 
   return (
     <AccountModalContext.Provider 
       value={{ 
         isOpen, 
+        isTransferOpen,
         accountToEdit, 
         userId, 
         openAdd, 
         openEdit, 
+        openTransfer,
         closeModal,
+        closeTransfer,
         setUserId 
       }}
     >

@@ -39,15 +39,18 @@ Este documento descreve os fluxos de testes End-to-End implementados e o planeja
   - **Exclusão**: Remoção de metas via detalhes.
   - **Recomendações**: Integração com o sistema de recomendações para abrir aporte rápido.
 
+### 5. Transferências entre Contas (`tests/transfers.test.ts`)
+- **Cenários Cobertos**:
+  - Transferência interna entre Conta Corrente e Investimentos.
+  - Validação de integridade de saldos (origem decresce, destino cresce).
+  - Bloqueio de transferência com saldo insuficiente.
+  - Bloqueio de transferência para a mesma conta.
+  - Sincronização automática com o HUD de Liquidez Real.
+
 ---
 
 ## 🚀 Fluxos Planejados (Próximas Etapas)
 
-### 5. Transferências entre Contas
-- **Objetivo**: Validar a integridade de saldos entre múltiplas contas.
-- **Cenários**:
-  - Transferência interna entre Conta Corrente e Investimentos.
-  - Validação de histórico de transações após transferência.
 
 ### 6. Autenticação e Perfil
 - **Objetivo**: Garantir a persistência e segurança do usuário.

@@ -8,6 +8,7 @@ import { AddSubscriptionModal } from "./AddSubscriptionModal";
 import { AddGoalModal } from "./AddGoalModal";
 import { ContributionModal } from "./ContributionModal";
 import { GoalDetailModal } from "./GoalDetailModal";
+import { TransferModal } from "./TransferModal";
 import { SyncUser } from "./SyncUser";
 import { FinanceBridgeHUD } from "./FinanceBridgeHUD";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <AddGoalModal />
           <ContributionModal />
           <GoalDetailModal />
+          <TransferModal />
         </>
       )}
     </div>
