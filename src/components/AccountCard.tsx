@@ -81,7 +81,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
 
   return (
     <>
-    <GlassCard className="relative overflow-hidden group">
+    <GlassCard className="relative overflow-hidden group" data-testid={`account-card-${id}`}>
       <div 
         className="absolute -top-12 -right-12 w-24 h-24 blur-[60px] opacity-20 transition-opacity group-hover:opacity-40"
         style={{ backgroundColor: colorHex }}
@@ -270,6 +270,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
           <button
             onClick={() => setPayModalOpen(true)}
             className="px-4 py-2 rounded-xl bg-white/10 border border-white/10 text-[9px] font-black text-white/70 uppercase tracking-widest hover:bg-white/20 hover:text-white transition-all"
+            data-testid="pay-invoice-button"
           >
             Pagar Fatura
           </button>

@@ -1,40 +1,17 @@
-# Próxima Implementação: Testes E2E de Metas e Gestão de Contas
+# Próxima Implementação: Refatoração do Pagamento de Faturas
 
 ## Objetivo
-Implementar uma suíte de testes Playwright para os módulos de **Metas (Goals)** e **Contas (Accounts)**, seguindo o padrão determinístico estabelecido no módulo de transações.
+Refatorar a lógica do componente `PayInvoiceModal.tsx` para que ele não chame o Supabase diretamente do lado do cliente (via `@supabase/supabase-js`), mas sim utilize um endpoint interno da API (`POST /api/accounts/pay-invoice`), unificando a arquitetura e aumentando a segurança.
 
 ## Diretrizes Técnicas
-- **Padrão Seed-then-Navigate**: Sempre configurar o `mockState` em `tests/mocks/financialMocks.ts` antes de realizar a navegação `page.goto()`.
-- **Mocks Requeridos**:
-  - `GET /financial-state`: Deve refletir o impacto dos limites e aportes.
-  - `POST /goals/contribute`: Simular o aporte em uma meta.
-  - `POST /accounts/pay-invoice`: Simular o pagamento de fatura.
+- **Nova Rota de API**: Criar `src/app/api/accounts/pay-invoice/route.ts` que receberá o ID da conta, valor pago e realizará as mutações necessárias no banco (atualização de status da fatura para PAID, adição de transação compensatória na conta de origem, etc).
+- **Componente**: Atualizar `src/components/PayInvoiceModal.tsx` para chamar a nova rota via `fetch` em vez de construir e disparar queries diretas.
+- **Service**: Adicionar o método `payInvoice` no `financialService.ts` para encapsular a chamada `fetch`.
 
-## Cenários de Teste
-
-### 1. Gestão de Metas (Goals)
-- **Visualização**: Garantir que o HUD de metas na Dashboard exibe o progresso correto baseado no mock.
-- **Aporte**: 
-  - Abrir o modal de detalhes da meta.
-  - Realizar um aporte de R$ 100,00.
-  - Verificar se a requisição foi feita com os dados corretos.
-  - Validar se o HUD de "Sobra Livre" na Dashboard foi atualizado (diminuído pelo valor do aporte).
-
-### 2. Gestão de Contas e Cartões (Accounts)
-- **Limite Disponível**: Validar se o card de cartão de crédito exibe o limite correto (Total - Fatura Aberta).
-- **Pagamento de Fatura**:
-  - Abrir o fluxo de pagamento de fatura em uma conta de cartão.
-  - Selecionar "Pagar Agora".
-  - Verificar se a fatura transita para o estado "Paga" e o limite é restabelecido no mock/UI.
-
-## Seletores de Referência (data-testid)
-- `goal-card-[id]`
-- `contribute-button`
-- `goal-progress-bar`
-- `account-card-[id]`
-- `pay-invoice-button`
-- `confirm-payment-button`
-- `surplus-value` (Sobra Livre)
+## Contexto Atual
+Atualmente, o modal de pagamento de fatura instancia o cliente do Supabase e realiza múltiplas operações (inserção de transação, atualização de fatura) diretamente do frontend. Isso foge do padrão estabelecido no restante da aplicação, onde o frontend se comunica com `src/app/api/...`.
 
 ## Resultado Esperado
-Uma nova suite `tests/financial-management.test.ts` que cubra os caminhos críticos acima, garantindo que a lógica de "Centro de Comando" (Dashboard) esteja sincronizada com as ações do usuário.
+- Remoção da dependência direta de RPCs e inserts do Supabase dentro do `PayInvoiceModal.tsx`.
+- Lógica de negócio transferida para o backend (API Route).
+- Teste E2E recém-criado de contas continuará passando, pois ele já mocka a interação em nível de tela, e se necessário adaptaremos o mock para cobrir a nova rota caso ela seja chamada fora do estado principal.

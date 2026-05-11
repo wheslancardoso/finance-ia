@@ -295,16 +295,17 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
 
               {/* Botões */}
               <div className="space-y-3">
-                <button
-                  onClick={handlePayInvoice}
-                  disabled={loading || !selectedAccountId || !paymentAmount || success}
-                  className={cn(
-                    "w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-2",
-                    success
-                      ? "bg-emerald-500/20 border border-emerald-500/30 text-emerald-400"
-                      : "bg-white text-black hover:bg-white/90 active:scale-[0.98] shadow-xl disabled:opacity-40"
-                  )}
-                >
+                  <button
+                    onClick={handlePayInvoice}
+                    disabled={loading || !selectedAccountId || !paymentAmount || success}
+                    className={cn(
+                      "w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-2",
+                      success
+                        ? "bg-emerald-500/20 border border-emerald-500/30 text-emerald-400"
+                        : "bg-white text-black hover:bg-white/90 active:scale-[0.98] shadow-xl disabled:opacity-40"
+                    )}
+                    data-testid="confirm-payment-button"
+                  >
                   {loading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : success ? (

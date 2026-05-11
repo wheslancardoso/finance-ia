@@ -68,7 +68,7 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
             const remaining = goal.target_amount_cents - goal.current_amount_cents;
             
             return (
-              <div key={goal.id} className="group relative" data-testid="goal-card">
+              <div key={goal.id} className="group relative" data-testid={`goal-card-${goal.id}`}>
                 <GlassCard className="h-full flex flex-col gap-8 transition-all hover:border-white/20">
                   <div className="flex items-start justify-between">
                     <div 
