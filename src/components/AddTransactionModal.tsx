@@ -336,22 +336,15 @@ export function AddTransactionModal() {
   const isCreditCard = selectedAccount?.type === "CREDIT_CARD";
   const numericAmount = parseFloat(amount.replace(",", ".")) || 0;
 
-  const filteredCategories = categories.filter(c => c.type === type);
+  const filteredCategories = (categories || []).filter(c => c.type === type);
 
   // Sync category when type changes - ONLY if not editing
   useEffect(() => {
-    if (!transactionToEdit && categories.length > 0) {
-      const firstOfType = categories.find(c => c.type === type);
+    if (!transactionToEdit && (categories || []).length > 0) {
+      const firstOfType = (categories || []).find(c => c.type === type);
       if (firstOfType) setCategoryId(firstOfType.id);
     }
   }, [type, categories, transactionToEdit]);
-
-  console.log("DEBUG - UI RENDER:", {
-    categoriesCount: categories.length,
-    filteredCount: filteredCategories.length,
-    currentType: type,
-    currentCategoryId: categoryId
-  });
 
   return (
     <>

@@ -44,7 +44,7 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
 
   React.useEffect(() => {
     if (isOpen && creditCardAccount) {
-      setPaymentAmount((invoiceAmount / 100).toString().replace(".", ","));
+      setPaymentAmount((invoiceAmount / 100).toFixed(2).replace(".", ","));
       setSelectedAccountId(debitAccounts[0]?.id || "");
       setSuccess(false);
     }
@@ -66,6 +66,7 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
 
     if (error) {
       console.error("Erro ao pagar fatura:", error);
+      setLoading(false);
       setStatusModal({
         isOpen: true,
         status: "error",
@@ -73,9 +74,9 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
         message: error.message || "Não foi possível registrar o pagamento da fatura."
       });
     } else {
+      setLoading(false);
       await finishSuccess();
     }
-    setLoading(false);
   }
 
   // Já paguei: só marca como pago, sem debitar
@@ -90,8 +91,10 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
     });
 
     if (!error) {
+      setLoading(false);
       await finishSuccess();
     } else {
+      setLoading(false);
       setStatusModal({
         isOpen: true,
         status: "error",
@@ -99,14 +102,13 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
         message: error.message || "Não foi possível marcar a fatura como paga."
       });
     }
-    setLoading(false);
   }
 
   async function finishSuccess() {
     setSuccess(true);
+    setTimeout(() => { onClose(); setSuccess(false); }, 1500);
     await refreshData();
     router.refresh();
-    setTimeout(() => { onClose(); setSuccess(false); }, 1500);
   }
 
   const selectedAccount = debitAccounts.find(a => a.id === selectedAccountId);
@@ -123,12 +125,13 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
             className="absolute inset-0 bg-black/80 backdrop-blur-md"
           />
 
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            className="relative w-full max-w-sm bg-[#0A0A0A] border border-white/10 rounded-[32px] p-8 shadow-2xl overflow-hidden"
-          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              data-testid="pay-invoice-modal"
+              className="relative w-full max-w-sm bg-[#0A0A0A] border border-white/10 rounded-[32px] p-8 shadow-2xl overflow-hidden"
+            >
             {/* Header */}
             <div className="flex justify-between items-center mb-8">
               <div className="space-y-1">
@@ -228,7 +231,9 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
                   {loading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : success ? (
-                    <><Check className="w-4 h-4" /> Pago com Sucesso</>
+                    <div data-testid="payment-success-message" className="flex items-center gap-2">
+                      <Check className="w-4 h-4" /> Pago com Sucesso
+                    </div>
                   ) : (
                     "Pagar Agora"
                   )}

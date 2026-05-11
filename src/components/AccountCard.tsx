@@ -217,7 +217,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
         })() : (
           <div className="space-y-1">
             <p className="text-white/40 text-sm font-medium">Saldo Atual</p>
-            <h2 className="text-3xl font-bold tracking-tight tabular-nums text-white">
+            <h2 data-testid={`account-balance-${id}`} className="text-3xl font-bold tracking-tight tabular-nums text-white">
               {formatCurrency(balance)}
             </h2>
           </div>
@@ -284,7 +284,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
 
     {typeof document !== "undefined" && (
       <>
-        {isCreditCard && createPortal(
+        {isCreditCard && payModalOpen && createPortal(
           <PayInvoiceModal
             isOpen={payModalOpen}
             onClose={() => setPayModalOpen(false)}
