@@ -1,17 +1,28 @@
-# Próxima Implementação: Refatoração do Pagamento de Faturas
+# Status das Implementações
 
-## Objetivo
-Refatorar a lógica do componente `PayInvoiceModal.tsx` para que ele não chame o Supabase diretamente do lado do cliente (via `@supabase/supabase-js`), mas sim utilize um endpoint interno da API (`POST /api/accounts/pay-invoice`), unificando a arquitetura e aumentando a segurança.
+## ✅ Refatoração do Pagamento de Faturas [CONCLUÍDO]
+- [x] **Nova Rota de API**: Criada em `src/app/api/accounts/pay-invoice/route.ts`.
+- [x] **Service**: Método `payInvoice` adicionado ao `financialService.ts`.
+- [x] **Componente**: `PayInvoiceModal.tsx` refatorado para usar a API interna.
+- [x] **Testes E2E**: Suíte completa em `tests/invoice-payment.test.ts` cobrindo pagamento total, parcial, "já paguei" e erros.
+- [x] **Bugs Corrigidos**: 
+    - Crash no `AddTransactionModal` por falta de categorias nos mocks.
+    - Unmounting prematuro do modal de pagamento no `AccountCard`.
+    - Formatação de valores e sequência de estados de loading/sucesso.
 
-## Diretrizes Técnicas
-- **Nova Rota de API**: Criar `src/app/api/accounts/pay-invoice/route.ts` que receberá o ID da conta, valor pago e realizará as mutações necessárias no banco (atualização de status da fatura para PAID, adição de transação compensatória na conta de origem, etc).
-- **Componente**: Atualizar `src/components/PayInvoiceModal.tsx` para chamar a nova rota via `fetch` em vez de construir e disparar queries diretas.
-- **Service**: Adicionar o método `payInvoice` no `financialService.ts` para encapsular a chamada `fetch`.
+---
 
-## Contexto Atual
-Atualmente, o modal de pagamento de fatura instancia o cliente do Supabase e realiza múltiplas operações (inserção de transação, atualização de fatura) diretamente do frontend. Isso foge do padrão estabelecido no restante da aplicação, onde o frontend se comunica com `src/app/api/...`.
+## 🚀 Próxima Implementação: Gestão Avançada de Fluxos Recorrentes
 
-## Resultado Esperado
-- Remoção da dependência direta de RPCs e inserts do Supabase dentro do `PayInvoiceModal.tsx`.
-- Lógica de negócio transferida para o backend (API Route).
-- Teste E2E recém-criado de contas continuará passando, pois ele já mocka a interação em nível de tela, e se necessário adaptaremos o mock para cobrir a nova rota caso ela seja chamada fora do estado principal.
+### Objetivo
+Aprimorar a gestão de fluxos recorrentes (assinaturas, contas fixas, salários) permitindo uma visualização mais clara do impacto no orçamento futuro e facilitando a edição em lote.
+
+### Diretrizes Técnicas
+- **Interface**: Criar um componente de "Timeline de Recorrência" no Dashboard.
+- **Lógica**: Refinar o cálculo do "Teto de Sobrevivência" para considerar a variabilidade de datas de vencimento.
+- **Testes**: Implementar testes E2E para a criação e edição de fluxos recorrentes complexos.
+
+### Resultado Esperado
+- Visualização gráfica dos próximos compromissos fixos.
+- Alerta proativo de quebra de teto baseada em recorrências futuras.
+
