@@ -127,4 +127,37 @@ test.describe('Pagamento de Fatura', () => {
     // Saldo da conta corrente não deve mudar
     await expect(page.getByTestId('account-balance-acc-debit')).toContainText('5.000,00', { timeout: 10000 });
   });
+
+  test('deve permitir pagamento parcial e atualizar saldos proporcionalmente', async ({ page }) => {
+    await expect(page.locator('text=Cartão Ultra')).toBeVisible({ timeout: 15000 });
+    await page.click('[data-testid="pay-invoice-button"]');
+
+    // Mudar valor para 500,00 (pagamento parcial)
+    const amountInput = page.locator('input[value="1500,00"]');
+    await amountInput.fill('500,00');
+
+    await page.click('[data-testid="confirm-payment-button"]');
+
+    // No mock, o saldo da conta deve diminuir 500 e o da fatura também (ou conforme a lógica do backend)
+    // Para simplificar o mock, vamos apenas verificar se o saldo da conta caiu para 4500
+    await expect(page.getByTestId('pay-invoice-modal')).not.toBeVisible({ timeout: 20000 });
+    await expect(page.getByTestId('account-balance-acc-debit')).toContainText('4.500,00', { timeout: 10000 });
+  });
+
+  test('deve exibir mensagem de erro se a API falhar', async ({ page }) => {
+    // Sobrescrever a rota para retornar erro
+    await page.route('**/api/accounts/pay-invoice', async (route) => {
+      await route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: false, error: 'Saldo insuficiente na conta de origem' }),
+      });
+    });
+
+    await page.click('[data-testid="pay-invoice-button"]');
+    await page.click('[data-testid="confirm-payment-button"]');
+
+    // Verificar se o modal de erro apareceu
+    await expect(page.locator('text=Saldo insuficiente na conta de origem')).toBeVisible({ timeout: 10000 });
+  });
 });
