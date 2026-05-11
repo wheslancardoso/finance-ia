@@ -611,5 +611,26 @@ export const financialService = {
       category_id: null, // Ajuste técnico
       source: "MIGRATION"
     });
+  },
+
+  async payInvoice(params: {
+    creditCardAccountId: string;
+    paymentAccountId?: string;
+    amountCents: number;
+    alreadyPaid?: boolean;
+  }) {
+    console.log("💳 Iniciando pagamento de fatura:", params.creditCardAccountId);
+    try {
+      const result = await apiFetch("/api/accounts/pay-invoice", {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+
+      console.log("✅ Pagamento de fatura processado via API");
+      return { data: result, error: null };
+    } catch (error: any) {
+      console.error("❌ payInvoice falhou:", error.message);
+      return { data: null, error };
+    }
   }
 };

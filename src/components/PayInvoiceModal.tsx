@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, CreditCard, Wallet, Check, Loader2, ChevronDown } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
+import { financialService } from "@/services/financialService";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { useRouter } from "next/navigation";
@@ -50,115 +50,27 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
     }
   }, [isOpen, creditCardAccount]);
 
-  // Lógica compartilhada: marca transações da fatura fechada como pagas
-  async function markInvoiceAsPaid() {
-    if (!creditCardAccount) return false;
-
-    const supabase = createClient();
-    const cDay = creditCardAccount.closing_day || 31;
-    const now = new Date();
-    const todayDay = now.getDate();
-
-    let closedY = now.getFullYear();
-    let closedM = now.getMonth();
-    if (todayDay < cDay) {
-      closedM--;
-      if (closedM < 0) { closedM = 11; closedY--; }
-    }
-    const closedInvoiceStr = `${closedY}-${String(closedM + 1).padStart(2, '0')}-01`;
-
-    const { data: cardTxs } = await supabase
-      .from("transactions")
-      .select("id, amount_cents, date, is_paid, invoice_id")
-      .eq("account_id", creditCardAccount.id)
-      .eq("is_paid", false);
-
-    if (!cardTxs) return false;
-
-    // Filtra transações que pertencem ao mês de referência da fatura fechada
-    const invoiceTxIds = cardTxs
-      .filter(tx => {
-        const txDate = new Date(tx.date);
-        let tY = txDate.getUTCFullYear();
-        let tM = txDate.getUTCMonth();
-        // Lógica simplificada: se a data >= dia de fechamento, pertence ao próximo mês
-        if (txDate.getUTCDate() >= cDay) { tM++; if (tM > 11) { tM = 0; tY++; } }
-        return `${tY}-${String(tM + 1).padStart(2, '0')}-01` === closedInvoiceStr;
-      })
-      .map(tx => tx.id);
-
-    // Identificar os IDs das faturas envolvidas
-    const invoiceIds = Array.from(new Set(cardTxs.filter(tx => invoiceTxIds.includes(tx.id)).map(tx => tx.invoice_id).filter(Boolean)));
-
-    if (invoiceTxIds.length > 0) {
-      // 1. Marcar transações como pagas
-      const { error: txError } = await supabase
-        .from("transactions")
-        .update({ is_paid: true })
-        .in("id", invoiceTxIds);
-      
-      if (txError) {
-        console.error("Erro ao marcar transações como pagas:", txError);
-        return false;
-      }
-
-      // 2. Marcar a(s) fatura(s) como paga(s) no banco de dados
-      if (invoiceIds.length > 0) {
-        await supabase
-          .from("credit_card_invoices")
-          .update({ status: "PAID", updated_at: new Date().toISOString() })
-          .in("id", invoiceIds);
-      } else {
-        // Se não houver invoice_id vinculado às transações (raro), tentamos buscar pela referência
-        await supabase
-          .from("credit_card_invoices")
-          .update({ status: "PAID", updated_at: new Date().toISOString() })
-          .eq("account_id", creditCardAccount.id)
-          .eq("reference_month", closedInvoiceStr.substring(0, 7)); // YYYY-MM
-      }
-    }
-
-    return true;
-  }
-
   // Pagar agora: marca como pago + debita da conta
   async function handlePayInvoice() {
     if (!selectedAccountId || !paymentAmount || !creditCardAccount) return;
     setLoading(true);
 
-    const ok = await markInvoiceAsPaid();
-    if (!ok) { setLoading(false); return; }
-
-    const supabase = createClient();
     const paymentCents = Math.round(parseFloat(paymentAmount.replace(",", ".")) * 100);
-    const cDay = creditCardAccount.closing_day || 31;
-    const now = new Date();
-    let closedY = now.getFullYear();
-    let closedM = now.getMonth();
-    if (now.getDate() < cDay) { closedM--; if (closedM < 0) { closedM = 11; closedY--; } }
-    const monthLabel = format(new Date(closedY, closedM, 1), "MMM/yy", { locale: ptBR });
 
-    const { error } = await supabase.from("transactions").insert([{
-      account_id: selectedAccountId,
-      category_id: null,
-      amount_cents: paymentCents,
-      transaction_type: "EXPENSE",
-      date: new Date().toISOString(),
-      description: `Pgto Fatura — ${creditCardAccount.name} ${monthLabel}`,
-      source: "MANUAL",
-      installment_current: 1,
-      installment_total: 1,
-      is_legacy_debt: false,
-      is_paid: false,
-    }]);
+    const { error } = await financialService.payInvoice({
+      creditCardAccountId: creditCardAccount.id,
+      paymentAccountId: selectedAccountId,
+      amountCents: paymentCents,
+      alreadyPaid: false
+    });
 
     if (error) {
-      console.error("Erro ao criar transação de pagamento:", error);
+      console.error("Erro ao pagar fatura:", error);
       setStatusModal({
         isOpen: true,
         status: "error",
         title: "Erro no Pagamento",
-        message: "Não foi possível registrar a transação de pagamento da fatura."
+        message: error.message || "Não foi possível registrar o pagamento da fatura."
       });
     } else {
       await finishSuccess();
@@ -169,15 +81,22 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
   // Já paguei: só marca como pago, sem debitar
   async function handleAlreadyPaid() {
     setLoading(true);
-    const ok = await markInvoiceAsPaid();
-    if (ok) {
+    const paymentCents = Math.round(parseFloat(paymentAmount.replace(",", ".")) * 100);
+
+    const { error } = await financialService.payInvoice({
+      creditCardAccountId: creditCardAccount.id,
+      amountCents: paymentCents,
+      alreadyPaid: true
+    });
+
+    if (!error) {
       await finishSuccess();
     } else {
       setStatusModal({
         isOpen: true,
         status: "error",
         title: "Erro na Fatura",
-        message: "Não foi possível marcar a fatura como paga."
+        message: error.message || "Não foi possível marcar a fatura como paga."
       });
     }
     setLoading(false);
