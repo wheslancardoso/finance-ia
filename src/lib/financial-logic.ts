@@ -8,6 +8,22 @@ export function calculateTotalConsolidatedDebt(accounts: Account[]): number {
   if (!accounts || !Array.isArray(accounts)) return 0;
   return accounts
     .filter((a) => a && a.type === "CREDIT_CARD")
+    .reduce((sum, a) => {
+      // Priorizar total_debt_cents se disponível, senão cair no somatório de faturas
+      const debt = a.total_debt_cents !== undefined 
+        ? Number(a.total_debt_cents) 
+        : (Number(a.closed_invoice_cents) || 0) + (Number(a.open_invoice_cents) || 0);
+      return sum + debt;
+    }, 0);
+}
+
+/**
+ * Calcula a Dívida do Mês Atual (Apenas faturas abertas e fechadas que vencem agora)
+ */
+export function calculateCurrentMonthDebt(accounts: Account[]): number {
+  if (!accounts || !Array.isArray(accounts)) return 0;
+  return accounts
+    .filter((a) => a && a.type === "CREDIT_CARD")
     .reduce((sum, a) => sum + (Number(a.closed_invoice_cents) || 0) + (Number(a.open_invoice_cents) || 0), 0);
 }
 
@@ -73,10 +89,10 @@ export function calculateMonthlyOutlook(params: {
   const { accounts, scheduledIncomeCents, scheduledExpensesCents, budgets, netLiquidityCents } = params;
   
   const liquidity = calculateAccumulatedBalance(accounts);
-  const cardDebt = calculateTotalConsolidatedDebt(accounts);
+  const currentMonthDebt = calculateCurrentMonthDebt(accounts);
   
   const pendingIncome = scheduledIncomeCents;
-  const pendingOutflow = scheduledExpensesCents + cardDebt;
+  const pendingOutflow = scheduledExpensesCents + currentMonthDebt;
   
   const budgetReserves = budgets.reduce((sum, b) => {
     return sum + Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0));

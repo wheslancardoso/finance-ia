@@ -20,6 +20,7 @@ export interface Account {
   closed_invoice_month?: string;
   open_invoice_cents?: number;
   open_invoice_month?: string;
+  total_debt_cents?: number;
   closing_day?: number;
   due_day?: number;
   color_hex?: string;

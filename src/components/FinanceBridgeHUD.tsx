@@ -28,7 +28,8 @@ export function FinanceBridgeHUD() {
           <Link href="/" className="flex items-center gap-3 group">
             <div className={cn(
               "w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs transition-all",
-              (healthScore > 70 && !isSurvivalMode) ? "bg-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500/30" : 
+              (healthScore > 70 && !isSurvivalMode && netLiquidityCents >= 0) ? "bg-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500/30" : 
+              (!isSurvivalMode && netLiquidityCents < 0) ? "bg-amber-500/20 text-amber-400 group-hover:bg-amber-500/30" : 
               (healthScore > 40 && !isSurvivalMode) ? "bg-amber-500/20 text-amber-400 group-hover:bg-amber-500/30" : 
               "bg-red-500/20 text-red-400 group-hover:bg-red-500/30"
             )}>
@@ -38,10 +39,13 @@ export function FinanceBridgeHUD() {
               <p className="text-[9px] font-black text-white/20 uppercase tracking-widest leading-none mb-1">Status do Sistema</p>
               <p className={cn(
                 "text-[11px] font-bold leading-none",
-                (healthScore > 70 && !isSurvivalMode) ? "text-emerald-400" : 
+                (healthScore > 70 && !isSurvivalMode && netLiquidityCents >= 0) ? "text-emerald-400" : 
+                (!isSurvivalMode && netLiquidityCents < 0) ? "text-amber-400" : 
                 (healthScore > 40 && !isSurvivalMode) ? "text-amber-400" : "text-red-400"
               )}>
-                {isSurvivalMode ? "RECUPERAÇÃO CRÍTICA" : (healthScore > 70 ? "ESTÁVEL / SEGURO" : "ATENÇÃO")}
+                {isSurvivalMode ? "RECUPERAÇÃO CRÍTICA" : 
+                 (netLiquidityCents < 0 ? "ALERTA DE DÍVIDA" : 
+                 (healthScore > 70 ? "ESTÁVEL / SEGURO" : "ATENÇÃO"))}
               </p>
             </div>
           </Link>

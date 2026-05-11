@@ -7,60 +7,26 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 
 export function DashboardStatsGrid() {
-  const { netLiquidityCents, totalConsolidatedDebtCents, monthlyOutlook, healthScore } = useFinancialAnalysis();
+  const { netLiquidityCents, totalConsolidatedDebtCents, accumulatedBalanceCents, monthlyOutlook, healthScore } = useFinancialAnalysis();
 
   return (
     <div className="space-y-4">
       {/* Cards de Liquidez e Dívida */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className={cn(
-          "border rounded-3xl p-6 flex flex-col gap-1 relative overflow-hidden group transition-all",
-          netLiquidityCents >= 0 
-            ? "bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20" 
-            : "bg-red-500/10 border-red-500/20 hover:bg-red-500/20"
-        )}>
-          <div className="absolute top-4 right-4 transition-colors">
-            {netLiquidityCents >= 0 
-              ? <ShieldCheck className="w-8 h-8 text-emerald-500/20 group-hover:text-emerald-500/40" /> 
-              : <AlertCircle className="w-8 h-8 text-red-500/20 group-hover:text-red-500/40" />
-            }
-          </div>
-          <span className={cn(
-            "text-[10px] font-black uppercase tracking-widest",
-            netLiquidityCents >= 0 ? "text-emerald-400/60" : "text-red-400/60"
-          )}>Liquidez Líquida (Real)</span>
-          <span 
-            className={cn(
-              "text-3xl font-black tabular-nums",
-              netLiquidityCents >= 0 ? "text-emerald-400" : "text-red-400"
-            )}
-            data-testid="net-liquidity-value"
-          >
-            {formatCurrency(netLiquidityCents)}
-          </span>
-          <p className="text-[10px] text-white/40 mt-2 italic">
-            {netLiquidityCents >= 0 
-              ? "Seu saldo cobre todas as suas faturas atuais." 
-              : "⚠️ TRAVA DE SEGURANÇA: Você está em ciclo de dívida. Pare de usar o cartão e use sua sobra apenas para quitar faturas."}
-          </p>
-        </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col gap-1 relative overflow-hidden group hover:bg-white/10 transition-all">
           <div className="absolute top-4 right-4 text-white/10 group-hover:text-white/20 transition-colors">
             <History className="w-8 h-8" />
           </div>
           <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Dívida Total Consolidada</span>
-          <span className="text-3xl font-black text-white tabular-nums" data-testid="total-debt-value">
+          <span className="text-2xl font-black text-white tabular-nums" data-testid="total-debt-value">
             {formatCurrency(totalConsolidatedDebtCents)}
           </span>
           <p className="text-[10px] text-white/40 mt-2 italic">
-            Soma das faturas de todos os cartões.
+            Soma de todas as parcelas futuras.
           </p>
         </div>
-      </div>
 
       {/* Row de Saúde e Sobra */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white/5 rounded-3xl p-5 border border-white/10 flex items-center gap-4 group hover:bg-white/10 transition-all">
           <div 
             className={cn(

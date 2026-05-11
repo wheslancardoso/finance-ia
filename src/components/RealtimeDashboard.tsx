@@ -126,53 +126,13 @@ export default function RealtimeDashboard({
               targetDate={targetDate} 
               projectedBalance={projectedBalance} 
               balanceDifference={balanceDifference} 
+              netLiquidityCents={netLiquidityCents}
             />
 
             {/* Centro de Comando: Liquidez Real vs Dívida */}
             {!isFuture && <DashboardStatsGrid />}
             
-            {/* Health Score & Action Recommendations */}
-            {!isFuture && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white/5 rounded-3xl p-5 border border-white/10 flex items-center gap-4 group hover:bg-white/10 transition-all">
-                  <div className={cn(
-                    "w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black",
-                    (healthScore > 70 && netLiquidityCents >= 0) ? "bg-emerald-500/20 text-emerald-400" : 
-                    (healthScore > 40 && netLiquidityCents >= 0) ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"
-                  )}>
-                    {healthScore}
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Saúde Financeira</p>
-                    <p className={cn(
-                      "text-sm font-black",
-                      (healthScore > 70 && netLiquidityCents >= 0) ? "text-emerald-400" : 
-                      (healthScore > 40 && netLiquidityCents >= 0) ? "text-amber-400" : "text-red-400"
-                    )}>
-                      {netLiquidityCents < 0 ? "Em Recuperação" : (healthScore > 70 ? "Excelente" : healthScore > 40 ? "Atenção" : "Crítico")}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="md:col-span-2 bg-white/5 rounded-3xl p-5 border border-white/10 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Zap className="w-5 h-5 text-amber-400" />
-                    <div>
-                      <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Capacidade de Gasto</p>
-                      <p className="text-sm font-black text-white">{formatCurrency(monthlyOutlook.balanceAtMonthEnd)} disponíveis</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    {[1,2,3,4,5].map(i => (
-                      <div key={i} className={cn(
-                        "w-1.5 h-6 rounded-full transition-colors",
-                        (i * 20) <= healthScore ? "bg-emerald-400" : "bg-white/10"
-                      )} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Os cards de Saúde e Capacidade de Gasto agora estão consolidados no DashboardStatsGrid acima */}
 
             {/* Quick Account Sync Bar */}
             {!isFuture && (

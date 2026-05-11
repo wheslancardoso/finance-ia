@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     let rpcResult: any;
     let retries = 0;
     while (retries < 2) {
-      rpcResult = await supabase.rpc('get_financial_state_v5', { p_user_id: userId });
+      rpcResult = await supabase.rpc('get_financial_state_v5', { p_family_group_id: userId });
       if (!rpcResult.error) break;
       retries++;
       if (retries < 2) await new Promise(r => setTimeout(r, 500));
@@ -59,6 +59,17 @@ export async function GET(request: NextRequest) {
       });
 
       data.accounts = enrichedAccounts;
+      
+      // Garantir consistência: Se a RPC retornou family_group mas não user_profile, mapeamos
+      if (data.family_group && !data.user_profile) {
+        data.user_profile = {
+          monthly_income_cents: data.family_group.monthly_income_cents || 0,
+          fixed_expenses_cents: data.family_group.fixed_expenses_cents || 0,
+          accumulated_balance_cents: (data.accounts || []).reduce((acc: number, a: any) => acc + (Number(a.balance_cents) || 0), 0),
+          financial_health_score: data.family_group.financial_health_score || 80,
+        };
+      }
+
       return NextResponse.json(data);
     }
 

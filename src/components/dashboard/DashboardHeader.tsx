@@ -14,9 +14,10 @@ interface DashboardHeaderProps {
   targetDate: Date;
   projectedBalance: number;
   balanceDifference: number;
+  netLiquidityCents?: number;
 }
 
-export function DashboardHeader({ isFuture, targetDate, projectedBalance, balanceDifference }: DashboardHeaderProps) {
+export function DashboardHeader({ isFuture, targetDate, projectedBalance, balanceDifference, netLiquidityCents }: DashboardHeaderProps) {
   const { openAdd } = useTransactionModal();
 
   return (
@@ -51,6 +52,15 @@ export function DashboardHeader({ isFuture, targetDate, projectedBalance, balanc
           >
             {formatCurrency(projectedBalance)}
           </motion.h1>
+
+          {!isFuture && netLiquidityCents !== undefined && (
+            <div className={cn(
+              "mt-2 px-3 py-1 rounded-full text-[10px] font-black uppercase w-fit",
+              netLiquidityCents >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+            )}>
+              Liquidez Real: {formatCurrency(netLiquidityCents)}
+            </div>
+          )}
 
           {!isFuture && (
             <button 
