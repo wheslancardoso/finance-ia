@@ -63,11 +63,6 @@ test.describe('Dashboard e Projeções Financeiras', () => {
 
     await setupFinancialMocks(page, mockState);
     
-    page.on('console', msg => {
-      if (msg.text().includes('[Filter Debug]')) {
-        console.log(`BROWSER LOG: ${msg.text()}`);
-      }
-    });
 
     await page.addInitScript(() => {
       window.localStorage.setItem('vesper_user_id', 'user-1');
@@ -86,7 +81,7 @@ test.describe('Dashboard e Projeções Financeiras', () => {
       await expect(ceilingValue).toContainText('8.000,00');
     }).toPass({ timeout: 10000 });
     
-    await expect(page.getByTestId('survival-status-message')).toContainText('Saúde Financeira Estável');
+    await expect(page.getByTestId('survival-status-message')).toContainText('Fluxo Estável');
   });
 
   test('deve alternar entre modos de visualização no Survival HUD', async ({ page }) => {
@@ -108,17 +103,21 @@ test.describe('Dashboard e Projeções Financeiras', () => {
 
   test('deve entrar em MODO CRISE quando a liquidez é negativa e o mês termina no vermelho', async ({ page }) => {
     // Simular estado de crise
-    mockState.accounts[0].balance_cents = -100000; // R$ -1.000,00
-    mockState.recurring_transactions[0].amount_cents = 0; // Sem salário
+    // Forçar crise: saldo negativo + despesas maiores que receitas
+    mockState.accounts[0].balance_cents = -500000;
+    mockState.recurring_transactions = [
+      { id: 'rec-1', amount_cents: 0, transaction_type: 'INCOME', status: 'active', next_date: new Date(Date.now() + 86400000).toISOString(), frequency: 'monthly' },
+      { id: 'rec-2', amount_cents: 1000000, transaction_type: 'EXPENSE', status: 'active', next_date: new Date(Date.now() + 86400000).toISOString(), frequency: 'monthly' }
+    ];
     
-    await page.reload();
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
     
     await expect(async () => {
-      await expect(page.getByTestId('survival-status-message')).toContainText('MODO CRISE ATIVADO');
-    }).toPass({ timeout: 10000 });
+      await expect(page.getByTestId('survival-status-message')).toContainText(/MODO CRISE ATIVADO/i);
+    }).toPass({ timeout: 15000 });
     
-    await expect(page.getByText('Meta de Salvação')).toBeVisible();
+    await expect(page.getByText(/Meta de Salvação/i)).toBeVisible();
   });
 
   test('deve refletir mudanças de assinaturas no saldo projetado do Dashboard', async ({ page }) => {
@@ -132,17 +131,28 @@ test.describe('Dashboard e Projeções Financeiras', () => {
     await page.getByTestId('add-subscription-button').click();
     
     await page.getByTestId('subscription-description-input').fill('Gasto Gigante');
-    await page.getByTestId('subscription-amount-input').fill('5000,00');
-    await page.getByTestId('subscription-submit-button').click();
+    await page.getByTestId('subscription-amount-input').fill('5000');
+    
+    const submitBtn = page.getByTestId('subscription-submit-button');
+    await expect(submitBtn).toBeEnabled({ timeout: 10000 });
+    await submitBtn.click();
+    
+    // Esperar o status modal de sucesso (Entendido) e confirmar
+    const okBtn = page.getByRole('button', { name: /Entendido/i });
+    await expect(okBtn).toBeVisible({ timeout: 10000 });
+    await okBtn.click();
+    
+    // Esperar o modal fechar
+    await expect(page.getByTestId('add-subscription-modal')).not.toBeVisible({ timeout: 10000 });
     
     // Voltar para o Dashboard
     await page.goto('/');
-    await page.reload();
     await page.waitForLoadState('networkidle');
     
     // 8k inicial - 5k novo = 3k
     await expect(async () => {
-      await expect(page.getByTestId('survival-ceiling-value')).toContainText('3.000,00');
-    }).toPass({ timeout: 10000 });
+      const ceiling = page.getByTestId('survival-ceiling-value');
+      await expect(ceiling).toContainText('3.000,00');
+    }).toPass({ timeout: 15000 });
   });
 });

@@ -86,14 +86,17 @@ test.describe('Auditoria de Transações', () => {
     
     // Clicar no menu de ações
     const menuBtn = item.locator('button[data-testid="action-menu-button"]');
-    await menuBtn.click({ force: true });
+    await expect(menuBtn).toBeVisible();
+    await menuBtn.click();
     
-    // Esperar pelo texto "Editar" e clicar
-    const editBtn = page.locator('button:has-text("Editar")');
-    await expect(editBtn).toBeVisible({ timeout: 10000 });
-    await editBtn.click({ force: true });
+    // Esperar pelo texto "Editar" e clicar (usando toPass para lidar com animações do menu)
+    await expect(async () => {
+      const editBtn = page.getByText('Editar', { exact: false });
+      await expect(editBtn).toBeVisible();
+      await editBtn.click({ force: true });
+    }).toPass({ timeout: 10000 });
 
-    await expect(page.getByTestId('add-transaction-modal')).toBeVisible();
+    await expect(page.getByTestId('add-transaction-modal')).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId('transaction-description-input')).toHaveValue('Supermercado BH');
   });
 

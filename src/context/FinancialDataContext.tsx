@@ -183,22 +183,20 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
       const state = data as FinancialStateResponse;
 
-      if (state.user_profile) {
-        const { monthly_income_cents, fixed_expenses_cents, accumulated_balance_cents, financial_health_score } = state.user_profile;
-        
-        setMonthlyIncomeCentsState(Number(monthly_income_cents || 0));
-        setFixedExpensesCentsState(Number(fixed_expenses_cents || 0));
-        setAccumulatedBalanceCents(Number(accumulated_balance_cents || 0));
-        setHealthScore(Number(financial_health_score || 0));
+      // 1. Extrair valores do perfil
+      let profileIncome = 0;
+      let profileExpenses = 0;
+      let profileBalance = 0;
+      let profileHealth = 0;
 
-        if (typeof window !== "undefined") {
-          localStorage.setItem("vesper_monthly_income", Number(monthly_income_cents || 0).toString());
-          localStorage.setItem("vesper_fixed_expenses", Number(fixed_expenses_cents || 0).toString());
-          localStorage.setItem("vesper_accumulated_balance", Number(accumulated_balance_cents || 0).toString());
-          localStorage.setItem("vesper_health_score", Number(financial_health_score || 0).toString());
-        }
+      if (state.user_profile) {
+        profileIncome = Number(state.user_profile.monthly_income_cents || 0);
+        profileExpenses = Number(state.user_profile.fixed_expenses_cents || 0);
+        profileBalance = Number(state.user_profile.accumulated_balance_cents || 0);
+        profileHealth = Number(state.user_profile.financial_health_score || 0);
       }
 
+      // 2. Calcular recorrências totais
       const recIncome = state.recurring_transactions
         ?.filter((r: RecurringTransaction) => r.transaction_type === "INCOME" && r.status === 'active')
         .reduce((sum: number, r: RecurringTransaction) => sum + r.amount_cents, 0) || 0;
@@ -207,106 +205,86 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         ?.filter((r: RecurringTransaction) => r.transaction_type === "EXPENSE" && r.status === 'active')
         .reduce((sum: number, r: RecurringTransaction) => sum + r.amount_cents, 0) || 0;
 
+      // 3. Calcular métricas do mês atual (Agendados e Cartão)
+      const now = new Date();
+      const todayYear = now.getFullYear();
+      const todayMonth = now.getMonth();
+      const todayDay = now.getDate();
+      
+      const endOfMonthDate = new Date(todayYear, todayMonth + 1, 0);
+      const endOfMonthDay = endOfMonthDate.getDate();
+      
+      const schedInc = (state.recurring_transactions || [])
+        .filter(r => {
+          if (r.transaction_type !== "INCOME" || r.status !== 'active') return false;
+          const datePart = typeof r.next_date === 'string' ? r.next_date.split('T')[0] : '';
+          const [y, m, d] = datePart.split('-').map(Number);
+          return y === todayYear && (m - 1) === todayMonth && d >= todayDay && d <= endOfMonthDay;
+        })
+        .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
+
+      const schedExp = (state.recurring_transactions || [])
+        .filter(r => {
+          if (r.transaction_type !== "EXPENSE" || r.status !== 'active') return false;
+          const datePart = typeof r.next_date === 'string' ? r.next_date.split('T')[0] : '';
+          const [y, m, d] = datePart.split('-').map(Number);
+          return y === todayYear && (m - 1) === todayMonth && d >= todayDay && d <= endOfMonthDay;
+        })
+        .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
+
+      const cardImpact = calculateTotalConsolidatedDebt(state.accounts || []);
+
+      // 4. Sincronizar com Banco de Dados Local (Dexie) - Mantendo async fora do fluxo principal de UI se possível
+      // Mas aqui vamos aguardar para garantir integridade se o usuário deslogar/trocar
+      await Promise.all([
+        db.categories.where('user_id').equals(userId).delete().then(() => 
+          db.categories.bulkPut(state.categories.map(c => ({ ...c, user_id: userId })))
+        ),
+        db.accounts.where('user_id').equals(userId).delete().then(() => 
+          db.accounts.bulkPut(state.accounts.map(a => ({ ...a, user_id: userId })))
+        ),
+        state.goals ? db.goals.where('user_id').equals(userId).delete().then(() => 
+          db.goals.bulkPut(state.goals.map(g => ({ ...g, user_id: userId })))
+        ) : Promise.resolve(),
+        state.recurring_transactions ? db.recurring_transactions.where('user_id').equals(userId).delete().then(() => 
+          db.recurring_transactions.bulkPut(state.recurring_transactions.map(r => ({ ...r, user_id: userId })))
+        ) : Promise.resolve(),
+        state.budgets ? db.budgets.where('user_id').equals(userId).delete().then(() => 
+          db.budgets.bulkPut(state.budgets.map(b => ({ ...b, user_id: userId })))
+        ) : Promise.resolve(),
+        db.transactions.where('user_id').equals(userId).delete().then(() => {
+          const allTx = [...(state.recent_transactions || []), ...(state.month_transactions || [])];
+          return db.transactions.bulkPut(allTx.map(t => ({ ...t, user_id: userId })));
+        })
+      ]);
+
+      // 5. Atualizar Estados do React de uma vez só (Batching)
+      setMonthlyIncomeCentsState(profileIncome);
+      setFixedExpensesCentsState(profileExpenses);
+      setAccumulatedBalanceCents(profileBalance);
+      setHealthScore(profileHealth);
       setRecurringIncomeCents(recIncome);
       setRecurringExpensesCents(recExpense);
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem("vesper_recurring_income", recIncome.toString());
-        localStorage.setItem("vesper_recurring_expense", recExpense.toString());
-      }
-
+      setExtraIncomeCents(Number(state.month_stats?.income || 0));
+      setCurrentMonthExpensesCents(Number(state.month_stats?.debit_expense || 0));
       setCategories(state.categories);
-      await db.categories.where('user_id').equals(userId).delete();
-      await db.categories.bulkPut(state.categories.map((c: Category) => ({ ...c, user_id: userId })));
-
-      if (state.month_stats) {
-        const extraInc = Number(state.month_stats.income || 0);
-        const monthExp = Number(state.month_stats.debit_expense || 0);
-          
-        setExtraIncomeCents(extraInc);
-        setCurrentMonthExpensesCents(monthExp);
-      }
-
       setAccounts(state.accounts);
-      await db.accounts.where('user_id').equals(userId).delete();
-      await db.accounts.bulkPut(state.accounts.map((a: Account) => ({ ...a, user_id: userId })));
-      
       setGoals(state.goals || []);
       setRecurringTransactions(state.recurring_transactions || []);
       setBudgets(state.budgets || []);
       setRecentTransactions(state.recent_transactions || []);
       setMonthTransactions(state.month_transactions || []);
+      setScheduledIncomeCents(schedInc);
+      setScheduledExpensesCents(schedExp);
+      setCardDebtImpactCents(cardImpact);
 
-      if (state.goals) {
-        await db.goals.where('user_id').equals(userId).delete();
-        await db.goals.bulkPut(state.goals.map((g: Goal) => ({ ...g, user_id: userId })));
-      }
-      if (state.recurring_transactions) {
-        await db.recurring_transactions.where('user_id').equals(userId).delete();
-        await db.recurring_transactions.bulkPut(state.recurring_transactions.map((r: RecurringTransaction) => ({ ...r, user_id: userId })));
-      }
-      if (state.budgets) {
-        await db.budgets.where('user_id').equals(userId).delete();
-        await db.budgets.bulkPut(state.budgets.map((b: Budget) => ({ ...b, user_id: userId })));
-      }
-      
-      // Cálculos de Agendados e Cartão para o mês atual
-      const now = new Date();
-      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const endOfThisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-      
-      console.log(`📊 [DataContext] Recurring Transactions: ${state.recurring_transactions?.length || 0}`);
-      const schedInc = (state.recurring_transactions || [])
-        .filter(r => {
-          const nextDate = new Date(r.next_date);
-          const nextTime = nextDate.getTime();
-          const startTime = startOfToday.getTime();
-          const endTime = endOfThisMonth.getTime();
-          
-          return (
-            r.transaction_type === "INCOME" && 
-            r.status === 'active' && 
-            nextTime <= endTime && 
-            nextTime >= startTime
-          );
-        })
-        .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
-
-          const isMatch = (
-            r.transaction_type === "EXPENSE" && 
-            r.status === 'active' && 
-            nextTime <= endTime && 
-            nextTime >= startTime
-          );
-          
-          if (r.description === 'Aluguel') {
-            console.log(`🔍 [Filter Debug] Aluguel Final Match: ${isMatch}`);
-          }
-          
-          return isMatch;
-        })
-        .reduce((sum, r) => {
-          const val = Number(r.amount_cents) || 0;
-          console.log(`➕ [Reduce Debug] Adding ${r.description}: ${val}`);
-          return sum + val;
-        }, 0);
-      
-      console.log(`💰 [DataContext] Final schedExp: ${schedExp}`);
-
-      const cardImpact = calculateTotalConsolidatedDebt(state.accounts || []);
-
-      setScheduledIncomeCents(Number(schedInc) || 0);
-      setScheduledExpensesCents(Number(schedExp) || 0);
-      setCardDebtImpactCents(Number(cardImpact) || 0);
-
-      if (state.recent_transactions || state.month_transactions) {
-        await db.transactions.where('user_id').equals(userId).delete();
-        if (state.recent_transactions) {
-          await db.transactions.bulkPut(state.recent_transactions.map((t: any) => ({ ...t, user_id: userId })));
-        }
-        if (state.month_transactions) {
-          await db.transactions.bulkPut(state.month_transactions.map((t: any) => ({ ...t, user_id: userId })));
-        }
+      if (typeof window !== "undefined") {
+        localStorage.setItem("vesper_monthly_income", profileIncome.toString());
+        localStorage.setItem("vesper_fixed_expenses", profileExpenses.toString());
+        localStorage.setItem("vesper_accumulated_balance", profileBalance.toString());
+        localStorage.setItem("vesper_health_score", profileHealth.toString());
+        localStorage.setItem("vesper_recurring_income", recIncome.toString());
+        localStorage.setItem("vesper_recurring_expense", recExpense.toString());
       }
 
       setLastFetched(Date.now());

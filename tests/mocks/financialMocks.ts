@@ -1,21 +1,7 @@
 import { Page } from '@playwright/test';
 
 export async function setupFinancialMocks(page: Page, state: any) {
-  // Mock GET /api/financial-state
-  await page.route('**/api/financial-state*', async (route) => {
-    const body = JSON.stringify(state);
-    console.log(`📡 [Mock API] Keys in state: ${Object.keys(state).join(', ')}`);
-    if (body.includes('Aluguel')) {
-      console.log(`📡 [Mock API] Returning state with Aluguel: ${body.length} bytes`);
-    } else {
-      console.log(`📡 [Mock API] Returning state WITHOUT Aluguel! Length: ${body.length} bytes`);
-    }
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body,
-    });
-  });
+  // O mock de financial-state foi movido para baixo com logs
 
   await page.route('**/api/accounts*', async (route) => {
     const method = route.request().method();
@@ -65,10 +51,35 @@ export async function setupFinancialMocks(page: Page, state: any) {
   // Mock POST /api/goals (Upsert)
   await page.route('**/api/goals', async (route) => {
     const payload = route.request().postDataJSON();
+    console.log(`[MOCK] POST /api/goals: ${payload.name}`);
+    
+    // Atualizar o estado local do mock
+    if (state.goals) {
+      const idx = state.goals.findIndex((g: any) => g.id === payload.id);
+      if (idx >= 0) {
+        state.goals[idx] = { ...state.goals[idx], ...payload };
+      } else {
+        const newGoal = { ...payload, id: payload.id || `mock-goal-${Date.now()}` };
+        state.goals.push(newGoal);
+        console.log(`[MOCK] Goal added to state. Total goals: ${state.goals.length}`);
+      }
+    }
+
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ ...payload, id: payload.id || `mock-goal-${Date.now()}` }),
+    });
+  });
+
+  // Mock GET /api/financial-state
+  await page.route('**/api/financial-state*', async (route) => {
+    const body = JSON.stringify(state);
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body,
     });
   });
 
@@ -77,7 +88,6 @@ export async function setupFinancialMocks(page: Page, state: any) {
     const method = route.request().method();
     if (method === 'POST') {
       const payload = route.request().postDataJSON();
-      console.log(`[MOCK] POST recurring-transaction: ${payload.description} | Amount: ${payload.amount_cents} | ID: ${payload.id}`);
       
       // Atualizar o estado local do mock para que o próximo refreshData veja a mudança
       if (state.recurring_transactions) {
@@ -128,8 +138,27 @@ export async function setupFinancialMocks(page: Page, state: any) {
   // Mock for goals (Supabase REST + Internal API)
   await page.route(url => url.pathname.includes('/goals'), async (route) => {
     const method = route.request().method();
-    if (method === 'PATCH' || method === 'POST' || method === 'UPDATE' || method === 'DELETE') {
-      await route.fulfill({ status: 200, body: JSON.stringify({ id: 'mock-goal-id', success: true }) });
+    const payload = route.request().postDataJSON();
+
+    if (method === 'POST' || method === 'PATCH' || method === 'UPDATE') {
+      if (state.goals) {
+        const id = payload?.id || `mock-goal-${Date.now()}`;
+        const idx = state.goals.findIndex((g: any) => g.id === id);
+        if (idx >= 0) {
+          state.goals[idx] = { ...state.goals[idx], ...payload };
+        } else {
+          state.goals.push({ ...payload, id });
+        }
+      }
+
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...payload, success: true }) });
+    } else if (method === 'DELETE') {
+      const url = new URL(route.request().url());
+      const id = url.searchParams.get('id');
+      if (id && state.goals) {
+        state.goals = state.goals.filter((g: any) => g.id !== id);
+      }
+      await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
     } else {
       await route.continue();
     }
@@ -138,8 +167,13 @@ export async function setupFinancialMocks(page: Page, state: any) {
   // Mock for transactions (Supabase REST + Internal API)
   await page.route(url => url.pathname.includes('/transactions'), async (route) => {
     const method = route.request().method();
-    if (method === 'PATCH' || method === 'POST' || method === 'UPDATE' || method === 'DELETE') {
-      await route.fulfill({ status: 200, body: JSON.stringify({ id: 'mock-tx-id', success: true }) });
+    const payload = route.request().postDataJSON();
+
+    if (method === 'POST' || method === 'PATCH' || method === 'UPDATE') {
+      console.log(`[MOCK] Mutation /transactions`);
+      await route.fulfill({ status: 200, body: JSON.stringify({ ...payload, success: true }) });
+    } else if (method === 'DELETE') {
+      await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
     } else {
       await route.continue();
     }
@@ -148,13 +182,33 @@ export async function setupFinancialMocks(page: Page, state: any) {
   // Mock for recurring_transactions (Supabase REST + Internal API)
   await page.route(url => url.pathname.includes('/recurring_transactions'), async (route) => {
     const method = route.request().method();
-    if (method === 'PATCH' || method === 'POST' || method === 'UPDATE' || method === 'DELETE') {
-      await route.fulfill({ status: 200, body: JSON.stringify({ id: 'mock-rec-id', success: true }) });
+    const payload = route.request().postDataJSON();
+
+    if (method === 'POST' || method === 'PATCH' || method === 'UPDATE') {
+      console.log(`[MOCK] Mutation /recurring_transactions: ${payload?.description || 'unknown'}`);
+      
+      if (state.recurring_transactions) {
+        const id = payload?.id || `mock-rec-${Date.now()}`;
+        const idx = state.recurring_transactions.findIndex((r: any) => r.id === id);
+        if (idx >= 0) {
+          state.recurring_transactions[idx] = { ...state.recurring_transactions[idx], ...payload };
+        } else {
+          state.recurring_transactions.push({ ...payload, id });
+        }
+      }
+
+      await route.fulfill({ status: 200, body: JSON.stringify({ ...payload, success: true }) });
+    } else if (method === 'DELETE') {
+      const url = new URL(route.request().url());
+      const id = url.searchParams.get('id');
+      if (id && state.recurring_transactions) {
+        state.recurring_transactions = state.recurring_transactions.filter((r: any) => r.id !== id);
+      }
+      await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
     } else {
       await route.continue();
     }
   });
-
   // Mock Supabase Auth
   await page.route('**/auth/v1/user', async (route) => {
     await route.fulfill({
@@ -163,5 +217,4 @@ export async function setupFinancialMocks(page: Page, state: any) {
       body: JSON.stringify({ id: '2a8d83e2-17b5-434d-91d9-2a963bc841da', email: 'test@example.com' }),
     });
   });
-
 }
