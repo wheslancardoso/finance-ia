@@ -14,7 +14,7 @@ export default function AccountsPage() {
   return (
     <div className="p-8 md:p-12 max-w-7xl mx-auto w-full space-y-12">
       <AccountsHeader />
-      <SyncUser userId={LOCAL_USER_ID} />
+      <SyncUser />
 
       {loading ? (
         <div className="py-24 flex flex-col items-center text-center">

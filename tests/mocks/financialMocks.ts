@@ -5,7 +5,6 @@ export async function setupFinancialMocks(page: Page, state: any) {
   await page.route('**/api/financial-state*', async (route) => {
     // Serializamos o objeto state no momento da requisição para refletir mutações
     const body = JSON.stringify(state);
-    console.log(`[MOCK] GET state. Accounts: ${state.accounts?.length} | Rec: ${state.recurring_transactions?.length} | Balance: ${state.user_profile?.accumulated_balance_cents}`);
     await route.fulfill({
       status: 200,
       contentType: 'application/json',

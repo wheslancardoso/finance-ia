@@ -1,8 +1,9 @@
 "use client";
 
-import { Shield, Palette, ChevronRight, MessageSquare } from "lucide-react";
+import { Shield, Palette, ChevronRight, MessageSquare, User as UserIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WhatsAppSettings } from "@/components/WhatsAppSettings";
+import { UserProfileSettings } from "@/components/UserProfileSettings";
 import { LOCAL_USER_ID } from "@/lib/constants";
 import { SyncUser } from "@/components/SyncUser";
 
@@ -16,6 +17,15 @@ export default function SettingsPage() {
       color: "text-emerald-400",
       bg: "bg-emerald-400/10",
       content: <WhatsAppSettings userId={LOCAL_USER_ID} initialNumber={undefined} />
+    },
+    {
+      id: "profile",
+      title: "Diretrizes de Perfil",
+      subtitle: "Configure sua renda e gastos base para cálculos de saúde financeira.",
+      icon: UserIcon,
+      color: "text-violet-400",
+      bg: "bg-violet-400/10",
+      content: <UserProfileSettings />
     },
     {
       id: "preferences",
@@ -47,7 +57,7 @@ export default function SettingsPage() {
 
   return (
     <div className="p-8 md:p-12 max-w-4xl mx-auto w-full space-y-12">
-      <SyncUser userId={LOCAL_USER_ID} />
+      <SyncUser />
       <header className="space-y-2">
         <div className="flex items-center gap-3 text-violet-400">
           <Shield className="w-5 h-5" />

@@ -2,15 +2,12 @@
 
 import { useEffect, useRef } from "react";
 import { useAccountModal } from "@/context/AccountModalContext";
-import { LOCAL_USER_ID } from "@/lib/constants";
 
 /**
- * SyncUser — Componente autônomo que resolve o userId.
+ * SyncUser — Componente autônomo que sincroniza o userId para o contexto.
  * 
- * Com a remoção do Supabase Auth, usa o LOCAL_USER_ID
- * como userId padrão para desenvolvimento local.
- * 
- * Aceita opcionalmente uma prop `userId` para sobrescrever.
+ * Agora ele apenas atua se uma prop `userId` for passada (ex: vindo do servidor),
+ * caso contrário, o AccountModalContext já gerencia o userId via localStorage.
  */
 export function SyncUser({ userId: serverUserId }: { userId?: string | null }) {
   const { userId: contextUserId, setUserId } = useAccountModal();
@@ -19,11 +16,8 @@ export function SyncUser({ userId: serverUserId }: { userId?: string | null }) {
   useEffect(() => {
     if (hasSet.current) return;
 
-    // Prioridade: prop > contexto > LOCAL_USER_ID
-    const resolvedId = serverUserId || contextUserId || LOCAL_USER_ID;
-    
-    if (resolvedId && resolvedId !== contextUserId) {
-      setUserId(resolvedId);
+    if (serverUserId && serverUserId !== contextUserId) {
+      setUserId(serverUserId);
       hasSet.current = true;
     }
   }, [serverUserId, contextUserId, setUserId]);

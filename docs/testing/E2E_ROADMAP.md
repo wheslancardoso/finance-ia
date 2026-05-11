@@ -59,11 +59,11 @@ Este documento descreve os fluxos de testes End-to-End implementados e o planeja
 
 ## 🚀 Fluxos Planejados (Próximas Etapas)
 
-### 7. Autenticação e Perfil
-- **Objetivo**: Garantir a persistência e segurança do usuário.
-- **Cenários**:
-  - Troca de `user_id` e recarregamento de estado.
-  - Persistência de configurações locais no LocalStorage.
+### 7. Autenticação e Perfil (`tests/auth-profile.test.ts`)
+- **Cenários Cobertos**:
+  - **Diretrizes**: Carregamento e salvamento de renda e gastos fixos via API de perfil.
+  - **Multi-usuário**: Troca de `user_id` com atualização instantânea de todo o ecossistema de dados.
+  - **Sessão**: Persistência de `user_id` em reloads e redirecionamento de logout para tela de login.
 
 ---
 

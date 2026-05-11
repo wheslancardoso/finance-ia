@@ -46,6 +46,20 @@ async function apiFetch(path: string, options?: RequestInit) {
 }
 
 export const financialService = {
+  // --- USER PROFILE ---
+  async upsertUserProfile(data: { id: string; monthly_income_cents?: number; fixed_expenses_cents?: number }) {
+    try {
+      const saved = await apiFetch("/api/user-profile", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      return { data: saved, error: null };
+    } catch (error: any) {
+      console.error("❌ upsertUserProfile failed:", error.message);
+      return { data: null, error };
+    }
+  },
+
   // --- TRANSACTIONS ---
   async upsertTransaction(data: any) {
     console.log("🚀 Iniciando upsertTransaction:", data.description, data.amount_cents);
