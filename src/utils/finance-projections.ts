@@ -67,11 +67,11 @@ export function getProjectedDetails(
   const fullMonthsAhead = differenceInCalendarMonths(targetDate, today);
 
   // 1. Orçamentos do mês atual
-  const remainingBudgetsThisMonth = budgets.reduce((acc, budget) => {
+  const remainingBudgetsThisMonth = budgets.reduce((acc, budget, index) => {
     const remaining = Math.max(0, budget.amount_cents - budget.spent_this_month);
     if (remaining > 0 && isSameMonth(targetDate, today)) {
       transactions.push({
-        id: `budget-now-${budget.category || 'general'}`,
+        id: `budget-now-${budget.category || 'general'}-${index}`,
         description: `Reserva: ${budget.category || 'Orçamento'}`,
         amount_cents: remaining,
         transaction_type: "EXPENSE",
@@ -87,13 +87,13 @@ export function getProjectedDetails(
 
   // 2. Orçamentos de meses futuros
   if (fullMonthsAhead > 0) {
-    budgets.forEach(budget => {
+    budgets.forEach((budget, index) => {
       const totalFutureBudget = budget.amount_cents * fullMonthsAhead;
       projected -= totalFutureBudget;
       
       // Adicionar entrada para o mês alvo especificamente se estivermos olhando para ele
       transactions.push({
-        id: `budget-future-${budget.category || 'general'}`,
+        id: `budget-future-${budget.category || 'general'}-${index}`,
         description: `Provisionado: ${budget.category || 'Orçamento'}`,
         amount_cents: budget.amount_cents,
         transaction_type: "EXPENSE",

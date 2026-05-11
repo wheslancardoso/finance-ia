@@ -108,7 +108,7 @@ export function TransactionTimeline({ transactions }: TransactionTimelineProps) 
 
                 return (
                   <motion.div
-                    key={tx.id}
+                    key={tx.id || `tx-${groupIndex}-${txIndex}`}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: (groupIndex * 0.1) + (txIndex * 0.05) }}

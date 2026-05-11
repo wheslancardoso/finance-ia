@@ -194,9 +194,9 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
                       exit={{ opacity: 0, y: -10 }}
                       className="absolute z-50 left-0 right-0 top-full mt-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl max-h-48 overflow-y-auto"
                     >
-                      {debitAccounts.map(acc => (
+                      {debitAccounts.map((acc, idx) => (
                         <div
-                          key={acc.id}
+                          key={acc.id || `acc-${idx}`}
                           onClick={() => { setSelectedAccountId(acc.id); setOpenDropdown(false); }}
                           className={cn(
                             "px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-medium text-white/80 hover:text-white transition-colors border-b border-white/5 last:border-0 flex items-center justify-between",

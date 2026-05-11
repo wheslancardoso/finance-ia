@@ -177,9 +177,9 @@ export default function RealtimeDashboard({
             {/* Quick Account Sync Bar */}
             {!isFuture && (
               <div className="flex flex-wrap gap-3">
-                {accounts.filter(a => a.type !== "CREDIT_CARD").map(acc => (
+                {accounts.filter(a => a.type !== "CREDIT_CARD").map((acc, idx) => (
                   <button 
-                    key={acc.id}
+                    key={acc.id || `acc-${idx}`}
                     onClick={() => handleQuickSync(acc)}
                     className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group"
                   >
@@ -328,7 +328,7 @@ export default function RealtimeDashboard({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {(displayBudgets || []).map((budget, i) => (
             <SpendingCapacity 
-              key={budget.id || i}
+              key={`${budget.id || 'budget'}-${i}`}
               category={budget.category_id || 'Geral'}
               spent={budget.spent_cents || 0}
               limit={budget.amount_cents || 0}

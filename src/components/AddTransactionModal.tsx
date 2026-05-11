@@ -514,9 +514,9 @@ export function AddTransactionModal() {
                             exit={{ opacity: 0, y: -10 }}
                             className="absolute z-50 left-0 right-0 top-full mt-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto"
                           >
-                            {accounts.map(acc => (
+                            {accounts.map((acc, idx) => (
                               <div
-                                key={acc.id}
+                                key={acc.id || `acc-${idx}`}
                                 onClick={() => {
                                   setAccountId(acc.id);
                                   setOpenAccount(false);
@@ -588,9 +588,9 @@ export function AddTransactionModal() {
                             >
                               Nenhuma (Deixar Vazio)
                             </div>
-                            {filteredCategories.map(cat => (
+                            {filteredCategories.map((cat, idx) => (
                               <div
-                                key={cat.id}
+                                key={cat.id || `cat-${idx}`}
                                 onClick={() => {
                                   setCategoryId(cat.id);
                                   setOpenCategory(false);

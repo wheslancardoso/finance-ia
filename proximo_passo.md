@@ -1,14 +1,10 @@
-# Status das Implementações
+# Próximos Passos - Finance IA
 
-## ✅ Refatoração do Pagamento de Faturas [CONCLUÍDO]
-- [x] **Nova Rota de API**: Criada em `src/app/api/accounts/pay-invoice/route.ts`.
-- [x] **Service**: Método `payInvoice` adicionado ao `financialService.ts`.
-- [x] **Componente**: `PayInvoiceModal.tsx` refatorado para usar a API interna.
-- [x] **Testes E2E**: Suíte completa em `tests/invoice-payment.test.ts` cobrindo pagamento total, parcial, "já paguei" e erros.
-- [x] **Bugs Corrigidos**: 
-    - Crash no `AddTransactionModal` por falta de categorias nos mocks.
-    - Unmounting prematuro do modal de pagamento no `AccountCard`.
-    - Formatação de valores e sequência de estados de loading/sucesso.
+## ✅ Concluído
+- [x] **Refatoração do Pagamento de Faturas**: Migração para API interna concluída com sucesso.
+- [x] **Testes E2E Robustos**: Suíte Playwright em `tests/invoice-payment.test.ts` validando todos os cenários.
+- [x] **Estabilização de UI**: Resolução de erros de "Duplicate Keys" no console e melhoria da robustez de renderização.
+- [x] **Correções de UX**: Ajuste fino em modais de pagamento, transações e estados de sincronização.
 
 ---
 
@@ -22,7 +18,9 @@ Aprimorar a gestão de fluxos recorrentes (assinaturas, contas fixas, salários)
 - **Lógica**: Refinar o cálculo do "Teto de Sobrevivência" para considerar a variabilidade de datas de vencimento.
 - **Testes**: Implementar testes E2E para a criação e edição de fluxos recorrentes complexos.
 
-### Resultado Esperado
-- Visualização gráfica dos próximos compromissos fixos.
-- Alerta proativo de quebra de teto baseada em recorrências futuras.
+### Infraestrutura & Dívida Técnica
+- [ ] **Next.js Middleware**: Migrar a convenção de arquivo `middleware` para `proxy` conforme aviso de depreciação.
+- [ ] **Performance**: Auditoria de renderizações desnecessárias em componentes de alta frequência (gráficos e cards).
 
+---
+*Atualizado em: 11 de Maio de 2026*
