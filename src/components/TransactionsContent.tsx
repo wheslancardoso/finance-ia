@@ -25,7 +25,7 @@ interface TransactionsContentProps {
 }
 
 export function TransactionsContent({ initialTransactions, accounts: serverAccounts }: TransactionsContentProps) {
-  const { accounts: contextAccounts, transactions: monthTransactions, isLoading } = useFinancialData();
+  const { accounts: contextAccounts, transactions: monthTransactions, loading } = useFinancialData();
   const { openAdd } = useTransactionModal();
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -33,10 +33,10 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
   const [hasFetchedOnce, setHasFetchedOnce] = React.useState(false);
 
   React.useEffect(() => {
-    if (!isLoading && !hasFetchedOnce) {
+    if (!loading && !hasFetchedOnce) {
       setHasFetchedOnce(true);
     }
-  }, [isLoading, hasFetchedOnce]);
+  }, [loading, hasFetchedOnce]);
 
   // Use transactions from context once the first fetch has completed.
   // This prevents the UI from flashing empty while loading, but ensures
@@ -100,6 +100,7 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
               ? "bg-violet-500/20 border-violet-500/40 text-violet-100 shadow-[0_0_20px_rgba(139,92,246,0.15)]" 
               : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:border-white/20"
           )}
+          data-testid="account-filter-all"
         >
           <LayoutGrid className="w-4 h-4" />
           <span className="text-sm font-bold uppercase tracking-wider">Tudo</span>
@@ -113,6 +114,7 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
             <button
               key={acc.id}
               onClick={() => setSelectedAccountId(acc.id)}
+              data-testid={`account-filter-${acc.id}`}
               className={cn(
                 "flex-shrink-0 flex flex-col min-w-[140px] p-3 rounded-2xl border transition-all text-left group",
                 isSelected
@@ -175,6 +177,7 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar transação..."
+              data-testid="transaction-search-input"
               className="bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-violet-500/50 focus:bg-white/10 transition-all w-64"
             />
           </div>

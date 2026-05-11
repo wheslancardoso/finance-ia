@@ -47,23 +47,23 @@ Este documento descreve os fluxos de testes End-to-End implementados e o planeja
   - Bloqueio de transferência para a mesma conta.
   - Sincronização automática com o HUD de Liquidez Real.
 
+### 6. Histórico de Transações e Auditoria (`tests/transactions-audit.test.ts`)
+- **Cenários Cobertos**:
+  - **Busca**: Filtragem de transações por descrição via campo de busca.
+  - **Filtros**: Seleção de contas específicas para visualizar histórico segmentado.
+  - **Edição**: Abertura do modal de edição com preenchimento automático dos dados da transação.
+  - **Exclusão**: Fluxo completo de remoção de transação com confirmação e atualização da lista em tempo real.
+  - **Status**: Alternância de status de pagamento (Pago/Pendente).
+
 ---
 
 ## 🚀 Fluxos Planejados (Próximas Etapas)
 
-
-### 6. Autenticação e Perfil
+### 7. Autenticação e Perfil
 - **Objetivo**: Garantir a persistência e segurança do usuário.
 - **Cenários**:
   - Troca de `user_id` e recarregamento de estado.
   - Persistência de configurações locais no LocalStorage.
-
-### 7. Histórico de Transações e Filtros
-- **Objetivo**: Garantir que a busca e filtros de transações funcionam.
-- **Cenários**:
-  - Busca por descrição.
-  - Filtro por categoria.
-  - Edição de transação pontual.
 
 ---
 
