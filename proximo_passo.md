@@ -8,15 +8,20 @@
 
 ---
 
-## 🚀 Próxima Implementação: Gestão Avançada de Fluxos Recorrentes
+- [x] **Gestão de Fluxos Recorrentes**: Implementação de CRUD completo e estabilização de testes E2E.
+- [x] **Infraestrutura de Testes**: Padronização de `data-testid` em componentes base como `GlassCard` e `ConfirmModal`.
+
+---
+
+## 🚀 Próxima Implementação: Inteligência de Dashboard & Projeções
 
 ### Objetivo
-Aprimorar a gestão de fluxos recorrentes (assinaturas, contas fixas, salários) permitindo uma visualização mais clara do impacto no orçamento futuro e facilitando a edição em lote.
+Validar a precisão matemática e visual das projeções de longo prazo e a resposta do Dashboard a mudanças de cenário.
 
 ### Diretrizes Técnicas
-- **Interface**: Criar um componente de "Timeline de Recorrência" no Dashboard.
-- **Lógica**: Refinar o cálculo do "Teto de Sobrevivência" para considerar a variabilidade de datas de vencimento.
-- **Testes**: Implementar testes E2E para a criação e edição de fluxos recorrentes complexos.
+- **Interface**: Refinar os gráficos do Survival HUD para exibir "Burn Rate" mensal.
+- **Lógica**: Implementar simulações de "E se?" (ex: "E se eu cancelar a Netflix?") com feedback imediato no HUD.
+- **Testes**: Criar `tests/dashboard-projections.test.ts` para validar o impacto de novas transações nas métricas de saúde financeira.
 
 ### Infraestrutura & Dívida Técnica
 - [ ] **Next.js Middleware**: Migrar a convenção de arquivo `middleware` para `proxy` conforme aviso de depreciação.
