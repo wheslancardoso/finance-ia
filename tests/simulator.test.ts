@@ -77,7 +77,8 @@ test.describe('Simulador de Impacto', () => {
     // Garantir que estamos na página de metas
     await expect(page.getByRole('heading', { name: 'Suas Metas' })).toBeVisible();
     
-    // Tentar achar por texto parcial insensível a maiúsculas/minúsculas
-    await expect(page.getByText(/Parcelamento/i)).toBeVisible({ timeout: 15000 });
+    // Usar o test-id específico do título do card para evitar ambiguidade com recomendações (strict mode)
+    const goalTitle = page.getByTestId('goal-card-title').filter({ hasText: /Parcelamento/i });
+    await expect(goalTitle).toBeVisible({ timeout: 15000 });
   });
 });
