@@ -45,6 +45,7 @@ export function DashboardHeader({ isFuture, targetDate, projectedBalance, balanc
             key={projectedBalance}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
+            data-testid="net-liquidity-value"
             className={cn(
               "text-6xl md:text-7xl font-black tracking-tighter tabular-nums",
               isFuture ? "text-violet-400 drop-shadow-[0_0_30px_rgba(139,92,246,0.3)]" : "text-white"
@@ -54,10 +55,13 @@ export function DashboardHeader({ isFuture, targetDate, projectedBalance, balanc
           </motion.h1>
 
           {!isFuture && netLiquidityCents !== undefined && (
-            <div className={cn(
-              "mt-2 px-3 py-1 rounded-full text-[10px] font-black uppercase w-fit",
-              netLiquidityCents >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
-            )}>
+            <div 
+              data-testid="real-liquidity-badge"
+              className={cn(
+                "mt-2 px-3 py-1 rounded-full text-[10px] font-black uppercase w-fit",
+                netLiquidityCents >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+              )}
+            >
               Liquidez Real: {formatCurrency(netLiquidityCents)}
             </div>
           )}

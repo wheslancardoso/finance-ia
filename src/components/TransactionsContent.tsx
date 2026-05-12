@@ -41,7 +41,11 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
   // Use transactions from context once the first fetch has completed.
   // This prevents the UI from flashing empty while loading, but ensures
   // that once live data is available, it's used exclusively.
-  const displayTransactions = hasFetchedOnce ? monthTransactions : (monthTransactions.length > 0 ? monthTransactions : initialTransactions);
+  // Use initialTransactions as the source for history, falling back to context only if empty
+  const displayTransactions = useMemo(() => {
+    if (initialTransactions && initialTransactions.length > 0) return initialTransactions;
+    return monthTransactions;
+  }, [initialTransactions, monthTransactions]);
 
   // Usar as contas do contexto se disponíveis (pois têm o cálculo da fatura)
   const accounts = contextAccounts.length > 0 ? contextAccounts : serverAccounts;

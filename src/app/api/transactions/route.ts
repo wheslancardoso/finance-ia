@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase
       .from('transactions')
-      .select('*, categories(name, type)')
+      .select('*, categories(name, type), accounts(name, type, closing_day)')
       .eq('user_id', userId)
       .order('date', { ascending: false })
       .limit(limit);
@@ -29,6 +29,8 @@ export async function GET(request: NextRequest) {
 
     const flattenedData = (data || []).map((t: any) => ({
       ...t,
+      category: t.categories,
+      account: t.accounts,
       category_name: t.categories?.name,
       category_type: t.categories?.type,
     }));
