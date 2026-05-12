@@ -13,6 +13,7 @@ export default function SurvivalHUD() {
   const { 
     monthlyIncomeCents, 
     recurringIncomeCents,
+    primaryIncomeCents,
     setMonthlyIncomeCents
   } = useFinancialData();
 
@@ -55,7 +56,8 @@ export default function SurvivalHUD() {
   });
 
   // Determinar Estado Visual
-  const totalIncomeForStatus = (monthlyIncomeCents || 0) + (recurringIncomeCents || 0);
+  const effectiveIncome = primaryIncomeCents > 0 ? primaryIncomeCents : ((monthlyIncomeCents || 0) + (recurringIncomeCents || 0));
+  const totalIncomeForStatus = effectiveIncome;
   const percentageOfIncome = totalIncomeForStatus > 0 ? (survivalCeilingCents / totalIncomeForStatus) * 100 : 0;
   
   let statusColor = "text-emerald-400";
@@ -84,7 +86,7 @@ export default function SurvivalHUD() {
     statusMessage = "Atenção ao Orçamento";
   }
 
-  const hasFinancialData = (monthlyIncomeCents || 0) + (recurringIncomeCents || 0) > 0;
+  const hasFinancialData = effectiveIncome > 0;
 
   // Se não houver nenhum dado e não estiver em crise, podemos ocultar ou mostrar setup
   // Mas se já houver dados, usamos eles automaticamente.
@@ -98,7 +100,7 @@ export default function SurvivalHUD() {
           <div>
             <h3 className="text-white/80 font-bold mb-1">Configuração de Fluxo</h3>
             <p className="text-sm text-white/40 max-w-sm">
-              Configure sua renda mensal para ativar o Teto de Sobrevivência Dinâmico.
+              Configure sua renda mensal abaixo ou marque uma <a href="/subscriptions" className="text-purple-400 hover:underline">receita recorrente como principal</a>.
             </p>
           </div>
         </div>

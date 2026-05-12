@@ -124,6 +124,12 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
                   <p className="text-[10px] text-white/30 font-bold uppercase tracking-tighter">
                     {sub.category?.name || "Sem Categoria"} • {sub.transaction_type === 'INCOME' ? 'Receita' : 'Gasto'}
                   </p>
+                  {sub.is_primary_income && (
+                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 mt-1">
+                      <TrendingUp className="w-3 h-3 text-emerald-400" />
+                      <span className="text-[8px] font-black uppercase tracking-widest text-emerald-400">Renda Principal</span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2">

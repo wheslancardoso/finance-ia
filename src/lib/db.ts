@@ -48,10 +48,11 @@ export interface RecurringTransaction {
   transaction_type: "INCOME" | "EXPENSE";
   frequency: "monthly" | "weekly" | "yearly";
   next_date: string;
-  status: "active" | "inactive";
+  status: "active" | "paused" | "cancelled";
   category_id?: string;
   account_id?: string;
   user_id?: string;
+  is_primary_income?: boolean;
 }
 
 export interface Budget {

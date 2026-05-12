@@ -112,6 +112,7 @@ interface FinancialDataContextType {
   getIncomeMix: () => IncomeMixItem[];
   getNetWorthHistory: () => NetWorthHistoryItem[];
   createTransfer: (fromId: string, toId: string, amountCents: number) => Promise<void>;
+  primaryIncomeCents: number;
   userId: string | null;
 }
 
@@ -142,6 +143,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const [scheduledIncomeCents, setScheduledIncomeCents] = useState(0);
   const [scheduledExpensesCents, setScheduledExpensesCents] = useState(0);
   const [cardDebtImpactCents, setCardDebtImpactCents] = useState(0);
+  const [primaryIncomeCents, setPrimaryIncomeCents] = useState(0);
 
   const { userId } = useAccountModal();
 
@@ -203,6 +205,10 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
       const recExpense = state.recurring_transactions
         ?.filter((r: RecurringTransaction) => r.transaction_type === "EXPENSE" && r.status === 'active')
+        .reduce((sum: number, r: RecurringTransaction) => sum + r.amount_cents, 0) || 0;
+
+      const primaryInc = state.recurring_transactions
+        ?.filter((r: RecurringTransaction) => r.transaction_type === "INCOME" && r.status === 'active' && r.is_primary_income)
         .reduce((sum: number, r: RecurringTransaction) => sum + r.amount_cents, 0) || 0;
 
       // 3. Calcular métricas do mês atual (Agendados e Cartão)
@@ -277,6 +283,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       setScheduledIncomeCents(schedInc);
       setScheduledExpensesCents(schedExp);
       setCardDebtImpactCents(cardImpact);
+      setPrimaryIncomeCents(primaryInc);
 
       if (typeof window !== "undefined") {
         localStorage.setItem("vesper_monthly_income", profileIncome.toString());
@@ -597,6 +604,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       simulatePurchaseImpact,
       getGoalRecommendations,
       toggleTransactionPaid,
+      primaryIncomeCents,
       userId
     }}>
       {children}

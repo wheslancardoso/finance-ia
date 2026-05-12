@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Zap, Wallet, Tag, CreditCard, ChevronDown, Loader2 } from "lucide-react";
+import { X, Zap, Wallet, Tag, CreditCard, ChevronDown, Loader2, TrendingUp } from "lucide-react";
 import { financialService } from "@/services/financialService";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useSubscriptionModal } from "@/context/SubscriptionModalContext";
@@ -36,6 +36,7 @@ export function AddSubscriptionModal() {
   const [accountId, setAccountId] = useState("");
   const [day, setDay] = useState(new Date().getDate());
   const [type, setType] = useState<"EXPENSE" | "INCOME">("EXPENSE");
+  const [isPrimaryIncome, setIsPrimaryIncome] = useState(false);
   
   // Pre-preencher se estiver editando
   useEffect(() => {
@@ -49,6 +50,7 @@ export function AddSubscriptionModal() {
       if (editingSubscription.next_date) {
         setDay(new Date(editingSubscription.next_date).getDate());
       }
+      setIsPrimaryIncome(editingSubscription.is_primary_income || false);
     } else {
       setDescription("");
       setAmount("");
@@ -56,6 +58,7 @@ export function AddSubscriptionModal() {
       if (accounts.length > 0) setAccountId(accounts[0].id);
       setDay(new Date().getDate());
       setType("EXPENSE");
+      setIsPrimaryIncome(false);
     }
   }, [editingSubscription, accounts, isOpen]);
 
@@ -117,7 +120,8 @@ export function AddSubscriptionModal() {
         transaction_type: type,
         frequency: "monthly",
         next_date: nextDate.toISOString(),
-        status: editingSubscription ? editingSubscription.status : "active"
+        status: editingSubscription ? editingSubscription.status : "active",
+        is_primary_income: type === "INCOME" ? isPrimaryIncome : false
       };
 
       const { error } = await financialService.upsertRecurringTransaction(payload);
@@ -258,6 +262,33 @@ export function AddSubscriptionModal() {
                   />
                 </div>
               </div>
+
+              {type === "INCOME" && (
+                <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-2xl p-4 flex items-center justify-between group hover:bg-emerald-500/10 transition-all cursor-pointer"
+                     onClick={() => setIsPrimaryIncome(!isPrimaryIncome)}>
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "w-8 h-8 rounded-lg flex items-center justify-center transition-all",
+                      isPrimaryIncome ? "bg-emerald-500 text-white" : "bg-white/5 text-white/20"
+                    )}>
+                      <TrendingUp className="w-4 h-4" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-bold text-white">Renda Principal</p>
+                      <p className="text-[10px] text-white/40 font-medium">Usar para cálculo de teto dinâmico</p>
+                    </div>
+                  </div>
+                  <div className={cn(
+                    "w-10 h-6 rounded-full p-1 transition-all duration-300",
+                    isPrimaryIncome ? "bg-emerald-500" : "bg-white/10"
+                  )}>
+                    <div className={cn(
+                      "w-4 h-4 rounded-full bg-white transition-all duration-300",
+                      isPrimaryIncome ? "translate-x-4" : "translate-x-0"
+                    )} />
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 {/* Categoria Custom Select */}

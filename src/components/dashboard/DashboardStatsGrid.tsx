@@ -5,9 +5,14 @@ import React from "react";
 import { ShieldCheck, AlertCircle, AlertTriangle, History } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
+import { useFinancialData } from "@/context/FinancialDataContext";
 
 export function DashboardStatsGrid() {
   const { netLiquidityCents, totalConsolidatedDebtCents, accumulatedBalanceCents, monthlyOutlook, healthScore } = useFinancialAnalysis();
+  const { primaryIncomeCents, monthlyIncomeCents, recurringIncomeCents } = useFinancialData();
+
+  const isUsingPrimary = primaryIncomeCents > 0;
+  const effectiveIncome = isUsingPrimary ? primaryIncomeCents : (monthlyIncomeCents || recurringIncomeCents || 0);
 
   return (
     <div className="space-y-4">
@@ -48,6 +53,17 @@ export function DashboardStatsGrid() {
               {netLiquidityCents < 0 ? "Em Recuperação" : (healthScore > 70 ? "Excelente" : healthScore > 40 ? "Atenção" : "Crítico")}
             </p>
           </div>
+        </div>
+
+        {/* Card de Renda Principal (Novo) */}
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col gap-1 relative overflow-hidden group hover:bg-white/10 transition-all">
+          <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Base de Fluxo</span>
+          <span className="text-xl font-black text-emerald-400 tabular-nums">
+            {formatCurrency(effectiveIncome)}
+          </span>
+          <p className="text-[10px] text-white/40 mt-2 italic">
+            {isUsingPrimary ? "Baseado na Renda Principal." : "Renda manual configurada."}
+          </p>
         </div>
 
         <div className={cn(
