@@ -12,15 +12,20 @@ export function UserProfileSettings() {
   const { monthlyIncomeCents, fixedExpensesCents, refreshData } = useFinancialData();
   const { userId } = useAccountModal();
   
-  const [income, setIncome] = useState((monthlyIncomeCents / 100).toString());
-  const [expenses, setExpenses] = useState((fixedExpensesCents / 100).toString());
+  const formatValue = (cents: number) => {
+    if (!cents && cents !== 0) return "";
+    return (cents / 100).toFixed(2).replace(".", ",");
+  };
+
+  const [income, setIncome] = useState(formatValue(monthlyIncomeCents));
+  const [expenses, setExpenses] = useState(formatValue(fixedExpensesCents));
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
   // Sync state when context changes
   React.useEffect(() => {
-    setIncome((monthlyIncomeCents / 100).toString());
-    setExpenses((fixedExpensesCents / 100).toString());
+    setIncome(formatValue(monthlyIncomeCents));
+    setExpenses(formatValue(fixedExpensesCents));
   }, [monthlyIncomeCents, fixedExpensesCents]);
 
   const handleSave = async () => {

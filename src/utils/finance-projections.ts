@@ -160,7 +160,7 @@ export function getProjectedDetails(
         projected += item.amount_cents;
         if (isTargetMonth) {
           transactions.push({
-            id: `recurring-${item.id || Math.random()}-${occurrenceDate.getTime()}`,
+            id: `recurring-${item.id || (item.description || 'item').replace(/\s+/g, '-')}-${occurrenceDate.getTime()}`,
             description: item.description || item.category || "Receita Fixa",
             amount_cents: item.amount_cents,
             transaction_type: "INCOME",
@@ -182,7 +182,7 @@ export function getProjectedDetails(
 
         if (isTargetMonth) {
           transactions.push({
-            id: `recurring-${item.id || Math.random()}-${occurrenceDate.getTime()}`,
+            id: `recurring-${item.id || (item.description || 'item').replace(/\s+/g, '-')}-${occurrenceDate.getTime()}`,
             description: item.description || item.category || "Despesa Fixa",
             amount_cents: item.amount_cents,
             transaction_type: "EXPENSE",

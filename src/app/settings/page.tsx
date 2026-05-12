@@ -97,7 +97,22 @@ export default function SettingsPage() {
       <footer className="pt-12 flex flex-col items-center gap-4 text-center">
         <div className="w-full h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent mb-8" />
         <p className="text-[10px] font-black text-white/10 uppercase tracking-[0.5em]">Vesper v1.0.4 - Secure Connection</p>
-        <button className="text-red-500/40 hover:text-red-500 text-[10px] font-black uppercase tracking-widest transition-colors">Encerrar Sessão de Comando</button>
+        <button 
+          onClick={async () => {
+            // Limpeza de mock para testes
+            if (typeof document !== 'undefined') {
+              document.cookie = 'sb-mock-user-id=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+            }
+            const { createClient } = await import("@/utils/supabase/client");
+            const supabase = createClient();
+            await supabase.auth.signOut();
+            window.location.href = "/login";
+          }}
+          data-testid="settings-logout-button"
+          className="text-red-500/40 hover:text-red-500 text-[10px] font-black uppercase tracking-widest transition-colors"
+        >
+          Sair da Conta
+        </button>
       </footer>
     </div>
   );

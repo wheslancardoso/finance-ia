@@ -209,8 +209,8 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     setGoals(data.goals || []);
     setRecurringTransactions(recurring);
     setBudgets(data.budgets || []);
-    setRecentTransactions([...(data.transactions || [])]);
-    setMonthTransactions([...(data.month_transactions || [])]);
+    setRecentTransactions([...(data.recent_transactions || data.transactions || [])]);
+    setMonthTransactions([...(data.month_transactions || data.transactions || [])]);
     setFutureTransactions([...(data.future_transactions || [])]);
     
     if (data.user_profile) {

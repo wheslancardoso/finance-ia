@@ -20,7 +20,7 @@ export function FinanceBridgeHUD() {
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       data-testid="finance-bridge-hud"
-      className="w-full bg-black/40 backdrop-blur-md border-b border-white/5 py-3 px-6 sticky top-0 z-[40]"
+      className="w-full bg-black/40 backdrop-blur-md border-b border-white/5 py-3 px-6 sticky top-16 md:top-0 z-[40]"
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
         {/* Lado Esquerdo: Saúde e Status */}

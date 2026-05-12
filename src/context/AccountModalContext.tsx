@@ -22,7 +22,16 @@ export function AccountModalProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   const [accountToEdit, setAccountToEdit] = useState<any | null>(null);
-  const [userId, setUserIdState] = useState<string | null>(null);
+  const [userId, setUserIdState] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const isE2E = (window as any).__E2E_MOCK_STATE__;
+      if (isE2E) return "e2e-user";
+      
+      const mockCookie = document.cookie.split('; ').find(row => row.startsWith('sb-mock-user-id='));
+      if (mockCookie) return mockCookie.split('=')[1];
+    }
+    return null;
+  });
   
   // Memoizar o cliente para evitar recriação em cada render e loops no useEffect
   const supabase = React.useMemo(() => createClient(), []);

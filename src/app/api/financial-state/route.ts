@@ -3,8 +3,6 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/utils/supabase/server";
 
-export const dynamic = 'force-dynamic';
-
 /**
  * GET /api/financial-state
  * Retorna o estado financeiro completo via RPC get_financial_state_v5.
