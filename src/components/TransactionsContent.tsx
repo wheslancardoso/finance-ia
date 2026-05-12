@@ -162,14 +162,21 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
                 {acc.name}
               </p>
               <p className={cn(
-                "text-xs font-black tabular-nums truncate w-full mt-0.5",
+                "text-[10px] md:text-xs font-black tabular-nums truncate w-full mt-0.5",
                 isSelected ? "text-white" : "text-white/60"
               )}>
                 {isCredit ? (() => {
                   const closedAmount = acc.closed_invoice_cents || 0;
                   const openAmount = acc.open_invoice_cents || 0;
                   const showClosed = closedAmount > 0;
-                  return `${showClosed ? "Fechada" : "Aberta"}: ${formatCurrency(showClosed ? closedAmount : openAmount)}`;
+                  const label = showClosed ? "Fechada" : "Aberta";
+                  const amountStr = formatCurrency(showClosed ? closedAmount : openAmount);
+                  return (
+                    <span className="flex items-center gap-1">
+                      <span className="opacity-40 hidden xs:inline">{label}:</span>
+                      <span>{amountStr}</span>
+                    </span>
+                  );
                 })() : formatCurrency(acc.balance_cents || 0)}
               </p>
             </button>
@@ -187,24 +194,23 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
           </p>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto">
+        <div className="flex items-center gap-2 w-full md:w-auto">
           <div className="relative group flex-1 md:flex-none">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 group-focus-within:text-violet-400 transition-colors" />
+            <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-4 md:h-4 text-white/20 group-focus-within:text-violet-400 transition-colors" />
             <input 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar..."
               data-testid="transaction-search-input"
-              className="bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-violet-500/50 focus:bg-white/10 transition-all w-full md:w-64"
+              className="bg-white/5 border border-white/10 rounded-2xl py-2.5 md:py-3 pl-9 md:pl-10 pr-4 text-xs md:text-sm text-white outline-none focus:border-violet-500/50 focus:bg-white/10 transition-all w-full md:w-64"
             />
           </div>
-          <button className="p-3 rounded-2xl bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all shrink-0">
-            <Filter className="w-5 h-5" />
+          <button className="p-2.5 md:p-3 rounded-2xl bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all shrink-0">
+            <Filter className="w-4 h-4 md:w-5 md:h-5" />
           </button>
-
           <button 
             onClick={openAdd}
-            className="flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-4 md:px-5 py-3 rounded-2xl font-semibold transition-all shadow-lg shadow-violet-600/20 active:scale-95 shrink-0"
+            className="flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white p-2.5 md:px-5 md:py-3 rounded-2xl font-semibold transition-all shadow-lg shadow-violet-600/20 active:scale-95 shrink-0"
             data-testid="add-transaction-button"
           >
             <Plus className="w-5 h-5 md:w-4 md:h-4" />

@@ -80,7 +80,7 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
       <GlassCard 
         data-testid={`transaction-item-${tx.id}`}
         className={cn(
-          "p-4 flex items-center justify-between group hover:border-white/20 transition-all",
+          "p-3 md:p-4 flex items-center justify-between group hover:border-white/20 transition-all",
           isInstallment && "cursor-pointer",
           tx.is_paid && "opacity-50 grayscale-[0.5]"
         )}
@@ -88,23 +88,23 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
           if (isInstallment) setIsTimelineOpen(true);
         }}
       >
-        <div className="flex items-center gap-3 md:gap-4 min-w-0">
+        <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
           <div className={cn(
-            "w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center border transition-transform group-hover:scale-105 shrink-0",
+            "w-9 h-9 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center border transition-transform group-hover:scale-105 shrink-0",
             isIncome 
               ? "bg-green-500/10 border-green-500/20 text-green-400" 
               : "bg-red-500/10 border-red-500/20 text-red-400"
           )}>
-            {isIncome ? <ArrowUpRight className="w-5 h-5 md:w-6 md:h-6" /> : <ArrowDownLeft className="w-5 h-5 md:w-6 md:h-6" />}
+            {isIncome ? <ArrowUpRight className="w-4 h-4 md:w-6 md:h-6" /> : <ArrowDownLeft className="w-4 h-4 md:w-6 md:h-6" />}
           </div>
           
-          <div className="min-w-0">
-            <p className={cn("text-white font-semibold text-base md:text-lg truncate", tx.is_paid && "line-through text-white/40")}>
+          <div className="min-w-0 flex-1">
+            <p className={cn("text-white font-semibold text-sm md:text-lg truncate", tx.is_paid && "line-through text-white/40")}>
               {tx.description}
             </p>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <div className="flex flex-wrap items-center gap-x-1.5 md:gap-x-2 gap-y-1 mt-0.5">
               <span 
-                className="text-[9px] md:text-[10px] px-1.5 md:px-2 py-0.5 rounded-full border font-bold uppercase tracking-tighter truncate max-w-[100px] md:max-w-none"
+                className="text-[8px] md:text-[10px] px-1 md:px-2 py-0.5 rounded-full border font-bold uppercase tracking-tighter truncate max-w-[80px] md:max-w-none"
                 style={{ 
                   backgroundColor: `${tx.category?.color_hex}10`,
                   borderColor: `${tx.category?.color_hex}30`,
@@ -113,13 +113,13 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
               >
                 {tx.category?.name || "Sem Categoria"}
               </span>
-              <span className="text-[9px] md:text-[10px] text-white/20 font-bold uppercase tracking-tighter truncate max-w-[80px] md:max-w-none">
+              <span className="text-[8px] md:text-[10px] text-white/20 font-bold uppercase tracking-tighter truncate max-w-[60px] md:max-w-none">
                 • {tx.account?.name}
               </span>
               {isInstallment && (
-                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-500/10 border border-violet-500/20">
+                <div className="flex items-center gap-1 px-1 py-0.5 rounded-md bg-violet-500/10 border border-violet-500/20">
                   <Layers className="w-2 h-2 text-violet-400" />
-                  <span className="text-[9px] font-bold text-violet-400 tracking-tighter">
+                  <span className="text-[8px] font-bold text-violet-400 tracking-tighter">
                     {tx.installment_current}/{tx.installment_total}
                   </span>
                 </div>
@@ -128,16 +128,16 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 md:gap-4 shrink-0">
+        <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-3">
           <div className="text-right">
             <p className={cn(
-              "text-lg md:text-xl font-bold tabular-nums",
+              "text-base md:text-xl font-bold tabular-nums",
               isIncome ? "text-green-400" : "text-white",
               tx.is_paid && "text-white/20"
             )}>
               {isIncome ? "+" : "-"} {isNaN(Number(tx.amount_cents)) ? "R$ ---" : formatCurrency(tx.amount_cents)}
             </p>
-            <p className="text-[9px] md:text-[10px] text-white/20 font-medium">
+            <p className="text-[8px] md:text-[10px] text-white/20 font-medium">
               {format(new Date(tx.date), "dd/MM/yy", { locale: ptBR })}
             </p>
           </div>
