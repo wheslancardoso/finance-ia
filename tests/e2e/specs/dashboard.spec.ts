@@ -19,10 +19,12 @@ test.describe('Dashboard e Projeções (Refatorado)', () => {
     await setupFinancialMocks(page, createDashboardState());
     await dashboard.goto();
     
-    // 5k - 2k = 3k
-    await expect(page.getByTestId('survival-ceiling-value')).toContainText(/3.*000.*00/, { timeout: 15000 });
+    // Na nova lógica, o saldo projetado final do mês é: 
+    // Liquidez (0) + Renda (5k) - Despesas (2k) = 3k
+    await dashboard.expectLiquidity(/R\$\s?3\.000,00/);
     
-    await expect(page.getByTestId('survival-status-message')).toContainText(/Atenção ao Orçamento/i);
+    // Teto semanal: 3k sobra / 4 = 750
+    await expect(page.getByTestId('survival-ceiling-value')).toContainText(/750.*00/, { timeout: 15000 });
   });
 
   test('deve entrar em MODO CRISE quando a liquidez é negativa', async ({ page }) => {
@@ -41,11 +43,9 @@ test.describe('Dashboard e Projeções (Refatorado)', () => {
     await dashboard.goto();
     
     await expect(async () => {
-      // Deve mostrar mensagem de erro/orientação no header pois a sobra é negativa no crisisState
-      await expect(page.getByTestId('dashboard-header-value')).toContainText(/Sobra insuficiente|Ajuste sua renda/i);
-      await expect(page.getByText(/Modo de Recuperação/i)).toBeVisible();
-      // O saldo deve estar visível no header de recuperação também
-      await expect(page.getByText(/Saldo:/i)).toBeVisible();
+      // Deve mostrar mensagem de erro no header unificado (net-liquidity-value mostra "Ajuste Necessário" ou data)
+      await expect(page.getByTestId('net-liquidity-value')).toContainText(/Ajuste Necessário/i);
+      await expect(page.getByText(/Modo de Recuperação Ativo/i)).toBeVisible();
     }).toPass({ timeout: 15000 });
   });
 
@@ -56,15 +56,16 @@ test.describe('Dashboard e Projeções (Refatorado)', () => {
     await setupFinancialMocks(page, createDashboardState());
     await dashboard.goto();
     
-    await expect(page.getByTestId('survival-ceiling-value')).toContainText(/3.*000.*00/, { timeout: 15000 });
+    // Teto semanal inicial: 750
+    await expect(page.getByTestId('survival-ceiling-value')).toContainText(/750.*00/, { timeout: 15000 });
 
     await subs.goto();
     await subs.addSubscription('Gasto Gigante', '2000,00');
     
     await dashboard.goto();
     
-    // 3k inicial - 2k novo = 1k
+    // Sobra inicial 3k - 2k novo = 1k sobra. 1k / 4 = 250
     const finalCeiling = page.getByTestId('survival-ceiling-value');
-    await expect(finalCeiling).toContainText(/1\.000,00/, { timeout: 15000 });
+    await expect(finalCeiling).toContainText(/250,00/, { timeout: 15000 });
   });
 });

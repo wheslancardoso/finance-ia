@@ -37,7 +37,7 @@ export interface FinancialAnalysis {
  * Hook de "Ponte de Dados": Consolida a inteligência financeira do sistema.
  * Use este hook em qualquer página ou componente para obter diagnósticos consistentes.
  */
-export function useFinancialAnalysis(): FinancialAnalysis {
+export function useFinancialAnalysis(monthOffset: number = 0): FinancialAnalysis {
   const { 
     accounts, 
     scheduledIncomeCents, 
@@ -55,14 +55,34 @@ export function useFinancialAnalysis(): FinancialAnalysis {
   const currentAssets = useMemo(() => calculateAccumulatedBalance(accounts), [accounts]);
 
   const monthlyOutlook = useMemo(() => {
-    return calculateMonthlyOutlook({
+    const baseOutlook = calculateMonthlyOutlook({
       accounts,
       scheduledIncomeCents,
       scheduledExpensesCents,
+      recurringIncomeCents,
+      recurringExpensesCents,
       budgets,
-      netLiquidityCents: netLiquidity
+      netLiquidityCents: netLiquidity,
+      monthOffset
     });
-  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, budgets, netLiquidity]);
+
+    // Projeção de Patrimônio Líquido: Liquidez Atual + (Sobra Mensal * offset)
+    const budgetTotal = budgets.reduce((sum, b) => sum + (b.amount_cents || 0), 0);
+    const monthlySurplus = (recurringIncomeCents || 0) - (recurringExpensesCents || 0) - budgetTotal;
+    
+    // Para o mês atual (0), usamos a liquidez real. Para o futuro, projetamos a acumulação.
+    const projectedNetLiquidity = monthOffset === 0 
+      ? netLiquidity 
+      : netLiquidity + (monthlySurplus * monthOffset);
+
+    return {
+      ...baseOutlook,
+      projectedNetLiquidity
+    };
+  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset]);
+
+  // Sobrescrita para usar a liquidez projetada no retorno
+  const activeNetLiquidity = monthlyOutlook.projectedNetLiquidity ?? netLiquidity;
 
   const debtExit = useMemo(() => {
     return calculateDebtExitProjection({
@@ -81,8 +101,6 @@ export function useFinancialAnalysis(): FinancialAnalysis {
   }, [debtExit, goals]);
   
   const weeklySurvival = useMemo(() => {
-    // O teto semanal deve ser baseado na sobra (balanceAtMonthEnd) e não na renda total,
-    // para garantir que o usuário não gaste o dinheiro que deveria ir para as dívidas.
     return calculateWeeklySurvival({
       monthlySurplusCents: Math.max(0, monthlyOutlook.balanceAtMonthEnd),
       currentMonthTransactions: monthTransactions
@@ -90,13 +108,13 @@ export function useFinancialAnalysis(): FinancialAnalysis {
   }, [monthlyOutlook.balanceAtMonthEnd, monthTransactions]);
 
   return {
-    netLiquidityCents: netLiquidity,
+    netLiquidityCents: activeNetLiquidity,
     totalConsolidatedDebtCents: consolidatedDebt,
     accumulatedBalanceCents: currentAssets,
     monthlyOutlook,
     healthScore,
-    isSurvivalMode: monthlyOutlook.balanceAtMonthEnd < 0,
-    isCrisisMode: netLiquidity < 0 && monthlyOutlook.balanceAtMonthEnd < 0,
+    isSurvivalMode: monthlyOutlook.balanceAtMonthEnd < 0 || activeNetLiquidity < 0,
+    isCrisisMode: activeNetLiquidity < 0 && monthlyOutlook.balanceAtMonthEnd < 0,
     debtExit,
     weeklySurvival,
     goalProjections,

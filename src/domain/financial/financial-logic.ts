@@ -125,7 +125,8 @@ export interface MonthlyOutlook {
   isHealthy: boolean;
   isRecovering: boolean;
   isCritical: boolean;
-  isCrisisMode: boolean; // Novo campo
+  isCrisisMode: boolean;
+  projectedNetLiquidity?: number;
 }
 
 export interface GoalProjection {
@@ -206,22 +207,40 @@ export function calculateMonthlyOutlook(params: {
   accounts: Account[];
   scheduledIncomeCents: number;
   scheduledExpensesCents: number;
+  recurringIncomeCents: number;
+  recurringExpensesCents: number;
   budgets: Budget[];
   netLiquidityCents: number;
+  monthOffset?: number; // 0 = atual, 1 = próximo...
 }): MonthlyOutlook {
-  const { accounts, scheduledIncomeCents, scheduledExpensesCents, budgets, netLiquidityCents } = params;
+  const { 
+    accounts, 
+    scheduledIncomeCents, 
+    scheduledExpensesCents, 
+    recurringIncomeCents,
+    recurringExpensesCents,
+    budgets, 
+    netLiquidityCents,
+    monthOffset = 0 
+  } = params;
   
   const liquidity = calculateAccumulatedBalance(accounts);
   const currentMonthDebt = calculateCurrentMonthDebt(accounts);
   
-  const pendingIncome = scheduledIncomeCents;
-  const pendingOutflow = scheduledExpensesCents + currentMonthDebt;
+  // No mês atual (offset 0), usamos os agendados. Nos futuros, os recorrentes.
+  const monthlyIncome = monthOffset === 0 ? scheduledIncomeCents : recurringIncomeCents;
+  const monthlyExpenses = monthOffset === 0 ? scheduledExpensesCents : recurringExpensesCents;
   
   const budgetReserves = budgets.reduce((sum, b) => {
     return sum + Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0));
   }, 0);
 
-  const balanceAtMonthEnd = liquidity + pendingIncome - pendingOutflow - budgetReserves;
+  // Sobra mensal estimada
+  const monthlySurplus = Math.max(0, monthlyIncome - monthlyExpenses - budgetReserves);
+  
+  // Projeção Simplificada: Liquidez Atual + (Sobra * meses)
+  // Mas para o saldo de final de mês, consideramos apenas o ciclo atual.
+  const balanceAtMonthEnd = liquidity + monthlyIncome - (monthlyExpenses + currentMonthDebt) - budgetReserves;
 
   const immediateCardDebt = accounts
     .filter((a) => a.type === "CREDIT_CARD")
@@ -236,10 +255,10 @@ export function calculateMonthlyOutlook(params: {
 
   return {
     balanceAtMonthEnd: Number(balanceAtMonthEnd) || 0,
-    plannedExpenses: Number(pendingOutflow + budgetReserves) || 0,
+    plannedExpenses: Number(monthlyExpenses + currentMonthDebt + budgetReserves) || 0,
     immediateCardDebt: Number(immediateCardDebt) || 0,
     upcomingCardDebt: Number(upcomingCardDebt) || 0,
-    scheduledOnly: Number(scheduledExpensesCents) || 0,
+    scheduledOnly: Number(monthlyExpenses) || 0,
     budgetReserves: Number(budgetReserves) || 0,
     isHealthy: balanceAtMonthEnd >= 0 && netLiquidityCents >= 0,
     isRecovering: balanceAtMonthEnd >= 0 && netLiquidityCents < 0,

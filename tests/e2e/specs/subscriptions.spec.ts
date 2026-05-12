@@ -32,7 +32,7 @@ test.describe('Gerenciamento de Assinaturas (Refatorado)', () => {
 
     // Verificar impacto no Dashboard (opcional se o cálculo já for testado em outros specs)
     await page.goto('/');
-    await page.waitForSelector('[data-testid="survival-hud"]');
+    await page.waitForSelector('[data-testid="net-liquidity-value"]');
     
     // Apenas garantimos que o HUD está visível e carregado
     await expect(page.getByTestId('survival-ceiling-value')).toBeVisible();

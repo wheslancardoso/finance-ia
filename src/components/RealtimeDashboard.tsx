@@ -17,8 +17,7 @@ import { useFinancialData } from "@/context/FinancialDataContext";
 import { ptBR } from "date-fns/locale";
 import { format } from "date-fns";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
-import { DashboardHeader } from "./dashboard/DashboardHeader";
-import { DashboardStatsGrid } from "./dashboard/DashboardStatsGrid";
+import { UnifiedSurvivalHeader } from "./dashboard/UnifiedSurvivalHeader";
 import { WeeklySurvivalCard } from "./dashboard/WeeklySurvivalCard";
 
 interface RealtimeDashboardProps {
@@ -70,7 +69,6 @@ export default function RealtimeDashboard({
     ? (liveMonthTransactions.length > 0 ? liveMonthTransactions : liveRecentTransactions)
     : [];
 
-  console.log(`[Dashboard] View: ${isCurrentMonth ? 'Current' : 'Future/Past'}, Transactions: ${displayTransactions.length}, MonthTx: ${liveMonthTransactions.length}, RecentTx: ${liveRecentTransactions.length}`);
 
   const displayRecurring = liveRecurring.length > 0 ? liveRecurring : initialRecurring;
   const displayBudgets = liveBudgets.length > 0 ? liveBudgets : initialBudgets;
@@ -104,126 +102,77 @@ export default function RealtimeDashboard({
     return getProjectedDetails(currentBalance, targetDate, formattedRecurring, formattedBudgets, displayAccounts, futureTransactions);
   }, [currentBalance, displayRecurring, targetDate, displayBudgets, displayAccounts]);
 
-  const projectedBalance = projection.totalBalance;
+  const monthOffset = useMemo(() => {
+    const today = startOfMonth(new Date());
+    const target = startOfMonth(targetDate);
+    const months = (target.getFullYear() - today.getFullYear()) * 12 + (target.getMonth() - today.getMonth());
+    return Math.max(0, months);
+  }, [targetDate]);
 
-  const { monthlyOutlook, netLiquidityCents, debtExit, weeklySurvival, isSurvivalMode, isCrisisMode } = useFinancialAnalysis();
+  const { 
+    monthlyOutlook, 
+    netLiquidityCents, 
+    debtExit, 
+    weeklySurvival, 
+    isCrisisMode 
+  } = useFinancialAnalysis(monthOffset);
 
-  const isFuture = !isSameMonth(targetDate, new Date());
-  const balanceDifference = projectedBalance - initialBalance;
+  const isFuture = monthOffset > 0;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-      {/* Coluna Esquerda: Header + Slider */}
+      {/* Coluna Esquerda: Header + Navigator */}
       <div className="lg:col-span-8 space-y-8">
-        {/* Header: Liquidez Atual */}
-        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] md:rounded-[40px] p-6 md:p-10 relative overflow-hidden group">
-          <div className={cn(
-            "absolute -top-24 -left-24 w-64 h-64 blur-[100px] rounded-full transition-colors duration-1000",
-            isFuture ? "bg-violet-600/20" : "bg-emerald-600/10"
-          )} />
-          
-          <div className="relative z-10 flex flex-col gap-8">
-            <DashboardHeader 
-              isFuture={isFuture} 
-              targetDate={targetDate} 
-              projectedBalance={projectedBalance} 
-              balanceDifference={balanceDifference} 
-              netLiquidityCents={netLiquidityCents}
-              debtExitDate={debtExit.exitDate}
-            />
+        
+        {/* NOVO CABEÇALHO UNIFICADO */}
+        <UnifiedSurvivalHeader 
+          monthOffset={monthOffset}
+          targetDate={targetDate}
+        />
 
-            {/* Centro de Comando: Liquidez Real vs Dívida */}
-            {!isFuture && <DashboardStatsGrid />}
-            
-            {/* Os cards de Saúde e Capacidade de Gasto agora estão consolidados no DashboardStatsGrid acima */}
-
-            {/* Quick Account Sync Bar */}
-            {!isFuture && (
-              <div className="flex flex-wrap gap-3">
-                {displayAccounts.filter(a => a.type !== "CREDIT_CARD").map((acc, idx) => (
-                  <button 
-                    key={acc.id ? acc.id : `acc-sync-${idx}`}
-                    onClick={() => handleQuickSync(acc)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group"
-                  >
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: acc.color_hex }} />
-                    <span className="text-[10px] font-bold text-white/60 group-hover:text-white transition-colors">{acc.name}</span>
-                    <span className="text-[10px] font-black text-white tabular-nums">{formatCurrency(acc.balance_cents)}</span>
-                  </button>
-                ))}
+        {/* Practical Insights Bar (Somente se necessário, parte já está no header) */}
+        {!isCrisisMode && (
+          <div className="flex flex-wrap gap-4">
+            <div className="flex items-center gap-3 bg-white/5 px-4 py-3 rounded-2xl border border-white/10 group relative cursor-help">
+              <ArrowDownRight className="w-4 h-4 text-red-400/60" />
+              <div>
+                <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Compromissos do Mês</p>
+                <p className="text-sm font-bold text-white/80">{formatCurrency(monthlyOutlook.plannedExpenses)}</p>
               </div>
-            )}
-
-            {/* Practical Insights Bar */}
-            <div className="flex flex-wrap gap-4 pt-6 border-t border-white/5">
-              {!isFuture ? (
-                <>
-                  <div className="flex items-center gap-3 bg-white/2 px-4 py-3 rounded-2xl border border-white/5 group relative cursor-help">
-                    <ArrowDownRight className="w-4 h-4 text-red-400/60" />
-                    <div>
-                      <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Gastos Previstos</p>
-                      <p className="text-sm font-bold text-white/80">{formatCurrency(monthlyOutlook.plannedExpenses)}</p>
-                    </div>
-                    
-                    {/* Tooltip Breakdown */}
-                    <div className="absolute bottom-full left-0 mb-4 w-64 p-4 bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-50">
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] text-white/40 uppercase font-bold">Dívida Imediata (Faturas)</span>
-                          <span className="text-xs font-bold text-red-400">{formatCurrency(monthlyOutlook.immediateCardDebt)}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] text-white/40 uppercase font-bold">Agendados (Pix/Débito)</span>
-                          <span className="text-xs font-bold text-violet-400">{formatCurrency(monthlyOutlook.scheduledOnly)}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] text-white/40 uppercase font-bold">Próxima Fatura (Abertas)</span>
-                          <span className="text-xs font-bold text-amber-400">{formatCurrency(monthlyOutlook.upcomingCardDebt)}</span>
-                        </div>
-                        <div className="pt-2 border-t border-white/5 flex justify-between items-center">
-                          <span className="text-[10px] text-white/60 uppercase font-black">Total</span>
-                          <span className="text-sm font-black text-white">{formatCurrency(monthlyOutlook.plannedExpenses)}</span>
-                        </div>
-                      </div>
-                    </div>
+              
+              <div className="absolute bottom-full left-0 mb-4 w-64 p-4 bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-50">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-white/40 uppercase font-bold">Faturas Imediatas</span>
+                    <span className="text-xs font-bold text-red-400">{formatCurrency(monthlyOutlook.immediateCardDebt)}</span>
                   </div>
-
-
-                </>
-              ) : (
-                <>
-                  <div className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all",
-                    projectedBalance >= 0 ? "bg-emerald-500/5 border-emerald-500/10" : "bg-red-500/5 border-red-500/10"
-                  )}>
-                    {projectedBalance >= 0 ? <ShieldCheck className="w-4 h-4 text-emerald-400" /> : <AlertCircle className="w-4 h-4 text-red-400" />}
-                    <div>
-                      <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Liquidez Projetada</p>
-                      <p className={cn(
-                        "text-sm font-black",
-                        projectedBalance >= 0 ? "text-emerald-400" : "text-red-400"
-                      )}>
-                        {formatCurrency(projectedBalance)}
-                      </p>
-                    </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-white/40 uppercase font-bold">Agendados</span>
+                    <span className="text-xs font-bold text-violet-400">{formatCurrency(monthlyOutlook.scheduledOnly)}</span>
                   </div>
+                  <div className="pt-2 border-t border-white/5 flex justify-between items-center">
+                    <span className="text-[10px] text-white/60 uppercase font-black">Total</span>
+                    <span className="text-sm font-black text-white">{formatCurrency(monthlyOutlook.plannedExpenses)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-                  {projectedBalance < 0 && (
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border bg-amber-500/5 border-amber-500/10 animate-pulse">
-                      <AlertCircle className="w-4 h-4 text-amber-400" />
-                      <div>
-                        <p className="text-[9px] font-black text-amber-400/40 uppercase tracking-widest">Ação Recomendada</p>
-                        <p className="text-sm font-black text-amber-400">
-                          Poupar {formatCurrency(Math.abs(projectedBalance))} para equilibrar
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
+            {/* Quick Account Sync Bar - Integrado aqui para economizar espaço */}
+            <div className="flex flex-wrap gap-2">
+              {displayAccounts.filter(a => a.type !== "CREDIT_CARD").map((acc, idx) => (
+                <button 
+                  key={acc.id ? acc.id : `acc-sync-${idx}`}
+                  onClick={() => handleQuickSync(acc)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/2 border border-white/5 hover:bg-white/10 transition-all group"
+                >
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: acc.color_hex }} />
+                  <span className="text-[9px] font-black text-white/40 uppercase tracking-tighter tabular-nums">{formatCurrency(acc.balance_cents)}</span>
+                </button>
+              ))}
             </div>
           </div>
-        </div>
+        )}
 
         {/* Month Navigator */}
         <MonthNavigator 
@@ -235,9 +184,6 @@ export default function RealtimeDashboard({
 
       {/* Coluna Direita: Insights + Recentes */}
       <div className="lg:col-span-4 space-y-8">
-        {netLiquidityCents < -100 && !isFuture && (
-          <WeeklySurvivalCard data={weeklySurvival} />
-        )}
         <SpendingSimulator />
         
         <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] p-6 flex flex-col overflow-hidden shadow-2xl max-h-[calc(100vh-200px)] lg:max-h-none lg:h-fit">

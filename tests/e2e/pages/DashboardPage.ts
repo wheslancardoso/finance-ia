@@ -15,7 +15,7 @@ export class DashboardPage {
     return this.page.getByTestId('projected-balance-value');
   }
 
-  async expectLiquidity(value: string) {
+  async expectLiquidity(value: string | RegExp) {
     await expect(this.netLiquidity).toContainText(value, { timeout: 15000 });
   }
 
