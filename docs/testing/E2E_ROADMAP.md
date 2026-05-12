@@ -23,7 +23,7 @@ Este documento descreve os fluxos de testes End-to-End implementados e o planeja
   - CRUD de transações com mocks.
   - Criação de parcelados e validação de timelines.
   - Filtros e busca.
-- [ ] **Projeções e Dashboard** (⚠️ BLOQUEADO POR BUG DE DATA)
+- [x] **Projeções e Dashboard**
   - Validação do Survival HUD.
   - Sincronização de assinaturas recorrentes.
   - Modo Crise.
@@ -75,11 +75,10 @@ Este documento descreve os fluxos de testes End-to-End implementados e o planeja
 ---
 
 ### 8. Gestão de Contas (`tests/accounts.test.ts`)
-- **Cenários Cobertos**:
-  - **Criação**: Adição de contas Corrente, Investimento e Cartão de Crédito.
-  - **Validação de Cartão**: Cálculo automático de vencimento baseado no dia de fechamento.
-  - **Edição**: Alteração de nomes e saldos com reflexo imediato no Dashboard.
-  - **Exclusão**: Remoção de ativos com atualização automática da Liquidez Real no HUD.
+- [x] **Criação**: Adição de contas Corrente, Investimento e Cartão de Crédito.
+- [x] **Validação de Cartão**: Cálculo automático de vencimento baseado no dia de fechamento.
+- [x] **Edição**: Alteração de nomes e saldos com reflexo imediato no Dashboard.
+- [x] **Exclusão**: Remoção de ativos com atualização automática da Liquidez Real no HUD.
 
 ---
 

@@ -33,15 +33,14 @@ Este documento consolida as funcionalidades e objetivos centrais do sistema, bas
 - **Precisão Centesimal**: Todos os cálculos são feitos em centavos (inteiros) para evitar erros de arredondamento.
 
 ### 👥 Gestão Compartilhada
-- **Modo Família/Casal**: Suporte nativo para convidar parceiros e visualizar painéis conjuntos de despesas sem comprometer a individualidade das contas.
+- [/] **Modo Família/Casal**: Infraestrutura iniciada (pendente finalização de UI e convites).
 
 ### 🎯 Objetivos e Simulador de Compras (/goals)
-- **Alocação Inteligente**: O sistema deve sugerir quanto aportar mensalmente em cada objetivo com base na saúde financeira real, priorizando metas de forma dinâmica.
-- **Simulador de Gastos (Anti-Emoção)**: Funcionalidade inovadora para simular uma compra ou gasto planejado.
-- **Validação de Teto**: O sistema avisa se a compra pretendida ultrapassa o teto de gastos ou se prejudica a economia para outros objetivos.
-- **Conselheiro Financeiro**: Se não for recomendado comprar agora, o sistema informa **quando** será seguro realizar esse gasto, incentivando a criação de um objetivo específico e a poupança até a data ideal.
+- [x] **Alocação Inteligente**: Sugestão de aportes baseada em liquidez.
+- [x] **Simulador de Gastos**: Funcionalidade central estabilizada.
+- [x] **Validação de Teto**: Sistema de recomendação (Comprar vs. Aguardar) funcional.
 
 ### 📱 Experiência e Tecnologia
-- **Local-First (Offline)**: Funciona mesmo sem internet, sincronizando os dados em background.
-- **Modo Escuro e Biometria**: Interface moderna com suporte a Dark Mode e autenticação por Face ID/Touch ID.
-- **Exportação de Dados**: Funcionalidade nativa para exportar todo o histórico em CSV/Excel.
+- [x] **Local-First (Offline)**: Implementado via Dexie.js.
+- [x] **Modo Escuro**: Nativo na interface.
+- [/] **Exportação de Dados**: No roadmap de próximos passos.
