@@ -11,7 +11,8 @@
     "test:ui": "playwright test --ui",
     "test:unit": "vitest run",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "prepare": "husky install"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
@@ -60,6 +61,7 @@
     "eslint-plugin-storybook": "^10.3.6",
     "playwright": "^1.60.0",
     "@vitest/browser-playwright": "^4.1.6",
-    "@vitest/coverage-v8": "^4.1.6"
+    "@vitest/coverage-v8": "^4.1.6",
+    "husky": "^8.0.0"
   }
 }
