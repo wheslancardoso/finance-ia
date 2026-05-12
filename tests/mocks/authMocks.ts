@@ -19,22 +19,33 @@ export async function setupAuthMock(page: Page, user: { id: string; email?: stri
 
   // 2. Mock ultra-realista das chamadas de API de Autenticação do Supabase
   await page.route('**/auth/v1/**', async (route) => {
+    const url = route.request().url();
+    const userObj = {
+      id: user.id,
+      email: user.email || 'test@example.com',
+      aud: 'authenticated',
+      role: 'authenticated',
+      app_metadata: { provider: 'email' },
+      user_metadata: {},
+      created_at: new Date().toISOString(),
+      last_sign_in_at: new Date().toISOString(),
+      confirmed_at: new Date().toISOString(),
+    };
+
+    if (url.includes('/user')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(userObj),
+      });
+    }
+
     const session = {
       access_token: 'mock-token-' + Math.random(),
       token_type: 'bearer',
       expires_in: 3600,
       refresh_token: 'mock-refresh',
-      user: {
-        id: user.id,
-        email: user.email || 'test@example.com',
-        aud: 'authenticated',
-        role: 'authenticated',
-        app_metadata: { provider: 'email' },
-        user_metadata: {},
-        created_at: new Date().toISOString(),
-        last_sign_in_at: new Date().toISOString(),
-        confirmed_at: new Date().toISOString(),
-      },
+      user: userObj,
     };
 
     await route.fulfill({

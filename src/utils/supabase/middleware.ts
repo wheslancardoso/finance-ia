@@ -38,11 +38,11 @@ export const updateSession = async (request: NextRequest) => {
   let { data: { user } } = await supabase.auth.getUser();
 
   // Bypas para testes (Playwright)
-  if (!user && process.env.NODE_ENV === 'development') {
-    const mockUserId = request.cookies.get('sb-mock-user-id')?.value;
-    if (mockUserId) {
-      user = { id: mockUserId } as any;
-    }
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  const mockUserId = request.cookies.get('sb-mock-user-id')?.value;
+
+  if (isDevelopment && mockUserId) {
+    user = { id: mockUserId } as any;
   }
 
   // Redirecionamento se não estiver logado

@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useMemo } from "react";
 import { Shield, Palette, ChevronRight, MessageSquare, User as UserIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WhatsAppSettings } from "@/components/WhatsAppSettings";
@@ -9,7 +10,7 @@ import { useFinancialData } from "@/context/FinancialDataContext";
 export default function SettingsPage() {
   const { userId } = useFinancialData();
   
-  const sections = [
+  const sections = React.useMemo(() => [
     {
       id: "whatsapp",
       title: "Protocolo WhatsApp",
@@ -54,7 +55,7 @@ export default function SettingsPage() {
         </div>
       )
     }
-  ];
+  ], [userId]);
 
   return (
     <div className="p-6 md:p-12 max-w-4xl mx-auto w-full space-y-12">

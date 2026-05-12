@@ -28,19 +28,22 @@ export function AccountModalProvider({ children }: { children: ReactNode }) {
   const supabase = React.useMemo(() => createClient(), []);
 
   useEffect(() => {
-    // 1. Verificar sessão inicial
+    // 0. Sincronização imediata para testes (evita atrasos de chamadas assíncronas)
+    if (typeof document !== 'undefined') {
+      const mockCookie = document.cookie.split('; ').find(row => row.startsWith('sb-mock-user-id='));
+      if (mockCookie) {
+        const id = mockCookie.split('=')[1];
+        setUserIdState(id);
+      }
+    }
+
+    // 1. Verificar sessão inicial (Async)
     const checkUser = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
           setUserIdState(session.user.id);
-        } else {
-          // Fallback para testes: se não houver sessão mas houver cookie de mock
-          const mockCookie = typeof document !== 'undefined' ? document.cookie.split('; ').find(row => row.startsWith('sb-mock-user-id=')) : null;
-          if (mockCookie) {
-            setUserIdState(mockCookie.split('=')[1]);
-          }
         }
       } catch (err) {
         console.error('Auth initialization error:', err);
@@ -54,7 +57,13 @@ export function AccountModalProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         setUserIdState(session.user.id);
       } else {
-        setUserIdState(null);
+        // Fallback para testes: manter o mock se existir
+        const mockCookie = typeof document !== 'undefined' ? document.cookie.split('; ').find(row => row.startsWith('sb-mock-user-id=')) : null;
+        if (mockCookie) {
+          setUserIdState(mockCookie.split('=')[1]);
+        } else {
+          setUserIdState(null);
+        }
       }
     });
 

@@ -47,7 +47,6 @@ test.describe('Autenticação e Perfil', () => {
     await setupAuthMock(page, { id: 'user-1' });
     
     await page.goto('/settings');
-    await page.waitForLoadState('networkidle');
     
     // O botão 'Sair da Conta' é um sinal seguro de que o Auth resolveu
     await expect(page.getByRole('button', { name: /Sair da Conta/i })).toBeVisible({ timeout: 15000 });
@@ -60,12 +59,19 @@ test.describe('Autenticação e Perfil', () => {
 
     await incomeInput.fill('6000');
     await expensesInput.fill('2500');
-    await page.getByTestId('profile-save-button').click();
 
-    await expect(page.getByText('Configurações Salvas')).toBeVisible({ timeout: 10000 });
+    // Usamos Promise.all para garantir que o clique e a resposta da API sejam capturados sem race conditions
+    const [response] = await Promise.all([
+      page.waitForResponse('**/api/user-profile'),
+      page.getByTestId('profile-save-button').click()
+    ]);
+
+    expect(response.status()).toBe(200);
+    
+    // Verificamos se o texto mudou no botão (indicação de sucesso)
+    await expect(page.getByTestId('profile-save-button')).toContainText('Configurações Salvas', { timeout: 10000 });
 
     await page.reload();
-    await page.waitForLoadState('networkidle');
     await expect(page.getByRole('button', { name: /Sair da Conta/i })).toBeVisible();
     
     await expect(page.getByTestId('profile-income-input')).toHaveValue('6000');
@@ -76,7 +82,6 @@ test.describe('Autenticação e Perfil', () => {
     await setupAuthMock(page, { id: 'user-1' });
     
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
     await expect(page.getByTestId('net-liquidity-value')).toContainText('1.000,00');
 
     // Novo estado para User 2
@@ -107,22 +112,24 @@ test.describe('Autenticação e Perfil', () => {
     await setupAuthMock(page, { id: 'user-2' });
     
     await page.reload();
-    await page.waitForLoadState('networkidle');
 
     await expect(page.getByTestId('net-liquidity-value')).toContainText('2.000,00', { timeout: 10000 });
     
     await page.goto('/settings');
-    await page.waitForLoadState('networkidle');
     await expect(page.getByTestId('profile-income-input')).toHaveValue('8000');
   });
 
   test('deve deslogar e redirecionar para login', async ({ page }) => {
     await setupAuthMock(page, { id: 'user-1' });
     await page.goto('/');
+    
+    // Limpamos o cookie de mock para que o middleware permita o acesso à página de login
+    // Na vida real, o signOut do Supabase limparia os cookies dele, mas aqui usamos um manual.
+    await page.context().clearCookies({ name: 'sb-mock-user-id' });
+    
     await page.getByText('Sair da Conta').click();
     
-    // Ao deslogar via UI, o app deve chamar supabase.auth.signOut()
-    // Como estamos com mocks, precisamos garantir que o redirecionamento aconteça
+    // O app redireciona para /login via router.push
     await expect(page).toHaveURL(/\/login/);
   });
 });

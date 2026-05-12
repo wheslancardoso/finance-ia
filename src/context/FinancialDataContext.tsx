@@ -438,7 +438,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       ...data,
       user_id: userId
     });
-    await refreshData();
+    refreshData(); // Background refresh
     return res;
   };
 
@@ -485,7 +485,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       ...data,
       user_id: userId
     });
-    await refreshData();
+    refreshData(); // Background refresh
   };
 
   const deleteAccount = async (id: string) => {
@@ -502,7 +502,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       ...data,
       user_id: userId
     });
-    await refreshData();
+    refreshData(); // Background refresh
     return res;
   };
 

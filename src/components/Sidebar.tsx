@@ -44,17 +44,22 @@ export function Sidebar() {
     
     async function fetchUser() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      
+      // Fallback para mock em testes
+      const mockUserId = typeof document !== 'undefined' ? document.cookie.split('; ').find(row => row.startsWith('sb-mock-user-id='))?.split('=')[1] : null;
+      const effectiveUser = user || (mockUserId ? { id: mockUserId, email: 'mock@example.com' } : null);
+
+      if (effectiveUser) {
         // Buscar nome do perfil
         const { data: profile } = await supabase
           .from('profiles')
           .select('full_name')
-          .eq('id', user.id)
+          .eq('id', effectiveUser.id)
           .single();
 
         setUserData({
-          name: profile?.full_name || user.email?.split('@')[0] || "Usuário",
-          email: user.email || null
+          name: profile?.full_name || effectiveUser.email?.split('@')[0] || "Usuário",
+          email: effectiveUser.email || null
         });
       }
     }
