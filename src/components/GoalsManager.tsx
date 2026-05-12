@@ -21,26 +21,6 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
 
   return (
     <div className="space-y-10">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 mb-2">
-            <Target className="w-5 h-5 text-violet-500" />
-            <span className="text-xs font-bold text-violet-500 uppercase tracking-[0.3em]">Ambições</span>
-          </div>
-          <h2 className="text-4xl font-bold tracking-tight text-white">Suas Metas</h2>
-          <p className="text-white/40 font-medium">Transformando saldo em conquistas reais.</p>
-        </div>
-        
-        <button 
-          onClick={openModal}
-          className="bg-white text-black font-black py-4 px-8 rounded-2xl transition-all flex items-center justify-center gap-2 group active:scale-95 shadow-xl shadow-white/10"
-          data-testid="add-goal-button"
-        >
-          <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-          Novo Objetivo
-        </button>
-      </header>
-
       <GoalRecommendations />
 
       {(!goalsToDisplay || goalsToDisplay.length === 0) ? (
@@ -56,6 +36,7 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
             <button 
               onClick={openModal}
               className="text-violet-400 font-bold text-sm hover:text-violet-300 transition-colors pt-4"
+              data-testid="add-goal-button-internal"
             >
               Criar agora →
             </button>
@@ -139,7 +120,7 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
           <button 
             onClick={openModal}
             className="p-8 border-2 border-dashed border-white/5 rounded-[40px] flex flex-col items-center justify-center gap-4 text-white/10 hover:text-white/20 hover:border-white/10 transition-all group"
-            data-testid="add-goal-button"
+            data-testid="add-goal-button-internal"
           >
             <div className="w-14 h-14 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
               <Plus className="w-8 h-8" />

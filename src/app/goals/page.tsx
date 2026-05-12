@@ -4,7 +4,7 @@ import { GoalsManager } from "@/components/GoalsManager";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { useMemo } from "react";
 import GlassCard from "@/components/GlassCard";
-import { Target, Trophy, TrendingUp, ShieldCheck, AlertCircle } from "lucide-react";
+import { Target, Trophy, TrendingUp, ShieldCheck, AlertCircle, Plus } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useEffect } from "react";
 
@@ -24,42 +24,53 @@ export default function GoalsPage() {
   }, [goals]);
 
   return (
-    <div className="p-6 md:p-12 max-w-7xl mx-auto w-full space-y-12">
-      {/* Goals Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <GlassCard className="p-8 space-y-4 border-violet-500/20 bg-violet-500/5">
-          <div className="w-12 h-12 rounded-2xl bg-violet-500/20 flex items-center justify-center text-violet-400">
-            <Trophy className="w-6 h-6" />
+    <div className="p-6 md:p-12 max-w-7xl mx-auto w-full space-y-10">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 mb-2">
+            <Target className="w-5 h-5 text-violet-500" />
+            <span className="text-xs font-bold text-violet-500 uppercase tracking-[0.3em]">Ambições</span>
           </div>
-          <div className="space-y-1">
-            <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Total Reservado</p>
-            <h2 className="text-3xl font-black text-white tabular-nums">{formatCurrency(stats.totalSaved)}</h2>
-            <p className="text-[10px] text-white/20 font-bold uppercase">{stats.avgProgress.toFixed(1)}% do caminho percorrido</p>
+          <h2 className="text-4xl font-bold tracking-tight text-white">Suas Metas</h2>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Reservado:</span>
+              <span className="text-sm font-bold text-violet-400 tabular-nums">{formatCurrency(stats.totalSaved)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Objetivo Total:</span>
+              <span className="text-sm font-bold text-emerald-400 tabular-nums">{formatCurrency(stats.totalTarget)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Faltam:</span>
+              <span className="text-sm font-bold text-white/60 tabular-nums">{formatCurrency(stats.remaining)}</span>
+            </div>
+            <div className="h-4 w-px bg-white/10 hidden md:block" />
+            <div className="flex items-center gap-2">
+              <div className="w-20 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-violet-500 rounded-full" 
+                  style={{ width: `${stats.avgProgress}%` }}
+                />
+              </div>
+              <span className="text-[10px] font-bold text-white/40">{stats.avgProgress.toFixed(0)}%</span>
+            </div>
           </div>
-        </GlassCard>
-
-        <GlassCard className="p-8 space-y-4 border-emerald-500/20 bg-emerald-500/5">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-400">
-            <Target className="w-6 h-6" />
-          </div>
-          <div className="space-y-1">
-            <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Meta Total Acumulada</p>
-            <h2 className="text-3xl font-black text-white tabular-nums">{formatCurrency(stats.totalTarget)}</h2>
-            <p className="text-[10px] text-white/20 font-bold uppercase">Soma de todos os objetivos</p>
-          </div>
-        </GlassCard>
-
-        <GlassCard className="p-8 space-y-4 border-white/10 bg-white/5">
-          <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-white/40">
-            <TrendingUp className="w-6 h-6" />
-          </div>
-          <div className="space-y-1">
-            <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Restante para Concluir</p>
-            <h2 className="text-3xl font-black text-white/60 tabular-nums">{formatCurrency(stats.remaining)}</h2>
-            <p className="text-[10px] text-white/20 font-bold uppercase">Esforço necessário</p>
-          </div>
-        </GlassCard>
-      </div>
+        </div>
+        
+        <button 
+          onClick={() => {
+            // Esse botão vai disparar o modal via contexto
+            const btn = document.querySelector('[data-testid="add-goal-button-internal"]') as HTMLButtonElement;
+            if (btn) btn.click();
+          }}
+          className="bg-white text-black font-black py-4 px-8 rounded-2xl transition-all flex items-center justify-center gap-2 group active:scale-95 shadow-xl shadow-white/10 shrink-0"
+          data-testid="add-goal-button"
+        >
+          <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+          Novo Objetivo
+        </button>
+      </header>
       
       {/* Intelligence Bridge Insight */}
       <GlassCard className={cn(
