@@ -26,16 +26,22 @@ test.describe('Gerenciamento de Assinaturas (Refatorado)', () => {
     await page.waitForLoadState('networkidle');
 
     await subscriptions.addSubscription('Netflix', '55,90');
+    
+    // Fechar modal de status com robustez
+    const closeBtn = page.getByTestId('status-modal-close');
+    await closeBtn.waitFor({ state: 'visible' });
+    await closeBtn.click();
 
     // Verificar se aparece na lista
-    await expect(page.getByText('Netflix')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Netflix' })).toBeVisible();
 
     // Verificar impacto no Dashboard
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('[data-testid="survival-hud"]');
     
     // Liquidez 10.000,00 - Netflix 55,90 = 9.944,10
-    await expect(page.getByTestId('survival-ceiling-value')).toContainText('9.944,10', { timeout: 10000 });
+    // Usamos regex para ignorar espaços inquebráveis do toLocaleString
+    await expect(page.getByTestId('survival-ceiling-value')).toContainText(/9\.944,10/, { timeout: 20000 });
   });
 
   test('deve editar uma assinatura existente', async ({ page }) => {

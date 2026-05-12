@@ -235,7 +235,7 @@ export default function RealtimeDashboard({
 
       {/* Coluna Direita: Insights + Recentes */}
       <div className="lg:col-span-4 space-y-8">
-        {netLiquidityCents < 0 && !isFuture && (
+        {netLiquidityCents < -100 && !isFuture && (
           <WeeklySurvivalCard data={weeklySurvival} />
         )}
         <SpendingSimulator />

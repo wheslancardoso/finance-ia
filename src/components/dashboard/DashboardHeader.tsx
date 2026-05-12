@@ -50,22 +50,28 @@ export function DashboardHeader({
         </div>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-1 md:gap-4">
           <div className="flex flex-col">
-            {netLiquidityCents !== undefined && netLiquidityCents < 0 && !isFuture ? (
+            {netLiquidityCents !== undefined && netLiquidityCents < -100 && !isFuture ? (
               <div className="space-y-1">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-4 mb-1">
                   <span className="text-[10px] font-black text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse">
-                    Modo de Recuperação Ativo
+                    Modo de Recuperação
+                  </span>
+                  <span className="text-sm font-black text-white/60 tabular-nums">
+                    Saldo: {formatCurrency(projectedBalance)}
                   </span>
                 </div>
                 <motion.h1 
+                  data-testid="dashboard-header-value"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   className="text-4xl md:text-6xl font-black tracking-tighter text-white"
                 >
-                  {debtExitDate ? format(debtExitDate, "MMMM 'de' yyyy", { locale: ptBR }) : "Calculando liberdade..."}
+                  {debtExitDate 
+                    ? format(debtExitDate, "MMMM 'de' yyyy", { locale: ptBR }) 
+                    : (projectedBalance > 0 ? "Ajuste sua renda" : "Sobra insuficiente")}
                 </motion.h1>
                 <p className="text-xs font-bold text-white/40 uppercase tracking-widest">
-                  Data Projetada para Quitação Total (Mês Zero)
+                  {debtExitDate ? "Data Projetada para Quitação Total (Mês Zero)" : "Não é possível projetar a saída das dívidas"}
                 </p>
               </div>
             ) : (

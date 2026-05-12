@@ -41,8 +41,11 @@ test.describe('Dashboard e Projeções (Refatorado)', () => {
     await dashboard.goto();
     
     await expect(async () => {
-      const msg = page.getByTestId('survival-status-message');
-      await expect(msg).toContainText(/MODO CRISE ATIVADO/i);
+      // Deve mostrar mensagem de erro/orientação no header pois a sobra é negativa no crisisState
+      await expect(page.getByTestId('dashboard-header-value')).toContainText(/Sobra insuficiente|Ajuste sua renda/i);
+      await expect(page.getByText(/Modo de Recuperação/i)).toBeVisible();
+      // O saldo deve estar visível no header de recuperação também
+      await expect(page.getByText(/Saldo:/i)).toBeVisible();
     }).toPass({ timeout: 15000 });
   });
 

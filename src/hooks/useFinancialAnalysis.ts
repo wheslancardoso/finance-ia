@@ -81,11 +81,13 @@ export function useFinancialAnalysis(): FinancialAnalysis {
   }, [debtExit, goals]);
   
   const weeklySurvival = useMemo(() => {
+    // O teto semanal deve ser baseado na sobra (balanceAtMonthEnd) e não na renda total,
+    // para garantir que o usuário não gaste o dinheiro que deveria ir para as dívidas.
     return calculateWeeklySurvival({
-      monthlySurplusCents: debtExit.monthlySurplus,
+      monthlySurplusCents: Math.max(0, monthlyOutlook.balanceAtMonthEnd),
       currentMonthTransactions: monthTransactions
     });
-  }, [debtExit.monthlySurplus, monthTransactions]);
+  }, [monthlyOutlook.balanceAtMonthEnd, monthTransactions]);
 
   return {
     netLiquidityCents: netLiquidity,
