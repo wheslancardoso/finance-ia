@@ -124,7 +124,7 @@ interface FinancialDataContextType {
   userId: string | null;
 }
 
-const FinancialDataContext = createContext<FinancialDataContextType | undefined>(undefined);
+export const FinancialDataContext = createContext<FinancialDataContextType | undefined>(undefined);
 
 const CACHE_DURATION = 10 * 60 * 1000; // 10 minutos de cache
 
