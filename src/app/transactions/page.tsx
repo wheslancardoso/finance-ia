@@ -42,7 +42,7 @@ export default function TransactionsPage() {
   }
 
   return (
-    <div className="p-6 md:p-12 max-w-7xl mx-auto w-full">
+    <div className="p-6 md:p-12 max-w-7xl mx-auto w-full overflow-x-hidden">
       <TransactionsContent 
         initialTransactions={transactions || []} 
         accounts={accounts || []} 

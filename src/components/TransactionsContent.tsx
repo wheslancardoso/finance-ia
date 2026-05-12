@@ -230,9 +230,11 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
               exit={{ opacity: 0, scale: 0.95 }}
               className="space-y-4"
             >
-              <div className="flex items-center gap-3 px-2">
-                <CalendarIcon className="w-4 h-4 text-violet-400" />
-                <h3 className="text-xs font-bold text-white/30 uppercase tracking-[0.2em]">{date}</h3>
+              <div className="flex items-center gap-3 px-2 min-w-0">
+                <CalendarIcon className="w-4 h-4 text-violet-400 shrink-0" />
+                <h3 className="text-[10px] md:text-xs font-bold text-white/30 uppercase tracking-[0.1em] md:tracking-[0.2em] truncate">
+                  {date}
+                </h3>
               </div>
 
               <div className="grid gap-3">
