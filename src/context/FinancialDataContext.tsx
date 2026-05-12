@@ -240,31 +240,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
       const cardImpact = calculateTotalConsolidatedDebt(state.accounts || []);
 
-      // 4. Sincronizar com Banco de Dados Local (Dexie) - Mantendo async fora do fluxo principal de UI se possível
-      // Mas aqui vamos aguardar para garantir integridade se o usuário deslogar/trocar
-      await Promise.all([
-        db.categories.where('user_id').equals(userId).delete().then(() => 
-          db.categories.bulkPut(state.categories.map(c => ({ ...c, user_id: userId })))
-        ),
-        db.accounts.where('user_id').equals(userId).delete().then(() => 
-          db.accounts.bulkPut(state.accounts.map(a => ({ ...a, user_id: userId })))
-        ),
-        state.goals ? db.goals.where('user_id').equals(userId).delete().then(() => 
-          db.goals.bulkPut(state.goals.map(g => ({ ...g, user_id: userId })))
-        ) : Promise.resolve(),
-        state.recurring_transactions ? db.recurring_transactions.where('user_id').equals(userId).delete().then(() => 
-          db.recurring_transactions.bulkPut(state.recurring_transactions.map(r => ({ ...r, user_id: userId })))
-        ) : Promise.resolve(),
-        state.budgets ? db.budgets.where('user_id').equals(userId).delete().then(() => 
-          db.budgets.bulkPut(state.budgets.map(b => ({ ...b, user_id: userId })))
-        ) : Promise.resolve(),
-        db.transactions.where('user_id').equals(userId).delete().then(() => {
-          const allTx = [...(state.recent_transactions || []), ...(state.month_transactions || [])];
-          return db.transactions.bulkPut(allTx.map(t => ({ ...t, user_id: userId })));
-        })
-      ]);
-
-      // 5. Atualizar Estados do React de uma vez só (Batching)
+      // 4. Atualizar Estados do React de uma vez só (Batching)
       setMonthlyIncomeCentsState(profileIncome);
       setFixedExpensesCentsState(profileExpenses);
       setAccumulatedBalanceCents(profileBalance);
@@ -293,6 +269,31 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         localStorage.setItem("vesper_recurring_income", recIncome.toString());
         localStorage.setItem("vesper_recurring_expense", recExpense.toString());
       }
+
+      // 5. Sincronizar com Banco de Dados Local (Dexie)
+      // Aguardamos a sincronização para garantir que navegações subsequentes encontrem os dados
+      await Promise.all([
+        db.categories.where('user_id').equals(userId).delete().then(() => 
+          db.categories.bulkPut(state.categories.map(c => ({ ...c, user_id: userId })))
+        ),
+        db.accounts.where('user_id').equals(userId).delete().then(() => 
+          db.accounts.bulkPut(state.accounts.map(a => ({ ...a, user_id: userId })))
+        ),
+        state.goals ? db.goals.where('user_id').equals(userId).delete().then(() => 
+          db.goals.bulkPut(state.goals.map(g => ({ ...g, user_id: userId })))
+        ) : Promise.resolve(),
+        state.recurring_transactions ? db.recurring_transactions.where('user_id').equals(userId).delete().then(() => 
+          db.recurring_transactions.bulkPut(state.recurring_transactions.map(r => ({ ...r, user_id: userId })))
+        ) : Promise.resolve(),
+        state.budgets ? db.budgets.where('user_id').equals(userId).delete().then(() => 
+          db.budgets.bulkPut(state.budgets.map(b => ({ ...b, user_id: userId })))
+        ) : Promise.resolve(),
+        db.transactions.where('user_id').equals(userId).delete().then(() => {
+          const allTx = [...(state.recent_transactions || []), ...(state.month_transactions || [])];
+          const uniqueTx = Array.from(new Map(allTx.map(t => [t.id, t])).values());
+          return db.transactions.bulkPut(uniqueTx.map(t => ({ ...t, user_id: userId })));
+        })
+      ]).catch(err => console.error("⚠️ Falha na sincronização Dexie:", err));
 
       setLastFetched(Date.now());
     } catch (error: any) {

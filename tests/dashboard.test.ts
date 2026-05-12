@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { setupFinancialMocks } from './mocks/financialMocks';
 
 test.describe('Dashboard e Projeções Financeiras', () => {
+  const USER_ID = 'db-test-user-123';
   let mockState: any;
 
   test.beforeEach(async ({ page }) => {
@@ -65,15 +66,15 @@ test.describe('Dashboard e Projeções Financeiras', () => {
     
 
     await page.addInitScript(() => {
-      window.localStorage.setItem('vesper_user_id', '2a8d83e2-17b5-434d-91d9-2a963bc841da');
+      const USER_ID = 'dashboard-test-uuid-1234';
+      window.localStorage.setItem('vesper_user_id', USER_ID);
     });
-
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await expect(page.locator('text=Centro de Comando')).toBeVisible({ timeout: 20000 });
   });
 
   test('deve exibir métricas de saúde financeira corretamente no modo saudável', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('text=Centro de Comando')).toBeVisible({ timeout: 20000 });
     // 10k - 2k = 8k
     // Usamos toPass para garantir que o contexto terminou de processar as assinaturas
     await expect(async () => {
@@ -85,6 +86,10 @@ test.describe('Dashboard e Projeções Financeiras', () => {
   });
 
   test('deve alternar entre modos de visualização no Survival HUD', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('text=Centro de Comando')).toBeVisible({ timeout: 20000 });
+
     const ceilingValue = page.getByTestId('survival-ceiling-value');
     
     await expect(async () => {
@@ -104,23 +109,35 @@ test.describe('Dashboard e Projeções Financeiras', () => {
   test('deve entrar em MODO CRISE quando a liquidez é negativa e o mês termina no vermelho', async ({ page }) => {
     // Simular estado de crise
     // Forçar crise: saldo negativo + despesas maiores que receitas
-    mockState.accounts[0].balance_cents = -500000;
+    mockState.accounts = [
+      { ...mockState.accounts[0], balance_cents: -500000 }
+    ];
     mockState.recurring_transactions = [
       { id: 'rec-1', amount_cents: 0, transaction_type: 'INCOME', status: 'active', next_date: new Date(Date.now() + 86400000).toISOString(), frequency: 'monthly' },
       { id: 'rec-2', amount_cents: 1000000, transaction_type: 'EXPENSE', status: 'active', next_date: new Date(Date.now() + 86400000).toISOString(), frequency: 'monthly' }
     ];
     
+    console.log(`[TEST DEBUG] Mutated Accounts: ${JSON.stringify(mockState.accounts)}`);
+    
     await page.goto('/');
     await page.waitForLoadState('networkidle');
     
     await expect(async () => {
-      await expect(page.getByTestId('survival-status-message')).toContainText(/MODO CRISE ATIVADO/i);
+      const msg = page.getByTestId('survival-status-message');
+      const text = await msg.innerText();
+      const debug = await msg.getAttribute('data-debug-vals');
+      console.log(`[DEBUG TEST] Status: "${text}", Vals: ${debug}`);
+      await expect(msg).toContainText(/MODO CRISE ATIVADO/i);
     }).toPass({ timeout: 15000 });
     
     await expect(page.getByText(/Meta de Salvação/i)).toBeVisible();
   });
 
   test('deve refletir mudanças de assinaturas no saldo projetado do Dashboard', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('text=Centro de Comando')).toBeVisible({ timeout: 20000 });
+
     // Primeiro garantir que o estado inicial está certo
     await expect(async () => {
       await expect(page.getByTestId('survival-ceiling-value')).toContainText('8.000,00');

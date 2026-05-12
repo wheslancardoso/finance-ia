@@ -16,7 +16,6 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
   const { goals: contextGoals, loading, netLiquidityCents } = useFinancialData();
   const { openModal, openContribution, openDetail } = useGoalModal();
 
-
   const goalsToDisplay = contextGoals.length > 0 ? contextGoals : (initialGoals || []);
 
   return (

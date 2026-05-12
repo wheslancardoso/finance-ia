@@ -23,7 +23,7 @@ export default function SurvivalHUD() {
     isSurvivalMode,
     isCrisisMode
   } = useFinancialAnalysis();
-
+  
   const [viewMode, setViewMode] = useState<ViewMode>("MONTH");
 
   // Estado local para o formulário de setup
@@ -153,7 +153,10 @@ export default function SurvivalHUD() {
               <span className="text-[10px] font-bold uppercase tracking-widest text-white/50">Teto de Sobrevivência</span>
               <span 
                 data-testid="survival-status-message"
-                className={`text-[9px] px-2 py-0.5 rounded-full border bg-black/40 ${percentageOfIncome < 15 ? 'border-red-500/30 text-red-400' : 'border-white/10 text-white/40'}`}
+                className={cn(
+                  "text-[9px] px-2 py-0.5 rounded-full border bg-black/40",
+                  percentageOfIncome < 15 ? 'border-red-500/30 text-red-400' : 'border-white/10 text-white/40'
+                )}
               >
                 {statusMessage}
               </span>

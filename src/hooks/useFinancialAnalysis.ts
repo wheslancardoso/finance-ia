@@ -83,7 +83,7 @@ export function useFinancialAnalysis(): FinancialAnalysis {
     monthlyOutlook,
     healthScore,
     isSurvivalMode: monthlyOutlook.balanceAtMonthEnd < 0,
-    isCrisisMode: monthlyOutlook.balanceAtMonthEnd < 0 && netLiquidity < 0,
+    isCrisisMode: netLiquidity < 0 && monthlyOutlook.balanceAtMonthEnd < 0,
     debtExit,
     goalProjections,
     simulateDetailedImpact: (amountCents: number, installments: number) => 
