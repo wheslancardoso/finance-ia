@@ -35,6 +35,7 @@ export function MobileNav() {
             <button
               key={item.name}
               onClick={openAdd}
+              data-testid="mobile-add-button"
               className="w-12 h-12 -mt-8 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/20 flex items-center justify-center text-white active:scale-95 transition-transform"
             >
               <Plus className="w-6 h-6" />
@@ -46,6 +47,7 @@ export function MobileNav() {
           <Link
             key={item.name}
             href={item.href}
+            data-testid={`mobile-nav-${item.href.replace('/', '') || 'home'}`}
             className={cn(
               "flex flex-col items-center gap-1 p-2 transition-all",
               isActive ? "text-violet-400" : "text-white/40"

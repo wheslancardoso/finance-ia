@@ -35,7 +35,7 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
             <button 
               onClick={openModal}
               className="text-violet-400 font-bold text-sm hover:text-violet-300 transition-colors pt-4"
-              data-testid="add-goal-button-internal"
+              data-testid="add-goal-button"
             >
               Criar agora →
             </button>
@@ -126,7 +126,7 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
           <button 
             onClick={openModal}
             className="p-8 border-2 border-dashed border-white/5 rounded-[40px] flex flex-col items-center justify-center gap-4 text-white/10 hover:text-white/20 hover:border-white/10 transition-all group"
-            data-testid="add-goal-button-internal"
+            data-testid="add-goal-button"
           >
             <div className="w-14 h-14 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
               <Plus className="w-8 h-8" />

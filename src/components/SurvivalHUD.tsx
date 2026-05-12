@@ -94,7 +94,10 @@ export default function SurvivalHUD() {
   // Mas se já houver dados, usamos eles automaticamente.
   if (!hasFinancialData && !isSurvivalMode) {
     return (
-      <div className="w-full bg-[#0a0a0a]/80 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-6">
+      <div 
+        data-testid="survival-hud"
+        className="w-full bg-[#0a0a0a]/80 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-6"
+      >
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-full flex items-center justify-center bg-purple-500/10 border border-purple-500/20 text-purple-400">
             <ShieldCheck className="w-6 h-6" />
@@ -133,7 +136,7 @@ export default function SurvivalHUD() {
 
   return (
     <div 
-      data-testid="survival-hud-container"
+      data-testid="survival-hud"
       className={`relative w-full bg-[#0a0a0a]/90 backdrop-blur-xl border border-white/10 rounded-[24px] overflow-hidden mb-8 ${statusGlow} transition-all duration-500`}
     >
       {/* Background Gradient Effect */}

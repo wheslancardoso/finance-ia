@@ -8,11 +8,13 @@ import { Target, Trophy, TrendingUp, ShieldCheck, AlertCircle, Plus } from "luci
 import { formatCurrency, cn } from "@/lib/utils";
 import { useEffect } from "react";
 
+import { useGoalModal } from "@/context/GoalModalContext";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 
 export default function GoalsPage() {
   const { goals, loading } = useFinancialData();
-  const { netLiquidityCents, totalConsolidatedDebtCents, isSurvivalMode, monthlyOutlook } = useFinancialAnalysis();
+  const { openModal } = useGoalModal();
+  const { netLiquidityCents, totalConsolidatedDebtCents, isSurvivalMode } = useFinancialAnalysis();
 
   const stats = useMemo(() => {
     const totalSaved = goals.reduce((acc, g) => acc + (g.current_amount_cents || 0), 0);
@@ -59,11 +61,7 @@ export default function GoalsPage() {
         </div>
         
         <button 
-          onClick={() => {
-            // Esse botão vai disparar o modal via contexto
-            const btn = document.querySelector('[data-testid="add-goal-button-internal"]') as HTMLButtonElement;
-            if (btn) btn.click();
-          }}
+          onClick={openModal}
           className="bg-white text-black font-black py-4 px-8 rounded-2xl transition-all flex items-center justify-center gap-2 group active:scale-95 shadow-xl shadow-white/10 shrink-0"
           data-testid="add-goal-button"
         >
