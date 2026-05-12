@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { setupFinancialMocks } from './mocks/financialMocks';
+import { setupAuthMock } from './mocks/authMocks';
 
 test.describe('Dashboard e Projeções Financeiras', () => {
-  const USER_ID = 'db-test-user-123';
+  const USER_ID = 'dashboard-test-uuid-1234';
   let mockState: any;
 
   test.beforeEach(async ({ page }) => {
@@ -63,12 +64,7 @@ test.describe('Dashboard e Projeções Financeiras', () => {
     };
 
     await setupFinancialMocks(page, mockState);
-    
-
-    await page.addInitScript(() => {
-      const USER_ID = 'dashboard-test-uuid-1234';
-      window.localStorage.setItem('vesper_user_id', USER_ID);
-    });
+    await setupAuthMock(page, { id: USER_ID });
   });
 
   test('deve exibir métricas de saúde financeira corretamente no modo saudável', async ({ page }) => {

@@ -1,46 +1,60 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { createAdminClient } from "@/utils/supabase/server";
 
 export const dynamic = 'force-dynamic';
 
+async function getAuthUser() {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+      },
+    }
+  );
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+}
+
 /**
- * GET /api/recurring-transactions?user_id=xxx
+ * GET /api/recurring-transactions
  */
 export async function GET(request: NextRequest) {
-  const userId = request.nextUrl.searchParams.get("user_id");
-
-  if (!userId) {
-    return NextResponse.json({ error: "user_id obrigatório" }, { status: 400 });
-  }
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
   try {
-    const supabase = await createClient();
-
+    const supabase = await createAdminClient();
     const { data, error } = await supabase
       .from('recurring_transactions')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error("GET /api/recurring-transactions error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 /**
  * POST /api/recurring-transactions
- * Upsert (Create or Update)
  */
 export async function POST(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
   try {
     const body = await request.json();
     const {
       id,
-      user_id,
       description,
       amount_cents,
       transaction_type,
@@ -51,18 +65,18 @@ export async function POST(request: NextRequest) {
       account_id
     } = body;
 
-    if (!user_id || !description || !amount_cents) {
+    if (!description || !amount_cents) {
       return NextResponse.json(
-        { error: "Campos obrigatórios faltando (user_id, description, amount_cents)" },
+        { error: "Campos obrigatórios faltando (description, amount_cents)" },
         { status: 400 }
       );
     }
 
-    const supabase = await createClient();
+    const supabase = await createAdminClient();
     
     const payload = {
       ...(id ? { id } : {}),
-      user_id,
+      user_id: user.id,
       description,
       amount_cents,
       transaction_type,
@@ -80,10 +94,8 @@ export async function POST(request: NextRequest) {
       .select();
 
     if (error) throw error;
-    
     return NextResponse.json(data ? data[0] : null);
   } catch (error: any) {
-    console.error("POST /api/recurring-transactions error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -92,22 +104,23 @@ export async function POST(request: NextRequest) {
  * DELETE /api/recurring-transactions?id=xxx
  */
 export async function DELETE(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
   const id = request.nextUrl.searchParams.get("id");
-  if (!id) {
-    return NextResponse.json({ error: "id obrigatório" }, { status: 400 });
-  }
+  if (!id) return NextResponse.json({ error: "id obrigatório" }, { status: 400 });
 
   try {
-    const supabase = await createClient();
+    const supabase = await createAdminClient();
     const { error } = await supabase
       .from('recurring_transactions')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', user.id);
 
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("DELETE /api/recurring-transactions error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

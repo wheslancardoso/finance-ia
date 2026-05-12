@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { setupFinancialMocks } from './mocks/financialMocks';
+import { setupAuthMock } from './mocks/authMocks';
 
 test.describe('Gestão de Contas', () => {
   let sharedState: any;
@@ -32,10 +33,7 @@ test.describe('Gestão de Contas', () => {
     };
 
     await setupFinancialMocks(page, sharedState);
-
-    await page.addInitScript(() => {
-      window.localStorage.setItem('vesper_user_id', '2a8d83e2-17b5-434d-91d9-2a963bc841da');
-    });
+    await setupAuthMock(page, { id: '2a8d83e2-17b5-434d-91d9-2a963bc841da' });
 
     await page.goto('/accounts');
     await page.waitForLoadState('networkidle');

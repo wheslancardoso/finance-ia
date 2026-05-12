@@ -1,27 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { createAdminClient } from "@/utils/supabase/server";
 
 export const dynamic = 'force-dynamic';
 
+async function getAuthUser() {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+      },
+    }
+  );
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+}
+
 /**
- * GET /api/transactions?user_id=xxx&limit=100
- * Lista transações de um usuário.
+ * GET /api/transactions?limit=100
  */
 export async function GET(request: NextRequest) {
-  const userId = request.nextUrl.searchParams.get("user_id");
-  const limit = parseInt(request.nextUrl.searchParams.get("limit") || "200");
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  if (!userId) {
-    return NextResponse.json({ error: "user_id obrigatório" }, { status: 400 });
-  }
+  const limit = parseInt(request.nextUrl.searchParams.get("limit") || "200");
 
   try {
     const supabase = await createAdminClient();
-
     const { data, error } = await supabase
       .from('transactions')
       .select('*, categories(name, type), accounts(name, type, closing_day)')
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .order('date', { ascending: false })
       .limit(limit);
 
@@ -44,14 +59,15 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/transactions
- * Cria ou atualiza uma transação (upsert).
  */
 export async function POST(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
   try {
     const body = await request.json();
     const {
       id,
-      user_id,
       account_id,
       category_id,
       amount_cents,
@@ -65,17 +81,12 @@ export async function POST(request: NextRequest) {
       source = "MANUAL",
     } = body;
 
-    if (!user_id || !amount_cents || !transaction_type || !date || !description) {
-      return NextResponse.json(
-        { error: "Campos obrigatórios faltando" },
-        { status: 400 }
-      );
+    if (!amount_cents || !transaction_type || !date || !description) {
+      return NextResponse.json({ error: "Campos obrigatórios faltando" }, { status: 400 });
     }
 
     const supabase = await createAdminClient();
     
-    console.log(`📝 [API] Processando transação: ${description} (${amount_cents} cents)`);
-
     const txDate = new Date(date);
     const now = new Date();
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -83,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     const txData = {
       ...(id ? { id } : {}),
-      user_id,
+      user_id: user.id, // Forçar o ID do usuário logado
       account_id: account_id || null,
       category_id: category_id || null,
       amount_cents: Number(amount_cents) || 0,
@@ -103,44 +114,35 @@ export async function POST(request: NextRequest) {
       .upsert(txData, { onConflict: 'id' })
       .select();
 
-    if (error) {
-      console.error("❌ [API] Erro no upsert do Supabase:", error.message);
-      throw error;
-    }
-    
-    if (!data || data.length === 0) {
-      throw new Error("Falha ao persistir transação: Nenhum dado retornado");
-    }
-
-    console.log(`✅ [API] Transação persistida com sucesso: ${data[0]?.id}`);
+    if (error) throw error;
     return NextResponse.json(data[0]);
   } catch (error: any) {
-    console.error("❌ [API] POST /api/transactions error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 /**
  * DELETE /api/transactions?id=xxx
- * Remove uma transação.
  */
 export async function DELETE(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
   const txId = request.nextUrl.searchParams.get("id");
-  if (!txId) {
-    return NextResponse.json({ error: "id obrigatório" }, { status: 400 });
-  }
+  if (!txId) return NextResponse.json({ error: "id obrigatório" }, { status: 400 });
 
   try {
     const supabase = await createAdminClient();
+    // Deletar apenas se pertencer ao usuário
     const { error } = await supabase
       .from('transactions')
       .delete()
-      .eq('id', txId);
+      .eq('id', txId)
+      .eq('user_id', user.id);
 
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("DELETE /api/transactions error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

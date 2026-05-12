@@ -146,6 +146,45 @@ npx playwright show-report                               # relatório HTML
 
 ---
 
+## 🔁 Feedback Loop Contínuo — Rode Testes a Cada Alteração
+
+> Não espere terminar a feature para descobrir que algo quebrou. **Teste enquanto desenvolve.**
+
+### Regra de ouro
+
+A cada alteração de código — por menor que seja — rode os testes do escopo afetado **antes de continuar para o próximo passo**. Isso evita o efeito bola de neve: um bug silencioso que se propaga por vários commits e vira um pesadelo para depurar depois.
+
+### O que rodar em cada situação
+
+| Você alterou… | Rode imediatamente |
+|---|---|
+| Uma função ou use case isolado | `npx jest --testPathPattern=nomeDoArquivo` |
+| Um repositório ou serviço | Testes unitários da camada + integration tests relacionados |
+| Um componente ou página | Spec E2E do fluxo correspondente |
+| Múltiplos arquivos / refactor | Suite completa: unit + integration + E2E |
+| Corrigiu um bug | O teste que cobre o bug + suite completa ao final |
+
+### Fluxo esperado por iteração
+
+```
+Altera código
+    ↓
+Roda testes do escopo afetado
+    ↓
+Passou? → Continua para o próximo passo
+Falhou? → Corrige AGORA, neste passo — não acumula para depois
+    ↓
+Ao finalizar a feature: roda suite completa antes do diário de bordo
+```
+
+### ❌ Nunca faça isso
+
+- Acumular 5 alterações e rodar os testes só no final.
+- Ignorar um teste falhando porque "vou resolver depois".
+- Commitar com testes vermelhos achando que são "unrelated".
+
+---
+
 ## 🚦 Execução Obrigatória Após Toda Feature
 
 > Implementou uma feature? Os testes E2E **não são opcionais** — fazem parte da definição de "pronto".

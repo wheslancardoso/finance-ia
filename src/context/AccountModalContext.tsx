@@ -1,7 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from "react";
-import { LOCAL_USER_ID } from "@/lib/constants";
+import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { createClient } from "@/utils/supabase/client";
 
 interface AccountModalContextType {
   isOpen: boolean;
@@ -13,7 +13,7 @@ interface AccountModalContextType {
   openTransfer: () => void;
   closeModal: () => void;
   closeTransfer: () => void;
-  setUserId: (id: string) => void;
+  setUserId: (id: string | null) => void;
 }
 
 const AccountModalContext = createContext<AccountModalContextType | undefined>(undefined);
@@ -22,23 +22,49 @@ export function AccountModalProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   const [accountToEdit, setAccountToEdit] = useState<any | null>(null);
-  const [userId, setUserIdState] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("vesper_user_id");
-      if (stored) return stored;
-      // Fallback para o ID padrão caso não exista no localStorage
-      const defaultId = LOCAL_USER_ID;
-      localStorage.setItem("vesper_user_id", defaultId);
-      return defaultId;
-    }
-    return null;
-  });
+  const [userId, setUserIdState] = useState<string | null>(null);
+  
+  // Memoizar o cliente para evitar recriação em cada render e loops no useEffect
+  const supabase = React.useMemo(() => createClient(), []);
 
-  const setUserId = (id: string) => {
+  useEffect(() => {
+    // 1. Verificar sessão inicial
+    const checkUser = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          setUserIdState(session.user.id);
+        } else {
+          // Fallback para testes: se não houver sessão mas houver cookie de mock
+          const mockCookie = typeof document !== 'undefined' ? document.cookie.split('; ').find(row => row.startsWith('sb-mock-user-id=')) : null;
+          if (mockCookie) {
+            setUserIdState(mockCookie.split('=')[1]);
+          }
+        }
+      } catch (err) {
+        console.error('Auth initialization error:', err);
+      }
+    };
+    
+    checkUser();
+
+    // 2. Escutar mudanças na autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUserIdState(session.user.id);
+      } else {
+        setUserIdState(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  const setUserId = (id: string | null) => {
     setUserIdState(id);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("vesper_user_id", id);
-    }
   };
 
   const openAdd = () => {

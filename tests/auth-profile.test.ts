@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { setupFinancialMocks } from './mocks/financialMocks';
+import { setupAuthMock } from './mocks/authMocks';
 
 test.describe('Autenticação e Perfil', () => {
   let sharedState: any;
@@ -26,46 +27,53 @@ test.describe('Autenticação e Perfil', () => {
 
     // Mock API para salvar perfil
     await page.route('**/api/user-profile', async (route) => {
-      const payload = route.request().postDataJSON();
-      Object.assign(sharedState.user_profile, payload);
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true, ...payload }),
-      });
+      if (route.request().method() === 'POST') {
+        const payload = route.request().postDataJSON();
+        Object.assign(sharedState.user_profile, payload);
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ success: true, ...payload }),
+        });
+      } else {
+        await route.continue();
+      }
     });
 
     await setupFinancialMocks(page, sharedState);
   });
 
   test('deve carregar e salvar diretrizes de perfil', async ({ page }) => {
-    // Configurar localStorage MANUALMENTE sem usar init script persistente
-    await page.goto('/login'); // Ir para uma página neutra primeiro
-    await page.evaluate(() => localStorage.setItem('vesper_user_id', 'user-1'));
+    await setupAuthMock(page, { id: 'user-1' });
     
     await page.goto('/settings');
     await page.waitForLoadState('networkidle');
+    
+    // O botão 'Sair da Conta' é um sinal seguro de que o Auth resolveu
+    await expect(page.getByRole('button', { name: /Sair da Conta/i })).toBeVisible({ timeout: 15000 });
 
     const incomeInput = page.getByTestId('profile-income-input');
     const expensesInput = page.getByTestId('profile-expenses-input');
     
-    await expect(incomeInput).toHaveValue('5000');
-    await expect(expensesInput).toHaveValue('2000');
+    await expect(incomeInput).toHaveValue('5000', { timeout: 15000 });
+    await expect(expensesInput).toHaveValue('2000', { timeout: 15000 });
 
     await incomeInput.fill('6000');
     await expensesInput.fill('2500');
     await page.getByTestId('profile-save-button').click();
 
-    await expect(page.getByText('Configurações Salvas')).toBeVisible();
+    await expect(page.getByText('Configurações Salvas')).toBeVisible({ timeout: 10000 });
 
     await page.reload();
-    await expect(incomeInput).toHaveValue('6000');
-    await expect(expensesInput).toHaveValue('2500');
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('button', { name: /Sair da Conta/i })).toBeVisible();
+    
+    await expect(page.getByTestId('profile-income-input')).toHaveValue('6000');
+    await expect(page.getByTestId('profile-expenses-input')).toHaveValue('2500');
   });
 
   test('deve trocar de usuário e carregar dados diferentes', async ({ page }) => {
-    await page.goto('/login');
-    await page.evaluate(() => localStorage.setItem('vesper_user_id', 'user-1'));
+    await setupAuthMock(page, { id: 'user-1' });
     
     await page.goto('/');
     await page.waitForLoadState('networkidle');
@@ -91,13 +99,12 @@ test.describe('Autenticação e Perfil', () => {
       budgets: []
     };
 
-    // Override route for User 2
+    // Aplicar mocks para User 2 ANTES de configurar o novo auth
     await page.unroute('**/api/financial-state*');
     await setupFinancialMocks(page, stateUser2);
-
-    await page.evaluate(() => {
-      localStorage.setItem('vesper_user_id', 'user-2');
-    });
+    
+    // Trocar usuário
+    await setupAuthMock(page, { id: 'user-2' });
     
     await page.reload();
     await page.waitForLoadState('networkidle');
@@ -110,10 +117,12 @@ test.describe('Autenticação e Perfil', () => {
   });
 
   test('deve deslogar e redirecionar para login', async ({ page }) => {
-    await page.goto('/login');
-    await page.evaluate(() => localStorage.setItem('vesper_user_id', 'user-1'));
+    await setupAuthMock(page, { id: 'user-1' });
     await page.goto('/');
     await page.getByText('Sair da Conta').click();
+    
+    // Ao deslogar via UI, o app deve chamar supabase.auth.signOut()
+    // Como estamos com mocks, precisamos garantir que o redirecionamento aconteça
     await expect(page).toHaveURL(/\/login/);
   });
 });

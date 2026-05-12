@@ -172,6 +172,16 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const refreshData = useCallback(async () => {
     if (!userId) {
       setLoading(false);
+      // Limpar estados ao deslogar
+      setAccounts([]);
+      setCategories([]);
+      setGoals([]);
+      setRecurringTransactions([]);
+      setBudgets([]);
+      setRecentTransactions([]);
+      setMonthTransactions([]);
+      setAccumulatedBalanceCents(0);
+      setHealthScore(0);
       return;
     }
 

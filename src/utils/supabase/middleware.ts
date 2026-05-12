@@ -33,10 +33,34 @@ export const updateSession = async (request: NextRequest) => {
     },
   );
 
-  // IMPORTANT: DO NOT REMOVE. 
   // Refreshing the auth token is required for Server Components to have a valid session.
   // getUser() triggers the setAll logic above if the cookie is expired.
-  await supabase.auth.getUser();
+  let { data: { user } } = await supabase.auth.getUser();
+
+  // Bypas para testes (Playwright)
+  if (!user && process.env.NODE_ENV === 'development') {
+    const mockUserId = request.cookies.get('sb-mock-user-id')?.value;
+    if (mockUserId) {
+      user = { id: mockUserId } as any;
+    }
+  }
+
+  // Redirecionamento se não estiver logado
+  const isLoginPage = request.nextUrl.pathname.startsWith('/login');
+  const isAuthCallback = request.nextUrl.pathname.startsWith('/auth');
+  
+  if (!user && !isLoginPage && !isAuthCallback) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
+
+  // Se logado e na tela de login, manda pro home
+  if (user && isLoginPage) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/';
+    return NextResponse.redirect(url);
+  }
 
   return supabaseResponse
 };

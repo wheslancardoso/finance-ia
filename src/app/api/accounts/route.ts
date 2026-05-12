@@ -1,45 +1,60 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { createAdminClient } from "@/utils/supabase/server";
 
 export const dynamic = 'force-dynamic';
 
+async function getAuthUser() {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+      },
+    }
+  );
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+}
+
 /**
- * GET /api/accounts?user_id=xxx
- * Lista todas as contas de um usuário.
+ * GET /api/accounts
  */
 export async function GET(request: NextRequest) {
-  const userId = request.nextUrl.searchParams.get("user_id");
-  if (!userId) {
-    return NextResponse.json({ error: "user_id obrigatório" }, { status: 400 });
-  }
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
   try {
     const supabase = await createAdminClient();
-
     const { data, error } = await supabase
       .from('accounts')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .order('created_at');
 
     if (error) throw error;
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error("GET /api/accounts error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 /**
  * POST /api/accounts
- * Cria ou atualiza uma conta (upsert).
  */
 export async function POST(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
   try {
     const body = await request.json();
     const {
       id,
-      user_id,
       name,
       type,
       balance_cents = 0,
@@ -49,20 +64,15 @@ export async function POST(request: NextRequest) {
       color_hex = "#7C3AED",
     } = body;
 
-    if (!user_id || !name || !type) {
-      return NextResponse.json(
-        { error: "user_id, name e type são obrigatórios" },
-        { status: 400 }
-      );
+    if (!name || !type) {
+      return NextResponse.json({ error: "name e type são obrigatórios" }, { status: 400 });
     }
 
     const supabase = await createAdminClient();
     
-    console.log(`🏦 [API] Processando conta: ${name} (${type})`);
-
     const accountData = {
       ...(id ? { id } : {}),
-      user_id,
+      user_id: user.id,
       name,
       type,
       balance_cents: Number(balance_cents) || 0,
@@ -78,44 +88,34 @@ export async function POST(request: NextRequest) {
       .upsert(accountData, { onConflict: 'id' })
       .select();
 
-    if (error) {
-      console.error("❌ [API] Erro no upsert de conta no Supabase:", error.message);
-      throw error;
-    }
-    
-    if (!data || data.length === 0) {
-      throw new Error("Falha ao persistir conta: Nenhum dado retornado");
-    }
-
-    console.log(`✅ [API] Conta persistida com sucesso: ${data[0]?.id}`);
+    if (error) throw error;
     return NextResponse.json(data[0]);
   } catch (error: any) {
-    console.error("❌ [API] POST /api/accounts error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 /**
  * DELETE /api/accounts?id=xxx
- * Remove uma conta.
  */
 export async function DELETE(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
   const accountId = request.nextUrl.searchParams.get("id");
-  if (!accountId) {
-    return NextResponse.json({ error: "id obrigatório" }, { status: 400 });
-  }
+  if (!accountId) return NextResponse.json({ error: "id obrigatório" }, { status: 400 });
 
   try {
     const supabase = await createAdminClient();
     const { error } = await supabase
       .from('accounts')
       .delete()
-      .eq('id', accountId);
+      .eq('id', accountId)
+      .eq('user_id', user.id);
 
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("DELETE /api/accounts error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

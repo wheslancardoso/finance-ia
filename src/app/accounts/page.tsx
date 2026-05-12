@@ -3,9 +3,7 @@
 import { AccountCard } from "@/components/AccountCard";
 import { Plus } from "lucide-react";
 import { AccountsHeader } from "@/components/AccountsHeader";
-import { SyncUser } from "@/components/SyncUser";
 import { useFinancialData } from "@/context/FinancialDataContext";
-import { LOCAL_USER_ID } from "@/lib/constants";
 
 export default function AccountsPage() {
   const { accounts, loading } = useFinancialData();
@@ -14,7 +12,6 @@ export default function AccountsPage() {
   return (
     <div className="p-6 md:p-12 max-w-7xl mx-auto w-full space-y-12">
       <AccountsHeader />
-      <SyncUser />
 
       {loading ? (
         <div className="py-24 flex flex-col items-center text-center">

@@ -1,18 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { createAdminClient } from "@/utils/supabase/server";
 
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/financial-state?user_id=xxx
+ * GET /api/financial-state
  * Retorna o estado financeiro completo via RPC get_financial_state_v5.
  */
 export async function GET(request: NextRequest) {
-  const userId = request.nextUrl.searchParams.get("user_id");
-  if (!userId) {
-    return NextResponse.json({ error: "user_id obrigatório" }, { status: 400 });
+  const cookieStore = await cookies();
+  const supabaseAuth = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+      },
+    }
+  );
+
+  const { data: { user } } = await supabaseAuth.auth.getUser();
+  
+  if (!user) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
+  const userId = user.id;
   const supabase = await createAdminClient();
 
   try {

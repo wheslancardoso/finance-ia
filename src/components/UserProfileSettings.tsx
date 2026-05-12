@@ -37,9 +37,9 @@ export function UserProfileSettings() {
     });
 
     if (!error) {
-      await refreshData();
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
+      refreshData(); // Não aguardar o refresh para mostrar sucesso
     }
     setLoading(false);
   };
