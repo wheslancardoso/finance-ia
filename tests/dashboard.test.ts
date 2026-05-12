@@ -131,7 +131,7 @@ test.describe('Dashboard e Projeções Financeiras', () => {
     await page.getByTestId('add-subscription-button').click();
     
     await page.getByTestId('subscription-description-input').fill('Gasto Gigante');
-    await page.getByTestId('subscription-amount-input').fill('5000');
+    await page.getByTestId('subscription-amount-input').fill('5000,00');
     
     const submitBtn = page.getByTestId('subscription-submit-button');
     await expect(submitBtn).toBeEnabled({ timeout: 10000 });

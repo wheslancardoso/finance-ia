@@ -38,20 +38,42 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
     }
   }, [loading, hasFetchedOnce]);
 
-  // Use transactions from context once the first fetch has completed.
-  // This prevents the UI from flashing empty while loading, but ensures
-  // that once live data is available, it's used exclusively.
-  // Use initialTransactions as the source for history, falling back to context only if empty
-  const displayTransactions = useMemo(() => {
-    if (initialTransactions && initialTransactions.length > 0) return initialTransactions;
-    return monthTransactions;
-  }, [initialTransactions, monthTransactions]);
+  const [localTransactions, setLocalTransactions] = useState(initialTransactions);
+
+  // Sincronizar com props iniciais se mudarem
+  React.useEffect(() => {
+    if (initialTransactions) {
+      setLocalTransactions(initialTransactions);
+    }
+  }, [initialTransactions]);
 
   // Usar as contas do contexto se disponíveis (pois têm o cálculo da fatura)
   const accounts = contextAccounts.length > 0 ? contextAccounts : serverAccounts;
+
+  // Efeito para remover transações excluídas do estado local
+  React.useEffect(() => {
+    if (monthTransactions && localTransactions && hasFetchedOnce) {
+      // Se uma transação do mês atual sumiu do contexto, removemos do histórico local também
+      const currentMonthIds = new Set(monthTransactions.map(t => t.id));
+      const now = new Date();
+      const isCurrentMonth = (dateStr: string) => {
+        const d = new Date(dateStr);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      };
+
+      setLocalTransactions(prev => {
+        const next = prev.filter(tx => {
+          if (!isCurrentMonth(tx.date)) return true; // Se não é deste mês, mantém (não temos no contexto)
+          return currentMonthIds.has(tx.id); // Se é deste mês, só mantém se estiver no contexto
+        });
+        if (next.length !== prev.length) return next;
+        return prev;
+      });
+    }
+  }, [monthTransactions, hasFetchedOnce]);
   
   const filteredTransactions = useMemo(() => {
-    const filtered = displayTransactions.filter(tx => {
+    const filtered = (localTransactions || []).filter(tx => {
       const matchesAccount = !selectedAccountId || tx.account_id === selectedAccountId;
       const matchesSearch = !searchQuery || 
         tx.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -59,16 +81,8 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
       return matchesAccount && matchesSearch;
     });
 
-    if (selectedAccountId) {
-      const acc = accounts.find(a => a.id === selectedAccountId);
-      console.log(`📑 [Auditoria Transactions] Filtrando por conta: ${acc?.name}`, {
-        totalEncontrado: filtered.length,
-        searchQuery
-      });
-    }
-
     return filtered;
-  }, [displayTransactions, selectedAccountId, searchQuery, accounts]);
+  }, [localTransactions, selectedAccountId, searchQuery]);
 
   // Agrupar transações por data ou fatura
   const groupedTransactions = useMemo(() => {

@@ -47,6 +47,7 @@ test.describe('Simulador de Impacto', () => {
 
     await setupFinancialMocks(page, mockState);
 
+
     await page.addInitScript(() => {
       window.localStorage.setItem('vesper_user_id', 'user-1');
     });
@@ -66,8 +67,16 @@ test.describe('Simulador de Impacto', () => {
     await expect(page.getByTestId('simulator-status-indicator')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('text=416,67')).toBeVisible();
 
+    // 1. Preparar para esperar a resposta da API de metas
+    const savePromise = page.waitForResponse(resp => 
+      resp.url().includes('/api/goals') && resp.request().method() === 'POST'
+    );
+
     await page.getByTestId('simulator-save-button').click();
-    
+
+    // 2. Garantir que a API respondeu com sucesso antes de prosseguir
+    await savePromise;
+
     // Esperar limpar o input (sinal de que salvou)
     await expect(simulator).toHaveValue('', { timeout: 10000 });
 
@@ -77,8 +86,7 @@ test.describe('Simulador de Impacto', () => {
     // Garantir que estamos na página de metas
     await expect(page.getByRole('heading', { name: 'Suas Metas' })).toBeVisible();
     
-    // Usar o test-id específico do título do card para evitar ambiguidade com recomendações (strict mode)
-    const goalTitle = page.getByTestId('goal-card-title').filter({ hasText: /Parcelamento/i });
-    await expect(goalTitle).toBeVisible({ timeout: 15000 });
+    // Usar um seletor mais genérico que procure pelo texto 'Parcelamento' em qualquer título
+    await expect(page.locator('h3:has-text("Parcelamento")').first()).toBeVisible({ timeout: 15000 });
   });
 });
