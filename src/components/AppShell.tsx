@@ -24,7 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {!isLoginPage && <Sidebar />}
       <main 
         className={cn(
-          "flex-1 min-h-screen relative",
+          "flex-1 min-h-screen relative overflow-x-hidden",
           !isLoginPage && "md:pl-64"
         )}
       >

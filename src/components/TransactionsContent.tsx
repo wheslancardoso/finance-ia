@@ -107,9 +107,9 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
   }, [filteredTransactions]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 overflow-x-hidden">
       {/* Account Selector Strip */}
-      <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+      <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
         <button
           onClick={() => setSelectedAccountId(null)}
           className={cn(
@@ -221,7 +221,7 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
 
       {/* Transactions List */}
       <div className="space-y-12 min-h-[400px]">
-        <AnimatePresence mode="popLayout">
+        <AnimatePresence mode="wait">
           {Object.entries(groupedTransactions).map(([date, txs]) => (
             <motion.div 
               key={date}
