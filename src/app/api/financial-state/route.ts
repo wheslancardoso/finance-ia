@@ -167,6 +167,12 @@ async function buildFinancialState(userId: string) {
     return d >= firstDayOfMonth && d <= lastDayOfMonth;
   });
 
+  // Transações futuras (parcelas de cartão, agendamentos)
+  const future_transactions = allTransactions.filter((t: any) => {
+    const d = new Date(t.date);
+    return d > lastDayOfMonth;
+  });
+
   // Estatísticas do mês
   let income = 0;
   let debit_expense = 0;
@@ -278,6 +284,7 @@ async function buildFinancialState(userId: string) {
     budgets: budgets || [],
     recent_transactions,
     month_transactions,
+    future_transactions,
     month_stats: {
       income,
       debit_expense,

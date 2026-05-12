@@ -58,7 +58,8 @@ export default function RealtimeDashboard({
     scheduledIncomeCents,
     scheduledExpensesCents,
     cardDebtImpactCents,
-    totalConsolidatedDebtCents
+    totalConsolidatedDebtCents,
+    futureTransactions
   } = useFinancialData();
 
   // Usar dados live se disponíveis, senão inicial
@@ -99,7 +100,7 @@ export default function RealtimeDashboard({
       frequency: (r.frequency || 'monthly') as any,
     }));
 
-    return getProjectedDetails(currentBalance, targetDate, formattedRecurring, formattedBudgets, displayAccounts);
+    return getProjectedDetails(currentBalance, targetDate, formattedRecurring, formattedBudgets, displayAccounts, futureTransactions);
   }, [currentBalance, displayRecurring, targetDate, displayBudgets, displayAccounts]);
 
   const projectedBalance = projection.totalBalance;

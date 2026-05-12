@@ -51,7 +51,8 @@ export function getProjectedDetails(
   targetDate: Date,
   recurringItems: RecurringItem[] = [],
   budgets: Budget[] = [],
-  accounts: any[] = []
+  accounts: any[] = [],
+  futureTransactions: any[] = []
 ): ProjectedDetails {
   let projected = currentBalance;
   const today = new Date();
@@ -104,7 +105,35 @@ export function getProjectedDetails(
     });
   }
 
-  // 3. Itens recorrentes
+  // 3. Transações Reais Futuras (Parcelas, Agendamentos)
+  futureTransactions.forEach((tx) => {
+    const txDate = new Date(tx.date);
+    const isIncome = tx.transaction_type === "INCOME";
+    
+    // Se a transação for ANTES ou NO mês alvo, ela afeta o saldo projetado
+    if (isBefore(txDate, targetMonthEnd)) {
+      if (isIncome) projected += tx.amount_cents;
+      else projected -= tx.amount_cents;
+    }
+
+    // Se a transação for NO mês alvo, ela aparece na timeline
+    if (isSameMonth(txDate, targetDate)) {
+      const account = accounts.find(a => a.id === tx.account_id);
+      transactions.push({
+        id: `real-future-${tx.id}`,
+        description: tx.description,
+        amount_cents: tx.amount_cents,
+        transaction_type: tx.transaction_type,
+        date: txDate,
+        category: tx.categories?.name,
+        isRecurring: false,
+        accountName: account?.name,
+        accountType: account?.type
+      });
+    }
+  });
+
+  // 4. Itens recorrentes (Assinaturas, Fluxos Fixos)
   const endOfThisMonth = endOfMonth(today);
 
   recurringItems.forEach((item) => {

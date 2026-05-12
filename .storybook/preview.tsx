@@ -32,6 +32,7 @@ const preview: Preview = {
           recurringTransactions: [],
           recentTransactions: [],
           monthTransactions: [],
+          futureTransactions: [],
           loading: false,
           refreshData: async () => {},
           lastFetched: Date.now(),

@@ -22,6 +22,7 @@ const baseContext = {
   recurringTransactions: [],
   recentTransactions: [],
   monthTransactions: [],
+  futureTransactions: [],
   loading: false,
   refreshData: async () => {},
   lastFetched: Date.now(),

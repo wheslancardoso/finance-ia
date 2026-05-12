@@ -30,6 +30,7 @@ interface FinancialStateResponse {
   budgets: Budget[];
   recent_transactions: Transaction[];
   month_transactions: Transaction[];
+  future_transactions: Transaction[];
   month_stats: {
     income: number;
     debit_expense: number;
@@ -91,6 +92,7 @@ interface FinancialDataContextType {
   budgets: Budget[];
   recentTransactions: Transaction[];
   monthTransactions: Transaction[];
+  futureTransactions: Transaction[];
   transactions: Transaction[];
   healthScore: number;
   scheduledIncomeCents: number;
@@ -145,6 +147,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [monthTransactions, setMonthTransactions] = useState<Transaction[]>([]);
+  const [futureTransactions, setFutureTransactions] = useState<Transaction[]>([]);
   const [healthScore, setHealthScore] = useState<number>(0);
 
   const { userId: rawUserId } = useAccountModal();
@@ -207,7 +210,8 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     setRecurringTransactions(recurring);
     setBudgets(data.budgets || []);
     setRecentTransactions([...(data.transactions || [])]);
-    setMonthTransactions([...(data.transactions || [])]);
+    setMonthTransactions([...(data.month_transactions || [])]);
+    setFutureTransactions([...(data.future_transactions || [])]);
     
     if (data.user_profile) {
       setMonthlyIncomeCentsState(data.user_profile.monthly_income_cents || 0);
@@ -284,7 +288,11 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
           db.budgets.bulkPut(state.budgets.map(b => ({ ...b, user_id: userId! })))
         ) : Promise.resolve(),
         db.transactions.where('user_id').equals(userId!).delete().then(() => {
-          const allTx = [...(state.recent_transactions || []), ...(state.month_transactions || [])];
+          const allTx = [
+            ...(state.recent_transactions || []), 
+            ...(state.month_transactions || []),
+            ...(state.future_transactions || [])
+          ];
           const uniqueTx = Array.from(new Map(allTx.map(t => [t.id, t])).values());
           return db.transactions.bulkPut(uniqueTx.map(t => ({ ...t, user_id: userId! })));
         })
@@ -304,6 +312,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         setBudgets(localState.budgets || []);
         setRecentTransactions(localState.recent_transactions || []);
         setMonthTransactions(localState.month_transactions || []);
+        setFutureTransactions(localState.future_transactions || []);
         
         if (localState.month_stats) {
           setExtraIncomeCents(localState.month_stats.income || 0);
@@ -576,6 +585,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       budgets,
       recentTransactions,
       monthTransactions,
+      futureTransactions,
       transactions: monthTransactions,
       getIncomeMix,
       getNetWorthHistory,
