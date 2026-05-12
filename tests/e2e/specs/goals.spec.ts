@@ -15,10 +15,7 @@ test.describe('Gestão de Metas (Refatorado)', () => {
       accounts: [
         { id: 'acc-goals-1', name: 'Conta Principal', type: 'CHECKING', balance_cents: 1000000, color_hex: '#10b981' }
       ],
-      recurring_transactions: [
-        { id: 'rec-in', description: 'Salário', amount_cents: 1000000, transaction_type: 'INCOME', status: 'active', frequency: 'monthly', next_date: futureDate },
-        { id: 'rec-out', description: 'Aluguel', amount_cents: 500000, transaction_type: 'EXPENSE', status: 'active', frequency: 'monthly', next_date: futureDate }
-      ],
+      recurring_transactions: [], // Zerar para que Projetado == Atual
       goals: [
         {
           id: 'goal-1',

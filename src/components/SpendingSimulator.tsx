@@ -8,7 +8,11 @@ import { useFinancialData } from "@/context/FinancialDataContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-export default function SpendingSimulator() {
+interface SpendingSimulatorProps {
+  onSimulate?: (simulation: { amount_cents: number; installments: number } | null) => void;
+}
+
+export default function SpendingSimulator({ onSimulate }: SpendingSimulatorProps) {
   const { simulateDetailedImpact } = useFinancialAnalysis();
   const { upsertGoal } = useFinancialData();
   const [amount, setAmount] = useState<string>("");
@@ -25,9 +29,20 @@ export default function SpendingSimulator() {
       return null;
     }
     const res = simulateDetailedImpact(valueCents, installments);
-    console.log("📊 [SpendingSimulator] Simulação:", { valueCents, installments, impact: res?.impact_percentage });
     return res;
   }, [amount, installments, simulateDetailedImpact]);
+
+  React.useEffect(() => {
+    if (onSimulate) {
+      const cleanValue = amount.replace(/\./g, "").replace(",", ".");
+      const valueCents = Math.round(parseFloat(cleanValue) * 100);
+      if (!isNaN(valueCents) && valueCents > 0) {
+        onSimulate({ amount_cents: valueCents, installments });
+      } else {
+        onSimulate(null);
+      }
+    }
+  }, [amount, installments, onSimulate]);
 
   const handleSaveAsGoal = async () => {
     console.log("💾 [SpendingSimulator] handleSaveAsGoal chamado. Amount:", amount, "Result:", result);

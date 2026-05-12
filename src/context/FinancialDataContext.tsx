@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { financialService } from "@/services/financialService";
 import { db, type Account, type Category, type Goal, type RecurringTransaction, type Budget, type FinancialHealthScore, type Transaction } from "@/lib/db";
 import { useAccountModal } from "./AccountModalContext";
@@ -136,6 +136,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const [loading, setLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [lastFetched, setLastFetched] = useState<number | null>(null);
+  const loadedUserIdRef = useRef<string | null>(null);
   
   const [monthlyIncomeCents, setMonthlyIncomeCentsState] = useState(0);
   const [fixedExpensesCents, setFixedExpensesCentsState] = useState(0);
@@ -510,38 +511,8 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     await refreshData();
   };
 
+  // 1. Carregar preferências do LocalStorage (Apenas uma vez no mount)
   useEffect(() => {
-    const isE2E = typeof window !== 'undefined' && (window as any).__E2E_MOCK_STATE__;
-    
-    const loadLocalData = async () => {
-      if (!userId || isE2E) {
-        setLoading(false);
-        setIsInitialLoading(false);
-        return;
-      }
-      
-      try {
-        const localAccounts = await db.accounts.where('user_id').equals(userId).toArray();
-        const localCategories = await db.categories.where('user_id').equals(userId).toArray();
-        const localGoals = await db.goals.where('user_id').equals(userId).toArray();
-        const localRecurring = await db.recurring_transactions.where('user_id').equals(userId).toArray();
-        const localBudgets = await db.budgets.where('user_id').equals(userId).toArray();
-
-        if (localAccounts.length > 0 || localCategories.length > 0) {
-          setAccounts(localAccounts as Account[]);
-          setCategories(localCategories as Category[]);
-          setGoals(localGoals as Goal[]);
-          setRecurringTransactions(localRecurring as RecurringTransaction[]);
-          setBudgets(localBudgets as Budget[]);
-        }
-      } catch (err) {
-        console.error("ERRO AO CARREGAR DADOS LOCAIS (DEXIE):", err);
-      } finally {
-        setLoading(false);
-        setIsInitialLoading(false);
-      }
-    };
-
     if (typeof window !== "undefined") {
       try {
         const storedIncome = localStorage.getItem("vesper_monthly_income");
@@ -556,6 +527,46 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         console.error("ERRO AO CARREGAR LOCALSTORAGE:", err);
       }
     }
+  }, []);
+
+  // 2. Carregar dados locais do IndexedDB (Quando o usuário muda)
+  useEffect(() => {
+    const isE2E = typeof window !== 'undefined' && (window as any).__E2E_MOCK_STATE__;
+    
+    const loadLocalData = async () => {
+      if (!userId || isE2E) {
+        setLoading(false);
+        setIsInitialLoading(false);
+        return;
+      }
+
+      // Evitar recarregar se já carregamos para este usuário nesta instância
+      if (loadedUserIdRef.current === userId) {
+        return;
+      }
+      
+      try {
+        const localAccounts = await db.accounts.where('user_id').equals(userId).toArray();
+        const localCategories = await db.categories.where('user_id').equals(userId).toArray();
+        const localGoals = await db.goals.where('user_id').equals(userId).toArray();
+        const localRecurring = await db.recurring_transactions.where('user_id').equals(userId).toArray();
+        const localBudgets = await db.budgets.where('user_id').equals(userId).toArray();
+
+        // Só atualizamos se houver dados para evitar loops se o estado inicial for igual
+        if (localAccounts.length > 0) setAccounts(localAccounts as Account[]);
+        if (localCategories.length > 0) setCategories(localCategories as Category[]);
+        if (localGoals.length > 0) setGoals(localGoals as Goal[]);
+        if (localRecurring.length > 0) setRecurringTransactions(localRecurring as RecurringTransaction[]);
+        if (localBudgets.length > 0) setBudgets(localBudgets as Budget[]);
+        
+        loadedUserIdRef.current = userId;
+      } catch (err) {
+        console.error("ERRO AO CARREGAR DADOS LOCAIS (DEXIE):", err);
+      } finally {
+        setLoading(false);
+        setIsInitialLoading(false);
+      }
+    };
 
     loadLocalData();
   }, [userId]);

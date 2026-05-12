@@ -1,5 +1,5 @@
 
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { 
   calculateNetLiquidity, 
@@ -14,7 +14,9 @@ import {
   calculateGoalProjections,
   type GoalProjection,
   simulateDetailedImpact,
-  type SimulationDetailedResult
+  type SimulationDetailedResult,
+  calculateAdvancedProjection,
+  type Simulation
 } from "@/domain/financial/financial-logic";
 
 export type { SimulationDetailedResult, MonthlyOutlook, DebtExitProjection, GoalProjection };
@@ -37,7 +39,7 @@ export interface FinancialAnalysis {
  * Hook de "Ponte de Dados": Consolida a inteligência financeira do sistema.
  * Use este hook em qualquer página ou componente para obter diagnósticos consistentes.
  */
-export function useFinancialAnalysis(monthOffset: number = 0): FinancialAnalysis {
+export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations: Simulation[] = []): FinancialAnalysis {
   const { 
     accounts, 
     scheduledIncomeCents, 
@@ -47,7 +49,9 @@ export function useFinancialAnalysis(monthOffset: number = 0): FinancialAnalysis
     recurringIncomeCents,
     recurringExpensesCents,
     healthScore,
-    monthTransactions
+    monthTransactions,
+    futureTransactions,
+    recurringTransactions
   } = useFinancialData();
 
   const netLiquidity = useMemo(() => calculateNetLiquidity(accounts), [accounts]);
@@ -66,20 +70,23 @@ export function useFinancialAnalysis(monthOffset: number = 0): FinancialAnalysis
       monthOffset
     });
 
-    // Projeção de Patrimônio Líquido: Liquidez Atual + (Sobra Mensal * offset)
-    const budgetTotal = budgets.reduce((sum, b) => sum + (b.amount_cents || 0), 0);
-    const monthlySurplus = (recurringIncomeCents || 0) - (recurringExpensesCents || 0) - budgetTotal;
-    
-    // Para o mês atual (0), usamos a liquidez real. Para o futuro, projetamos a acumulação.
-    const projectedNetLiquidity = monthOffset === 0 
-      ? netLiquidity 
-      : netLiquidity + (monthlySurplus * monthOffset);
+    // Projeção Avançada: Usa o novo motor de acumulação dinâmica
+    const projectedNetLiquidity = calculateAdvancedProjection({
+      currentNetLiquidity: netLiquidity,
+      recurringTransactions,
+      futureTransactions,
+      goals,
+      budgets,
+      monthOffset,
+      activeSimulations
+    });
 
     return {
       ...baseOutlook,
+      balanceAtMonthEnd: projectedNetLiquidity, // O saldo final deve ser o projetado acumulado
       projectedNetLiquidity
     };
-  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset]);
+  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, futureTransactions, goals, activeSimulations]);
 
   // Sobrescrita para usar a liquidez projetada no retorno
   const activeNetLiquidity = monthlyOutlook.projectedNetLiquidity ?? netLiquidity;
@@ -107,7 +114,17 @@ export function useFinancialAnalysis(monthOffset: number = 0): FinancialAnalysis
     });
   }, [monthlyOutlook.balanceAtMonthEnd, monthTransactions]);
 
-  return {
+  const simulateDetailedImpactFn = useCallback((amountCents: number, installments: number) => 
+    simulateDetailedImpact({
+      amountCents,
+      installments,
+      netLiquidityCents: netLiquidity,
+      monthlySurplus: debtExit.monthlySurplus,
+      currentExitDate: debtExit.exitDate,
+      currentBalanceCents: currentAssets
+    }), [netLiquidity, debtExit.monthlySurplus, debtExit.exitDate, currentAssets]);
+
+  return useMemo(() => ({
     netLiquidityCents: activeNetLiquidity,
     totalConsolidatedDebtCents: consolidatedDebt,
     accumulatedBalanceCents: currentAssets,
@@ -118,14 +135,6 @@ export function useFinancialAnalysis(monthOffset: number = 0): FinancialAnalysis
     debtExit,
     weeklySurvival,
     goalProjections,
-    simulateDetailedImpact: (amountCents: number, installments: number) => 
-      simulateDetailedImpact({
-        amountCents,
-        installments,
-        netLiquidityCents: netLiquidity,
-        monthlySurplus: debtExit.monthlySurplus,
-        currentExitDate: debtExit.exitDate,
-        currentBalanceCents: currentAssets
-      })
-  };
+    simulateDetailedImpact: simulateDetailedImpactFn
+  }), [activeNetLiquidity, consolidatedDebt, currentAssets, monthlyOutlook, healthScore, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn]);
 }

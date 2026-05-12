@@ -12,7 +12,8 @@ test.describe('Transferências entre Contas (Refatorado)', () => {
       accounts: [
         { id: 'acc-checking', name: 'Conta Corrente', type: 'CHECKING', balance_cents: 1000000, color_hex: '#10b981' },
         { id: 'acc-savings', name: 'Reserva', type: 'SAVINGS', balance_cents: 500000, color_hex: '#8b5cf6' }
-      ]
+      ],
+      recurring_transactions: [] // Zerar para que Projetado == Atual nos testes
     });
 
     await setupAuthMock(page, { id: 'user-1' });

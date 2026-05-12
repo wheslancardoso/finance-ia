@@ -9,7 +9,7 @@ import { getProjectedDetails, ProjectedTransaction } from "@/utils/finance-proje
 import { ProjectedTimeline } from "./ProjectedTimeline";
 import { formatCurrency } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { TrendingUp, ArrowUpRight, ArrowDownRight, Wallet, History, Zap, ShieldCheck, AlertCircle, AlertTriangle } from "lucide-react";
+import { TrendingUp, ArrowUpRight, ArrowDownRight, Wallet, History, Zap, ShieldCheck, AlertCircle, AlertTriangle, Calculator } from "lucide-react";
 import { addDays, addMonths, endOfMonth, differenceInDays, isSameMonth, startOfMonth } from "date-fns";
 import { QuickSyncModal } from "./QuickSyncModal";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 import { UnifiedSurvivalHeader } from "./dashboard/UnifiedSurvivalHeader";
 import { WeeklySurvivalCard } from "./dashboard/WeeklySurvivalCard";
+import { MonthlyConsolidatedExcel } from "./dashboard/MonthlyConsolidatedExcel";
 
 interface RealtimeDashboardProps {
   initialBalance: number;
@@ -40,6 +41,8 @@ export default function RealtimeDashboard({
   const [targetDate, setTargetDate] = useState<Date>(startOfMonth(new Date()));
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
+  const [activeSimulations, setActiveSimulations] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<"timeline" | "summary">("summary");
   const { 
     accounts: liveAccounts, 
     recentTransactions: liveRecentTransactions,
@@ -119,6 +122,33 @@ export default function RealtimeDashboard({
 
   const isFuture = monthOffset > 0;
 
+  const handleSimulate = React.useCallback((sim: any) => {
+    setActiveSimulations(sim ? [sim] : []);
+  }, []);
+
+  // Preparar dados para o Resumo Excel
+  const consolidatedItems = useMemo(() => {
+    const transactionsToUse = isFuture ? projection.transactions : displayTransactions;
+    
+    return transactionsToUse.map(t => ({
+      name: t.description,
+      value: t.amount_cents,
+      type: t.transaction_type as "INCOME" | "EXPENSE",
+      category: typeof t.category === 'object' ? t.category?.name : (t.category || "Geral"),
+      isInstallment: (t as any).installment_total > 1,
+      isBudget: (t as any).isBudget,
+      isGoal: (t as any).isGoal
+    }));
+  }, [isFuture, projection.transactions, displayTransactions]);
+
+  const totalIncome = useMemo(() => 
+    consolidatedItems.filter(i => i.type === "INCOME").reduce((sum, i) => sum + i.value, 0)
+  , [consolidatedItems]);
+
+  const totalExpenses = useMemo(() => 
+    consolidatedItems.filter(i => i.type === "EXPENSE").reduce((sum, i) => sum + i.value, 0)
+  , [consolidatedItems]);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       {/* Coluna Esquerda: Header + Navigator */}
@@ -126,9 +156,10 @@ export default function RealtimeDashboard({
         
         {/* NOVO CABEÇALHO UNIFICADO */}
         <UnifiedSurvivalHeader 
-          monthOffset={monthOffset}
-          targetDate={targetDate}
-        />
+        monthOffset={monthOffset} 
+        targetDate={targetDate}
+        activeSimulations={activeSimulations}
+      />
 
         {/* Practical Insights Bar (Somente se necessário, parte já está no header) */}
         {!isCrisisMode && (
@@ -184,54 +215,66 @@ export default function RealtimeDashboard({
 
       {/* Coluna Direita: Insights + Recentes */}
       <div className="lg:col-span-4 space-y-8">
-        <SpendingSimulator />
+          <SpendingSimulator 
+            onSimulate={handleSimulate} 
+          />
         
         <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] p-6 flex flex-col overflow-hidden shadow-2xl max-h-[calc(100vh-200px)] lg:max-h-none lg:h-fit">
           <div className="flex items-center justify-between mb-4 shrink-0">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2 uppercase tracking-widest">
-              {isFuture ? (
-                <>
-                  <Zap className="w-4 h-4 text-violet-400" />
-                  Previsão {format(targetDate, "MMM/yy", { locale: ptBR })}
-                </>
-              ) : (
-                <>
-                  <History className="w-4 h-4 text-white/20" />
-                  Recentes
-                </>
-              )}
-            </h3>
-            {!isFuture && (
+            <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
+              <button 
+                onClick={() => setActiveTab("summary")}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                  activeTab === "summary" ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20" : "text-white/40 hover:text-white/60"
+                )}
+              >
+                <Calculator className="w-3 h-3" />
+                Resumo
+              </button>
+              <button 
+                onClick={() => setActiveTab("timeline")}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                  activeTab === "timeline" ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20" : "text-white/40 hover:text-white/60"
+                )}
+              >
+                <History className="w-3 h-3" />
+                Timeline
+              </button>
+            </div>
+            {!isFuture && activeTab === "timeline" && (
               <button className="text-[10px] font-black text-white/20 uppercase tracking-widest hover:text-white transition-colors">
                 Ver Tudo
               </button>
             )}
           </div>
 
-          {isFuture && (
-            <div className="grid grid-cols-2 gap-4 mb-6 shrink-0">
-              <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
-                <p className="text-[8px] font-black text-emerald-400/60 uppercase tracking-widest mb-1">Receitas</p>
-                <p className="text-sm font-bold text-emerald-400">
-                  {formatCurrency(projection.transactions.filter(t => t.transaction_type === "INCOME").reduce((s, t) => s + t.amount_cents, 0))}
-                </p>
-              </div>
-              <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
-                <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Despesas</p>
-                <p className="text-sm font-bold text-white/80">
-                  {formatCurrency(projection.transactions.filter(t => t.transaction_type === "EXPENSE").reduce((s, t) => s + t.amount_cents, 0))}
-                </p>
-              </div>
-            </div>
-          )}
-
-          <div className="overflow-y-auto custom-scrollbar pr-2 -mr-2 max-h-[500px]">
-            {isFuture ? (
-              <ProjectedTimeline transactions={projection.transactions} />
-            ) : (
-              <TransactionTimeline transactions={displayTransactions} />
-            )}
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              className="overflow-y-auto custom-scrollbar pr-2 -mr-2 max-h-[500px]"
+            >
+              {activeTab === "summary" ? (
+                <MonthlyConsolidatedExcel 
+                  income={totalIncome}
+                  expenses={totalExpenses}
+                  balance={totalIncome - totalExpenses}
+                  items={consolidatedItems}
+                  monthName={format(targetDate, "MMMM 'de' yyyy", { locale: ptBR })}
+                />
+              ) : (
+                isFuture ? (
+                  <ProjectedTimeline transactions={projection.transactions} />
+                ) : (
+                  <TransactionTimeline transactions={displayTransactions} />
+                )
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
 

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from "react";
@@ -9,15 +8,18 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useTransactionModal } from "@/context/TransactionModalContext";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
+import { Simulation } from "@/domain/financial/financial-logic";
 
 interface UnifiedSurvivalHeaderProps {
   monthOffset: number;
   targetDate: Date;
+  activeSimulations?: Simulation[];
 }
 
 export function UnifiedSurvivalHeader({ 
   monthOffset, 
-  targetDate 
+  targetDate,
+  activeSimulations = []
 }: UnifiedSurvivalHeaderProps) {
   const { openAdd } = useTransactionModal();
   const { 
@@ -26,14 +28,14 @@ export function UnifiedSurvivalHeader({
     isCrisisMode, 
     debtExit,
     weeklySurvival 
-  } = useFinancialAnalysis(monthOffset);
+  } = useFinancialAnalysis(monthOffset, activeSimulations);
 
   const isFuture = monthOffset > 0;
-  const isRecoveryMode = netLiquidityCents < -100; // Limite para ignorar arredondamentos
+  const isRecoveryMode = netLiquidityCents < -100;
 
   // Lógica do Teto de Sobrevivência (Unificada do HUD)
   const survivalCeilingCents = Math.max(0, monthlyOutlook.balanceAtMonthEnd);
-  const weeklyLimit = survivalCeilingCents / 4; // Simplificado para o cabeçalho
+  const weeklyLimit = survivalCeilingCents / 4;
 
   return (
     <div className="relative bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-8 md:p-12 overflow-hidden group">
@@ -79,9 +81,9 @@ export function UnifiedSurvivalHeader({
           )}
         </div>
 
-        {/* Main Value Row */}
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
-          <div className="space-y-4">
+        {/* Main Value Row - Refatorada para Grid de 12 colunas */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-end">
+          <div className="lg:col-span-7 space-y-4">
             <AnimatePresence mode="wait">
               <motion.div
                 key={monthOffset}
@@ -94,7 +96,7 @@ export function UnifiedSurvivalHeader({
                   <>
                     <h1 
                       data-testid="net-liquidity-value"
-                      className="text-5xl md:text-7xl font-black tracking-tighter text-white"
+                      className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tighter text-white"
                     >
                       {debtExit.exitDate 
                         ? format(debtExit.exitDate, "MMMM 'de' yyyy", { locale: ptBR }) 
@@ -106,16 +108,26 @@ export function UnifiedSurvivalHeader({
                   </>
                 ) : (
                   <>
-                    <h1 
-                      data-testid="net-liquidity-value"
-                      className={cn(
-                        "text-5xl md:text-8xl font-black tracking-tighter tabular-nums",
-                        isFuture ? "text-violet-400 drop-shadow-[0_0_40px_rgba(139,92,246,0.3)]" : "text-white"
+                    <div className="flex flex-col gap-2">
+                      {activeSimulations.length > 0 && (
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="px-3 py-1 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-400 text-[10px] font-black uppercase tracking-widest animate-pulse">
+                            Impacto Simulado Ativo
+                          </span>
+                        </div>
                       )}
-                    >
-                      {formatCurrency(monthlyOutlook.balanceAtMonthEnd)}
-                    </h1>
-                    <p className="text-sm font-bold text-white/40 uppercase tracking-widest">
+                      <h1 
+                        data-testid="net-liquidity-value"
+                        className={cn(
+                          "text-4xl md:text-7xl lg:text-8xl font-black tracking-tighter tabular-nums transition-all duration-700 leading-none",
+                          activeSimulations.length > 0 ? "text-violet-400 drop-shadow-[0_0_30px_rgba(139,92,246,0.4)]" : 
+                          isFuture ? "text-violet-400/80" : "text-white"
+                        )}
+                      >
+                        {formatCurrency(netLiquidityCents)}
+                      </h1>
+                    </div>
+                    <p className="text-sm font-bold text-white/40 uppercase tracking-widest mt-2">
                       {isFuture ? "Liquidez Projetada no Fim do Mês" : "Saldo Projetado (Final do Mês)"}
                     </p>
                   </>
@@ -124,53 +136,59 @@ export function UnifiedSurvivalHeader({
             </AnimatePresence>
           </div>
 
-          {/* Secondary Stats Row (Integrated HUD) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:min-w-[400px]">
-            <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col gap-1">
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/30">
-                {isRecoveryMode ? "Teto Semanal (Oxigênio)" : "Sobra p/ Investir (Semana)"}
-              </span>
-              <span 
-                data-testid="survival-ceiling-value"
-                className={cn(
-                  "text-2xl font-black tabular-nums",
-                  isCrisisMode ? "text-red-400" : isRecoveryMode ? "text-amber-400" : "text-emerald-400"
-                )}
-              >
-                {formatCurrency(weeklyLimit)}
-              </span>
-              <div className="flex items-center gap-1 mt-1">
-                <div className="h-1 flex-1 bg-white/5 rounded-full overflow-hidden">
-                  <div 
+          {/* Secondary Stats Row - Mais espaço garantido */}
+          <div className="lg:col-span-5 w-full">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex flex-col justify-between gap-3 min-w-0 h-full">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white/30 block mb-1">
+                    {isRecoveryMode ? "Teto Semanal (Oxigênio)" : "Sobra p/ Investir (Semana)"}
+                  </span>
+                  <span 
+                    data-testid="survival-ceiling-value"
                     className={cn(
-                      "h-full rounded-full transition-all duration-1000",
-                      isCrisisMode ? "bg-red-500" : "bg-emerald-500"
-                    )} 
-                    style={{ width: `${Math.min(100, Math.max(5, (weeklySurvival.weeklySpentCents / (weeklyLimit || 1)) * 100))}%` }} 
-                  />
+                      "text-2xl font-black tabular-nums block",
+                      isCrisisMode ? "text-red-400" : isRecoveryMode ? "text-amber-400" : "text-emerald-400"
+                    )}
+                  >
+                    {formatCurrency(weeklyLimit)}
+                  </span>
                 </div>
-                <span className="text-[8px] font-bold text-white/20 uppercase">
-                  {Math.round((weeklySurvival.weeklySpentCents / (weeklyLimit || 1)) * 100)}%
-                </span>
+                <div className="flex items-center gap-2">
+                  <div className="h-1 flex-1 bg-white/5 rounded-full overflow-hidden">
+                    <div 
+                      className={cn(
+                        "h-full rounded-full transition-all duration-1000",
+                        isCrisisMode ? "bg-red-500" : "bg-emerald-500"
+                      )} 
+                      style={{ width: `${Math.min(100, Math.max(5, (weeklySurvival.weeklySpentCents / (weeklyLimit || 1)) * 100))}%` }} 
+                    />
+                  </div>
+                  <span className="text-[9px] font-bold text-white/20 uppercase tabular-nums">
+                    {Math.round((weeklySurvival.weeklySpentCents / (weeklyLimit || 1)) * 100)}%
+                  </span>
+                </div>
               </div>
-            </div>
 
-            <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col gap-1">
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/30">
-                Patrimônio Líquido Real
-              </span>
-              <span 
-                data-testid="real-liquidity-value"
-                className={cn(
-                  "text-2xl font-black tabular-nums",
-                  netLiquidityCents >= 0 ? "text-white" : "text-red-400"
-                )}
-              >
-                {formatCurrency(netLiquidityCents)}
-              </span>
-              <p className="text-[9px] font-bold text-white/20 uppercase mt-1">
-                {netLiquidityCents < 0 ? "Saldo - Dívida Consolidada" : "Saldo Total Disponível"}
-              </p>
+              <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex flex-col justify-between gap-3 min-w-0 h-full">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white/30 block mb-1">
+                    Patrimônio Líquido Real
+                  </span>
+                  <span 
+                    data-testid="real-liquidity-value"
+                    className={cn(
+                      "text-2xl font-black tabular-nums block",
+                      netLiquidityCents >= 0 ? "text-white" : "text-red-400"
+                    )}
+                  >
+                    {formatCurrency(netLiquidityCents)}
+                  </span>
+                </div>
+                <p className="text-[9px] font-bold text-white/20 uppercase tracking-tighter leading-tight">
+                  {netLiquidityCents < 0 ? "Saldo - Dívida Consolidada" : "Saldo Total Disponível"}
+                </p>
+              </div>
             </div>
           </div>
         </div>

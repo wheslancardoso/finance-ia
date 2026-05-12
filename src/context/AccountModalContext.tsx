@@ -106,21 +106,21 @@ export function AccountModalProvider({ children }: { children: ReactNode }) {
     setIsTransferOpen(false);
   };
 
+  const value = React.useMemo(() => ({ 
+    isOpen, 
+    isTransferOpen,
+    accountToEdit, 
+    userId, 
+    openAdd, 
+    openEdit, 
+    openTransfer,
+    closeModal,
+    closeTransfer,
+    setUserId 
+  }), [isOpen, isTransferOpen, accountToEdit, userId, openAdd, openEdit, openTransfer, closeModal, closeTransfer]);
+
   return (
-    <AccountModalContext.Provider 
-      value={{ 
-        isOpen, 
-        isTransferOpen,
-        accountToEdit, 
-        userId, 
-        openAdd, 
-        openEdit, 
-        openTransfer,
-        closeModal,
-        closeTransfer,
-        setUserId 
-      }}
-    >
+    <AccountModalContext.Provider value={value}>
       {children}
     </AccountModalContext.Provider>
   );

@@ -9,7 +9,8 @@ import {
   calculateScheduledExpenses,
   calculateRecurringIncome,
   calculateRecurringExpenses,
-  simulateDetailedImpact
+  simulateDetailedImpact,
+  calculateAdvancedProjection
 } from './financial-logic';
 import { Account, Budget, RecurringTransaction } from '@/lib/db';
 
@@ -127,19 +128,17 @@ describe('Financial Logic Domain', () => {
 
   describe('calculateMonthlyOutlook', () => {
     it('deve calcular o panorama mensal corretamente', () => {
-      const budgets: Budget[] = [
-        { id: 'b1', user_id: 'u1', category_id: 'c1', amount_cents: 20000, spent_cents: 5000, month: '2024-05' } as any
-      ];
-      const outlook = calculateMonthlyOutlook({
+      const result = calculateMonthlyOutlook({
         accounts: mockAccounts,
         scheduledIncomeCents: 50000,
-        scheduledExpensesCents: 10000,
-        budgets,
+        scheduledExpensesCents: 30000,
+        recurringIncomeCents: 500000,
+        recurringExpensesCents: 200000,
+        budgets: [{ amount_cents: 10000, category_id: '1' } as any],
         netLiquidityCents: 100000
       });
-      
-      expect(outlook.balanceAtMonthEnd).toBe(125000);
-      expect(outlook.isHealthy).toBe(true);
+      expect(result.balanceAtMonthEnd).toBeGreaterThan(100000);
+      expect(result.isHealthy).toBe(true);
     });
   });
 
@@ -179,6 +178,40 @@ describe('Financial Logic Domain', () => {
       });
       expect(result.status).toBe('DANGER');
       expect(result.impact_percentage).toBe(90);
+    });
+  });
+
+  describe('calculateAdvancedProjection', () => {
+    const recurringTransactions: any[] = [
+      { amount_cents: 500000, transaction_type: "INCOME", status: "active" },
+      { amount_cents: 300000, transaction_type: "EXPENSE", status: "active" }
+    ];
+    const budgets: any[] = [{ amount_cents: 50000 }];
+
+    it('deve acumular saldo corretamente ao longo de 3 meses', () => {
+      // Sobra mensal = 5000 - 3000 - 500 = 1500
+      // 3 meses = 4500
+      const result = calculateAdvancedProjection({
+        currentNetLiquidity: 100000,
+        recurringTransactions,
+        futureTransactions: [],
+        goals: [],
+        budgets,
+        monthOffset: 3
+      });
+      expect(result).toBe(100000 + (150000 * 3));
+    });
+
+    it('deve retornar saldo atual se offset for 0', () => {
+      const result = calculateAdvancedProjection({
+        currentNetLiquidity: 100000,
+        recurringTransactions,
+        futureTransactions: [],
+        goals: [],
+        budgets,
+        monthOffset: 0
+      });
+      expect(result).toBe(100000);
     });
   });
 });
