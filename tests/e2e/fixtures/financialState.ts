@@ -1,24 +1,18 @@
-export const createInitialState = (overrides = {}) => {
-  return {
-    user_profile: {
-      id: 'user-1',
-      monthly_income_cents: 500000,
-      fixed_expenses_cents: 200000,
-      accumulated_balance_cents: 100000,
-    },
-    accounts: [
-      { id: 'acc-1', name: 'Conta Principal', type: 'CHECKING', balance_cents: 100000, color_hex: '#ffffff' }
-    ],
-    categories: [],
-    transactions: [],
-    goals: [],
-    recurring_transactions: [],
-    month_transactions: [],
-    recent_transactions: [],
-    budgets: [],
-    ...overrides
-  };
-};
+export const createInitialState = (overrides = {}) => ({
+  user_profile: {
+    monthly_income_cents: 0,
+    fixed_expenses_cents: 0,
+    accumulated_balance_cents: 0,
+    financial_health_score: 100,
+  },
+  accounts: [],
+  categories: [],
+  goals: [],
+  recurring_transactions: [],
+  budgets: [],
+  transactions: [],
+  ...overrides
+});
 
 export const stateUser2 = createInitialState({
   user_profile: {
@@ -31,3 +25,41 @@ export const stateUser2 = createInitialState({
     { id: 'acc-2', name: 'Conta Principal', type: 'CHECKING', balance_cents: 200000, color_hex: '#ffffff' }
   ]
 });
+export const createDashboardState = (overrides = {}) => {
+  const now = new Date();
+  const day = Math.min(now.getDate() + 1, 28);
+  const futureDate = new Date(now.getFullYear(), now.getMonth(), day).toISOString();
+  
+  return createInitialState({
+    user_profile: {
+      monthly_income_cents: 500000, // 5k
+      fixed_expenses_cents: 0,      // Zerado para não duplicar com as recorrentes abaixo
+      accumulated_balance_cents: 0, 
+      financial_health_score: 85,
+    },
+    recurring_transactions: [
+      {
+        id: 'rec-income-1',
+        description: 'Salário',
+        amount_cents: 500000,
+        transaction_type: 'INCOME',
+        status: 'active',
+        next_date: futureDate,
+        frequency: 'monthly'
+      },
+      {
+        id: 'rec-expense-1',
+        description: 'Gasto de Teste',
+        amount_cents: 200000,
+        transaction_type: 'EXPENSE',
+        status: 'active',
+        next_date: futureDate,
+        frequency: 'monthly'
+      }
+    ],
+    accounts: [
+      { id: 'acc-dash-1', name: 'Conta Principal', type: 'CHECKING', balance_cents: 0, color_hex: '#8b5cf6' }
+    ],
+    ...overrides
+  });
+};

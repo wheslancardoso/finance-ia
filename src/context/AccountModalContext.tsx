@@ -57,11 +57,9 @@ export function AccountModalProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         setUserIdState(session.user.id);
       } else {
-        // Fallback para testes: manter o mock se existir
+        // Se não houver sessão E não houver mock cookie, aí sim limpa
         const mockCookie = typeof document !== 'undefined' ? document.cookie.split('; ').find(row => row.startsWith('sb-mock-user-id=')) : null;
-        if (mockCookie) {
-          setUserIdState(mockCookie.split('=')[1]);
-        } else {
+        if (!mockCookie) {
           setUserIdState(null);
         }
       }

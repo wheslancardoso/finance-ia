@@ -62,7 +62,8 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
       };
 
       setLocalTransactions(prev => {
-        const next = prev.filter(tx => {
+        const prevArray = Array.isArray(prev) ? prev : [];
+        const next = prevArray.filter(tx => {
           if (!isCurrentMonth(tx.date)) return true; // Se não é deste mês, mantém (não temos no contexto)
           return currentMonthIds.has(tx.id); // Se é deste mês, só mantém se estiver no contexto
         });
@@ -73,7 +74,8 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
   }, [monthTransactions, hasFetchedOnce]);
   
   const filteredTransactions = useMemo(() => {
-    const filtered = (localTransactions || []).filter(tx => {
+    const transactionsArray = Array.isArray(localTransactions) ? localTransactions : [];
+    const filtered = transactionsArray.filter(tx => {
       const matchesAccount = !selectedAccountId || tx.account_id === selectedAccountId;
       const matchesSearch = !searchQuery || 
         tx.description.toLowerCase().includes(searchQuery.toLowerCase()) ||

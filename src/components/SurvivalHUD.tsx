@@ -50,6 +50,7 @@ export default function SurvivalHUD() {
   };
 
   const currentTeto = getDisplayValue();
+  console.log(`[SurvivalHUD] survivalCeilingCents: ${survivalCeilingCents}, currentTeto: ${currentTeto}, viewMode: ${viewMode}`);
   const formattedTeto = (currentTeto / 100).toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
@@ -87,6 +88,7 @@ export default function SurvivalHUD() {
   }
 
   const hasFinancialData = effectiveIncome > 0;
+  console.log(`[SurvivalHUD] effectiveIncome: ${effectiveIncome}, hasFinancialData: ${hasFinancialData}, isCrisisMode: ${isCrisisMode}, isSurvivalMode: ${isSurvivalMode}`);
 
   // Se não houver nenhum dado e não estiver em crise, podemos ocultar ou mostrar setup
   // Mas se já houver dados, usamos eles automaticamente.

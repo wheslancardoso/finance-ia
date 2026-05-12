@@ -40,27 +40,29 @@ export function AddSubscriptionModal() {
   
   // Pre-preencher se estiver editando
   useEffect(() => {
-    if (editingSubscription) {
-      setDescription(editingSubscription.description || "");
-      setAmount(((editingSubscription.amount_cents || 0) / 100).toString().replace(".", ","));
-      setCategoryId(editingSubscription.category_id || "");
-      setAccountId(editingSubscription.account_id || "");
-      setType(editingSubscription.transaction_type || "EXPENSE");
-      
-      if (editingSubscription.next_date) {
-        setDay(new Date(editingSubscription.next_date).getDate());
+    if (isOpen) {
+      if (editingSubscription) {
+        setDescription(editingSubscription.description || "");
+        setAmount(((editingSubscription.amount_cents || 0) / 100).toString().replace(".", ","));
+        setCategoryId(editingSubscription.category_id || "");
+        setAccountId(editingSubscription.account_id || "");
+        setType(editingSubscription.transaction_type || "EXPENSE");
+        
+        if (editingSubscription.next_date) {
+          setDay(new Date(editingSubscription.next_date).getDate());
+        }
+        setIsPrimaryIncome(editingSubscription.is_primary_income || false);
+      } else {
+        setDescription("");
+        setAmount("");
+        setCategoryId("");
+        if (accounts.length > 0) setAccountId(accounts[0].id);
+        setDay(new Date().getDate());
+        setType("EXPENSE");
+        setIsPrimaryIncome(false);
       }
-      setIsPrimaryIncome(editingSubscription.is_primary_income || false);
-    } else {
-      setDescription("");
-      setAmount("");
-      setCategoryId("");
-      if (accounts.length > 0) setAccountId(accounts[0].id);
-      setDay(new Date().getDate());
-      setType("EXPENSE");
-      setIsPrimaryIncome(false);
     }
-  }, [editingSubscription, accounts, isOpen]);
+  }, [editingSubscription, isOpen]); // Removido 'accounts' para evitar resets indesejados durante a digitação
 
   // Custom Select States
   const [openCategory, setOpenCategory] = useState(false);

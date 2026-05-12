@@ -1,0 +1,658 @@
+[1A[2K[2m[WebServer] [22m[33m[1m⚠[22m[39m The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+
+
+Running 34 tests using 14 workers
+
+[1A[2K[1/34] [chromium] › tests/e2e/specs/auth-profile.spec.ts:32:7 › Autenticação e Perfil (Refatorado) › deve carregar e salvar diretrizes de perfil
+[1A[2K[2/34] [chromium] › tests/goals.test.ts:132:7 › Gestão de Ambições (Metas) › deve excluir uma meta
+[1A[2K[3/34] [chromium] › tests/dashboard.test.ts:70:7 › Dashboard e Projeções Financeiras › deve exibir métricas de saúde financeira corretamente no modo saudável
+[1A[2K[4/34] [chromium] › tests/accounts.test.ts:42:7 › Gestão de Contas › deve criar uma nova conta corrente e verificar atualização do dashboard
+[1A[2K[5/34] [chromium] › tests/e2e/specs/auth-profile.spec.ts:73:7 › Autenticação e Perfil (Refatorado) › deve deslogar e redirecionar para login
+[1A[2K[6/34] [chromium] › tests/goals.test.ts:119:7 › Gestão de Ambições (Metas) › deve realizar um aporte em uma meta existente
+[1A[2K[7/34] [chromium] › tests/dashboard.test.ts:84:7 › Dashboard e Projeções Financeiras › deve alternar entre modos de visualização no Survival HUD
+[1A[2K[8/34] [chromium] › tests/accounts.test.ts:94:7 › Gestão de Contas › deve excluir uma conta e atualizar liquidez
+[1A[2K[9/34] [chromium] › tests/accounts.test.ts:81:7 › Gestão de Contas › deve editar uma conta existente
+[1A[2K[10/34] [chromium] › tests/e2e/specs/auth-profile.spec.ts:54:7 › Autenticação e Perfil (Refatorado) › deve trocar de usuário e carregar dados diferentes
+[1A[2K[11/34] [chromium] › tests/accounts.test.ts:65:7 › Gestão de Contas › deve criar um cartão de crédito e validar campos específicos
+[1A[2K[12/34] [chromium] › tests/dashboard.test.ts:105:7 › Dashboard e Projeções Financeiras › deve entrar em MODO CRISE quando a liquidez é negativa e o mês termina no vermelho
+[1A[2K[13/34] [chromium] › tests/goals.test.ts:107:7 › Gestão de Ambições (Metas) › deve criar uma nova meta com sucesso
+[1A[2K[14/34] [chromium] › tests/dashboard.test.ts:132:7 › Dashboard e Projeções Financeiras › deve refletir mudanças de assinaturas no saldo projetado do Dashboard
+[1A[2K[chromium] › tests/goals.test.ts:132:7 › Gestão de Ambições (Metas) › deve excluir uma meta
+[TEST-MOCK] GET http://localhost:3000/goals
+
+[1A[2K[chromium] › tests/goals.test.ts:119:7 › Gestão de Ambições (Metas) › deve realizar um aporte em uma meta existente
+[TEST-MOCK] GET http://localhost:3000/goals
+
+[1A[2K[chromium] › tests/dashboard.test.ts:105:7 › Dashboard e Projeções Financeiras › deve entrar em MODO CRISE quando a liquidez é negativa e o mês termina no vermelho
+[TEST DEBUG] Mutated Accounts: [{"id":"550e8400-e29b-41d4-a716-446655440003","name":"Conta Corrente","type":"CHECKING","balance_cents":-500000,"color_hex":"#10b981"}]
+
+[1A[2K[chromium] › tests/goals.test.ts:107:7 › Gestão de Ambições (Metas) › deve criar uma nova meta com sucesso
+[TEST-MOCK] GET http://localhost:3000/goals
+
+[1A[2K[15/34] [chromium] › tests/goals.test.ts:140:7 › Gestão de Ambições (Metas) › deve abrir aporte a partir de uma recomendação
+[1A[2K[chromium] › tests/goals.test.ts:140:7 › Gestão de Ambições (Metas) › deve abrir aporte a partir de uma recomendação
+[TEST-MOCK] GET http://localhost:3000/goals
+
+[1A[2K[16/34] [chromium] › tests/invoice-payment.test.ts:89:7 › Pagamento de Fatura › deve pagar fatura agora e atualizar saldos
+[1A[2K[chromium] › tests/dashboard.test.ts:105:7 › Dashboard e Projeções Financeiras › deve entrar em MODO CRISE quando a liquidez é negativa e o mês termina no vermelho
+[DEBUG TEST] Status: "MODO CRISE ATIVADO", Vals: null
+
+[1A[2K[17/34] [chromium] › tests/reports.test.ts:61:7 › Insights e Relatórios › deve exibir o score de saúde financeira corretamente
+[1A[2K[18/34] [chromium] › tests/reports.test.ts:69:7 › Insights e Relatórios › deve renderizar os containers de gráficos
+[1A[2K[19/34] [chromium] › tests/reports.test.ts:83:7 › Insights e Relatórios › deve exibir a seção de análise de IA com insights
+[1A[2K[20/34] [chromium] › tests/reports.test.ts:88:7 › Insights e Relatórios › deve alternar feedback do score quando o score é baixo
+[1A[2K[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+
+[1A[2K[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+
+[1A[2K[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+
+[1A[2K[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+
+[1A[2K[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+
+[1A[2K[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+
+[1A[2K[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+
+[1A[2K[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+
+[1A[2K[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+
+[1A[2K[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+
+[1A[2K[21/34] [chromium] › tests/simulator.test.ts:56:7 › Simulador de Impacto › deve simular uma compra à vista e mostrar impacto
+[1A[2K[22/34] [chromium] › tests/simulator.test.ts:71:7 › Simulador de Impacto › deve simular uma compra parcelada e salvar como meta
+[1A[2K[23/34] [chromium] › tests/subscriptions.test.ts:44:7 › Gerenciamento de Fluxos Recorrentes (Assinaturas) › deve criar um novo gasto fixo e verificar impacto no Survival HUD
+[1A[2K[chromium] › tests/subscriptions.test.ts:44:7 › Gerenciamento de Fluxos Recorrentes (Assinaturas) › deve criar um novo gasto fixo e verificar impacto no Survival HUD
+[BROWSER] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+
+[1A[2K[BROWSER] [HMR] connected
+
+[1A[2K[24/34] [chromium] › tests/transactions-audit.test.ts:75:7 › Auditoria de Transações › deve filtrar transações por busca de texto
+[1A[2K  1) [chromium] › tests/accounts.test.ts:81:7 › Gestão de Contas › deve editar uma conta existente ─
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoContainText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: getByTestId('account-card-550e8400-e29b-41d4-a716-446655440003')
+    Expected substring: [32m"Nubank [7mAtualizado[27m"[39m
+    Received string:    [31m"Nubank [7mPrincipalConta CorrenteSaldo AtualR$ 1.000,00Vesper Sync[27m"[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - Expect "toContainText" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('account-card-550e8400-e29b-41d4-a716-446655440003')[22m
+    [2m    8 × locator resolved to <div tabindex="0" data-testid="account-card-550e8400-e29b-41d4-a716-446655440003" class="backdrop-blur-xl bg-white/10 border border-white/20 rounded-[2rem] shadow-2xl p-8 text-white relative overflow-hidden group">…</div>[22m
+    [2m      - unexpected value "Nubank PrincipalConta CorrenteSaldo AtualR$ 1.000,00Vesper Sync"[22m
+
+
+      88 |     await page.getByTestId('account-submit-button').click();
+      89 |
+    > 90 |     await expect(page.getByTestId('account-card-550e8400-e29b-41d4-a716-446655440003')).toContainText('Nubank Atualizado');
+         |                                                                                         ^
+      91 |     await expect(page.getByTestId('account-card-550e8400-e29b-41d4-a716-446655440003')).toContainText('1.500,00');
+      92 |   });
+      93 |
+        at /home/lan/finance-ia/tests/accounts.test.ts:90:89
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/accounts-Gestão-de-Contas-deve-editar-uma-conta-existente-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/accounts-Gestão-de-Contas-deve-editar-uma-conta-existente-chromium/error-context.md
+
+
+[1A[2K  2) [chromium] › tests/goals.test.ts:140:7 › Gestão de Ambições (Metas) › deve abrir aporte a partir de uma recomendação 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByTestId('goal-recommendation-item').first()
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('goal-recommendation-item').first()[22m
+
+
+      140 |   test('deve abrir aporte a partir de uma recomendação', async ({ page }) => {
+      141 |     const rec = page.getByTestId('goal-recommendation-item').first();
+    > 142 |     await expect(rec).toBeVisible();
+          |                       ^
+      143 |     await rec.click();
+      144 |     
+      145 |     await expect(page.getByText('Realizar Aporte')).toBeVisible();
+        at /home/lan/finance-ia/tests/goals.test.ts:142:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/goals-Gestão-de-Ambições-M-1bae4--partir-de-uma-recomendação-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/goals-Gestão-de-Ambições-M-1bae4--partir-de-uma-recomendação-chromium/error-context.md
+
+
+[1A[2K  3) [chromium] › tests/reports.test.ts:61:7 › Insights e Relatórios › deve exibir o score de saúde financeira corretamente 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoContainText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: getByTestId('health-score-value')
+    Expected substring: [32m"85"[39m
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toContainText" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('health-score-value')[22m
+
+
+      61 |   test('deve exibir o score de saúde financeira corretamente', async ({ page }) => {
+      62 |     const scoreValue = page.getByTestId('health-score-value');
+    > 63 |     await expect(scoreValue).toContainText('85');
+         |                              ^
+      64 |     
+      65 |     // Verificar se a mensagem de feedback condicional está presente
+      66 |     await expect(page.locator('text=Sua estrutura está resiliente')).toBeVisible();
+        at /home/lan/finance-ia/tests/reports.test.ts:63:30
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/reports-Insights-e-Relatór-b1ac8-úde-financeira-corretamente-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/reports-Insights-e-Relatór-b1ac8-úde-financeira-corretamente-chromium/error-context.md
+
+
+[1A[2K  4) [chromium] › tests/reports.test.ts:69:7 › Insights e Relatórios › deve renderizar os containers de gráficos 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('text=Evolução Patrimonial')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('text=Evolução Patrimonial')[22m
+
+
+      69 |   test('deve renderizar os containers de gráficos', async ({ page }) => {
+      70 |     // Esperar os títulos para garantir que a página carregou os cards
+    > 71 |     await expect(page.locator('text=Evolução Patrimonial')).toBeVisible();
+         |                                                             ^
+      72 |     await expect(page.locator('text=Mix de Receitas')).toBeVisible();
+      73 |     
+      74 |     // Verificar se os SVGs dos gráficos foram renderizados (Gauge + Evolution + Mix)
+        at /home/lan/finance-ia/tests/reports.test.ts:71:61
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/reports-Insights-e-Relatór-bb1e6-r-os-containers-de-gráficos-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/reports-Insights-e-Relatór-bb1e6-r-os-containers-de-gráficos-chromium/error-context.md
+
+
+[1A[2K[25/34] [chromium] › tests/transactions-audit.test.ts:82:7 › Auditoria de Transações › deve abrir modal de edição ao clicar em uma transação
+[1A[2K[26/34] [chromium] › tests/transactions-audit.test.ts:103:7 › Auditoria de Transações › deve excluir uma transação e atualizar a lista
+[1A[2K[27/34] [chromium] › tests/transfers.test.ts:83:7 › Transferências entre Contas › deve realizar uma transferência entre duas contas com sucesso
+[1A[2K[28/34] [chromium] › tests/transfers.test.ts:115:7 › Transferências entre Contas › deve impedir transferência com saldo insuficiente
+[1A[2K  5) [chromium] › tests/reports.test.ts:83:7 › Insights e Relatórios › deve exibir a seção de análise de IA com insights 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('text=Análise de IA')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('text=Análise de IA')[22m
+
+
+      82 |
+      83 |   test('deve exibir a seção de análise de IA com insights', async ({ page }) => {
+    > 84 |     await expect(page.locator('text=Análise de IA')).toBeVisible();
+         |                                                      ^
+      85 |     await expect(page.locator('text=Nossa inteligência detectou')).toBeVisible();
+      86 |   });
+      87 |
+        at /home/lan/finance-ia/tests/reports.test.ts:84:54
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/reports-Insights-e-Relatór-c9d18--análise-de-IA-com-insights-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/reports-Insights-e-Relatór-c9d18--análise-de-IA-com-insights-chromium/error-context.md
+
+
+[1A[2K  6) [chromium] › tests/reports.test.ts:88:7 › Insights e Relatórios › deve alternar feedback do score quando o score é baixo 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoContainText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: getByTestId('health-score-value')
+    Expected substring: [32m"45"[39m
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toContainText" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('health-score-value')[22m
+
+
+      92 |     await page.waitForLoadState('networkidle');
+      93 |
+    > 94 |     await expect(page.getByTestId('health-score-value')).toContainText('45');
+         |                                                          ^
+      95 |     await expect(page.locator('text=Atenção ao fluxo de caixa')).toBeVisible();
+      96 |   });
+      97 | });
+        at /home/lan/finance-ia/tests/reports.test.ts:94:58
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/reports-Insights-e-Relatór-99882-core-quando-o-score-é-baixo-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/reports-Insights-e-Relatór-99882-core-quando-o-score-é-baixo-chromium/error-context.md
+
+
+[1A[2K[29/34] [chromium] › tests/transfers.test.ts:131:7 › Transferências entre Contas › deve impedir transferência para a mesma conta
+[1A[2K  7) [chromium] › tests/transactions-audit.test.ts:75:7 › Auditoria de Transações › deve filtrar transações por busca de texto 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveCount[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator:  getByTestId(/^transaction-item-/)
+    Expected: [32m2[39m
+    Received: [31m0[39m
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toHaveCount" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId(/^transaction-item-/)[22m
+    [2m    9 × locator resolved to 0 elements[22m
+    [2m      - unexpected value "0"[22m
+
+
+      74 |
+      75 |   test('deve filtrar transações por busca de texto', async ({ page }) => {
+    > 76 |     await expect(page.getByTestId(/^transaction-item-/)).toHaveCount(2);
+         |                                                          ^
+      77 |     await page.getByTestId('transaction-search-input').fill('Aluguel');
+      78 |     await expect(page.getByTestId(/^transaction-item-/)).toHaveCount(1);
+      79 |     await expect(page.getByText('Aluguel Mensal')).toBeVisible();
+        at /home/lan/finance-ia/tests/transactions-audit.test.ts:76:58
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/transactions-audit-Auditor-e9831-ansações-por-busca-de-texto-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/transactions-audit-Auditor-e9831-ansações-por-busca-de-texto-chromium/error-context.md
+
+
+[1A[2K  8) [chromium] › tests/transactions-audit.test.ts:82:7 › Auditoria de Transações › deve abrir modal de edição ao clicar em uma transação 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('div[data-testid="transaction-item-550e8400-e29b-41d4-a716-446655441001"]')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('div[data-testid="transaction-item-550e8400-e29b-41d4-a716-446655441001"]')[22m
+
+
+      83 |     // Localizar item de forma robusta
+      84 |     const item = page.locator('div[data-testid="transaction-item-550e8400-e29b-41d4-a716-446655441001"]');
+    > 85 |     await expect(item).toBeVisible();
+         |                        ^
+      86 |     
+      87 |     // Clicar no menu de ações
+      88 |     const menuBtn = item.locator('button[data-testid="action-menu-button"]');
+        at /home/lan/finance-ia/tests/transactions-audit.test.ts:85:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/transactions-audit-Auditor-ebf39--ao-clicar-em-uma-transação-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/transactions-audit-Auditor-ebf39--ao-clicar-em-uma-transação-chromium/error-context.md
+
+
+[1A[2K  9) [chromium] › tests/invoice-payment.test.ts:89:7 › Pagamento de Fatura › deve pagar fatura agora e atualizar saldos 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('text=Cartão Ultra')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 15000ms[22m
+    [2m  - waiting for locator('text=Cartão Ultra')[22m
+
+
+      90 |     // 1. Localizar o card do cartão de crédito
+      91 |     const creditCard = page.locator('text=Cartão Ultra');
+    > 92 |     await expect(creditCard).toBeVisible({ timeout: 15000 });
+         |                              ^
+      93 |
+      94 |     // 2. Abrir modal de pagamento
+      95 |     await page.click('[data-testid="pay-invoice-button"]');
+        at /home/lan/finance-ia/tests/invoice-payment.test.ts:92:30
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/invoice-payment-Pagamento--24047-ra-agora-e-atualizar-saldos-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/invoice-payment-Pagamento--24047-ra-agora-e-atualizar-saldos-chromium/error-context.md
+
+
+[1A[2K[30/34] [chromium] › tests/invoice-payment.test.ts:117:7 › Pagamento de Fatura › deve marcar como "Já Paguei" apenas para liberar limite
+[1A[2K[31/34] [chromium] › tests/invoice-payment.test.ts:131:7 › Pagamento de Fatura › deve permitir pagamento parcial e atualizar saldos proporcionalmente
+[1A[2K[32/34] [chromium] › tests/invoice-payment.test.ts:147:7 › Pagamento de Fatura › deve exibir mensagem de erro se a API falhar
+[1A[2K  10) [chromium] › tests/simulator.test.ts:56:7 › Simulador de Impacto › deve simular uma compra à vista e mostrar impacto 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('text=Centro de Comando')
+    Expected: visible
+    Timeout: 20000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 20000ms[22m
+    [2m  - waiting for locator('text=Centro de Comando')[22m
+
+
+      57 |     await page.goto('/');
+      58 |     await page.waitForLoadState('networkidle');
+    > 59 |     await expect(page.locator('text=Centro de Comando')).toBeVisible({ timeout: 20000 });
+         |                                                          ^
+      60 |
+      61 |     const simulator = page.getByTestId('simulator-amount-input');
+      62 |     await expect(simulator).toBeVisible();
+        at /home/lan/finance-ia/tests/simulator.test.ts:59:58
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/simulator-Simulador-de-Imp-72bd4-a-à-vista-e-mostrar-impacto-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/simulator-Simulador-de-Imp-72bd4-a-à-vista-e-mostrar-impacto-chromium/error-context.md
+
+
+[1A[2K  11) [chromium] › tests/simulator.test.ts:71:7 › Simulador de Impacto › deve simular uma compra parcelada e salvar como meta 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('text=Centro de Comando')
+    Expected: visible
+    Timeout: 20000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 20000ms[22m
+    [2m  - waiting for locator('text=Centro de Comando')[22m
+
+
+      72 |     await page.goto('/');
+      73 |     await page.waitForLoadState('networkidle');
+    > 74 |     await expect(page.locator('text=Centro de Comando')).toBeVisible({ timeout: 20000 });
+         |                                                          ^
+      75 |
+      76 |     const simulator = page.getByTestId('simulator-amount-input');
+      77 |     await expect(simulator).toBeVisible();
+        at /home/lan/finance-ia/tests/simulator.test.ts:74:58
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/simulator-Simulador-de-Imp-c87f0-arcelada-e-salvar-como-meta-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/simulator-Simulador-de-Imp-c87f0-arcelada-e-salvar-como-meta-chromium/error-context.md
+
+
+[1A[2K  12) [chromium] › tests/goals.test.ts:132:7 › Gestão de Ambições (Metas) › deve excluir uma meta ──
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('goal-card-550e8400-e29b-41d4-a716-446655442001').getByTestId('goal-details-button')[22m
+
+
+      131 |
+      132 |   test('deve excluir uma meta', async ({ page }) => {
+    > 133 |     await page.getByTestId('goal-card-550e8400-e29b-41d4-a716-446655442001').getByTestId('goal-details-button').click();
+          |                                                                                                                 ^
+      134 |     await page.getByTestId('delete-goal-button').click();
+      135 |     await page.getByTestId('confirm-button').click();
+      136 |     
+        at /home/lan/finance-ia/tests/goals.test.ts:133:113
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/goals-Gestão-de-Ambições-Metas-deve-excluir-uma-meta-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/goals-Gestão-de-Ambições-Metas-deve-excluir-uma-meta-chromium/error-context.md
+
+
+[1A[2K  13) [chromium] › tests/goals.test.ts:119:7 › Gestão de Ambições (Metas) › deve realizar um aporte em uma meta existente 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('goal-card-550e8400-e29b-41d4-a716-446655442001').getByTestId('goal-contribution-button')[22m
+
+
+      118 |
+      119 |   test('deve realizar um aporte em uma meta existente', async ({ page }) => {
+    > 120 |     await page.getByTestId('goal-card-550e8400-e29b-41d4-a716-446655442001').getByTestId('goal-contribution-button').click();
+          |                                                                                                                      ^
+      121 |     await page.getByTestId('contribution-amount-input').fill('500,00');
+      122 |     await page.getByTestId('contribution-account-item').click();
+      123 |     await page.getByTestId('contribution-submit-button').click();
+        at /home/lan/finance-ia/tests/goals.test.ts:120:118
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/goals-Gestão-de-Ambições-M-d2520-porte-em-uma-meta-existente-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/goals-Gestão-de-Ambições-M-d2520-porte-em-uma-meta-existente-chromium/error-context.md
+
+
+[1A[2K  14) [chromium] › tests/goals.test.ts:107:7 › Gestão de Ambições (Metas) › deve criar uma nova meta com sucesso 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('add-goal-button').first()[22m
+
+
+      106 |
+      107 |   test('deve criar uma nova meta com sucesso', async ({ page }) => {
+    > 108 |     await page.getByTestId('add-goal-button').first().click();
+          |                                                       ^
+      109 |     
+      110 |     await page.getByTestId('goal-name-input').fill('Reserva de Emergência');
+      111 |     await page.getByTestId('goal-target-input').fill('10.000,00');
+        at /home/lan/finance-ia/tests/goals.test.ts:108:55
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/goals-Gestão-de-Ambições-M-36fc8-r-uma-nova-meta-com-sucesso-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/goals-Gestão-de-Ambições-M-36fc8-r-uma-nova-meta-com-sucesso-chromium/error-context.md
+
+
+[1A[2K[BROWSER] [Fast Refresh] rebuilding
+
+[1A[2K[BROWSER] [Fast Refresh] done in 112ms
+
+[1A[2K[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+
+[1A[2K  15) [chromium] › tests/subscriptions.test.ts:44:7 › Gerenciamento de Fluxos Recorrentes (Assinaturas) › deve criar um novo gasto fixo e verificar impacto no Survival HUD 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('add-subscription-button')[22m
+
+
+      47 |
+      48 |     // 1. Abrir modal
+    > 49 |     await page.getByTestId('add-subscription-button').click();
+         |                                                       ^
+      50 |     
+      51 |     // Esperar pelo modal de forma mais resiliente
+      52 |     const modal = page.locator('[data-testid="add-subscription-modal"]');
+        at /home/lan/finance-ia/tests/subscriptions.test.ts:49:55
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/subscriptions-Gerenciament-5c93f-car-impacto-no-Survival-HUD-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/subscriptions-Gerenciament-5c93f-car-impacto-no-Survival-HUD-chromium/error-context.md
+
+
+[1A[2K[33/34] [chromium] › tests/subscriptions.test.ts:95:7 › Gerenciamento de Fluxos Recorrentes (Assinaturas) › deve editar uma assinatura existente
+[1A[2K[34/34] [chromium] › tests/subscriptions.test.ts:128:7 › Gerenciamento de Fluxos Recorrentes (Assinaturas) › deve pausar e excluir uma assinatura
+[1A[2K[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+
+[1A[2K[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+
+[1A[2K[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+
+[1A[2K[2m[WebServer] [22m[36m[browser][39m Encountered two children with the same key, ``. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version. 
+
+[1A[2K  16) [chromium] › tests/transactions-audit.test.ts:103:7 › Auditoria de Transações › deve excluir uma transação e atualizar a lista 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('div[data-testid="transaction-item-550e8400-e29b-41d4-a716-446655441002"]').locator('button[data-testid="action-menu-button"]')[22m
+
+
+      103 |   test('deve excluir uma transação e atualizar a lista', async ({ page }) => {
+      104 |     const item = page.locator('div[data-testid="transaction-item-550e8400-e29b-41d4-a716-446655441002"]');
+    > 105 |     await item.locator('button[data-testid="action-menu-button"]').click({ force: true });
+          |                                                                    ^
+      106 |     
+      107 |     const deleteBtn = page.locator('button:has-text("Excluir")');
+      108 |     await expect(deleteBtn).toBeVisible({ timeout: 10000 });
+        at /home/lan/finance-ia/tests/transactions-audit.test.ts:105:68
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/transactions-audit-Auditor-c462e-ansação-e-atualizar-a-lista-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/transactions-audit-Auditor-c462e-ansação-e-atualizar-a-lista-chromium/error-context.md
+
+
+[1A[2K  17) [chromium] › tests/transfers.test.ts:83:7 › Transferências entre Contas › deve realizar uma transferência entre duas contas com sucesso 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('open-transfer-button')[22m
+
+
+      83 |   test('deve realizar uma transferência entre duas contas com sucesso', async ({ page }) => {
+      84 |     // 1. Abrir modal de transferência
+    > 85 |     await page.getByTestId('open-transfer-button').click();
+         |                                                    ^
+      86 |     await expect(page.getByTestId('transfer-modal')).toBeVisible();
+      87 |
+      88 |     // 2. Preencher valor (2k)
+        at /home/lan/finance-ia/tests/transfers.test.ts:85:52
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/transfers-Transferências-e-3092e-tre-duas-contas-com-sucesso-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/transfers-Transferências-e-3092e-tre-duas-contas-com-sucesso-chromium/error-context.md
+
+
+[1A[2K  18) [chromium] › tests/transfers.test.ts:115:7 › Transferências entre Contas › deve impedir transferência com saldo insuficiente 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('open-transfer-button')[22m
+
+
+      114 |
+      115 |   test('deve impedir transferência com saldo insuficiente', async ({ page }) => {
+    > 116 |     await page.getByTestId('open-transfer-button').click();
+          |                                                    ^
+      117 |     
+      118 |     // Tentar transferir 20k (saldo é 10k)
+      119 |     await page.getByTestId('transfer-amount-input').fill('20.000,00');
+        at /home/lan/finance-ia/tests/transfers.test.ts:116:52
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/transfers-Transferências-e-aadda-ncia-com-saldo-insuficiente-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/transfers-Transferências-e-aadda-ncia-com-saldo-insuficiente-chromium/error-context.md
+
+
+[1A[2K  19) [chromium] › tests/transfers.test.ts:131:7 › Transferências entre Contas › deve impedir transferência para a mesma conta 
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('open-transfer-button')[22m
+
+
+      130 |
+      131 |   test('deve impedir transferência para a mesma conta', async ({ page }) => {
+    > 132 |     await page.getByTestId('open-transfer-button').click();
+          |                                                    ^
+      133 |     await page.getByTestId('transfer-amount-input').fill('100,00');
+      134 |     
+      135 |     // Selecionar mesma conta em ambos
+        at /home/lan/finance-ia/tests/transfers.test.ts:132:52
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/transfers-Transferências-e-bc506-ferência-para-a-mesma-conta-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/transfers-Transferências-e-bc506-ferência-para-a-mesma-conta-chromium/error-context.md
+
+
+[1A[2K  19 failed
+    [chromium] › tests/accounts.test.ts:81:7 › Gestão de Contas › deve editar uma conta existente ──
+    [chromium] › tests/goals.test.ts:107:7 › Gestão de Ambições (Metas) › deve criar uma nova meta com sucesso 
+    [chromium] › tests/goals.test.ts:119:7 › Gestão de Ambições (Metas) › deve realizar um aporte em uma meta existente 
+    [chromium] › tests/goals.test.ts:132:7 › Gestão de Ambições (Metas) › deve excluir uma meta ────
+    [chromium] › tests/goals.test.ts:140:7 › Gestão de Ambições (Metas) › deve abrir aporte a partir de uma recomendação 
+    [chromium] › tests/invoice-payment.test.ts:89:7 › Pagamento de Fatura › deve pagar fatura agora e atualizar saldos 
+    [chromium] › tests/reports.test.ts:61:7 › Insights e Relatórios › deve exibir o score de saúde financeira corretamente 
+    [chromium] › tests/reports.test.ts:69:7 › Insights e Relatórios › deve renderizar os containers de gráficos 
+    [chromium] › tests/reports.test.ts:83:7 › Insights e Relatórios › deve exibir a seção de análise de IA com insights 
+    [chromium] › tests/reports.test.ts:88:7 › Insights e Relatórios › deve alternar feedback do score quando o score é baixo 
+    [chromium] › tests/simulator.test.ts:56:7 › Simulador de Impacto › deve simular uma compra à vista e mostrar impacto 
+    [chromium] › tests/simulator.test.ts:71:7 › Simulador de Impacto › deve simular uma compra parcelada e salvar como meta 
+    [chromium] › tests/subscriptions.test.ts:44:7 › Gerenciamento de Fluxos Recorrentes (Assinaturas) › deve criar um novo gasto fixo e verificar impacto no Survival HUD 
+    [chromium] › tests/transactions-audit.test.ts:75:7 › Auditoria de Transações › deve filtrar transações por busca de texto 
+    [chromium] › tests/transactions-audit.test.ts:82:7 › Auditoria de Transações › deve abrir modal de edição ao clicar em uma transação 
+    [chromium] › tests/transactions-audit.test.ts:103:7 › Auditoria de Transações › deve excluir uma transação e atualizar a lista 
+    [chromium] › tests/transfers.test.ts:83:7 › Transferências entre Contas › deve realizar uma transferência entre duas contas com sucesso 
+    [chromium] › tests/transfers.test.ts:115:7 › Transferências entre Contas › deve impedir transferência com saldo insuficiente 
+    [chromium] › tests/transfers.test.ts:131:7 › Transferências entre Contas › deve impedir transferência para a mesma conta 
+  5 did not run
+  10 passed (45.6s)
+
+[36m  Serving HTML report at http://localhost:43827. Press Ctrl+C to quit.[39m

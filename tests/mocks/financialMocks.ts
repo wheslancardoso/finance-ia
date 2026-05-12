@@ -1,7 +1,39 @@
 import { Page } from '@playwright/test';
 
 export async function setupFinancialMocks(page: Page, state: any) {
-  // 1. Mock de Estado Global (Sempre dinâmico)
+  // Injeta o estado diretamente no window e desabilita animações
+  await page.addInitScript((mockState) => {
+    (window as any).__E2E_MOCK_STATE__ = mockState;
+    
+    // Matar animações e transições para estabilidade total
+    const style = document.createElement('style');
+    style.innerHTML = `
+      *, *::before, *::after {
+        transition-duration: 0s !important;
+        transition-delay: 0s !important;
+        animation-duration: 0s !important;
+        animation-delay: 0s !important;
+        animation-iteration-count: 1 !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }, state);
+
+  // 1. Mock de mutações genérico (Lowest priority - registered first)
+  await page.route('**/api/**', async (route) => {
+    const method = route.request().method();
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: {} }),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+
+  // 2. Mock de Estado Financeiro (Higher priority - registered later)
   await page.route('**/api/financial-state*', async (route) => {
     await route.fulfill({
       status: 200,

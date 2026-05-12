@@ -32,6 +32,12 @@ export class SettingsPage {
     return response;
   }
 
+  async updateProfile(income: string, expenses: string) {
+    await this.incomeInput.fill(income);
+    await this.expensesInput.fill(expenses);
+    await this.saveButton.click();
+  }
+
   async expectProfileValues(income: string, expenses: string) {
     await expect(this.incomeInput).toHaveValue(income, { timeout: 15000 });
     await expect(this.expensesInput).toHaveValue(expenses, { timeout: 15000 });
