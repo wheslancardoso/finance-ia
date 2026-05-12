@@ -6,7 +6,15 @@ import { db, type Account, type Category, type Goal, type RecurringTransaction, 
 import { useAccountModal } from "./AccountModalContext";
 import { addMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { calculateTotalConsolidatedDebt, calculateNetLiquidity } from "@/lib/financial-logic";
+import { 
+  calculateTotalConsolidatedDebt, 
+  calculateNetLiquidity,
+  calculateScheduledIncome,
+  calculateScheduledExpenses,
+  calculateRecurringIncome,
+  calculateRecurringExpenses,
+  calculatePrimaryIncome
+} from "@/domain/financial/financial-logic";
 
 interface FinancialStateResponse {
   user_profile: {
@@ -132,18 +140,12 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const [extraIncomeCents, setExtraIncomeCents] = useState(0);
   const [currentMonthExpensesCents, setCurrentMonthExpensesCents] = useState(0);
   const [accumulatedBalanceCents, setAccumulatedBalanceCents] = useState(0);
-  const [recurringIncomeCents, setRecurringIncomeCents] = useState(0);
-  const [recurringExpensesCents, setRecurringExpensesCents] = useState(0);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [monthTransactions, setMonthTransactions] = useState<Transaction[]>([]);
   const [healthScore, setHealthScore] = useState<number>(0);
-  const [scheduledIncomeCents, setScheduledIncomeCents] = useState(0);
-  const [scheduledExpensesCents, setScheduledExpensesCents] = useState(0);
-  const [cardDebtImpactCents, setCardDebtImpactCents] = useState(0);
-  const [primaryIncomeCents, setPrimaryIncomeCents] = useState(0);
 
   const { userId: rawUserId } = useAccountModal();
   const isE2E = typeof window !== 'undefined' && (window as any).__E2E_MOCK_STATE__;
@@ -155,6 +157,30 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
   const netLiquidityCents = useMemo(() => {
     return calculateNetLiquidity(accounts);
+  }, [accounts]);
+
+  const scheduledIncomeCents = useMemo(() => {
+    return calculateScheduledIncome(recurringTransactions);
+  }, [recurringTransactions]);
+
+  const scheduledExpensesCents = useMemo(() => {
+    return calculateScheduledExpenses(recurringTransactions);
+  }, [recurringTransactions]);
+
+  const recurringIncomeCents = useMemo(() => {
+    return calculateRecurringIncome(recurringTransactions);
+  }, [recurringTransactions]);
+
+  const recurringExpensesCents = useMemo(() => {
+    return calculateRecurringExpenses(recurringTransactions);
+  }, [recurringTransactions]);
+
+  const primaryIncomeCents = useMemo(() => {
+    return calculatePrimaryIncome(recurringTransactions);
+  }, [recurringTransactions]);
+
+  const cardDebtImpactCents = useMemo(() => {
+    return calculateTotalConsolidatedDebt(accounts);
   }, [accounts]);
 
   const setMonthlyIncomeCents = useCallback((val: number) => {
@@ -172,59 +198,16 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const _applyState = (data: any) => {
-    const now = new Date();
-    const todayYear = now.getFullYear();
-    const todayMonth = now.getMonth();
-    const todayDay = now.getDate();
-    const endOfMonthDate = new Date(todayYear, todayMonth + 1, 0);
-    const endOfMonthDay = endOfMonthDate.getDate();
+    const recurring = data.recurring_transactions || [];
+    const accounts = data.accounts || [];
 
-    // Calcular agendados para este mês
-    const schedInc = (data.recurring_transactions || [])
-      .filter((r: any) => {
-        if (r.transaction_type !== "INCOME" || r.status !== 'active') return false;
-        const datePart = typeof r.next_date === 'string' ? r.next_date.split('T')[0] : '';
-        const [y, m, d] = datePart.split('-').map(Number);
-        return y === todayYear && (m - 1) === todayMonth && d >= todayDay && d <= endOfMonthDay;
-      })
-      .reduce((sum: number, r: any) => sum + (Number(r.amount_cents) || 0), 0);
-
-    const schedExp = (data.recurring_transactions || [])
-      .filter((r: any) => {
-        if (r.transaction_type !== "EXPENSE" || r.status !== 'active') return false;
-        const datePart = typeof r.next_date === 'string' ? r.next_date.split('T')[0] : '';
-        const [y, m, d] = datePart.split('-').map(Number);
-        return y === todayYear && (m - 1) === todayMonth && d >= todayDay && d <= endOfMonthDay;
-      })
-      .reduce((sum: number, r: any) => sum + (Number(r.amount_cents) || 0), 0);
-
-    const recInc = (data.recurring_transactions || [])
-      .filter((r: any) => r.transaction_type === "INCOME" && r.status === 'active')
-      .reduce((sum: number, r: any) => sum + (Number(r.amount_cents) || 0), 0);
-
-    const recExp = (data.recurring_transactions || [])
-      .filter((r: any) => r.transaction_type === "EXPENSE" && r.status === 'active')
-      .reduce((sum: number, r: any) => sum + (Number(r.amount_cents) || 0), 0);
-
-    const primaryInc = (data.recurring_transactions || [])
-      .filter((r: any) => r.transaction_type === "INCOME" && r.status === 'active' && r.is_primary_income)
-      .reduce((sum: number, r: any) => sum + (Number(r.amount_cents) || 0), 0);
-
-    const cardImpact = calculateTotalConsolidatedDebt(data.accounts || []);
-
-    setAccounts(data.accounts || []);
+    setAccounts(accounts);
     setCategories(data.categories || []);
     setGoals(data.goals || []);
-    setRecurringTransactions(data.recurring_transactions || []);
+    setRecurringTransactions(recurring);
     setBudgets(data.budgets || []);
     setRecentTransactions([...(data.transactions || [])]);
     setMonthTransactions([...(data.transactions || [])]);
-    setScheduledIncomeCents(schedInc);
-    setScheduledExpensesCents(schedExp);
-    setRecurringIncomeCents(recInc);
-    setRecurringExpensesCents(recExp);
-    setPrimaryIncomeCents(primaryInc);
-    setCardDebtImpactCents(cardImpact);
     
     if (data.user_profile) {
       setMonthlyIncomeCentsState(data.user_profile.monthly_income_cents || 0);
@@ -560,12 +543,6 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         
         const storedAccumulated = localStorage.getItem("vesper_accumulated_balance");
         if (storedAccumulated) setAccumulatedBalanceCents(parseInt(storedAccumulated, 10));
-
-        const storedRecIncome = localStorage.getItem("vesper_recurring_income");
-        if (storedRecIncome) setRecurringIncomeCents(parseInt(storedRecIncome, 10));
-
-        const storedRecExpense = localStorage.getItem("vesper_recurring_expense");
-        if (storedRecExpense) setRecurringExpensesCents(parseInt(storedRecExpense, 10));
       } catch (err) {
         console.error("ERRO AO CARREGAR LOCALSTORAGE:", err);
       }

@@ -1,5 +1,71 @@
+import { Account, Budget, Goal, RecurringTransaction } from "@/lib/db";
 
-import { Account, Budget, Goal } from "@/lib/db";
+/**
+ * Calcula o total de receitas agendadas para o mês atual (do dia atual até o fim do mês)
+ */
+export function calculateScheduledIncome(recurring: RecurringTransaction[]): number {
+  const now = new Date();
+  const todayYear = now.getFullYear();
+  const todayMonth = now.getMonth();
+  const todayDay = now.getDate();
+  const endOfMonthDay = new Date(todayYear, todayMonth + 1, 0).getDate();
+
+  return (recurring || [])
+    .filter((r) => {
+      if (r.transaction_type !== "INCOME" || r.status !== 'active') return false;
+      const datePart = typeof r.next_date === 'string' ? r.next_date.split('T')[0] : '';
+      const [y, m, d] = datePart.split('-').map(Number);
+      return y === todayYear && (m - 1) === todayMonth && d >= todayDay && d <= endOfMonthDay;
+    })
+    .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
+}
+
+/**
+ * Calcula o total de despesas agendadas para o mês atual (do dia atual até o fim do mês)
+ */
+export function calculateScheduledExpenses(recurring: RecurringTransaction[]): number {
+  const now = new Date();
+  const todayYear = now.getFullYear();
+  const todayMonth = now.getMonth();
+  const todayDay = now.getDate();
+  const endOfMonthDay = new Date(todayYear, todayMonth + 1, 0).getDate();
+
+  return (recurring || [])
+    .filter((r) => {
+      if (r.transaction_type !== "EXPENSE" || r.status !== 'active') return false;
+      const datePart = typeof r.next_date === 'string' ? r.next_date.split('T')[0] : '';
+      const [y, m, d] = datePart.split('-').map(Number);
+      return y === todayYear && (m - 1) === todayMonth && d >= todayDay && d <= endOfMonthDay;
+    })
+    .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
+}
+
+/**
+ * Calcula o total mensal de receitas recorrentes ativas
+ */
+export function calculateRecurringIncome(recurring: RecurringTransaction[]): number {
+  return (recurring || [])
+    .filter((r) => r.transaction_type === "INCOME" && r.status === 'active')
+    .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
+}
+
+/**
+ * Calcula o total mensal de despesas recorrentes ativas
+ */
+export function calculateRecurringExpenses(recurring: RecurringTransaction[]): number {
+  return (recurring || [])
+    .filter((r) => r.transaction_type === "EXPENSE" && r.status === 'active')
+    .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
+}
+
+/**
+ * Calcula o total mensal da renda primária ativa
+ */
+export function calculatePrimaryIncome(recurring: RecurringTransaction[]): number {
+  return (recurring || [])
+    .filter((r) => r.transaction_type === "INCOME" && r.status === 'active' && r.is_primary_income)
+    .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
+}
 
 /**
  * Calcula a Dívida Total Consolidada (Soma de faturas abertas e fechadas de todos os cartões)

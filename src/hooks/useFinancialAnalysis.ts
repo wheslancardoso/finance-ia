@@ -13,7 +13,7 @@ import {
   type GoalProjection,
   simulateDetailedImpact,
   type SimulationDetailedResult
-} from "@/lib/financial-logic";
+} from "@/domain/financial/financial-logic";
 
 export type { SimulationDetailedResult, MonthlyOutlook, DebtExitProjection, GoalProjection };
 

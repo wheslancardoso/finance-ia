@@ -1,6 +1,6 @@
 import { db, type Transaction, type Account, type Goal, type Category, type RecurringTransaction, type Budget } from "@/lib/db";
 import { formatCurrency } from "@/lib/utils";
-import { calculateTotalConsolidatedDebt, calculateAccumulatedBalance } from "@/lib/financial-logic";
+import { calculateTotalConsolidatedDebt, calculateAccumulatedBalance } from "@/domain/financial/financial-logic";
 
 const generateId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
