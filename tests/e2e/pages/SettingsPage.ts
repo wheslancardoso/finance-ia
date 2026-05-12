@@ -36,6 +36,8 @@ export class SettingsPage {
     await this.incomeInput.fill(income);
     await this.expensesInput.fill(expenses);
     await this.saveButton.click();
+    // Aguardar o feedback de sucesso na UI para garantir que o processamento terminou
+    await expect(this.page.getByText('Configurações Salvas')).toBeVisible({ timeout: 5000 });
   }
 
   async expectProfileValues(income: string, expenses: string) {

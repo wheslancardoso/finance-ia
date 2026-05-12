@@ -19,6 +19,25 @@ export async function setupFinancialMocks(page: Page, state: any) {
     document.head.appendChild(style);
   }, state);
 
+  // Helper para persistir mudanças no state local do mock
+  const upsertItem = (collection: any[], payload: any) => {
+    const id = payload.id || `${Date.now()}`;
+    const index = collection.findIndex((item: any) => item.id === id);
+    const newItem = { ...payload, id };
+    
+    if (index !== -1) {
+      collection[index] = { ...collection[index], ...newItem };
+    } else {
+      collection.push(newItem);
+    }
+    return newItem;
+  };
+
+  const deleteItem = (collection: any[], id: string) => {
+    const index = collection.findIndex((item: any) => item.id === id);
+    if (index !== -1) collection.splice(index, 1);
+  };
+
   // 1. Mock de mutações genérico (Lowest priority - registered first)
   await page.route('**/api/**', async (route) => {
     const method = route.request().method();
@@ -42,53 +61,58 @@ export async function setupFinancialMocks(page: Page, state: any) {
     });
   });
 
-  // 2. Mock de Contas (Accounts)
+  // 3. Mock de Contas (Accounts)
   await page.route('**/api/accounts*', async (route) => {
     const method = route.request().method();
-    if (method === 'POST') {
+    if (['POST', 'PUT'].includes(method)) {
       const payload = route.request().postDataJSON();
-      const id = payload.id || `acc-${Date.now()}`;
-      if (!state.accounts.find((a: any) => a.id === id)) {
-        state.accounts.push({ ...payload, id });
-      }
-      await route.fulfill({ status: 201, body: JSON.stringify({ ...payload, id }) });
-    } else {
+      const newItem = upsertItem(state.accounts, payload);
+      await route.fulfill({ status: method === 'POST' ? 201 : 200, body: JSON.stringify(newItem) });
+    } else if (method === 'DELETE') {
+      const url = new URL(route.request().url());
+      const id = url.searchParams.get('id');
+      if (id) deleteItem(state.accounts, id);
       await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
+    } else {
+      await route.fulfill({ status: 200, body: JSON.stringify(state.accounts) });
     }
   });
 
-  // 3. Mock de Metas (Goals)
+  // 4. Mock de Metas (Goals)
   await page.route('**/api/goals*', async (route) => {
     const method = route.request().method();
-    if (method === 'POST') {
+    if (['POST', 'PUT'].includes(method)) {
       const payload = route.request().postDataJSON();
-      const id = payload.id || `goal-${Date.now()}`;
-      const newGoal = { ...payload, id };
-      state.goals.push(newGoal);
-      await route.fulfill({
-        status: 201,
-        contentType: 'application/json',
-        body: JSON.stringify(newGoal),
-      });
-    } else {
+      const newItem = upsertItem(state.goals, payload);
+      await route.fulfill({ status: method === 'POST' ? 201 : 200, body: JSON.stringify(newItem) });
+    } else if (method === 'DELETE') {
+      const url = new URL(route.request().url());
+      const id = url.searchParams.get('id');
+      if (id) deleteItem(state.goals, id);
       await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
+    } else {
+      await route.fulfill({ status: 200, body: JSON.stringify(state.goals) });
     }
   });
 
-  // 4. Mock de Assinaturas (Recurring Transactions)
+  // 5. Mock de Assinaturas (Recurring Transactions)
   await page.route('**/api/recurring-transactions*', async (route) => {
     const method = route.request().method();
-    if (method === 'POST') {
+    if (['POST', 'PUT'].includes(method)) {
       const payload = route.request().postDataJSON();
-      const id = payload.id || `sub-${Date.now()}`;
-      state.recurring_transactions.push({ ...payload, id });
-      await route.fulfill({ status: 201, body: JSON.stringify({ ...payload, id }) });
-    } else {
+      const newItem = upsertItem(state.recurring_transactions, payload);
+      await route.fulfill({ status: method === 'POST' ? 201 : 200, body: JSON.stringify(newItem) });
+    } else if (method === 'DELETE') {
+      const url = new URL(route.request().url());
+      const id = url.searchParams.get('id');
+      if (id) deleteItem(state.recurring_transactions, id);
       await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
+    } else {
+      await route.fulfill({ status: 200, body: JSON.stringify(state.recurring_transactions) });
     }
   });
 
-  // 5. Mock de Transações
+  // 6. Mock de Transações
   await page.route('**/api/transactions*', async (route) => {
     const method = route.request().method();
     if (method === 'GET') {
@@ -97,31 +121,40 @@ export async function setupFinancialMocks(page: Page, state: any) {
         contentType: 'application/json',
         body: JSON.stringify(state.transactions || []) 
       });
-    } else if (method === 'POST') {
+    } else if (['POST', 'PUT'].includes(method)) {
       const payload = route.request().postDataJSON();
-      const id = payload.id || `t-${Date.now()}`;
-      const index = state.transactions.findIndex((t: any) => t.id === id);
-      const newTx = { ...payload, id };
-      
-      if (index !== -1) {
-        state.transactions[index] = { ...state.transactions[index], ...newTx };
-      } else {
-        state.transactions.push(newTx);
-      }
-      
-      await route.fulfill({ status: 201, body: JSON.stringify(newTx) });
-    } else if (method === 'PUT') {
-      const payload = route.request().postDataJSON();
-      const index = state.transactions.findIndex((t: any) => t.id === payload.id);
-      if (index !== -1) {
-        state.transactions[index] = { ...state.transactions[index], ...payload };
-      }
+      const newItem = upsertItem(state.transactions, payload);
+      await route.fulfill({ status: method === 'POST' ? 201 : 200, body: JSON.stringify(newItem) });
+    } else if (method === 'DELETE') {
+      const url = new URL(route.request().url());
+      const id = url.searchParams.get('id');
+      if (id) deleteItem(state.transactions, id);
       await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
     } else {
       await route.fulfill({ 
         status: 200, 
         contentType: 'application/json',
         body: JSON.stringify({ success: true }) 
+      });
+    }
+  });
+
+  // 7. Mock de Perfil de Usuário
+  await page.route('**/api/user-profile*', async (route) => {
+    const method = route.request().method();
+    if (['POST', 'PUT'].includes(method)) {
+      const payload = route.request().postDataJSON();
+      state.user_profile = { ...state.user_profile, ...payload };
+      await route.fulfill({ 
+        status: 200, 
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, ...payload }) 
+      });
+    } else {
+      await route.fulfill({ 
+        status: 200, 
+        contentType: 'application/json',
+        body: JSON.stringify(state.user_profile) 
       });
     }
   });

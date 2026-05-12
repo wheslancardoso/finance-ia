@@ -3,26 +3,16 @@ import { setupFinancialMocks } from '../../mocks/financialMocks';
 import { setupAuthMock } from '../../mocks/authMocks';
 import { SettingsPage } from '../pages/SettingsPage';
 import { AuthPage } from '../pages/AuthPage';
-import { createInitialState, stateUser2 } from '../fixtures/financialState';
+import { createDashboardState, stateUser2 } from '../fixtures/financialState';
 
 test.describe('Autenticação e Perfil (Refatorado)', () => {
   let sharedState: any;
 
   test.beforeEach(async ({ page }) => {
-    sharedState = createInitialState();
-
-    // Mock API para salvar perfil
-    await page.route('**/api/user-profile', async (route) => {
-      if (route.request().method() === 'POST') {
-        const payload = route.request().postDataJSON();
-        Object.assign(sharedState.user_profile, payload);
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ success: true, ...payload }),
-        });
-      } else {
-        await route.continue();
+    sharedState = createDashboardState({
+      user_profile: {
+        monthly_income_cents: 500000,
+        fixed_expenses_cents: 200000,
       }
     });
 
@@ -54,21 +44,38 @@ test.describe('Autenticação e Perfil (Refatorado)', () => {
   test('deve trocar de usuário e carregar dados diferentes', async ({ page }) => {
     const settings = new SettingsPage(page);
     
+    // User 1 State (Saldo de 1.000,00)
+    const user1State = createDashboardState({
+      accounts: [{ id: 'acc-1', name: 'Conta 1', type: 'CHECKING', balance_cents: 100000, color_hex: '#8b5cf6' }],
+      recurring_transactions: []
+    });
+    
     await setupAuthMock(page, { id: 'user-1' });
+    await setupFinancialMocks(page, user1State);
     await page.goto('/');
     
     await expect(async () => {
       await expect(page.getByTestId('net-liquidity-value')).toContainText('1.000,00');
     }).toPass({ timeout: 10000 });
 
-    // Trocar mocks para User 2
-    await page.unroute('**/api/financial-state*');
-    await setupFinancialMocks(page, stateUser2);
+    // Trocar mocks para User 2 (Saldo de 2.000,00)
+    const user2State = createDashboardState({
+      accounts: [{ id: 'acc-2', name: 'Conta 2', type: 'CHECKING', balance_cents: 200000, color_hex: '#ffffff' }],
+      recurring_transactions: []
+    });
+    
+    // Limpar TODOS os mocks anteriores antes de registrar os novos
+    await page.unroute('**/api/**');
+    
+    await setupFinancialMocks(page, user2State);
     await setupAuthMock(page, { id: 'user-2' });
     
     await page.reload();
+    await page.waitForLoadState('networkidle');
     await expect(page.getByTestId('net-liquidity-value')).toContainText('2.000,00', { timeout: 10000 });
     
+    await settings.goto();
+    await page.waitForLoadState('networkidle');
     await settings.updateProfile('6000', '3000');
     
     // Validar que a UI refletiu ou que o comando foi enviado
