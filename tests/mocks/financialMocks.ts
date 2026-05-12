@@ -90,6 +90,39 @@ export async function setupFinancialMocks(page: Page, state: any) {
 
   // 5. Mock de Transações
   await page.route('**/api/transactions*', async (route) => {
-    await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
+    const method = route.request().method();
+    if (method === 'GET') {
+      await route.fulfill({ 
+        status: 200, 
+        contentType: 'application/json',
+        body: JSON.stringify(state.transactions || []) 
+      });
+    } else if (method === 'POST') {
+      const payload = route.request().postDataJSON();
+      const id = payload.id || `t-${Date.now()}`;
+      const index = state.transactions.findIndex((t: any) => t.id === id);
+      const newTx = { ...payload, id };
+      
+      if (index !== -1) {
+        state.transactions[index] = { ...state.transactions[index], ...newTx };
+      } else {
+        state.transactions.push(newTx);
+      }
+      
+      await route.fulfill({ status: 201, body: JSON.stringify(newTx) });
+    } else if (method === 'PUT') {
+      const payload = route.request().postDataJSON();
+      const index = state.transactions.findIndex((t: any) => t.id === payload.id);
+      if (index !== -1) {
+        state.transactions[index] = { ...state.transactions[index], ...payload };
+      }
+      await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
+    } else {
+      await route.fulfill({ 
+        status: 200, 
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true }) 
+      });
+    }
   });
 }

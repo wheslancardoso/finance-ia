@@ -50,11 +50,10 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
   // Usar as contas do contexto se disponíveis (pois têm o cálculo da fatura)
   const accounts = contextAccounts.length > 0 ? contextAccounts : serverAccounts;
 
-  // Efeito para remover transações excluídas do estado local
+  // Efeito para sincronizar transações (exclusão e atualização)
   React.useEffect(() => {
     if (monthTransactions && localTransactions && hasFetchedOnce) {
-      // Se uma transação do mês atual sumiu do contexto, removemos do histórico local também
-      const currentMonthIds = new Set(monthTransactions.map(t => t.id));
+      const currentMonthMap = new Map(monthTransactions.map(t => [t.id, t]));
       const now = new Date();
       const isCurrentMonth = (dateStr: string) => {
         const d = new Date(dateStr);
@@ -63,12 +62,33 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
 
       setLocalTransactions(prev => {
         const prevArray = Array.isArray(prev) ? prev : [];
-        const next = prevArray.filter(tx => {
-          if (!isCurrentMonth(tx.date)) return true; // Se não é deste mês, mantém (não temos no contexto)
-          return currentMonthIds.has(tx.id); // Se é deste mês, só mantém se estiver no contexto
+        
+        // 1. Atualizar transações existentes e manter transações de outros meses
+        let hasChanges = false;
+        const updated = prevArray.map(tx => {
+          if (!isCurrentMonth(tx.date)) return tx;
+          
+          const latest = currentMonthMap.get(tx.id);
+          if (!latest) return tx; // Vai ser removido no filter abaixo
+          
+          // Verificar se mudou algo (raso)
+          if (JSON.stringify(latest) !== JSON.stringify(tx)) {
+            hasChanges = true;
+            return latest;
+          }
+          return tx;
         });
-        if (next.length !== prev.length) return next;
-        return prev;
+
+        // 2. Remover o que sumiu do contexto (apenas para o mês atual)
+        const currentMonthIds = new Set(monthTransactions.map(t => t.id));
+        const filtered = updated.filter(tx => {
+          if (!isCurrentMonth(tx.date)) return true;
+          return currentMonthIds.has(tx.id);
+        });
+
+        if (filtered.length !== prevArray.length) hasChanges = true;
+
+        return hasChanges ? filtered : prev;
       });
     }
   }, [monthTransactions, hasFetchedOnce]);

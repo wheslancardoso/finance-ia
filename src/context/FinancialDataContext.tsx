@@ -215,8 +215,8 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     setGoals(data.goals || []);
     setRecurringTransactions(data.recurring_transactions || []);
     setBudgets(data.budgets || []);
-    setRecentTransactions(data.transactions || []);
-    setMonthTransactions(data.transactions || []);
+    setRecentTransactions([...(data.transactions || [])]);
+    setMonthTransactions([...(data.transactions || [])]);
     setScheduledIncomeCents(schedInc);
     setScheduledExpensesCents(schedExp);
     setRecurringIncomeCents(recInc);
@@ -586,7 +586,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       const now = Date.now();
       const isExpired = !lastFetched || (now - lastFetched > CACHE_DURATION);
       
-      if (isExpired || isE2E) {
+      if (isExpired) {
         refreshData();
       }
     }
