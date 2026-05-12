@@ -15,9 +15,17 @@ interface DashboardHeaderProps {
   projectedBalance: number;
   balanceDifference: number;
   netLiquidityCents?: number;
+  debtExitDate?: Date | null;
 }
 
-export function DashboardHeader({ isFuture, targetDate, projectedBalance, balanceDifference, netLiquidityCents }: DashboardHeaderProps) {
+export function DashboardHeader({ 
+  isFuture, 
+  targetDate, 
+  projectedBalance, 
+  balanceDifference, 
+  netLiquidityCents,
+  debtExitDate
+}: DashboardHeaderProps) {
   const { openAdd } = useTransactionModal();
 
   return (
@@ -41,28 +49,58 @@ export function DashboardHeader({ isFuture, targetDate, projectedBalance, balanc
           )}
         </div>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-1 md:gap-4">
-          <motion.h1 
-            key={projectedBalance}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            data-testid="net-liquidity-value"
-            className={cn(
-              "text-5xl md:text-7xl font-black tracking-tighter tabular-nums",
-              isFuture ? "text-violet-400 drop-shadow-[0_0_30px_rgba(139,92,246,0.3)]" : "text-white"
+          <div className="flex flex-col">
+            {netLiquidityCents !== undefined && netLiquidityCents < 0 && !isFuture ? (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-black text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse">
+                    Modo de Recuperação Ativo
+                  </span>
+                </div>
+                <motion.h1 
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="text-4xl md:text-6xl font-black tracking-tighter text-white"
+                >
+                  {debtExitDate ? format(debtExitDate, "MMMM 'de' yyyy", { locale: ptBR }) : "Calculando liberdade..."}
+                </motion.h1>
+                <p className="text-xs font-bold text-white/40 uppercase tracking-widest">
+                  Data Projetada para Quitação Total (Mês Zero)
+                </p>
+              </div>
+            ) : (
+              <motion.h1 
+                key={projectedBalance}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                data-testid="net-liquidity-value"
+                className={cn(
+                  "text-5xl md:text-7xl font-black tracking-tighter tabular-nums",
+                  isFuture ? "text-violet-400 drop-shadow-[0_0_30px_rgba(139,92,246,0.3)]" : "text-white"
+                )}
+              >
+                {formatCurrency(projectedBalance)}
+              </motion.h1>
             )}
-          >
-            {formatCurrency(projectedBalance)}
-          </motion.h1>
+          </div>
 
           {!isFuture && netLiquidityCents !== undefined && (
-            <div 
-              data-testid="real-liquidity-badge"
-              className={cn(
-                "px-3 py-1 rounded-full text-[9px] md:text-[10px] font-black uppercase w-fit",
-                netLiquidityCents >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+            <div className="flex flex-col items-start md:items-end gap-2">
+              <div 
+                data-testid="real-liquidity-badge"
+                className={cn(
+                  "px-3 py-1 rounded-full text-[9px] md:text-[10px] font-black uppercase w-fit",
+                  netLiquidityCents >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                )}
+              >
+                Liquidez Real: {formatCurrency(netLiquidityCents)}
+              </div>
+              
+              {netLiquidityCents < 0 && (
+                <div className="text-[10px] font-bold text-white/20 uppercase tracking-tighter">
+                  Saldo Atual: {formatCurrency(projectedBalance)}
+                </div>
               )}
-            >
-              Liquidez Real: {formatCurrency(netLiquidityCents)}
             </div>
           )}
         </div>

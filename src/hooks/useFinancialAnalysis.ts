@@ -8,8 +8,10 @@ import {
   calculateAccumulatedBalance,
   type MonthlyOutlook,
   calculateDebtExitProjection,
-  calculateGoalProjections,
   type DebtExitProjection,
+  calculateWeeklySurvival,
+  type WeeklySurvival,
+  calculateGoalProjections,
   type GoalProjection,
   simulateDetailedImpact,
   type SimulationDetailedResult
@@ -26,6 +28,7 @@ export interface FinancialAnalysis {
   isSurvivalMode: boolean;
   isCrisisMode: boolean;
   debtExit: DebtExitProjection;
+  weeklySurvival: WeeklySurvival;
   goalProjections: GoalProjection[];
   simulateDetailedImpact: (amountCents: number, installments: number) => SimulationDetailedResult;
 }
@@ -43,7 +46,8 @@ export function useFinancialAnalysis(): FinancialAnalysis {
     goals,
     recurringIncomeCents,
     recurringExpensesCents,
-    healthScore
+    healthScore,
+    monthTransactions
   } = useFinancialData();
 
   const netLiquidity = useMemo(() => calculateNetLiquidity(accounts), [accounts]);
@@ -75,6 +79,13 @@ export function useFinancialAnalysis(): FinancialAnalysis {
       goals
     });
   }, [debtExit, goals]);
+  
+  const weeklySurvival = useMemo(() => {
+    return calculateWeeklySurvival({
+      monthlySurplusCents: debtExit.monthlySurplus,
+      currentMonthTransactions: monthTransactions
+    });
+  }, [debtExit.monthlySurplus, monthTransactions]);
 
   return {
     netLiquidityCents: netLiquidity,
@@ -85,6 +96,7 @@ export function useFinancialAnalysis(): FinancialAnalysis {
     isSurvivalMode: monthlyOutlook.balanceAtMonthEnd < 0,
     isCrisisMode: netLiquidity < 0 && monthlyOutlook.balanceAtMonthEnd < 0,
     debtExit,
+    weeklySurvival,
     goalProjections,
     simulateDetailedImpact: (amountCents: number, installments: number) => 
       simulateDetailedImpact({

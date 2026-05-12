@@ -145,6 +145,63 @@ export interface DebtExitProjection {
   monthlySurplus: number;
 }
 
+export interface WeeklySurvival {
+  weeklyLimitCents: number;
+  weeklySpentCents: number;
+  remainingCents: number;
+  daysRemaining: number;
+  status: "NORMAL" | "WARNING" | "CRITICAL";
+}
+
+/**
+ * Calcula o Teto de Sobrevivência Semanal (Sobra Mensal / 4)
+ * e o quanto já foi consumido na semana atual.
+ */
+export function calculateWeeklySurvival(params: {
+  monthlySurplusCents: number;
+  currentMonthTransactions: any[];
+}): WeeklySurvival {
+  const { monthlySurplusCents, currentMonthTransactions } = params;
+  
+  // Limite semanal é a sobra mensal dividida por 4 (janelas de 7 dias)
+  const weeklyLimitCents = Math.max(0, Math.round(monthlySurplusCents / 4));
+  
+  // Identificar transações variáveis da semana atual (últimos 7 dias)
+  const now = new Date();
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(now.getDate() - 7);
+  
+  const weeklySpentCents = currentMonthTransactions
+    .filter(t => {
+      const tDate = new Date(t.date);
+      // Apenas despesas que não são recorrentes (gastos variáveis de sobrevivência)
+      return t.transaction_type === "EXPENSE" && 
+             !t.is_recurring && 
+             tDate >= sevenDaysAgo && 
+             tDate <= now;
+    })
+    .reduce((sum, t) => sum + (t.amount_cents || 0), 0);
+    
+  const remainingCents = weeklyLimitCents - weeklySpentCents;
+  
+  // Calcular dias restantes na "janela" da semana (próximo domingo ou ciclo de 7 dias)
+  const daysRemaining = 7 - (now.getDay() || 7) + 1; // Simplificado: até o fim da semana civil
+  
+  let status: "NORMAL" | "WARNING" | "CRITICAL" = "NORMAL";
+  const consumptionRatio = weeklyLimitCents > 0 ? weeklySpentCents / weeklyLimitCents : 0;
+  
+  if (consumptionRatio > 0.9 || remainingCents < 0) status = "CRITICAL";
+  else if (consumptionRatio > 0.6) status = "WARNING";
+  
+  return {
+    weeklyLimitCents,
+    weeklySpentCents,
+    remainingCents,
+    daysRemaining,
+    status
+  };
+}
+
 export function calculateMonthlyOutlook(params: {
   accounts: Account[];
   scheduledIncomeCents: number;

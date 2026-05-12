@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 import { DashboardHeader } from "./dashboard/DashboardHeader";
 import { DashboardStatsGrid } from "./dashboard/DashboardStatsGrid";
+import { WeeklySurvivalCard } from "./dashboard/WeeklySurvivalCard";
 
 interface RealtimeDashboardProps {
   initialBalance: number;
@@ -105,7 +106,7 @@ export default function RealtimeDashboard({
 
   const projectedBalance = projection.totalBalance;
 
-  const { monthlyOutlook, netLiquidityCents } = useFinancialAnalysis();
+  const { monthlyOutlook, netLiquidityCents, debtExit, weeklySurvival, isSurvivalMode, isCrisisMode } = useFinancialAnalysis();
 
   const isFuture = !isSameMonth(targetDate, new Date());
   const balanceDifference = projectedBalance - initialBalance;
@@ -128,6 +129,7 @@ export default function RealtimeDashboard({
               projectedBalance={projectedBalance} 
               balanceDifference={balanceDifference} 
               netLiquidityCents={netLiquidityCents}
+              debtExitDate={debtExit.exitDate}
             />
 
             {/* Centro de Comando: Liquidez Real vs Dívida */}
@@ -233,6 +235,9 @@ export default function RealtimeDashboard({
 
       {/* Coluna Direita: Insights + Recentes */}
       <div className="lg:col-span-4 space-y-8">
+        {netLiquidityCents < 0 && !isFuture && (
+          <WeeklySurvivalCard data={weeklySurvival} />
+        )}
         <SpendingSimulator />
         
         <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] p-6 flex flex-col overflow-hidden shadow-2xl max-h-[calc(100vh-200px)] lg:max-h-none lg:h-fit">
