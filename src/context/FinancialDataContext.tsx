@@ -145,7 +145,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const [cardDebtImpactCents, setCardDebtImpactCents] = useState(0);
   const [primaryIncomeCents, setPrimaryIncomeCents] = useState(0);
 
-  const { userId } = useAccountModal();
+  const { userId: rawUserId } = useAccountModal();
+  const isE2E = typeof window !== 'undefined' && (window as any).__E2E_MOCK_STATE__;
+  const userId = rawUserId || (isE2E ? "e2e-user" : null);
 
   const totalConsolidatedDebtCents = useMemo(() => {
     return calculateTotalConsolidatedDebt(accounts);
@@ -233,18 +235,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   };
 
   const refreshData = useCallback(async (force = false) => {
-    // 🧪 BYPASS PARA TESTES E2E: Apenas no carregamento inicial para evitar problemas de hidratação.
-    // Chamadas subsequentes devem ir para o mock de rede (Playwright) para refletir mudanças.
-    if (typeof window !== 'undefined' && (window as any).__E2E_MOCK_STATE__ && isInitialLoading) {
-      const mock = (window as any).__E2E_MOCK_STATE__;
-      setLoading(true);
-      _applyState(mock);
-      setIsInitialLoading(false);
-      setLoading(false);
-      return;
-    }
+    const isE2E = typeof window !== 'undefined' && (window as any).__E2E_MOCK_STATE__;
 
-    if (!userId) {
+    if (!userId && !isE2E) {
       setLoading(false);
       // Limpar estados ao deslogar
       setAccounts([]);
@@ -263,7 +256,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       setLoading(true);
       if (isInitialLoading) setIsInitialLoading(false);
       
-      const { data, error } = await financialService.getFinancialState(userId);
+      const { data, error } = await financialService.getFinancialState(userId!);
 
       if (error) throw error;
 
@@ -292,25 +285,25 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       // 5. Sincronizar com Banco de Dados Local (Dexie)
       // Aguardamos a sincronização para garantir que navegações subsequentes encontrem os dados
       await Promise.all([
-        db.categories.where('user_id').equals(userId).delete().then(() => 
-          db.categories.bulkPut(state.categories.map(c => ({ ...c, user_id: userId })))
+        db.categories.where('user_id').equals(userId!).delete().then(() => 
+          db.categories.bulkPut(state.categories.map(c => ({ ...c, user_id: userId! })))
         ),
-        db.accounts.where('user_id').equals(userId).delete().then(() => 
-          db.accounts.bulkPut(state.accounts.map(a => ({ ...a, user_id: userId })))
+        db.accounts.where('user_id').equals(userId!).delete().then(() => 
+          db.accounts.bulkPut(state.accounts.map(a => ({ ...a, user_id: userId! })))
         ),
-        state.goals ? db.goals.where('user_id').equals(userId).delete().then(() => 
-          db.goals.bulkPut(state.goals.map(g => ({ ...g, user_id: userId })))
+        state.goals ? db.goals.where('user_id').equals(userId!).delete().then(() => 
+          db.goals.bulkPut(state.goals.map(g => ({ ...g, user_id: userId! })))
         ) : Promise.resolve(),
-        state.recurring_transactions ? db.recurring_transactions.where('user_id').equals(userId).delete().then(() => 
-          db.recurring_transactions.bulkPut(state.recurring_transactions.map(r => ({ ...r, user_id: userId })))
+        state.recurring_transactions ? db.recurring_transactions.where('user_id').equals(userId!).delete().then(() => 
+          db.recurring_transactions.bulkPut(state.recurring_transactions.map(r => ({ ...r, user_id: userId! })))
         ) : Promise.resolve(),
-        state.budgets ? db.budgets.where('user_id').equals(userId).delete().then(() => 
-          db.budgets.bulkPut(state.budgets.map(b => ({ ...b, user_id: userId })))
+        state.budgets ? db.budgets.where('user_id').equals(userId!).delete().then(() => 
+          db.budgets.bulkPut(state.budgets.map(b => ({ ...b, user_id: userId! })))
         ) : Promise.resolve(),
-        db.transactions.where('user_id').equals(userId).delete().then(() => {
+        db.transactions.where('user_id').equals(userId!).delete().then(() => {
           const allTx = [...(state.recent_transactions || []), ...(state.month_transactions || [])];
           const uniqueTx = Array.from(new Map(allTx.map(t => [t.id, t])).values());
-          return db.transactions.bulkPut(uniqueTx.map(t => ({ ...t, user_id: userId })));
+          return db.transactions.bulkPut(uniqueTx.map(t => ({ ...t, user_id: userId! })));
         })
       ]).catch(err => console.error("⚠️ Falha na sincronização Dexie:", err));
 
@@ -319,7 +312,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       console.error("❌ ERRO AO BUSCAR ESTADO FINANCEIRO, TENTANDO DEXIE:", error);
       
       // Fallback: Busca o estado completo do Dexie
-      const { data: localState } = await financialService.getFinancialState(userId);
+      const { data: localState } = await financialService.getFinancialState(userId!);
       
       if (localState) {
         setAccounts(localState.accounts || []);
@@ -447,7 +440,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       ...data,
       user_id: userId
     });
-    refreshData(); // Background refresh
+    await refreshData();
     return res;
   };
 
@@ -490,11 +483,11 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       console.warn("⚠️ [Context:FinancialData] Tentativa de upsertAccount sem userId identificado.");
       return;
     }
-    const { error } = await financialService.upsertAccount({
+    await financialService.upsertAccount({
       ...data,
       user_id: userId
     });
-    refreshData(); // Background refresh
+    await refreshData();
   };
 
   const deleteAccount = async (id: string) => {
@@ -511,7 +504,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       ...data,
       user_id: userId
     });
-    refreshData(); // Background refresh
+    await refreshData();
     return res;
   };
 
@@ -526,8 +519,10 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   };
 
   useEffect(() => {
+    const isE2E = typeof window !== 'undefined' && (window as any).__E2E_MOCK_STATE__;
+    
     const loadLocalData = async () => {
-      if (!userId) {
+      if (!userId || isE2E) {
         setLoading(false);
         setIsInitialLoading(false);
         return;

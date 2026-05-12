@@ -18,4 +18,25 @@ export class DashboardPage {
   async expectLiquidity(value: string) {
     await expect(this.netLiquidity).toContainText(value, { timeout: 15000 });
   }
+
+  get simulatorAmountInput() {
+    return this.page.getByTestId('simulator-amount-input');
+  }
+
+  get simulatorInstallmentsSelect() {
+    return this.page.getByTestId('simulator-installments-select');
+  }
+
+  get simulatorStatusIndicator() {
+    return this.page.getByTestId('simulator-status-indicator');
+  }
+
+  get simulatorSaveButton() {
+    return this.page.getByTestId('simulator-save-button');
+  }
+
+  async simulateSpend(amount: string, installments: string = '1') {
+    await this.simulatorAmountInput.fill(amount);
+    await this.simulatorInstallmentsSelect.selectOption(installments);
+  }
 }

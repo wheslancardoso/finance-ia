@@ -76,9 +76,16 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
 
                   <div className="space-y-2">
                     <h3 className="text-2xl font-bold text-white tracking-tight" data-testid="goal-card-title">{goal.name}</h3>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-white font-bold">{formatCurrency(goal.current_amount_cents)}</span>
-                      <span className="text-white/20 text-xs">de {formatCurrency(goal.target_amount_cents)}</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-white font-bold">{formatCurrency(goal.current_amount_cents)}</span>
+                        <span className="text-white/20 text-xs">de {formatCurrency(goal.target_amount_cents)}</span>
+                      </div>
+                      {goal.monthly_contribution_cents > 0 && (
+                        <div className="text-right">
+                          <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">{formatCurrency(goal.monthly_contribution_cents)} / mês</p>
+                        </div>
+                      )}
                     </div>
                   </div>
 

@@ -17,12 +17,15 @@ export default function SpendingSimulator() {
   console.log("🔄 [SpendingSimulator] Render:", { amount, installments });
 
   const result = useMemo(() => {
-    const valueCents = Math.round(parseFloat(amount.replace(",", ".")) * 100);
+    // Parsing robusto: remove pontos de milhar e converte vírgula para ponto
+    const cleanValue = amount.replace(/\./g, "").replace(",", ".");
+    const valueCents = Math.round(parseFloat(cleanValue) * 100);
+    
     if (isNaN(valueCents) || valueCents <= 0) {
       return null;
     }
     const res = simulateDetailedImpact(valueCents, installments);
-    console.log("📊 [SpendingSimulator] Simulação atualizada:", { valueCents, installments, impact: res?.installment_impact });
+    console.log("📊 [SpendingSimulator] Simulação:", { valueCents, installments, impact: res?.impact_percentage });
     return res;
   }, [amount, installments, simulateDetailedImpact]);
 
@@ -32,7 +35,8 @@ export default function SpendingSimulator() {
       console.warn("⚠️ [SpendingSimulator] Simulação incompleta, não é possível salvar.");
       return;
     }
-    const valueCents = Math.round(parseFloat(amount.replace(",", ".")) * 100);
+    const cleanValue = amount.replace(/\./g, "").replace(",", ".");
+    const valueCents = Math.round(parseFloat(cleanValue) * 100);
     
     await upsertGoal({
       name: `${installments > 1 ? 'Parcelamento' : 'Compra'}: ${amount}`,
