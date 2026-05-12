@@ -8,10 +8,18 @@ test.describe('Gestão de Contas (Refatorado)', () => {
   const USER_ID = 'accounts-user';
   let mockState: any;
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, context }) => {
     mockState = createInitialState();
     await setupFinancialMocks(page, mockState);
     await setupAuthMock(page, { id: USER_ID });
+    
+    // Fixar identidade para evitar jitter
+    await context.addCookies([{
+      name: 'sb-mock-user-id',
+      value: USER_ID,
+      domain: 'localhost',
+      path: '/'
+    }]);
   });
 
   test('deve criar uma nova conta com sucesso', async ({ page }) => {

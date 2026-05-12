@@ -8,7 +8,7 @@ import { createDashboardState, stateUser2 } from '../fixtures/financialState';
 test.describe('Autenticação e Perfil (Refatorado)', () => {
   let sharedState: any;
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, context }) => {
     sharedState = createDashboardState({
       user_profile: {
         monthly_income_cents: 500000,
@@ -17,9 +17,17 @@ test.describe('Autenticação e Perfil (Refatorado)', () => {
     });
 
     await setupFinancialMocks(page, sharedState);
+    
+    // Default mock user
+    await context.addCookies([{
+      name: 'sb-mock-user-id',
+      value: 'user-1',
+      domain: 'localhost',
+      path: '/'
+    }]);
   });
 
-  test('deve carregar e salvar diretrizes de perfil', async ({ page }) => {
+  test('deve carregar e salvar diretrizes de perfil', async ({ page, context }) => {
     const settings = new SettingsPage(page);
     const auth = new AuthPage(page);
 
@@ -41,7 +49,7 @@ test.describe('Autenticação e Perfil (Refatorado)', () => {
     await settings.expectProfileValues('6000', '2500');
   });
 
-  test('deve trocar de usuário e carregar dados diferentes', async ({ page }) => {
+  test('deve trocar de usuário e carregar dados diferentes', async ({ page, context }) => {
     const settings = new SettingsPage(page);
     
     // User 1 State (Saldo de 1.000,00)
@@ -69,6 +77,12 @@ test.describe('Autenticação e Perfil (Refatorado)', () => {
     
     await setupFinancialMocks(page, user2State);
     await setupAuthMock(page, { id: 'user-2' });
+    await context.addCookies([{
+      name: 'sb-mock-user-id',
+      value: 'user-2',
+      domain: 'localhost',
+      path: '/'
+    }]);
     
     await page.reload();
     await page.waitForLoadState('networkidle');
@@ -84,13 +98,14 @@ test.describe('Autenticação e Perfil (Refatorado)', () => {
     }).toPass({ timeout: 10000 });
   });
 
-  test('deve deslogar e redirecionar para login', async ({ page }) => {
+  test('deve deslogar e redirecionar para login', async ({ page, context }) => {
     const auth = new AuthPage(page);
 
     await setupAuthMock(page, { id: 'user-1' });
     await page.goto('/');
     
     await auth.logout();
+    await context.clearCookies({ name: 'sb-mock-user-id' });
     await auth.expectLoggedOut();
   });
 });
