@@ -56,7 +56,7 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="p-8 md:p-12 max-w-4xl mx-auto w-full space-y-12">
+    <div className="p-6 md:p-12 max-w-4xl mx-auto w-full space-y-12">
       <SyncUser />
       <header className="space-y-2">
         <div className="flex items-center gap-3 text-violet-400">

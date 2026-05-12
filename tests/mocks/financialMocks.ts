@@ -11,7 +11,7 @@ export async function setupFinancialMocks(page: Page, state: any) {
   });
 
   // 2. Mock de Contas (Accounts)
-  await page.route('**/api/accounts', async (route) => {
+  await page.route('**/api/accounts*', async (route) => {
     const method = route.request().method();
     if (method === 'POST') {
       const payload = route.request().postDataJSON();
@@ -33,7 +33,7 @@ export async function setupFinancialMocks(page: Page, state: any) {
   });
 
   // 3. Mock de Metas (Goals)
-  await page.route('**/api/goals', async (route) => {
+  await page.route('**/api/goals*', async (route) => {
     const method = route.request().method();
     if (method === 'POST') {
       const payload = route.request().postDataJSON();
@@ -55,7 +55,7 @@ export async function setupFinancialMocks(page: Page, state: any) {
   });
 
   // 4. Mock de Transações (Transactions)
-  await page.route('**/api/transactions', async (route) => {
+  await page.route('**/api/transactions*', async (route) => {
     const method = route.request().method();
     if (method === 'POST') {
       const payload = route.request().postDataJSON();
@@ -72,7 +72,7 @@ export async function setupFinancialMocks(page: Page, state: any) {
   });
 
   // 5. Mock de Assinaturas (Recurring Transactions)
-  await page.route('**/api/recurring-transactions', async (route) => {
+  await page.route('**/api/recurring-transactions*', async (route) => {
     const method = route.request().method();
     if (method === 'POST') {
       const payload = route.request().postDataJSON();

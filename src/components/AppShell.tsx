@@ -2,6 +2,8 @@
 
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
+import { MobileNav } from "./MobileNav";
+import { MobileHeader } from "./MobileHeader";
 import { AddTransactionModal } from "./AddTransactionModal";
 import { AddAccountModal } from "./AddAccountModal";
 import { AddSubscriptionModal } from "./AddSubscriptionModal";
@@ -32,8 +34,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-fuchsia-600/20 blur-[120px] rounded-full" />
         </div>
         
+        {!isLoginPage && <MobileHeader />}
         {!isLoginPage && <FinanceBridgeHUD />}
-        {children}
+        <div className={cn(!isLoginPage && "pt-16 pb-24 md:pt-0 md:pb-0")}>
+          {children}
+        </div>
+        {!isLoginPage && <MobileNav />}
       </main>
       
       {!isLoginPage && (

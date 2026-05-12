@@ -12,31 +12,31 @@ test.describe('Auditoria de Transações', () => {
         accumulated_balance_cents: 1500000,
       },
       accounts: [
-        { id: 'acc-1', name: 'Nubank', type: 'CHECKING', balance_cents: 1000000, color_hex: '#8b5cf6' }
+        { id: '550e8400-e29b-41d4-a716-446655440003', name: 'Nubank', type: 'CHECKING', balance_cents: 1000000, color_hex: '#8b5cf6' }
       ],
       categories: [
-        { id: 'cat-1', name: 'Alimentação', type: 'EXPENSE', icon: 'Utensils', color: '#ef4444' }
+        { id: '550e8400-e29b-41d4-a716-446655440004', name: 'Alimentação', type: 'EXPENSE', icon: 'Utensils', color: '#ef4444' }
       ],
       transactions: [
         {
-          id: 'tx-1',
+          id: '550e8400-e29b-41d4-a716-446655441001',
           description: 'Supermercado BH',
           amount_cents: 15000,
           transaction_type: 'EXPENSE',
           date: new Date().toISOString(),
-          account_id: 'acc-1',
-          category_id: 'cat-1',
+          account_id: '550e8400-e29b-41d4-a716-446655440003',
+          category_id: '550e8400-e29b-41d4-a716-446655440004',
           is_paid: false,
           category: { name: 'Alimentação' }
         },
         {
-          id: 'tx-2',
+          id: '550e8400-e29b-41d4-a716-446655441002',
           description: 'Aluguel Mensal',
           amount_cents: 250000,
           transaction_type: 'EXPENSE',
           date: new Date().toISOString(),
-          account_id: 'acc-1',
-          category_id: 'cat-1',
+          account_id: '550e8400-e29b-41d4-a716-446655440003',
+          category_id: '550e8400-e29b-41d4-a716-446655440004',
           is_paid: false,
           category: { name: 'Moradia' }
         }
@@ -81,7 +81,7 @@ test.describe('Auditoria de Transações', () => {
 
   test('deve abrir modal de edição ao clicar em uma transação', async ({ page }) => {
     // Localizar item de forma robusta
-    const item = page.locator('div[data-testid="transaction-item-tx-1"]');
+    const item = page.locator('div[data-testid="transaction-item-550e8400-e29b-41d4-a716-446655441001"]');
     await expect(item).toBeVisible();
     
     // Clicar no menu de ações
@@ -101,7 +101,7 @@ test.describe('Auditoria de Transações', () => {
   });
 
   test('deve excluir uma transação e atualizar a lista', async ({ page }) => {
-    const item = page.locator('div[data-testid="transaction-item-tx-2"]');
+    const item = page.locator('div[data-testid="transaction-item-550e8400-e29b-41d4-a716-446655441002"]');
     await item.locator('button[data-testid="action-menu-button"]').click({ force: true });
     
     const deleteBtn = page.locator('button:has-text("Excluir")');
@@ -109,6 +109,6 @@ test.describe('Auditoria de Transações', () => {
     await deleteBtn.click({ force: true });
 
     await page.getByTestId('confirm-delete-button').click();
-    await expect(page.locator('div[data-testid="transaction-item-tx-2"]')).not.toBeVisible();
+    await expect(page.locator('div[data-testid="transaction-item-550e8400-e29b-41d4-a716-446655441002"]')).not.toBeVisible();
   });
 });

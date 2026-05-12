@@ -19,36 +19,36 @@ test.describe('Dashboard e Projeções Financeiras', () => {
       },
       accounts: [
         {
-          id: 'acc-1',
+          id: '550e8400-e29b-41d4-a716-446655440003',
           name: 'Conta Corrente',
           type: 'CHECKING',
           balance_cents: 0, 
-          color: '#10b981'
+          color_hex: '#10b981'
         }
       ],
       categories: [
-        { id: 'cat-1', name: 'Aluguel', type: 'EXPENSE', icon: 'Home', color: '#ef4444' },
-        { id: 'cat-2', name: 'Salário', type: 'INCOME', icon: 'Dollar', color: '#10b981' }
+        { id: '550e8400-e29b-41d4-a716-446655440004', name: 'Aluguel', type: 'EXPENSE', icon: 'Home', color: '#ef4444' },
+        { id: '550e8400-e29b-41d4-a716-446655440005', name: 'Salário', type: 'INCOME', icon: 'Dollar', color: '#10b981' }
       ],
       recurring_transactions: [
         {
-          id: 'rec-1',
+          id: '550e8400-e29b-41d4-a716-446655440001',
           description: 'Salário',
           amount_cents: 1000000, // +10k
           transaction_type: 'INCOME',
-          category_id: 'cat-2',
-          account_id: 'acc-1',
+          category_id: '550e8400-e29b-41d4-a716-446655440005',
+          account_id: '550e8400-e29b-41d4-a716-446655440003',
           status: 'active',
           next_date: midMonth,
           frequency: 'monthly'
         },
         {
-          id: 'rec-2',
+          id: '550e8400-e29b-41d4-a716-446655440002',
           description: 'Aluguel',
           amount_cents: 200000, // -2k
           transaction_type: 'EXPENSE',
-          category_id: 'cat-1',
-          account_id: 'acc-1',
+          category_id: '550e8400-e29b-41d4-a716-446655440004',
+          account_id: '550e8400-e29b-41d4-a716-446655440003',
           status: 'active',
           next_date: midMonth,
           frequency: 'monthly'
@@ -65,7 +65,7 @@ test.describe('Dashboard e Projeções Financeiras', () => {
     
 
     await page.addInitScript(() => {
-      window.localStorage.setItem('vesper_user_id', 'user-1');
+      window.localStorage.setItem('vesper_user_id', '2a8d83e2-17b5-434d-91d9-2a963bc841da');
     });
 
     await page.goto('/');

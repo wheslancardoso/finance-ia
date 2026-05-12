@@ -88,23 +88,23 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
           if (isInstallment) setIsTimelineOpen(true);
         }}
       >
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 md:gap-4 min-w-0">
           <div className={cn(
-            "w-12 h-12 rounded-2xl flex items-center justify-center border transition-transform group-hover:scale-105",
+            "w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center border transition-transform group-hover:scale-105 shrink-0",
             isIncome 
               ? "bg-green-500/10 border-green-500/20 text-green-400" 
               : "bg-red-500/10 border-red-500/20 text-red-400"
           )}>
-            {isIncome ? <ArrowUpRight className="w-6 h-6" /> : <ArrowDownLeft className="w-6 h-6" />}
+            {isIncome ? <ArrowUpRight className="w-5 h-5 md:w-6 md:h-6" /> : <ArrowDownLeft className="w-5 h-5 md:w-6 md:h-6" />}
           </div>
           
-          <div>
-            <p className={cn("text-white font-semibold text-lg", tx.is_paid && "line-through text-white/40")}>
+          <div className="min-w-0">
+            <p className={cn("text-white font-semibold text-base md:text-lg truncate", tx.is_paid && "line-through text-white/40")}>
               {tx.description}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span 
-                className="text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-tighter"
+                className="text-[9px] md:text-[10px] px-1.5 md:px-2 py-0.5 rounded-full border font-bold uppercase tracking-tighter truncate max-w-[100px] md:max-w-none"
                 style={{ 
                   backgroundColor: `${tx.category?.color_hex}10`,
                   borderColor: `${tx.category?.color_hex}30`,
@@ -113,7 +113,7 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
               >
                 {tx.category?.name || "Sem Categoria"}
               </span>
-              <span className="text-[10px] text-white/20 font-bold uppercase tracking-tighter">
+              <span className="text-[9px] md:text-[10px] text-white/20 font-bold uppercase tracking-tighter truncate max-w-[80px] md:max-w-none">
                 • {tx.account?.name}
               </span>
               {isInstallment && (
@@ -124,27 +124,21 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
                   </span>
                 </div>
               )}
-              {tx.ai_log_id && (
-                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20" title="Processado via IA (WhatsApp)">
-                  <Zap className="w-2 h-2 text-emerald-400 fill-emerald-400" />
-                  <span className="text-[9px] font-bold text-emerald-400 tracking-tighter">IA</span>
-                </div>
-              )}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 md:gap-4 shrink-0">
           <div className="text-right">
             <p className={cn(
-              "text-xl font-bold tabular-nums",
+              "text-lg md:text-xl font-bold tabular-nums",
               isIncome ? "text-green-400" : "text-white",
               tx.is_paid && "text-white/20"
             )}>
               {isIncome ? "+" : "-"} {isNaN(Number(tx.amount_cents)) ? "R$ ---" : formatCurrency(tx.amount_cents)}
             </p>
-            <p className="text-[10px] text-white/20 font-medium">
-              {format(new Date(tx.date), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
+            <p className="text-[9px] md:text-[10px] text-white/20 font-medium">
+              {format(new Date(tx.date), "dd/MM/yy", { locale: ptBR })}
             </p>
           </div>
 

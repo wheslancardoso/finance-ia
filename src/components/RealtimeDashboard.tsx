@@ -114,7 +114,7 @@ export default function RealtimeDashboard({
       {/* Coluna Esquerda: Header + Slider */}
       <div className="lg:col-span-8 space-y-8">
         {/* Header: Liquidez Atual */}
-        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-10 relative overflow-hidden group">
+        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] md:rounded-[40px] p-6 md:p-10 relative overflow-hidden group">
           <div className={cn(
             "absolute -top-24 -left-24 w-64 h-64 blur-[100px] rounded-full transition-colors duration-1000",
             isFuture ? "bg-violet-600/20" : "bg-emerald-600/10"

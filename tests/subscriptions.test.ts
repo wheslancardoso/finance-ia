@@ -9,10 +9,10 @@ test.describe('Gerenciamento de Fluxos Recorrentes (Assinaturas)', () => {
   test.beforeEach(async ({ page }) => {
     mockState = {
       accounts: [
-        { id: 'acc-1', name: 'Conta Corrente', type: 'CHECKING', balance_cents: 1000000, color_hex: '#10b981', user_id: 'vesper-user-id' }
+        { id: '550e8400-e29b-41d4-a716-446655440003', name: 'Conta Corrente', type: 'CHECKING', balance_cents: 1000000, color_hex: '#10b981', user_id: 'vesper-user-id' }
       ],
       categories: [
-        { id: 'cat-1', name: 'Aluguel', type: 'EXPENSE', color_hex: '#ef4444', user_id: 'vesper-user-id' }
+        { id: '550e8400-e29b-41d4-a716-446655440004', name: 'Aluguel', type: 'EXPENSE', color_hex: '#ef4444', user_id: 'vesper-user-id' }
       ],
       recurring_transactions: [],
       goals: [],
@@ -58,11 +58,11 @@ test.describe('Gerenciamento de Fluxos Recorrentes (Assinaturas)', () => {
     
     // Selecionar categoria (Aluguel)
     await page.getByTestId('subscription-category-select').click();
-    await page.getByTestId('category-option-cat-1').click();
+    await page.getByTestId('category-option-550e8400-e29b-41d4-a716-446655440004').click();
 
     // Selecionar conta (Conta Corrente)
     await page.getByTestId('subscription-account-select').click();
-    await page.getByTestId('account-option-acc-1').click();
+    await page.getByTestId('account-option-550e8400-e29b-41d4-a716-446655440003').click();
 
     // 3. Salvar
     await page.getByTestId('subscription-submit-button').click();
@@ -97,12 +97,12 @@ test.describe('Gerenciamento de Fluxos Recorrentes (Assinaturas)', () => {
     futureDate.setDate(28);
 
     mockState.recurring_transactions.push({
-      id: 'sub-edit',
+      id: '550e8400-e29b-41d4-a716-446655440001',
       description: 'Academia',
       amount_cents: 10000,
       transaction_type: 'EXPENSE',
-      category_id: 'cat-1',
-      account_id: 'acc-1',
+      category_id: '550e8400-e29b-41d4-a716-446655440004',
+      account_id: '550e8400-e29b-41d4-a716-446655440003',
       status: 'active',
       next_date: futureDate.toISOString(),
       category: mockState.categories[0],
@@ -112,7 +112,7 @@ test.describe('Gerenciamento de Fluxos Recorrentes (Assinaturas)', () => {
     await page.goto('/subscriptions');
     await page.waitForLoadState('networkidle');
     
-    await page.getByTestId('edit-subscription-sub-edit').click();
+    await page.getByTestId('edit-subscription-550e8400-e29b-41d4-a716-446655440001').click();
     await page.getByTestId('subscription-amount-input').fill('150,00');
     await page.getByTestId('subscription-submit-button').click();
     
@@ -122,7 +122,7 @@ test.describe('Gerenciamento de Fluxos Recorrentes (Assinaturas)', () => {
     await expect(closeBtn).not.toBeVisible();
     
     // Verificar se o valor foi atualizado na lista (o context já deve ter atualizado)
-    await expect(page.getByTestId('subscription-card-sub-edit')).toContainText('150,00', { timeout: 15000 });
+    await expect(page.getByTestId('subscription-card-550e8400-e29b-41d4-a716-446655440001')).toContainText('150,00', { timeout: 15000 });
   });
 
   test('deve pausar e excluir uma assinatura', async ({ page }) => {
@@ -130,12 +130,12 @@ test.describe('Gerenciamento de Fluxos Recorrentes (Assinaturas)', () => {
     futureDate.setDate(28);
 
     mockState.recurring_transactions.push({
-      id: 'sub-ops',
+      id: '550e8400-e29b-41d4-a716-446655440002',
       description: 'Streaming',
       amount_cents: 5000,
       transaction_type: 'EXPENSE',
-      category_id: 'cat-1',
-      account_id: 'acc-1',
+      category_id: '550e8400-e29b-41d4-a716-446655440004',
+      account_id: '550e8400-e29b-41d4-a716-446655440003',
       status: 'active',
       next_date: futureDate.toISOString(),
       category: mockState.categories[0],
@@ -145,12 +145,12 @@ test.describe('Gerenciamento de Fluxos Recorrentes (Assinaturas)', () => {
     await page.goto('/subscriptions');
     await page.waitForLoadState('networkidle');
     
-    const toggleBtn = page.getByTestId('toggle-status-sub-ops');
+    const toggleBtn = page.getByTestId('toggle-status-550e8400-e29b-41d4-a716-446655440002');
     await toggleBtn.click();
     
-    await expect(page.getByTestId('toggle-status-sub-ops')).toContainText('Ativar', { timeout: 10000 });
+    await expect(page.getByTestId('toggle-status-550e8400-e29b-41d4-a716-446655440002')).toContainText('Ativar', { timeout: 10000 });
     
-    await page.getByTestId('delete-subscription-sub-ops').click();
+    await page.getByTestId('delete-subscription-550e8400-e29b-41d4-a716-446655440002').click();
     await page.getByTestId('confirm-button').click();
     
     await expect(page.getByText('Streaming')).not.toBeVisible({ timeout: 15000 });

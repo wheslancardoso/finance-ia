@@ -40,14 +40,14 @@ export function DashboardHeader({ isFuture, targetDate, projectedBalance, balanc
             </button>
           )}
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-1 md:gap-4">
           <motion.h1 
             key={projectedBalance}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             data-testid="net-liquidity-value"
             className={cn(
-              "text-6xl md:text-7xl font-black tracking-tighter tabular-nums",
+              "text-5xl md:text-7xl font-black tracking-tighter tabular-nums",
               isFuture ? "text-violet-400 drop-shadow-[0_0_30px_rgba(139,92,246,0.3)]" : "text-white"
             )}
           >
@@ -58,25 +58,25 @@ export function DashboardHeader({ isFuture, targetDate, projectedBalance, balanc
             <div 
               data-testid="real-liquidity-badge"
               className={cn(
-                "mt-2 px-3 py-1 rounded-full text-[10px] font-black uppercase w-fit",
+                "px-3 py-1 rounded-full text-[9px] md:text-[10px] font-black uppercase w-fit",
                 netLiquidityCents >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
               )}
             >
               Liquidez Real: {formatCurrency(netLiquidityCents)}
             </div>
           )}
-
-          {!isFuture && (
-            <button 
-              onClick={openAdd}
-              className="hidden md:flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-6 py-3 rounded-2xl font-semibold transition-all shadow-lg shadow-violet-600/20 active:scale-95"
-              data-testid="add-transaction-button"
-            >
-              <Plus className="w-5 h-5" />
-              Nova Transação
-            </button>
-          )}
         </div>
+
+        {!isFuture && (
+          <button 
+            onClick={openAdd}
+            className="hidden md:flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-6 py-3 rounded-2xl font-semibold transition-all shadow-lg shadow-violet-600/20 active:scale-95"
+            data-testid="add-transaction-button"
+          >
+            <Plus className="w-5 h-5" />
+            Nova Transação
+          </button>
+        )}
       </div>
 
       {isFuture && (

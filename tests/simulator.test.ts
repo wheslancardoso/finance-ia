@@ -15,14 +15,14 @@ test.describe('Simulador de Impacto', () => {
         financial_health_score: 85,
       },
       accounts: [
-        { id: 'acc-1', name: 'Conta', type: 'CHECKING', balance_cents: 500000, color_hex: '#10b981' }
+        { id: '550e8400-e29b-41d4-a716-446655440003', name: 'Conta', type: 'CHECKING', balance_cents: 500000, color_hex: '#10b981' }
       ],
       categories: [],
       transactions: [],
       goals: [],
       recurring_transactions: [
         {
-          id: 'rec-1',
+          id: '550e8400-e29b-41d4-a716-446655443001',
           description: 'Salário',
           amount_cents: 1000000,
           transaction_type: 'INCOME',
@@ -31,7 +31,7 @@ test.describe('Simulador de Impacto', () => {
           frequency: 'monthly'
         },
         {
-          id: 'rec-2',
+          id: '550e8400-e29b-41d4-a716-446655443002',
           description: 'Aluguel',
           amount_cents: 200000,
           transaction_type: 'EXPENSE',
@@ -49,7 +49,7 @@ test.describe('Simulador de Impacto', () => {
 
 
     await page.addInitScript(() => {
-      window.localStorage.setItem('vesper_user_id', 'user-1');
+      window.localStorage.setItem('vesper_user_id', '2a8d83e2-17b5-434d-91d9-2a963bc841da');
     });
 
     await page.goto('/');

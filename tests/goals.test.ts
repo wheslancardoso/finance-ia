@@ -14,7 +14,7 @@ test.describe('Gestão de Ambições (Metas)', () => {
       },
       accounts: [
         {
-          id: 'acc-1',
+          id: '550e8400-e29b-41d4-a716-446655440003',
           name: 'Conta Corrente',
           type: 'CHECKING',
           balance_cents: 500000,
@@ -22,11 +22,11 @@ test.describe('Gestão de Ambições (Metas)', () => {
         }
       ],
       categories: [
-        { id: 'cat-inv', name: 'Investimento', type: 'EXPENSE', icon: 'TrendingUp', color: '#8b5cf6' }
+        { id: '550e8400-e29b-41d4-a716-446655440005', name: 'Investimento', type: 'EXPENSE', icon: 'TrendingUp', color: '#8b5cf6' }
       ],
       goals: [
         {
-          id: 'goal-1',
+          id: '550e8400-e29b-41d4-a716-446655442001',
           name: 'Viagem para Japão',
           target_amount_cents: 2000000, // 20k
           current_amount_cents: 500000,  // 5k
@@ -117,7 +117,7 @@ test.describe('Gestão de Ambições (Metas)', () => {
   });
 
   test('deve realizar um aporte em uma meta existente', async ({ page }) => {
-    await page.getByTestId('goal-card-goal-1').getByTestId('goal-contribution-button').click();
+    await page.getByTestId('goal-card-550e8400-e29b-41d4-a716-446655442001').getByTestId('goal-contribution-button').click();
     await page.getByTestId('contribution-amount-input').fill('500,00');
     await page.getByTestId('contribution-account-item').click();
     await page.getByTestId('contribution-submit-button').click();
@@ -125,12 +125,12 @@ test.describe('Gestão de Ambições (Metas)', () => {
     await expect(page.getByText('Aporte Realizado')).toBeVisible();
     await page.getByTestId('status-modal-close').click();
     
-    await expect(page.getByTestId('goal-card-goal-1')).toContainText('5.500,00');
+    await expect(page.getByTestId('goal-card-550e8400-e29b-41d4-a716-446655442001')).toContainText('5.500,00');
     await expect(page.getByTestId('hud-net-liquidity')).toContainText('4.500,00');
   });
 
   test('deve excluir uma meta', async ({ page }) => {
-    await page.getByTestId('goal-card-goal-1').getByTestId('goal-details-button').click();
+    await page.getByTestId('goal-card-550e8400-e29b-41d4-a716-446655442001').getByTestId('goal-details-button').click();
     await page.getByTestId('delete-goal-button').click();
     await page.getByTestId('confirm-button').click();
     

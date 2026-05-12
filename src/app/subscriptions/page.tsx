@@ -24,7 +24,7 @@ export default function SubscriptionsPage() {
   }, [recurringTransactions, recurringIncomeCents, recurringExpensesCents]);
 
   return (
-    <div className="p-8 md:p-12 max-w-7xl mx-auto w-full space-y-12">
+    <div className="p-6 md:p-12 max-w-7xl mx-auto w-full space-y-12">
       <SyncUser />
       
       {/* Stats Grid */}

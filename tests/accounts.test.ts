@@ -8,14 +8,14 @@ test.describe('Gestão de Contas', () => {
   test.beforeEach(async ({ page }) => {
     sharedState = {
       user_profile: {
-        id: 'user-1',
+        id: '2a8d83e2-17b5-434d-91d9-2a963bc841da',
         monthly_income_cents: 500000,
         fixed_expenses_cents: 200000,
         accumulated_balance_cents: 100000,
       },
       accounts: [
         { 
-          id: 'acc-1', 
+          id: '550e8400-e29b-41d4-a716-446655440003', 
           name: 'Nubank Principal', 
           type: 'CHECKING', 
           balance_cents: 100000, 
@@ -34,7 +34,7 @@ test.describe('Gestão de Contas', () => {
     await setupFinancialMocks(page, sharedState);
 
     await page.addInitScript(() => {
-      window.localStorage.setItem('vesper_user_id', 'user-1');
+      window.localStorage.setItem('vesper_user_id', '2a8d83e2-17b5-434d-91d9-2a963bc841da');
     });
 
     await page.goto('/accounts');
@@ -81,7 +81,7 @@ test.describe('Gestão de Contas', () => {
   });
 
   test('deve editar uma conta existente', async ({ page }) => {
-    const card = page.getByTestId('account-card-acc-1');
+    const card = page.getByTestId('account-card-550e8400-e29b-41d4-a716-446655440003');
     await card.getByTestId('action-menu-button').click();
     await page.getByTestId('action-edit-button').click();
 
@@ -89,8 +89,8 @@ test.describe('Gestão de Contas', () => {
     await page.getByTestId('account-balance-input').fill('1500,00');
     await page.getByTestId('account-submit-button').click();
 
-    await expect(page.getByTestId('account-card-acc-1')).toContainText('Nubank Atualizado');
-    await expect(page.getByTestId('account-card-acc-1')).toContainText('1.500,00');
+    await expect(page.getByTestId('account-card-550e8400-e29b-41d4-a716-446655440003')).toContainText('Nubank Atualizado');
+    await expect(page.getByTestId('account-card-550e8400-e29b-41d4-a716-446655440003')).toContainText('1.500,00');
   });
 
   test('deve excluir uma conta e atualizar liquidez', async ({ page }) => {
@@ -99,13 +99,13 @@ test.describe('Gestão de Contas', () => {
     await expect(page.getByTestId('net-liquidity-value')).toContainText('1.000,00');
     
     await page.goto('/accounts');
-    const card = page.getByTestId('account-card-acc-1');
+    const card = page.getByTestId('account-card-550e8400-e29b-41d4-a716-446655440003');
     await card.getByTestId('action-menu-button').click();
     await page.getByTestId('action-delete-button').click();
 
     // Confirmar exclusão
     await page.getByTestId('confirm-button').click();
-    await expect(page.getByTestId('account-card-acc-1')).not.toBeVisible();
+    await expect(page.getByTestId('account-card-550e8400-e29b-41d4-a716-446655440003')).not.toBeVisible();
 
     // Verificar liquidez zerada no dashboard
     await page.goto('/');

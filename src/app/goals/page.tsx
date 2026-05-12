@@ -24,7 +24,7 @@ export default function GoalsPage() {
   }, [goals]);
 
   return (
-    <div className="p-8 md:p-12 max-w-7xl mx-auto w-full space-y-12">
+    <div className="p-6 md:p-12 max-w-7xl mx-auto w-full space-y-12">
       {/* Goals Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <GlassCard className="p-8 space-y-4 border-violet-500/20 bg-violet-500/5">
@@ -89,7 +89,14 @@ export default function GoalsPage() {
         )}
       </GlassCard>
 
-      <GoalsManager />
+      {loading ? (
+        <div className="py-24 flex flex-col items-center text-center">
+          <div className="w-10 h-10 border-2 border-white/20 border-t-violet-500 rounded-full animate-spin mb-4" />
+          <p className="text-white/40 text-sm font-medium">Sincronizando suas ambições...</p>
+        </div>
+      ) : (
+        <GoalsManager />
+      )}
     </div>
   );
 }

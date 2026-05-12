@@ -177,38 +177,37 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
         })}
       </div>
 
-      {/* Search and Filters Header */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
         <div className="space-y-1">
-          <h2 className="text-3xl font-bold tracking-tight text-white">
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
             {selectedAccountId ? accounts.find(a => a.id === selectedAccountId)?.name : "Histórico"}
           </h2>
-          <p className="text-white/40 font-medium">
+          <p className="text-[11px] md:text-sm text-white/40 font-medium">
             {filteredTransactions.length} transações encontradas.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="relative group">
+        <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto">
+          <div className="relative group flex-1 md:flex-none">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 group-focus-within:text-violet-400 transition-colors" />
             <input 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar transação..."
+              placeholder="Buscar..."
               data-testid="transaction-search-input"
-              className="bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-violet-500/50 focus:bg-white/10 transition-all w-64"
+              className="bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-violet-500/50 focus:bg-white/10 transition-all w-full md:w-64"
             />
           </div>
-          <button className="p-3 rounded-2xl bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all">
+          <button className="p-3 rounded-2xl bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all shrink-0">
             <Filter className="w-5 h-5" />
           </button>
 
           <button 
             onClick={openAdd}
-            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-5 py-3 rounded-2xl font-semibold transition-all shadow-lg shadow-violet-600/20 active:scale-95"
+            className="flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-4 md:px-5 py-3 rounded-2xl font-semibold transition-all shadow-lg shadow-violet-600/20 active:scale-95 shrink-0"
             data-testid="add-transaction-button"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-5 h-5 md:w-4 md:h-4" />
             <span className="hidden md:inline">Nova Transação</span>
           </button>
         </div>

@@ -13,14 +13,14 @@ export default function ReportsPage() {
 
   if (loading) {
     return (
-      <div className="p-8 md:p-12 flex items-center justify-center min-h-[60vh]">
+      <div className="p-6 md:p-12 flex items-center justify-center min-h-[60vh]">
         <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="p-8 md:p-12 max-w-7xl mx-auto w-full space-y-12 animate-in fade-in duration-700">
+    <div className="p-6 md:p-12 max-w-7xl mx-auto w-full space-y-12 animate-in fade-in duration-700">
       <header className="flex flex-col gap-1">
         <h2 className="text-4xl font-black tracking-tight text-white italic">Insights <span className="text-violet-400">Vesper</span></h2>
         <p className="text-white/40 font-medium tracking-wide">Análise estratégica do seu ecossistema financeiro.</p>

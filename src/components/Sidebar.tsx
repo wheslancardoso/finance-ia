@@ -34,23 +34,32 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { refreshData, loading } = useFinancialData();
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userData, setUserData] = useState<{ name: string | null; email: string | null }>({ name: null, email: null });
 
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    // Em ambiente local/E2E, usamos um email padrão se o Supabase não estiver disponível
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setUserEmail(data.user.email ?? "wheslan@vesper.com");
-      } else {
-        setUserEmail("wheslan@vesper.com"); // Email padrão para modo local
+    
+    async function fetchUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Buscar nome do perfil
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+
+        setUserData({
+          name: profile?.full_name || user.email?.split('@')[0] || "Usuário",
+          email: user.email || null
+        });
       }
-    }).catch(() => {
-      setUserEmail("wheslan@vesper.com");
-    });
+    }
+
+    fetchUser();
   }, []);
 
   async function handleSignOut() {
@@ -122,8 +131,12 @@ export function Sidebar() {
              <UserIcon className="w-5 h-5 text-white/20" />
           </div>
           <div className="flex flex-col overflow-hidden">
-            <span className="text-sm font-medium text-white truncate">{userEmail || "Carregando..."}</span>
-            <span className="text-[10px] text-violet-400 font-bold uppercase tracking-widest">Plano Pro</span>
+            <span className="text-sm font-semibold text-white truncate">
+              {userData.name || "Carregando..."}
+            </span>
+            <span className="text-[11px] text-white/40 truncate font-medium">
+              {userData.email}
+            </span>
           </div>
         </div>
 
