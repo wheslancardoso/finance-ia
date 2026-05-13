@@ -8,9 +8,9 @@ export function AccountsHeader() {
   const { openAdd, openTransfer } = useAccountModal();
 
   return (
-    <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6">
       <div className="space-y-1">
-        <h2 className="text-3xl font-bold tracking-tight text-white">Minhas Contas</h2>
+        <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Minhas Contas</h2>
         <p className="text-white/40 font-medium">Gerencie seus ativos e cartões em um só lugar.</p>
       </div>
       

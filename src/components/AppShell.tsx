@@ -36,8 +36,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         
         {!isLoginPage && <MobileHeader />}
-        {!isLoginPage && !isDashboard && <UnifiedSurvivalHeader variant="compact" />}
-        <div className={cn(!isLoginPage && "pt-16 pb-24 md:pt-0 md:pb-0")}>
+        <div className={cn(!isLoginPage && "pt-16 pb-20 md:pt-0 md:pb-0")}>
+          {!isLoginPage && !isDashboard && <UnifiedSurvivalHeader variant="compact" />}
           {children}
         </div>
         {!isLoginPage && <MobileNav />}

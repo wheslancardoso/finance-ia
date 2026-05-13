@@ -49,7 +49,7 @@ export function UnifiedSurvivalHeader({
   return (
     <div className={cn(
       "relative bg-[#0d0d0d] border border-white/5 group shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] transition-all duration-500 overflow-hidden sm:overflow-visible",
-      variant === 'full' ? "rounded-[48px] p-6 md:p-10" : "rounded-[24px] p-4 mb-6"
+      variant === 'full' ? "rounded-[32px] md:rounded-[48px] p-5 md:p-10" : "rounded-[24px] p-4 mb-4"
     )}>
       {/* Premium Background Effects */}
       <div className={cn(
@@ -59,7 +59,7 @@ export function UnifiedSurvivalHeader({
 
       <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/[0.02] blur-[100px] rounded-full -mr-32 -mt-32 pointer-events-none" />
 
-      <div className={cn("relative z-10 flex flex-col", variant === 'full' ? "gap-12" : "gap-4")}>
+      <div className={cn("relative z-10 flex flex-col", variant === 'full' ? "gap-4 md:gap-8" : "gap-3")}>
         {/* [Bloco Superior] - Sempre Visível */}
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-5">
@@ -81,7 +81,7 @@ export function UnifiedSurvivalHeader({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 hidden md:flex">
             {!isFuture && (
               <button 
                 onClick={openAdd}
@@ -124,7 +124,7 @@ export function UnifiedSurvivalHeader({
         )}
 
         {variant === 'full' && (
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 items-end">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-10 items-end">
             {/* [Bloco Valor Principal] */}
             <div className="xl:col-span-8 w-full overflow-hidden sm:overflow-visible">
               <div className="space-y-4">

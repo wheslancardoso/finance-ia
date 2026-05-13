@@ -165,7 +165,7 @@ export default function RealtimeDashboard({
   }, [lastDebtExitDate, debtExit.exitDate]);
 
   return (
-    <div className="space-y-6 pb-20 max-w-[1600px] mx-auto px-4 md:px-8">
+    <div className="space-y-3 md:space-y-6 pb-20 max-w-[1600px] mx-auto px-0 md:px-8">
       
       {/* ROW 1 — Header Principal, full width */}
       <UnifiedSurvivalHeader 
@@ -177,7 +177,7 @@ export default function RealtimeDashboard({
       />
 
       {/* ROW 2 — Três cards compactos em linha */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-stretch">
         <BillCommitmentCard 
           immediateCardDebt={monthlyOutlook.immediateCardDebt}
           upcomingCardDebt={monthlyOutlook.upcomingCardDebt}
@@ -261,7 +261,7 @@ export default function RealtimeDashboard({
       </div>
 
       {/* ROW 4 — Budget grid, full width */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {(displayBudgets || []).map((budget, i) => (
           <SpendingCapacity 
             key={budget.id ? budget.id : `budget-grid-${i}`}

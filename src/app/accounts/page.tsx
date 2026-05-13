@@ -10,7 +10,7 @@ export default function AccountsPage() {
   const hasAccounts = accounts.length > 0;
 
   return (
-    <div className="p-6 md:p-12 max-w-7xl mx-auto w-full space-y-12">
+    <div className="px-4 pb-4 pt-0 md:p-12 max-w-7xl mx-auto w-full space-y-6 md:space-y-12">
       <AccountsHeader />
 
       {loading ? (
@@ -29,7 +29,7 @@ export default function AccountsPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {accounts.map((acc) => (
             <AccountCard
               key={acc.id}

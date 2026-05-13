@@ -24,7 +24,7 @@ export default function GlassCard({ children, className, onClick, "data-testid":
         "backdrop-blur-xl bg-white/10",
         "border border-white/20",
         "rounded-[2rem] shadow-2xl",
-        "p-8 text-white",
+        "p-5 md:p-8 text-white",
         className
       )}
     >
