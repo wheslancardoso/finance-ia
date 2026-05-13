@@ -4,7 +4,7 @@ import React from "react";
 import { Wallet, Plus, ShieldCheck, Zap, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, formatCurrency } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useTransactionModal } from "@/context/TransactionModalContext";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
@@ -83,7 +83,7 @@ export function UnifiedSurvivalHeader({
               <span className="tracking-widest uppercase">Nova Transação</span>
             </button>
           ) : (
-             debtExitDate && (
+             debtExitDate && startOfMonth(debtExitDate) > startOfMonth(new Date()) && (
               <button 
                 onClick={onJumpToDebtExit}
                 className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400 text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500/20 transition-all shrink-0"
@@ -105,37 +105,43 @@ export function UnifiedSurvivalHeader({
               exit={{ opacity: 0, y: -10 }}
               className="space-y-2"
             >
-              {isRecoveryMode && !isFuture ? (
-                 <div className="space-y-1">
-                    <span className="text-[10px] font-black text-amber-400/60 uppercase tracking-[0.4em] block">
-                      Liquidez Zero em
-                    </span>
-                    <h1 className="text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter text-white drop-shadow-2xl leading-none">
-                      {debtExit.exitDate ? format(debtExit.exitDate, "MMM'/'yy", { locale: ptBR }) : "---"}
-                    </h1>
-                 </div>
-              ) : (
-                <div className="space-y-1">
-                  <h1 
-                    data-testid="net-liquidity-value"
-                    className={cn(
-                      "text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter tabular-nums leading-none drop-shadow-2xl",
-                      hasSimulations ? "text-violet-400" : isFuture ? "text-white/90" : "text-white"
-                    )}
-                  >
-                    {formatCurrency(netLiquidityCents)}
-                  </h1>
-                  
-                  <div className="flex flex-wrap items-center gap-2">
-                    {hasSimulations && (
-                      <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-violet-600/20 border border-violet-500/30 text-violet-400 text-[9px] font-black uppercase tracking-widest">
-                        <Zap className="w-2.5 h-2.5 fill-current" />
-                        Simulação Ativa
-                      </div>
-                    )}
-                  </div>
+              <div className="space-y-1">
+                <span className={cn(
+                  "text-[10px] font-black uppercase tracking-[0.4em] block",
+                  isCrisisMode ? "text-red-400/60" : isRecoveryMode ? "text-amber-400/60" : "text-white/30"
+                )}>
+                  {isCrisisMode ? "Alerta de Crise" : isRecoveryMode ? "Liquidez Zero em" : "Patrimônio Líquido"}
+                </span>
+                <h1 
+                  data-testid="net-liquidity-value"
+                  className={cn(
+                    "text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter tabular-nums leading-none drop-shadow-2xl",
+                    isCrisisMode ? "text-red-400" : isRecoveryMode ? "text-white" : hasSimulations ? "text-violet-400" : isFuture ? "text-white/90" : "text-white"
+                  )}
+                >
+                  {isCrisisMode 
+                    ? "Ajuste Necessário" 
+                    : isRecoveryMode 
+                      ? (debtExit.exitDate ? format(debtExit.exitDate, "MMM'/'yy", { locale: ptBR }) : "---")
+                      : formatCurrency(netLiquidityCents)
+                  }
+                </h1>
+                
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  {isRecoveryMode && (
+                    <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-amber-600/20 border border-amber-500/30 text-amber-400 text-[9px] font-black uppercase tracking-widest">
+                      <AlertTriangle className="w-2.5 h-2.5" />
+                      Modo de Recuperação Ativo
+                    </div>
+                  )}
+                  {hasSimulations && (
+                    <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-violet-600/20 border border-violet-500/30 text-violet-400 text-[9px] font-black uppercase tracking-widest">
+                      <Zap className="w-2.5 h-2.5 fill-current" />
+                      Impacto Simulado Ativo
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </motion.div>
           </AnimatePresence>
         </div>
@@ -157,7 +163,7 @@ export function UnifiedSurvivalHeader({
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 mb-0.5">
-                    Oxigênio Semanal
+                    {isCrisisMode ? "Alerta: Ciclo de Dívida" : "Oxigênio Semanal"}
                   </span>
                   <span 
                     data-testid="survival-ceiling-value"

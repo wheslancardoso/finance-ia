@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { format, isSameMonth, startOfMonth } from "date-fns";
+import { format, startOfMonth, addMonths, isSameMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
   Calculator, 
@@ -97,8 +97,30 @@ export default function RealtimeDashboard({
         category: r.category_id
       }));
 
-    return [...filteredFuture, ...virtualRecurring];
-  }, [isFuture, targetDate, futureTransactions, recurringTransactions]);
+    // 3. Adicionar Simulações Ativas
+    const simulations = activeSimulations.flatMap((sim, simIdx) => {
+      const installments = sim.installments || 1;
+      const monthlyAmount = Math.round(sim.amount_cents / installments);
+      const results = [];
+
+      for (let i = 0; i < installments; i++) {
+        const simDate = addMonths(new Date(), i);
+        if (isSameMonth(simDate, targetDate)) {
+          results.push({
+            id: `sim-tx-${simIdx}-${i}`,
+            description: `Simulado: ${sim.description || 'Compra'} (${i + 1}/${installments})`,
+            amount_cents: monthlyAmount,
+            transaction_type: "EXPENSE" as const,
+            date: simDate.toISOString(),
+            category: "Simulação"
+          });
+        }
+      }
+      return results;
+    });
+
+    return [...filteredFuture, ...virtualRecurring, ...simulations];
+  }, [isFuture, targetDate, futureTransactions, recurringTransactions, activeSimulations]);
 
   // Preparar dados para o Resumo Excel
   const consolidatedItems = useMemo(() => {
@@ -127,18 +149,20 @@ export default function RealtimeDashboard({
     setActiveSimulations(sim ? [sim] : []);
   }, []);
 
-  const jumpToDebtExit = useCallback(() => {
-    if (debtExit.exitDate) {
-      setTargetDate(debtExit.exitDate);
-    }
-  }, [debtExit.exitDate]);
+  // Calcula a data da última dívida (transação futura mais distante)
+  const lastDebtExitDate = useMemo(() => {
+    if (!futureTransactions || futureTransactions.length === 0) return null;
+    const dates = futureTransactions.map(t => new Date(t.date).getTime());
+    return new Date(Math.max(...dates));
+  }, [futureTransactions]);
 
-  useEffect(() => {
-    (window as any).jumpToDebtExit = jumpToDebtExit;
-    return () => {
-      delete (window as any).jumpToDebtExit;
-    };
-  }, [debtExit.exitDate]);
+  const jumpToDebtExit = useCallback(() => {
+    const target = lastDebtExitDate || debtExit.exitDate;
+    if (target) {
+      console.log("🚀 Jumping to debt exit date:", target);
+      setTargetDate(new Date(target));
+    }
+  }, [lastDebtExitDate, debtExit.exitDate]);
 
   return (
     <div className="space-y-6 pb-20 max-w-[1600px] mx-auto px-4 md:px-8">
@@ -149,7 +173,7 @@ export default function RealtimeDashboard({
         targetDate={targetDate}
         activeSimulations={activeSimulations}
         onJumpToDebtExit={jumpToDebtExit}
-        debtExitDate={debtExit.exitDate}
+        debtExitDate={lastDebtExitDate || debtExit.exitDate}
       />
 
       {/* ROW 2 — Três cards compactos em linha */}
@@ -190,6 +214,7 @@ export default function RealtimeDashboard({
             </button>
             <button 
               onClick={() => setActiveTab("timeline")}
+              aria-label="Timeline"
               className={cn(
                 "flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
                 activeTab === "timeline" ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20" : "text-white/40 hover:text-white/60"

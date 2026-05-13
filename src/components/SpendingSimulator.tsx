@@ -11,6 +11,7 @@ interface SpendingSimulatorProps {
 
 export default function SpendingSimulator({ onSimulate }: SpendingSimulatorProps) {
   const { simulateDetailedImpact } = useFinancialAnalysis();
+  const { upsertGoal } = useFinancialData();
   const [amount, setAmount] = useState<string>("");
   const [installments, setInstallments] = useState<number>(1);
 
@@ -78,6 +79,7 @@ export default function SpendingSimulator({ onSimulate }: SpendingSimulatorProps
           <div className="flex-1 relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20 font-bold text-xs">R$</span>
             <input
+              data-testid="simulator-amount-input"
               type="text"
               inputMode="decimal"
               placeholder="0,00"
@@ -88,6 +90,7 @@ export default function SpendingSimulator({ onSimulate }: SpendingSimulatorProps
           </div>
           <div className="w-20 relative">
              <select 
+              data-testid="simulator-installments-select"
               value={installments}
               onChange={(e) => setInstallments(parseInt(e.target.value))}
               className="w-full h-full bg-white/5 border border-white/10 rounded-xl px-2 py-2.5 text-xs font-bold text-white focus:outline-none appearance-none text-center cursor-pointer"
@@ -100,7 +103,10 @@ export default function SpendingSimulator({ onSimulate }: SpendingSimulatorProps
         </div>
 
         {result ? (
-          <div className={cn("rounded-xl border p-3.5 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-none", getStatusBg(result.status))}>
+          <div 
+            data-testid="simulator-status-indicator"
+            className={cn("rounded-xl border p-3.5 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300 max-h-none", getStatusBg(result.status))}
+          >
             <div className="flex items-start gap-2.5">
               <div className="mt-0.5 shrink-0">{getStatusIcon(result.status)}</div>
               <p className={cn("text-[10px] font-bold leading-relaxed", getStatusColor(result.status))}>
@@ -122,30 +128,35 @@ export default function SpendingSimulator({ onSimulate }: SpendingSimulatorProps
               </div>
             </div>
 
-            {installments > 1 && (
-              <div className="space-y-1.5">
-                <div className="flex gap-0.5 h-1 rounded-full bg-white/5 overflow-hidden">
-                  {Array.from({ length: installments }).map((_, i) => (
-                    <div 
-                      key={i} 
-                      className={cn(
-                        "flex-1",
-                        result.status === "SAFE" ? "bg-emerald-500/40" : 
-                        result.status === "WARNING" ? "bg-amber-500/40" : "bg-rose-500/40"
-                      )} 
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <button 
-              onClick={() => { setAmount(""); setInstallments(1); }}
-              className="w-full py-2 rounded-lg font-black text-[9px] uppercase tracking-widest bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all flex items-center justify-center gap-1.5"
-            >
-              <XCircle className="w-3 h-3" />
-              Limpar
-            </button>
+            <div className="flex gap-2">
+              <button 
+                data-testid="simulator-save-button"
+                onClick={async () => {
+                  const cleanValue = amount.replace(/\./g, "").replace(",", ".");
+                  const valueCents = Math.round(parseFloat(cleanValue) * 100);
+                  await upsertGoal({
+                    name: installments > 1 ? `Parcelamento: ${amount}` : `Compra: ${amount}`,
+                    target_amount_cents: valueCents,
+                    current_amount_cents: 0,
+                    monthly_contribution_cents: result.installment_impact,
+                    status: 'ACTIVE'
+                  });
+                  setAmount("");
+                  setInstallments(1);
+                }}
+                className="flex-1 py-2 rounded-lg font-black text-[9px] uppercase tracking-widest bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30 transition-all flex items-center justify-center gap-1.5"
+              >
+                <PlusCircle className="w-3 h-3" />
+                Salvar como Meta
+              </button>
+              
+              <button 
+                onClick={() => { setAmount(""); setInstallments(1); }}
+                className="px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-widest bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all flex items-center justify-center"
+              >
+                <XCircle className="w-3 h-3" />
+              </button>
+            </div>
           </div>
         ) : (
           <div className="py-6 text-center border border-dashed border-white/5 rounded-xl">

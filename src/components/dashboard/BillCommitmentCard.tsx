@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { CreditCard, Calendar, ShoppingCart, ArrowRight } from "lucide-react";
+import { CreditCard, Calendar, ShoppingCart, ArrowRight, Zap } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
 interface BillCommitmentCardProps {
@@ -21,10 +21,14 @@ export function BillCommitmentCard({
   totalPlanned,
   isCrisis = false
 }: BillCommitmentCardProps) {
+  // Calculamos o impacto de simulações (diferença entre total e soma dos itens base)
+  const baseItemsSum = (immediateCardDebt + upcomingCardDebt) + scheduledExpenses + budgetReserves;
+  const simulationImpact = Math.max(0, totalPlanned - baseItemsSum);
+
   const items = [
     { 
       label: "Cartões", 
-      value: immediateCardDebt, 
+      value: immediateCardDebt + upcomingCardDebt, 
       icon: CreditCard, 
       color: "text-red-400", 
       bgColor: "bg-red-400/10"
@@ -44,6 +48,17 @@ export function BillCommitmentCard({
       bgColor: "bg-emerald-400/10"
     }
   ];
+
+  // Adicionar simulação se houver impacto
+  if (simulationImpact > 0) {
+    items.push({
+      label: "Simulado",
+      value: simulationImpact,
+      icon: Zap,
+      color: "text-amber-400",
+      bgColor: "bg-amber-400/10"
+    });
+  }
 
   return (
     <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] p-5 shadow-2xl relative overflow-hidden group h-full flex flex-col">

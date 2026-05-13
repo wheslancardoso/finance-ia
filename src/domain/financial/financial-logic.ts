@@ -228,6 +228,7 @@ export function calculateMonthlyOutlook(params: {
   netLiquidityCents: number;
   monthOffset?: number; // 0 = atual, 1 = próximo...
   activeSimulations?: Simulation[];
+  futureTransactions?: Transaction[];
 }): MonthlyOutlook {
   const { 
     accounts, 
@@ -238,51 +239,69 @@ export function calculateMonthlyOutlook(params: {
     budgets, 
     netLiquidityCents,
     monthOffset = 0,
-    activeSimulations = []
+    activeSimulations = [],
+    futureTransactions = []
   } = params;
   
   const liquidity = calculateAccumulatedBalance(accounts);
   const currentMonthDebt = calculateCurrentMonthDebt(accounts);
   
-  // No mês atual (offset 0), usamos os agendados. Nos futuros, os recorrentes.
-  const monthlyIncome = monthOffset === 0 ? scheduledIncomeCents : recurringIncomeCents;
-  const monthlyExpenses = monthOffset === 0 ? scheduledExpensesCents : recurringExpensesCents;
+  // No mês atual (offset 0), usamos o maior entre o agendado (restante) e o recorrente (planejado)
+  // para garantir que o card não zere após o pagamento.
+  const monthlyIncome = monthOffset === 0 ? Math.max(scheduledIncomeCents, recurringIncomeCents) : recurringIncomeCents;
+  const baseMonthlyExpenses = monthOffset === 0 ? Math.max(scheduledExpensesCents, recurringExpensesCents) : recurringExpensesCents;
   
+  // No futuro, as reservas são o valor total planejado (pois não há gasto ainda)
   const budgetReserves = budgets.reduce((sum, b) => {
-    return sum + Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0));
+    const reserve = monthOffset === 0 
+      ? Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0))
+      : (b.amount_cents || 0);
+    // Se a reserva atual for 0 mas houver um budget definido, mostramos o planejado para manter o card preenchido
+    return sum + (reserve || (b.amount_cents || 0));
   }, 0);
 
-  // Impacto de Simulações no mês atual/projetado
+  // Parcelas de Cartão para o mês específico (Calculado a partir de futureTransactions)
+  const now = new Date();
+  const targetDate = addMonths(now, monthOffset);
+  const installmentDebt = futureTransactions
+    .filter(t => {
+      const tDate = new Date(t.date);
+      return t.transaction_type === "EXPENSE" && isSameMonth(tDate, targetDate);
+    })
+    .reduce((sum, t) => sum + (t.amount_cents || 0), 0);
+
+  // Impacto de Simulações
   const simulationImpact = activeSimulations.reduce((sum, s) => {
-    // Se a simulação tiver parcelas, calculamos o impacto mensal
-    // No contexto do Outlook (um mês específico), pegamos a parcela
     if (monthOffset <= s.installments) {
       return sum + (s.amount_cents / (s.installments || 1));
     }
     return sum;
   }, 0);
 
-  // Sobra mensal estimada
-  const monthlySurplus = Math.max(0, monthlyIncome - monthlyExpenses - budgetReserves - simulationImpact);
+  // No mês atual, incluímos a dívida total de cartão (aberta + fechada)
+  // No futuro, a dívida de cartão é o installmentDebt (parcelas futuras)
+  const effectiveCardDebt = monthOffset === 0 ? Math.max(currentMonthDebt, installmentDebt) : installmentDebt;
+  const monthlyExpenses = baseMonthlyExpenses;
   
-  // Projeção Simplificada: Liquidez Atual + (Sobra * meses)
-  // Mas para o saldo de final de mês, consideramos apenas o ciclo atual.
-  const balanceAtMonthEnd = liquidity + monthlyIncome - (monthlyExpenses + currentMonthDebt + budgetReserves + simulationImpact);
+  // Saldo projetado do final do mês (Aqui usamos os valores reais de saída para o saldo ser preciso)
+  const realOutflow = (monthOffset === 0 ? (scheduledExpensesCents + currentMonthDebt) : (recurringExpensesCents + installmentDebt)) + (monthOffset === 0 ? (budgets.reduce((sum, b) => sum + Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0)), 0)) : (budgets.reduce((sum, b) => sum + (b.amount_cents || 0), 0))) + simulationImpact;
+  const balanceAtMonthEnd = liquidity + (monthOffset === 0 ? scheduledIncomeCents : recurringIncomeCents) - realOutflow;
 
-  const immediateCardDebt = accounts
-    .filter((a) => a.type === "CREDIT_CARD")
-    .reduce((sum, a) => sum + (a.closed_invoice_cents || 0), 0);
+  // Para o card de compromissos: Mostrar o planejado consolidado
+  const immediateCardDebt = monthOffset === 0 
+    ? Math.max(currentMonthDebt, installmentDebt)
+    : installmentDebt;
 
-  const upcomingCardDebt = accounts
-    .filter((a) => a.type === "CREDIT_CARD")
-    .reduce((sum, a) => sum + (a.open_invoice_cents || 0), 0);
+  const upcomingCardDebt = monthOffset === 0 
+    ? 0 // No modo consolidado, o immediateCardDebt já engloba o que é planejado
+    : 0;
 
   const isCritical = balanceAtMonthEnd < 0;
   const isCrisisMode = isCritical && netLiquidityCents < 0;
 
   return {
     balanceAtMonthEnd: Number(balanceAtMonthEnd) || 0,
-    plannedExpenses: Number(monthlyExpenses + currentMonthDebt + budgetReserves + simulationImpact) || 0,
+    plannedExpenses: Number(monthlyExpenses + effectiveCardDebt + budgetReserves + simulationImpact) || 0,
     immediateCardDebt: Number(immediateCardDebt) || 0,
     upcomingCardDebt: Number(upcomingCardDebt) || 0,
     scheduledOnly: Number(monthlyExpenses) || 0,
@@ -291,7 +310,7 @@ export function calculateMonthlyOutlook(params: {
     isRecovering: balanceAtMonthEnd >= 0 && netLiquidityCents < 0,
     isCritical,
     isCrisisMode,
-    projectedNetLiquidity: Number(balanceAtMonthEnd) // Fallback inicial
+    projectedNetLiquidity: Number(balanceAtMonthEnd)
   };
 }
 
