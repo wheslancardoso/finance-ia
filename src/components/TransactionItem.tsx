@@ -5,7 +5,7 @@ import GlassCard from "./GlassCard";
 import { formatCurrency, cn, getTransactionInvoiceMonth } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowUpRight, ArrowDownLeft, Layers, Check, Calendar, Zap } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, Layers, Calendar, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
@@ -201,22 +201,47 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
             {/* Botão de Quitar */}
             {!isIncome && (
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
                 onClick={async () => {
                   await toggleTransactionPaid(tx.id, tx.is_paid || false);
                   router.refresh();
                 }}
                 data-testid="toggle-paid-button"
                 className={cn(
-                  "w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all border shrink-0",
+                  "w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all border-2 shrink-0",
                   tx.is_paid 
-                    ? "bg-emerald-500 border-emerald-400 text-[#0d0d0d] shadow-[0_0_20px_rgba(16,185,129,0.3)]" 
-                    : "bg-[#1a1a1a] border-white/5 text-white/40 hover:text-white hover:border-white/20"
+                    ? "bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]" 
+                    : "bg-white/[0.02] border-white/10 text-transparent hover:border-emerald-500/50"
                 )}
                 title={tx.is_paid ? "Marcar como não pago" : "Marcar como pago"}
               >
-                <Check className={cn("w-4 h-4 md:w-5 md:h-5 transition-transform stroke-[3px]", tx.is_paid && "scale-110")} />
+                <svg 
+                  width="24" 
+                  height="24" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="4" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                  className={cn(
+                    "w-4 h-4 md:w-5 md:h-5 transition-colors",
+                    tx.is_paid ? "text-[#0d0d0d]" : "text-transparent"
+                  )}
+                >
+                  <motion.path
+                    d="M20 6 9 17l-5-5"
+                    initial={false}
+                    animate={{ pathLength: tx.is_paid ? 1 : 0 }}
+                    transition={{ 
+                      type: "spring", 
+                      stiffness: 300, 
+                      damping: 20,
+                      duration: 0.3
+                    }}
+                  />
+                </svg>
               </motion.button>
             )}
 
