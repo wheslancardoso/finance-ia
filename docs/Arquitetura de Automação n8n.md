@@ -1,72 +1,79 @@
-# **Documentação de Arquitetura de Automação e IA**
+# 🤖 Arquitetura de Automação e IA: O Vesper Bot
 
-**Motor de Orquestração:** n8n (Node-based Workflow Automation)
+O Vesper Bot não é apenas uma interface de entrada de dados; é uma extensão proativa do Motor Financeiro Vesper no WhatsApp. Ele utiliza IA multimodal para transformar mensagens informais em decisões estratégicas, mantendo a integridade matemática do sistema.
 
-**Canal de Mensageria:** WhatsApp (via Evolution API \- MVP)
+---
 
-**Modelos de IA:** OpenAI GPT-4o (Texto e Visão) e Whisper (Áudio)
+## 🚀 1. Visão Geral do Pipeline (Multimodal)
 
-## **1\. Visão Geral do Fluxo (Pipeline)**
+O fluxo no n8n atua como o tradutor entre a linguagem humana não estruturada e a rigidez do banco de dados PostgreSQL (Supabase).
 
-O fluxo de automação atua como a ponte inteligente entre a interação informal do utilizador no WhatsApp e a rigidez do banco de dados PostgreSQL. O objetivo é receber dados não estruturados (mensagens de voz, fotografias de faturas, textos soltos) e convertê-los numa transação financeira atomizada em segundos.
+**Stack Tecnológica:**
+*   **Orquestrador:** n8n (Self-hosted ou Cloud).
+*   **Entrada:** Evolution API (Conectividade WhatsApp).
+*   **Cérebro:** OpenAI GPT-4o (Extração de entidades e Visão).
+*   **Ouvido:** OpenAI Whisper (Transcrição de áudio de alta fidelidade).
+*   **Persistência:** Supabase (via REST API com Service Role).
 
-## **2\. Camada de Receção e Segurança (Webhook Node)**
+---
 
-A porta de entrada do sistema é um Webhook configurado para receber os eventos (POST) da Evolution API sempre que uma mensagem chega ao WhatsApp associado.
+## 🛡️ 2. Camada de Recepção e Identificação
 
-### **2.1. Filtro Anti-Loop (Crucial)**
+Ao receber um webhook da Evolution API:
+1.  **Filtro fromMe**: Ignora mensagens enviadas pelo próprio robô.
+2.  **Identificação de Usuário**: O n8n consulta a tabela `profiles` no Supabase usando o número de telefone (ou uma chave vinculada) para recuperar o `user_id`. **Sem `user_id`, o fluxo é interrompido por segurança.**
 
-A Evolution API envia *todos* os eventos da sessão, incluindo as mensagens que o próprio robô enviou. Para evitar um *loop* infinito (onde o robô tenta processar a sua própria resposta), o primeiro nó lógico (If/Filter Node) deve executar a seguinte validação:
+---
 
-* **Condição:** {{ $json.body.key.fromMe }} \== false  
-* Se true (foi o próprio sistema que enviou): Interrompe o fluxo de imediato.  
-* Se false (foi o utilizador que enviou): Prossegue para processamento.
+## 🧠 3. Processamento de Inteligência (Roteamento)
 
-## **3\. Roteamento Multimodal (Switch / Router Node)**
+O fluxo divide-se por tipo de mídia:
 
-Após a passagem pelo filtro de segurança, a mensagem é analisada para determinar a sua natureza (tipo de anexo ou texto). O fluxo divide-se em três ramificações distintas:
+### 🎙️ A. Ramo de Áudio (Voice-to-Insight)
+1.  **Whisper AI**: Converte o áudio em texto bruto.
+2.  **Contextualização**: O texto é enviado para o Ramo de Texto.
 
-### **3.1. Ramo 1: Áudio (Voice Notes)**
+### 📸 B. Ramo de Imagem (OCR & Vision)
+1.  **GPT-4o Vision**: Analisa a foto de recibos, notas fiscais ou prints de tela de bancos.
+2.  **Extração**: Identifica valor, data, estabelecimento e se é débito/crédito.
+3.  **Prompt de Rigor**: A IA deve retornar obrigatoriamente um JSON com valores em **centavos**.
 
-1. **Download do Ficheiro:** O n8n faz o download do áudio baseando-se no mediaKey.  
-2. **Transcrição (Whisper AI):** O ficheiro de áudio é enviado para o modelo *Whisper* da OpenAI, que converte a fala em texto bruto (ex: *"Acabei de gastar vinte e cinco euros no supermercado Pingo Doce usando o cartão de crédito"*).  
-3. **Encaminhamento:** O texto transcrito é enviado para o Ramo 3 (Texto).
+### ✍️ C. Ramo de Texto (NLP Avançado)
+O GPT-4o processa o texto (direto ou vindo do áudio) com o seguinte **System Prompt**:
+> "Você é o cérebro do Vesper Finance. Extraia: `amount_cents` (inteiro), `merchant_name`, `type` (EXPENSE/INCOME), `account_name` (ex: Nubank, Itaú). Converta valores para centavos (ex: R$ 10,50 -> 1050)."
 
-### **3.2. Ramo 2: Imagem (Recibos e Comprovativos Pix)**
+---
 
-1. **Bufferização (Code Node):** É instanciado um nó de código JavaScript (Node.js) para converter a imagem num formato seguro (Base64) usando a função getBinaryDataBuffer(). Isto evita fugas de memória no servidor e garante o transporte fiável da imagem.  
-2. **Visão Computacional (GPT-4o):** A imagem em Base64 é submetida ao GPT-4o com um *prompt* estrito (System Prompt).  
-3. **Restrição JSON Mode:** A API é forçada a responder *exclusivamente* no formato JSON predefinido, expurgando impostos, ruídos visuais e mensagens de marketing do recibo.
+## ⚡ 4. O Diferencial Vesper: Impacto em Tempo Real
 
-### **3.3. Ramo 3: Texto (Processamento de Linguagem Natural)**
+Diferente de outros bots, o Vesper realiza uma **pré-consulta de impacto** antes de confirmar:
 
-O texto (digitado ou transcrito do áudio) passa pelo GPT-4o para extração de entidades (Entity Extraction).
+1.  **Consulta de Projeção**: O n8n chama a lógica de projeção (ou lê os dados consolidados) para aquele usuário.
+2.  **Cálculo de Sobra**: Verifica quanto ainda resta no "Teto de Sobrevivência Semanal" daquela categoria.
+3.  **Inserção Atômica**: Insere na tabela `transactions` do Supabase.
 
-**Exemplo de *System Prompt* para a IA:**
+---
 
-"És um assistente financeiro de extrema precisão. Analisa a mensagem do utilizador e extrai as métricas para inserção no banco de dados. Responde estritamente em JSON com as chaves: amount\_cents (inteiro), merchant\_name (string), type (EXPENSE, INCOME, TRANSFER), account\_identificator (string), date (ISO 8601)."
+## 💬 5. Feedback Estratégico (Engenharia de Dopamina)
 
-## **4\. O Mecanismo Anticolisão (Deduplicação)**
+A resposta ao usuário não é apenas um "Ok". É uma atualização de vida:
 
-Antes de injetar o dado no banco, o sistema tem de impedir duplicações (ex: o utilizador enviou um áudio e, logo a seguir, a foto do mesmo recibo para "garantir").
+**Exemplo de Resposta do Bot:**
+> "Registrado! 🍔 **R$ 45,00** no *Burger King* (Débito Itaú).
+> 
+> **Impacto na sua semana:** Você ainda tem **R$ 120,00** de oxigênio para gastos variáveis até domingo.
+> 
+> **Time Machine:** Com esse gasto, sua liquidez projetada para **Agosto** continua positiva em **R$ 4.200,00**. Ótima escolha!"
 
-1. **PostgreSQL Node (Query de Verificação):**  
-   * O n8n faz um SELECT rápido na tabela transactions.  
-   * Verifica se, nas últimas 2 horas, existe uma transação com o mesmo amount\_cents e um merchant\_name semelhante para aquele family\_group\_id.  
-2. **Decisão Lógica (If Node):**  
-   * Se existir correspondência: O sistema não insere a transação e avisa o utilizador: *"Parece que já registei esta despesa de \[Valor\] no \[Estabelecimento\] hoje. Deseja duplicar?"*  
-   * Se não existir correspondência: Prossegue para a inserção.
+---
 
-## **5\. Injeção de Dados e Motor Transacional**
+## 🛠️ Configuração Técnica no n8n
 
-1. **PostgreSQL Node (Insert):** O JSON perfeito gerado pela IA é mapeado para as colunas exatas da tabela transactions que desenhámos na arquitetura de banco de dados.  
-2. **Tratamento de Contas e Categorias:** O sistema da IA fará a correspondência do texto (ex: "cartão Nubank") com o account\_id existente no banco de dados através de uma busca prévia armazenada na cache do n8n.
+*   **Supabase Node (ou HTTP Request)**: Utilizar a URL da API do Supabase com o Header `apikey` (Service Role) para permitir a inserção de transações em nome do usuário identificado.
+*   **Deduplicação**: Antes de inserir, o n8n verifica se existe uma transação com o mesmo valor e estabelecimento nos últimos 10 minutos (proteção contra cliques duplos ou envios repetidos).
+*   **Mapeamento de Categoria**: A IA sugere a categoria, mas o n8n valida contra a lista de `categories` reais do usuário no banco de dados.
 
-## **6\. Fluxo de Resposta (Engenharia Comportamental)**
+---
 
-Após o registo bem-sucedido no PostgreSQL, o n8n responde ao utilizador pelo WhatsApp. Aqui aplicamos a regra do reforço positivo (Dopamina).
-
-1. **Cálculo Rápido:** O n8n faz um pequeno SELECT SUM no orçamento daquela categoria.  
-2. **Geração de Mensagem (GPT-4o-mini):** O n8n pede à IA para criar uma mensagem curta, amigável e motivacional.  
-3. **Atraso Lógico (Delay Node \- Anti-ban):** O n8n aguarda entre 2 a 5 segundos (simulando digitação humana) antes de enviar a resposta. Isto disfarça o padrão robótico da Evolution API, protegendo o número contra banimentos do WhatsApp.  
-4. **Envio da Resposta:** *"Registo feito\! 🍔 Gastou 25€ no Pingo Doce. Ainda tem 150€ no seu orçamento de Alimentação para este mês. Está num ótimo caminho\!"*
+> [!IMPORTANT]
+> **Segurança de Dados**: O n8n deve ser configurado para não armazenar logs das mensagens após o processamento, mantendo a privacidade total dos dados financeiros do usuário.
