@@ -171,7 +171,7 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
             </p>
           </div>
 
-          <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-2 md:gap-3" onClick={(e) => e.stopPropagation()}>
             {/* Botão de Quitar */}
             {!isIncome && (
               <motion.button
@@ -183,14 +183,14 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
                 }}
                 data-testid="toggle-paid-button"
                 className={cn(
-                  "w-10 h-10 rounded-2xl flex items-center justify-center transition-all border shrink-0",
+                  "w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all border shrink-0",
                   tx.is_paid 
-                    ? "bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.15)]" 
-                    : "bg-white/5 border-white/10 text-white/20 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-400"
+                    ? "bg-emerald-500 border-emerald-400 text-[#0d0d0d] shadow-[0_0_20px_rgba(16,185,129,0.3)]" 
+                    : "bg-[#1a1a1a] border-white/5 text-white/40 hover:text-white hover:border-white/20"
                 )}
                 title={tx.is_paid ? "Marcar como não pago" : "Marcar como pago"}
               >
-                <Check className={cn("w-5 h-5 transition-transform", tx.is_paid && "scale-110")} />
+                <Check className={cn("w-4 h-4 md:w-5 md:h-5 transition-transform stroke-[3px]", tx.is_paid && "scale-110")} />
               </motion.button>
             )}
 
