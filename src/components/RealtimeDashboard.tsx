@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { format, isSameMonth, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
@@ -123,15 +123,15 @@ export default function RealtimeDashboard({
     consolidatedItems.filter((i: any) => i.type === "EXPENSE").reduce((sum: number, i: any) => sum + i.value, 0)
   , [consolidatedItems]);
 
-  const handleSimulate = (sim: any) => {
+  const handleSimulate = useCallback((sim: any) => {
     setActiveSimulations(sim ? [sim] : []);
-  };
+  }, []);
 
-  const jumpToDebtExit = () => {
+  const jumpToDebtExit = useCallback(() => {
     if (debtExit.exitDate) {
       setTargetDate(debtExit.exitDate);
     }
-  };
+  }, [debtExit.exitDate]);
 
   useEffect(() => {
     (window as any).jumpToDebtExit = jumpToDebtExit;

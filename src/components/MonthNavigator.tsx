@@ -31,38 +31,52 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
 
   const isAtToday = isSameMonth(selectedDate, today);
 
+  const monthOffset = React.useMemo(() => {
+    const todayMo = startOfMonth(new Date());
+    const targetMo = startOfMonth(selectedDate);
+    const months = (targetMo.getFullYear() - todayMo.getFullYear()) * 12 + (targetMo.getMonth() - todayMo.getMonth());
+    return Math.max(0, months);
+  }, [selectedDate]);
+
   return (
-    <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] p-4 shadow-2xl relative overflow-hidden h-full flex flex-col">
+    <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] p-5 shadow-2xl relative overflow-hidden h-full flex flex-col">
+      
+      {/* Glow de fundo */}
       <div className={cn(
         "absolute -top-24 -right-24 w-48 h-48 blur-[80px] rounded-full transition-colors duration-500",
         isFuture ? "bg-violet-600/20" : "bg-emerald-600/10"
       )} />
 
-      <div className="relative z-10 flex flex-col h-full">
-        <div className="flex items-center justify-between gap-4">
-          {/* Esquerda: ícone + label */}
-          <div className="flex items-center gap-3 min-w-0">
+      <div className="relative z-10 flex flex-col h-full gap-5">
+
+        {/* LINHA 1: Label + Setas */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <div className={cn(
-              "w-9 h-9 rounded-xl flex items-center justify-center border transition-all shrink-0",
-              isFuture ? "bg-violet-500/10 border-violet-500/20 text-violet-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+              "w-8 h-8 rounded-xl flex items-center justify-center border transition-all shrink-0",
+              isFuture
+                ? "bg-violet-500/10 border-violet-500/20 text-violet-400"
+                : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
             )}>
-              {isFuture ? <Zap className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+              {isFuture ? <Zap className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
             </div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-white capitalize truncate">
-                {format(selectedDate, "MMMM yyyy", { locale: ptBR })}
+            <div>
+              <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">
+                {isFuture ? "Projeção" : "Atual"}
               </p>
-              <p className="text-[9px] text-white/30 uppercase tracking-widest">
-                {isFuture ? "Projeção Futura" : "Estado Atual"}
+              <p className={cn(
+                "text-[10px] font-black uppercase tracking-widest",
+                isFuture ? "text-violet-400" : "text-emerald-400"
+              )}>
+                Time Machine
               </p>
             </div>
           </div>
 
-          {/* Direita: setas de navegação */}
-          <div className="flex items-center gap-1 bg-black/40 border border-white/5 p-1 rounded-xl shrink-0">
-            <button 
-              onClick={handlePrev} 
-              disabled={isAtToday} 
+          <div className="flex items-center gap-1 bg-black/30 border border-white/5 p-1 rounded-xl">
+            <button
+              onClick={handlePrev}
+              disabled={isAtToday}
               className={cn(
                 "p-1.5 rounded-lg transition-all",
                 isAtToday ? "text-white/10 cursor-not-allowed" : "text-white/60 hover:text-white hover:bg-white/10"
@@ -70,8 +84,8 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <button 
-              onClick={handleNext} 
+            <button
+              onClick={handleNext}
               className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all"
             >
               <ChevronRight className="w-4 h-4" />
@@ -79,7 +93,62 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
           </div>
         </div>
 
-        <div className="flex gap-2 mt-4 overflow-x-auto scrollbar-hide shrink-0">
+        {/* LINHA 2: Display visual dos 3 meses */}
+        <div className="flex items-center justify-between px-2 flex-1">
+          
+          {/* Mês anterior */}
+          <div className="text-center opacity-30">
+            <p className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1">
+              {format(subMonths(selectedDate, 1), "MMM", { locale: ptBR })}
+            </p>
+            <p className="text-lg font-black text-white/30">
+              {format(subMonths(selectedDate, 1), "yy")}
+            </p>
+          </div>
+
+          {/* Mês atual — destaque */}
+          <div className="text-center">
+            <div className={cn(
+              "px-5 py-3 rounded-2xl border transition-all duration-500",
+              isFuture
+                ? "bg-violet-500/10 border-violet-500/20"
+                : "bg-emerald-500/10 border-emerald-500/20"
+            )}>
+              <p className={cn(
+                "text-2xl font-black capitalize leading-none",
+                isFuture ? "text-violet-300" : "text-emerald-300"
+              )}>
+                {format(selectedDate, "MMM", { locale: ptBR })}
+              </p>
+              <p className={cn(
+                "text-[10px] font-black uppercase tracking-widest mt-1",
+                isFuture ? "text-violet-400/60" : "text-emerald-400/60"
+              )}>
+                {format(selectedDate, "yyyy")}
+              </p>
+            </div>
+            {/* Indicador de offset */}
+            {isFuture && (
+              <p className="text-[8px] font-black text-violet-400/40 uppercase tracking-widest mt-2">
+                +{monthOffset} {monthOffset === 1 ? "mês" : "meses"}
+              </p>
+            )}
+          </div>
+
+          {/* Próximo mês */}
+          <div className="text-center opacity-30">
+            <p className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1">
+              {format(addMonths(selectedDate, 1), "MMM", { locale: ptBR })}
+            </p>
+            <p className="text-lg font-black text-white/30">
+              {format(addMonths(selectedDate, 1), "yy")}
+            </p>
+          </div>
+
+        </div>
+
+        {/* LINHA 3: Botões de atalho */}
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide shrink-0">
           {!isAtToday && (
             <button
               onClick={handleReset}
@@ -94,30 +163,31 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
             <button
               onClick={handleLastDebt}
               className={cn(
-                "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border border-white/5",
+                "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border",
                 isSameMonth(selectedDate, new Date(lastFutureTransactionDate))
-                  ? "bg-amber-500 text-black" 
-                  : "bg-white/5 text-white/40 hover:bg-white/10 hover:text-white"
+                  ? "bg-amber-500 border-amber-500 text-black"
+                  : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white"
               )}
             >
               <Sparkles className="w-3 h-3" />
               Liquidado
             </button>
           )}
-          
+
           <button
             onClick={() => onDateChange(addMonths(today, 6))}
             className={cn(
-              "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border border-white/5",
+              "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border",
               isSameMonth(selectedDate, addMonths(today, 6))
-                ? "bg-violet-600 text-white" 
-                : "bg-white/5 text-white/40 hover:bg-white/10 hover:text-white"
+                ? "bg-violet-600 border-violet-600 text-white"
+                : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white"
             )}
           >
             <Calendar className="w-3 h-3" />
             +6 Meses
           </button>
         </div>
+
       </div>
     </div>
   );
