@@ -6,6 +6,7 @@ import { formatCurrency, cn, getTransactionInvoiceMonth } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ArrowUpRight, ArrowDownLeft, Layers, Check, Calendar, Zap } from "lucide-react";
+import { motion } from "framer-motion";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { useTransactionModal } from "@/context/TransactionModalContext";
@@ -173,7 +174,9 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
           <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
             {/* Botão de Quitar */}
             {!isIncome && (
-              <button
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={async () => {
                   await toggleTransactionPaid(tx.id, tx.is_paid || false);
                   router.refresh();
@@ -182,13 +185,13 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
                 className={cn(
                   "w-10 h-10 rounded-2xl flex items-center justify-center transition-all border shrink-0",
                   tx.is_paid 
-                    ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]" 
-                    : "bg-white/5 border-white/10 text-white/10 hover:border-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/5"
+                    ? "bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.15)]" 
+                    : "bg-white/5 border-white/10 text-white/20 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-400"
                 )}
                 title={tx.is_paid ? "Marcar como não pago" : "Marcar como pago"}
               >
                 <Check className={cn("w-5 h-5 transition-transform", tx.is_paid && "scale-110")} />
-              </button>
+              </motion.button>
             )}
 
             {/* Action Menu */}
