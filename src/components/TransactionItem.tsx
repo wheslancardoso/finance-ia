@@ -194,33 +194,34 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
               </motion.button>
             )}
 
-            {/* Action Menu */}
-            <ActionMenu 
-              onEdit={async () => {
-                console.log("TransactionItem: triggering openEdit for", tx.id);
-                if (isInstallment && tx.installment_current !== 1) {
-                  const supabase = createClient();
-                  const { data, error } = await supabase
-                    .from("transactions")
-                    .select("*, category:categories(*), account:accounts(*)")
-                    .eq("description", tx.description)
-                    .eq("installment_total", tx.installment_total)
-                    .eq("account_id", tx.account_id)
-                    .eq("installment_current", 1)
-                    .single();
-                  
-                  if (!error && data) {
-                    openEdit(data);
-                    return;
-                  }
-                }
-                openEdit(tx);
-              }}
-              onDelete={handleDelete}
-              className="relative z-10"
-            />
           </div>
         </div>
+
+        {/* Action Menu - Posicionado no canto superior direito */}
+        <ActionMenu 
+          onEdit={async () => {
+            console.log("TransactionItem: triggering openEdit for", tx.id);
+            if (isInstallment && tx.installment_current !== 1) {
+              const supabase = createClient();
+              const { data, error } = await supabase
+                .from("transactions")
+                .select("*, category:categories(*), account:accounts(*)")
+                .eq("description", tx.description)
+                .eq("installment_total", tx.installment_total)
+                .eq("account_id", tx.account_id)
+                .eq("installment_current", 1)
+                .single();
+              
+              if (!error && data) {
+                openEdit(data);
+                return;
+              }
+            }
+            openEdit(tx);
+          }}
+          onDelete={handleDelete}
+          className="absolute top-1 right-1 z-20"
+        />
       </GlassCard>
 
       <InstallmentTimelineModal 
