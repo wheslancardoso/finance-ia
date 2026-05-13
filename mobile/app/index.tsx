@@ -1,13 +1,28 @@
-import React from 'react';
-import { View, Text, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, RefreshControl } from 'react-native';
 import TransactionList from '../src/components/TransactionList';
+import LiquidityCard from '../src/components/LiquidityCard';
+import { useFinancialSummary } from '../src/hooks/useFinancialSummary';
+import { formatCurrency } from '../src/utils/format';
 
 export default function Dashboard() {
+  const { summary, loading, refresh } = useFinancialSummary();
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 bg-[#090909] items-center justify-center">
+        <ActivityIndicator color="#10b981" size="large" />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-[#090909]">
       <ScrollView 
         className="flex-1 px-4 py-6"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={refresh} tintColor="#10b981" />
+        }
       >
         <View className="mb-8">
           <Text className="text-white/40 text-sm font-bold uppercase tracking-[2px] mb-1">
@@ -18,39 +33,25 @@ export default function Dashboard() {
           </Text>
         </View>
 
-        {/* Liquidity Card Placeholder */}
-        <View className="w-full p-8 bg-white/[0.03] border border-white/10 rounded-[40px] shadow-2xl mb-6">
-          <View className="flex-row items-center justify-between mb-6">
-            <View className="flex-row items-center gap-3">
-              <View className="w-10 h-10 bg-emerald-500/20 rounded-2xl items-center justify-center border border-emerald-500/30">
-                <Text className="text-emerald-400 font-bold">L</Text>
-              </View>
-              <View>
-                <Text className="text-white font-bold text-lg">Liquidez Total</Text>
-                <Text className="text-white/40 text-xs">Atualizado agora</Text>
-              </View>
-            </View>
-          </View>
-          
-          <Text className="text-white text-4xl font-bold tabular-nums mb-2">
-            R$ 45.230,00
-          </Text>
-          <View className="flex-row items-center gap-2">
-            <View className="px-2 py-1 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-              <Text className="text-emerald-400 text-[10px] font-bold">+12% este mês</Text>
-            </View>
-          </View>
-        </View>
+        <LiquidityCard 
+          netLiquidityCents={summary?.netLiquidityCents || 0}
+          totalAssetsCents={summary?.accumulatedBalanceCents || 0}
+          isCrisis={summary?.outlook?.isCrisisMode}
+        />
 
-        {/* Stats Grid Placeholder */}
+        {/* Stats Grid */}
         <View className="flex-row gap-4 mb-10">
           <View className="flex-1 p-6 bg-white/[0.03] border border-white/10 rounded-[32px]">
             <Text className="text-white/40 text-[10px] font-bold uppercase mb-1">Entradas</Text>
-            <Text className="text-emerald-400 text-xl font-bold">R$ 8.400</Text>
+            <Text className="text-emerald-400 text-xl font-bold">
+              {formatCurrency(summary?.incomeCents || 0)}
+            </Text>
           </View>
           <View className="flex-1 p-6 bg-white/[0.03] border border-white/10 rounded-[32px]">
             <Text className="text-white/40 text-[10px] font-bold uppercase mb-1">Saídas</Text>
-            <Text className="text-red-400 text-xl font-bold">R$ 3.250</Text>
+            <Text className="text-red-400 text-xl font-bold">
+              {formatCurrency(summary?.expenseCents || 0)}
+            </Text>
           </View>
         </View>
 
