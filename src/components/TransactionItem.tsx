@@ -183,7 +183,7 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-3">
+        <div className="flex items-center gap-4 md:gap-6 shrink-0 ml-3">
           <div className="text-right">
             <p className={cn(
               "text-base md:text-xl font-bold tabular-nums",
