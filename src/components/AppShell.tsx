@@ -12,12 +12,13 @@ import { ContributionModal } from "./ContributionModal";
 import { GoalDetailModal } from "./GoalDetailModal";
 import { TransferModal } from "./TransferModal";
 import { SyncUser } from "./SyncUser";
-import { FinanceBridgeHUD } from "./FinanceBridgeHUD";
+import { UnifiedSurvivalHeader } from "./dashboard/UnifiedSurvivalHeader";
 import { cn } from "@/lib/utils";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLoginPage = pathname === "/login";
+  const isDashboard = pathname === "/";
 
   return (
     <div className="flex min-h-screen">
@@ -35,7 +36,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         
         {!isLoginPage && <MobileHeader />}
-        {!isLoginPage && <FinanceBridgeHUD />}
+        {!isLoginPage && !isDashboard && <UnifiedSurvivalHeader variant="compact" />}
         <div className={cn(!isLoginPage && "pt-16 pb-24 md:pt-0 md:pb-0")}>
           {children}
         </div>

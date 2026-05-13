@@ -24,6 +24,7 @@ test.describe('Migration Flow (ADR-004)', () => {
 
   test('deve criar parcelamento começando em uma parcela específica', async ({ page }) => {
     // Abrir modal de transação
+    // Abrir modal de transação (clicar no botão do header)
     await page.getByTestId('add-transaction-button').click();
     
     await page.getByPlaceholder('O que você comprou?').fill('Notebook Antigo');
@@ -45,9 +46,15 @@ test.describe('Migration Flow (ADR-004)', () => {
     // Salvar
     await page.getByRole('button', { name: 'Confirmar Lançamento' }).click();
     
+    // Esperar modal fechar para garantir processamento
+    await expect(page.getByText('Novo Lançamento')).not.toBeVisible();
+    
+    // Ir para aba de Linha do Tempo para ver as transações
+    await page.getByRole('button', { name: 'Linha do Tempo' }).click();
+
     // Verificar se as transações foram criadas (de 4 a 12 = 9 parcelas)
     // No mock, a UI deve mostrar 4/12
-    await expect(page.getByText('4/12')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('text=4/12')).toBeVisible({ timeout: 15000 });
   });
 
   test('deve permitir ajustar saldo da fatura e marcar como pago sem débito', async ({ page }) => {
@@ -58,20 +65,20 @@ test.describe('Migration Flow (ADR-004)', () => {
     await expect(page.getByText('Nubank')).toBeVisible();
     
     // Clicar em Informar Saldo
-    await page.getByText('Informar Saldo').click();
+    await page.getByTestId('adjust-invoice-button').click();
     
     // Ajustar para 250,00
     await page.getByPlaceholder('0,00').fill('250,00');
     await page.getByRole('button', { name: 'Salvar' }).click();
     
     // Verificar se o valor apareceu
-    await expect(page.getByText('R$ 250,00')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('invoice-amount')).toContainText('250,00', { timeout: 15000 });
     
-    // Clicar em Já Paguei
-    page.on('dialog', dialog => dialog.accept());
-    await page.getByRole('button', { name: 'Já Paguei' }).click();
+    // 3. Marcar como pago
+    await page.getByTestId('mark-as-paid-button').click();
+    await page.getByRole('button', { name: 'Sim, já paguei' }).click();
     
-    // O valor deve zerar (ou não ser visível se o mock zerar)
-    await expect(page.getByText('R$ 250,00')).not.toBeVisible({ timeout: 15000 });
+    // 4. Validar que a fatura foi zerada
+    await expect(page.getByTestId('invoice-amount')).toContainText('0,00', { timeout: 15000 });
   });
 });

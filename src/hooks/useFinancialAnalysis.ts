@@ -6,6 +6,7 @@ import {
   calculateMonthlyOutlook, 
   calculateTotalConsolidatedDebt,
   calculateAccumulatedBalance,
+  calculateRealCycleLiquidity,
   type MonthlyOutlook,
   calculateDebtExitProjection,
   type DebtExitProjection,
@@ -58,18 +59,36 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
   const consolidatedDebt = useMemo(() => calculateTotalConsolidatedDebt(accounts), [accounts]);
   const currentAssets = useMemo(() => calculateAccumulatedBalance(accounts), [accounts]);
 
+  // Liquidez de Ciclo Real: Saldo - Dívidas - Despesas Pendentes de Maio
+  const realCycleLiquidity = useMemo(() => 
+    calculateRealCycleLiquidity({
+      accounts,
+      currentMonthTransactions: monthTransactions
+    }), [accounts, monthTransactions]);
+
   const monthlyOutlook = useMemo(() => {
+    // Se já há renda confirmada no mês (is_paid: true), não projetar renda agendada para evitar double-count
+    const confirmedIncomeThisMonth = (monthTransactions || [])
+      .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
+      .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+    // Se não há transações manuais agendadas, usamos a base recorrente como expectativa
+    const effectiveScheduledIncome = scheduledIncomeCents || recurringIncomeCents;
+    const effectiveScheduledExpenses = scheduledExpensesCents || recurringExpensesCents;
+    const incomeForOutlook = confirmedIncomeThisMonth > 0 ? 0 : effectiveScheduledIncome;
+
     const baseOutlook = calculateMonthlyOutlook({
       accounts,
-      scheduledIncomeCents,
-      scheduledExpensesCents,
+      scheduledIncomeCents: incomeForOutlook,
+      scheduledExpensesCents: effectiveScheduledExpenses,
       recurringIncomeCents,
       recurringExpensesCents,
       budgets,
       netLiquidityCents: netLiquidity,
       monthOffset,
       activeSimulations,
-      futureTransactions
+      futureTransactions,
+      allTransactions: monthTransactions
     });
 
     // Projeção Avançada: Usa o novo motor de acumulação dinâmica
@@ -81,8 +100,9 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       budgets,
       monthOffset,
       activeSimulations,
-      scheduledIncomeCents,
-      scheduledExpensesCents
+      scheduledIncomeCents: incomeForOutlook,
+      scheduledExpensesCents: effectiveScheduledExpenses,
+      allTransactions: monthTransactions // Passamos as transações reais do mês atual
     });
 
     return {
@@ -90,10 +110,10 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       balanceAtMonthEnd: projectedNetLiquidity, // O saldo final deve ser o projetado acumulado
       projectedNetLiquidity
     };
-  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, futureTransactions, goals, activeSimulations]);
+  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, futureTransactions, goals, activeSimulations, monthTransactions]);
 
   // Sobrescrita para usar a liquidez projetada no retorno
-  const activeNetLiquidity = monthlyOutlook.projectedNetLiquidity ?? netLiquidity;
+  const activeNetLiquidity = monthOffset === 0 ? realCycleLiquidity : (monthlyOutlook.projectedNetLiquidity ?? netLiquidity);
 
   const debtExit = useMemo(() => {
     return calculateDebtExitProjection({

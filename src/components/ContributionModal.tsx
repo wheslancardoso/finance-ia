@@ -60,6 +60,7 @@ export function ContributionModal() {
         description: `Aporte: ${selectedGoal.name}`,
         amount_cents: amountCents,
         transaction_type: "EXPENSE",
+        is_paid: true,
         date: new Date().toISOString(),
       });
 

@@ -355,7 +355,7 @@ export function AddTransactionModal() {
       <button
         onClick={openAdd}
         className="fixed bottom-8 right-8 w-14 h-14 rounded-full bg-violet-600 text-white shadow-2xl shadow-violet-600/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-40 border border-white/20"
-        data-testid="add-transaction-button"
+        data-testid="add-transaction-floating-button"
       >
         <Plus className="w-8 h-8" />
       </button>

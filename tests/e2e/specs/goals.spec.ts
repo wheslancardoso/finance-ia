@@ -58,7 +58,7 @@ test.describe('Gestão de Metas (Refatorado)', () => {
     await expect(page.getByTestId('goal-card-goal-1')).toContainText(/5\.500,00/);
     
     // Validar impacto na liquidez (10.000 - 500 = 9.500)
-    await expect(page.getByTestId('hud-net-liquidity')).toContainText('9.500,00');
+    await expect(page.getByTestId('net-liquidity-value')).toContainText('9.500,00');
   });
 
   test('deve excluir uma meta', async ({ page }) => {

@@ -19,11 +19,14 @@ test.describe('Dashboard e Projeções (Refatorado)', () => {
     await setupFinancialMocks(page, createDashboardState());
     await dashboard.goto();
     
-    // Na nova lógica, o saldo projetado final do mês é: 
-    // Liquidez (0) + Renda (5k) - Despesas (2k) = 3k
-    await dashboard.expectLiquidity(/R\$\s?3\.000,00/);
+    // Na nova lógica (Sobrevivência), a liquidez mostrada é o respiro REAL imediato.
+    // Saldo (0) - Dívidas do Mês (0) = 0. 
+    // O sistema não antecipa mais os 5k de renda que ainda não caíram no saldo.
+    await dashboard.expectLiquidity(/R\$\s?0,00/);
     
-    // Teto semanal: 3k sobra / 4 = 750
+    // O Teto semanal, no entanto, continua sendo baseado na SOBRA PROJETADA do fim do mês
+    // para que o usuário saiba quanto pode gastar de forma segura.
+    // Sobra Projetada (3k) / 4 = 750
     await expect(page.getByTestId('survival-ceiling-value')).toContainText(/750.*00/, { timeout: 15000 });
   });
 

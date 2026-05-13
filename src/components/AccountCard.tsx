@@ -39,6 +39,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
   const isCreditCard = type === "CREDIT_CARD";
   const [payModalOpen, setPayModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [markPaidModalOpen, setMarkPaidModalOpen] = useState(false);
   const [statusModal, setStatusModal] = useState<{ isOpen: boolean; message: string; title: string; type: "success" | "error" }>({
     isOpen: false,
     message: "",
@@ -78,6 +79,23 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
         message: "Ocorreu um problema ao tentar excluir esta conta. Verifique sua conexão e tente novamente.",
         type: "error"
       });
+    }
+  }
+
+  async function confirmMarkAsPaid() {
+    setIsMigrationLoading(true);
+    try {
+      await financialService.payInvoice({
+        creditCardAccountId: id,
+        amountCents: closedAmount,
+        alreadyPaid: true
+      });
+      refreshData();
+    } catch (err) {
+      console.error("Erro ao marcar como pago:", err);
+    } finally {
+      setIsMigrationLoading(false);
+      setMarkPaidModalOpen(false);
     }
   }
 
@@ -200,7 +218,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
                 </div>
               ) : (
                 <div className="flex items-baseline gap-3">
-                  <h2 className="text-3xl font-bold tracking-tight tabular-nums text-amber-500">
+                  <h2 data-testid="invoice-amount" className="text-3xl font-bold tracking-tight tabular-nums text-amber-500">
                     {formatCurrency(invoiceAmount)}
                   </h2>
                   
@@ -210,6 +228,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
                         setAdjustmentValue((invoiceAmount / 100).toString());
                         setShowAdjustmentInput(true);
                       }}
+                      data-testid="adjust-invoice-button"
                       className="text-[9px] font-bold text-violet-400/60 uppercase tracking-widest hover:text-violet-400 transition-colors border-b border-violet-400/20"
                     >
                       {invoiceAmount === 0 ? "Informar Saldo" : "Reajustar"}
@@ -333,23 +352,9 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
           <div className="flex gap-2">
             <button
               disabled={isMigrationLoading}
-              onClick={async () => {
-                if (!confirm("Isso liberará seu limite sem registrar saída de dinheiro das suas contas. Use apenas se já pagou por fora ou se é uma fatura de migração. Confirmar?")) return;
-                setIsMigrationLoading(true);
-                try {
-                  await financialService.payInvoice({
-                    creditCardAccountId: id,
-                    amountCents: closedAmount,
-                    alreadyPaid: true
-                  });
-                  refreshData();
-                } catch (err) {
-                  console.error("Erro ao marcar como pago:", err);
-                } finally {
-                  setIsMigrationLoading(false);
-                }
-              }}
+              onClick={() => setMarkPaidModalOpen(true)}
               className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black text-white/40 uppercase tracking-widest hover:bg-white/10 hover:text-amber-400/80 transition-all disabled:opacity-50"
+              data-testid="mark-as-paid-button"
             >
               {isMigrationLoading ? "..." : "Já Paguei"}
             </button>
@@ -390,6 +395,20 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
             confirmText="Excluir"
             cancelText="Manter"
             variant="danger"
+          />,
+          document.body
+        )}
+
+        {createPortal(
+          <ConfirmModal
+            isOpen={markPaidModalOpen}
+            onClose={() => setMarkPaidModalOpen(false)}
+            onConfirm={confirmMarkAsPaid}
+            title="Confirmar Pagamento Externo"
+            message={`Você está confirmando que a fatura de ${formatCurrency(closedAmount)} já foi paga fora do sistema. Isso liberará seu limite sem gerar débitos em suas contas bancárias cadastradas.`}
+            confirmText="Sim, já paguei"
+            cancelText="Voltar"
+            variant="info"
           />,
           document.body
         )}
