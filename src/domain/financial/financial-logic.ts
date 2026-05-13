@@ -406,16 +406,16 @@ export function calculateMonthlyOutlook(params: {
  * Calcula o saldo futuro simulando a passagem dos meses.
  */
 export function calculateAdvancedProjection(params: {
-  currentNetLiquidity: number;
+  currentNetLiquidity: number;       // Liquidez líquida REAL de hoje (saldo - dívidas)
   recurringTransactions: RecurringTransaction[];
-  futureTransactions: Transaction[];
+  futureTransactions: Transaction[];  // Parcelas futuras de cartão
   goals: Goal[];
   budgets: Budget[];
-  monthOffset: number;
+  monthOffset: number;                // 0 = mês atual, 1 = próximo, etc.
   activeSimulations?: Simulation[];
-  scheduledIncomeCents?: number;
-  scheduledExpensesCents?: number;
-  allTransactions?: Transaction[]; // Adicionado para contexto real do mês atual
+  scheduledIncomeCents?: number;      // Renda que ainda cai no mês atual
+  scheduledExpensesCents?: number;    // Despesas agendadas para o mês atual
+  allTransactions?: Transaction[];
 }): number {
   const {
     currentNetLiquidity,
@@ -424,83 +424,56 @@ export function calculateAdvancedProjection(params: {
     goals,
     budgets,
     monthOffset,
-    activeSimulations = [],
-    scheduledIncomeCents = 0,
-    scheduledExpensesCents = 0,
-    allTransactions = []
+    activeSimulations = []
   } = params;
+
+  // Se o offset é 0, retornamos a liquidez real atual (estado presente)
+  if (monthOffset === 0) return currentNetLiquidity;
 
   let projectedBalance = currentNetLiquidity;
   const now = new Date();
 
-  // Iterar mês a mês para acumular resultados
-  for (let i = 0; i <= monthOffset; i++) {
+  // Iterar mês a mês a partir do próximo mês (i=1) até o offset desejado
+  for (let i = 1; i <= monthOffset; i++) {
     const targetDate = addMonths(now, i);
-    const targetStart = startOfMonth(targetDate);
-    const targetEnd = endOfMonth(targetDate);
     const monthKey = format(targetDate, 'yyyy-MM');
 
-    // REGRA DE OURO: No mês atual (i === 0), o saldo inicial já reflete o presente.
-    // Para o FINAL do mês, somamos a renda que ainda vai cair e subtraímos o que ainda vai sair.
-    if (i === 0) {
-      const pendingDebits = (allTransactions || [])
-        .filter(t => {
-          const tDate = new Date(t.date);
-          return t.transaction_type === "EXPENSE" &&
-                 isSameMonth(tDate, now) &&
-                 !t.is_paid;
-        })
-        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
-      
-      // Somamos a renda agendada e subtraímos as despesas agendadas/pendentes
-      projectedBalance += (scheduledIncomeCents || 0) - (scheduledExpensesCents || 0) - pendingDebits;
-      continue; 
-    }
-
-    // 1. Receitas e Despesas Recorrentes (Para meses futuros i > 0)
-    const baseIncome = recurringTransactions
+    // 1. Receitas e Despesas Recorrentes
+    const income = recurringTransactions
           .filter(r => r.transaction_type === "INCOME" && r.status === "active" && !r.excluded_months?.includes(monthKey))
-          .reduce((sum, r) => sum + (r.amount_cents || 0), 0);
+          .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
 
-    const baseExpenses = recurringTransactions
+    const expenses = recurringTransactions
       .filter(r => r.transaction_type === "EXPENSE" && r.status === "active" && !r.excluded_months?.includes(monthKey))
-      .reduce((sum, r) => sum + (r.amount_cents || 0), 0);
+      .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
 
-    let monthlyIncome = baseIncome;
-    let monthlyExpenses = baseExpenses;
-    
     // 2. Parcelamentos do Cartão (Transactions futuras)
-    const installmentDebt = futureTransactions
+    const installments = futureTransactions
           .filter(t => t.transaction_type === "EXPENSE" && isSameMonth(new Date(t.date), targetDate))
-          .reduce((sum, t) => sum + (t.amount_cents || 0), 0);
+          .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
-    // 3. Reservas de Orçamento (Provisão mensal)
-    const monthlyBudgets = budgets.reduce((sum, b) => sum + (b.amount_cents || 0), 0);
+    // 3. Reservas de Orçamento (Provisão mensal total planejada)
+    const budgetReserve = budgets.reduce((sum, b) => sum + (Number(b.amount_cents) || 0), 0);
 
-    // 4. Aportes em Metas (Compromisso de poupança)
-    // Calculamos o aporte mensal necessário para cada meta ativa
-    const monthlyGoals = goals
+    // 4. Aportes em Metas (Compromisso de poupança mensal ativo)
+    const goalContributions = goals
       .filter(g => g.status === "ACTIVE")
-      .reduce((sum, g) => {
-        // Se a meta tiver um valor mensal definido ou se for uma "meta de economia"
-        // Aqui assumimos que o usuário quer transferir o valor total ou um valor fixo
-        // Para simplificar, usamos 10% da renda ou um valor fixo se implementado
-        // No contexto do usuário, ele quer "juntar R$ 1000 todo mês"
-        return sum + (g.monthly_contribution_cents || 0);
-      }, 0);
+      .reduce((sum, g) => sum + (Number(g.monthly_contribution_cents) || 0), 0);
 
-    // 5. Simulações Ativas (Impacto de compras simuladas)
-    const monthlySimulations = activeSimulations.reduce((sum, s) => {
-      // Se a simulação tiver parcelas, verificamos se ela ainda está ativa nesta iteração
+    // 5. Impacto das Simulações Ativas
+    const simulations = activeSimulations.reduce((sum, s) => {
+      // Impacto mensal se o mês atual da iteração estiver dentro das parcelas da simulação
       if (i <= s.installments) {
-        return sum + (s.amount_cents / s.installments);
+        return sum + (s.amount_cents / (s.installments || 1));
       }
       return sum;
     }, 0);
 
-    // Acumular saldo do mês
-    const monthlySurplus = monthlyIncome - (monthlyExpenses + installmentDebt + monthlyBudgets + monthlyGoals + monthlySimulations);
-    projectedBalance += monthlySurplus;
+    // Resultado do mês: o que sobra (surplus) ou falta (deficit)
+    const monthlyResult = income - expenses - installments - budgetReserve - goalContributions - simulations;
+    
+    // Acumular no saldo projetado (sem floor em zero)
+    projectedBalance += monthlyResult;
   }
 
   return projectedBalance;

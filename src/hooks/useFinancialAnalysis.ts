@@ -92,22 +92,26 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     });
 
     // Projeção Avançada: Usa o novo motor de acumulação dinâmica
-    const projectedNetLiquidity = calculateAdvancedProjection({
-      currentNetLiquidity: netLiquidity,
-      recurringTransactions,
-      futureTransactions,
-      goals,
-      budgets,
-      monthOffset,
-      activeSimulations,
-      scheduledIncomeCents: incomeForOutlook,
-      scheduledExpensesCents: effectiveScheduledExpenses,
-      allTransactions: monthTransactions // Passamos as transações reais do mês atual
-    });
+    const projectedNetLiquidity = monthOffset === 0
+      ? realCycleLiquidity  // Mês atual = estado real (respiro)
+      : calculateAdvancedProjection({
+          currentNetLiquidity: netLiquidity, // Projeção futura parte do patrimônio total
+          recurringTransactions,
+          futureTransactions,
+          goals,
+          budgets,
+          monthOffset,
+          activeSimulations,
+          scheduledIncomeCents: incomeForOutlook,
+          scheduledExpensesCents: effectiveScheduledExpenses,
+          allTransactions: monthTransactions
+        });
 
     return {
       ...baseOutlook,
-      balanceAtMonthEnd: projectedNetLiquidity, // O saldo final deve ser o projetado acumulado
+      // O saldo final para cálculo de teto (ceiling) deve ser o projetado (baseOutlook) no mês atual
+      // e o acumulado (projectedNetLiquidity) nos meses futuros.
+      balanceAtMonthEnd: monthOffset === 0 ? baseOutlook.balanceAtMonthEnd : projectedNetLiquidity,
       projectedNetLiquidity
     };
   }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, futureTransactions, goals, activeSimulations, monthTransactions]);

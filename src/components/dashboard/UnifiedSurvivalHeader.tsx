@@ -48,26 +48,26 @@ export function UnifiedSurvivalHeader({
 
   return (
     <div className={cn(
-      "relative bg-[#0d0d0d] border border-white/5 overflow-hidden group shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] transition-all duration-500",
-      variant === 'full' ? "rounded-[48px] p-6 md:p-8" : "rounded-[24px] p-4 mb-6"
+      "relative bg-[#0d0d0d] border border-white/5 group shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] transition-all duration-500 overflow-hidden sm:overflow-visible",
+      variant === 'full' ? "rounded-[48px] p-6 md:p-10" : "rounded-[24px] p-4 mb-6"
     )}>
       {/* Premium Background Effects */}
       <div className={cn(
-        "absolute -top-32 -left-32 w-[600px] h-[600px] blur-[160px] rounded-full transition-all duration-1000 opacity-20",
+        "absolute -top-32 -left-32 w-[600px] h-[600px] blur-[160px] rounded-full transition-all duration-1000 opacity-20 pointer-events-none",
         isCrisisMode ? "bg-red-600" : isRecoveryMode ? "bg-amber-600" : "bg-violet-600"
       )} />
 
-      <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/[0.02] blur-[100px] rounded-full -mr-32 -mt-32" />
+      <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/[0.02] blur-[100px] rounded-full -mr-32 -mt-32 pointer-events-none" />
 
-      <div className="relative z-10 flex flex-col gap-4">
+      <div className={cn("relative z-10 flex flex-col", variant === 'full' ? "gap-12" : "gap-4")}>
         {/* [Bloco Superior] - Sempre Visível */}
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-5">
             <div className={cn(
-              "w-10 h-10 rounded-[18px] flex items-center justify-center border transition-all duration-700 shadow-2xl",
+              "w-12 h-12 rounded-[20px] flex items-center justify-center border transition-all duration-700 shadow-2xl shrink-0",
               isCrisisMode ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-white/5 border-white/10 text-white/60"
             )}>
-              <Wallet className="w-5 h-5" />
+              <Wallet className="w-6 h-6" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -75,29 +75,9 @@ export function UnifiedSurvivalHeader({
                   {variant === 'full' ? `Time Machine: ${format(targetDate, "MMMM", { locale: ptBR })}` : "Visão Consolidada"}
                 </p>
               </div>
-              <div className="flex items-center gap-3 mt-1">
-                <div className="flex flex-col">
-                  <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest">Saldo Real</p>
-                  <p className="text-xs font-black text-emerald-400/80 tabular-nums">{formatCurrency(accumulatedBalanceCents)}</p>
-                </div>
-                {variant === 'compact' && (
-                  <>
-                    <div className="w-px h-6 bg-white/5" />
-                    <div className="flex flex-col">
-                      <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest">Sobra Livre</p>
-                      <p 
-                        data-testid="net-liquidity-value"
-                        className={cn(
-                          "text-xs font-black tabular-nums",
-                          isCrisisMode ? "text-red-400" : "text-white"
-                        )}
-                      >
-                        {formatCurrency(netLiquidityCents)}
-                      </p>
-                    </div>
-                  </>
-                )}
-              </div>
+              <p className="text-xs font-bold text-white/20 mt-0.5">
+                {variant === 'full' ? "Projeção acumulada de liquidez" : "Saldo disponível para o ciclo"}
+              </p>
             </div>
           </div>
 
@@ -106,9 +86,9 @@ export function UnifiedSurvivalHeader({
               <button 
                 onClick={openAdd}
                 data-testid="add-transaction-button"
-                className="group relative flex items-center gap-2.5 bg-white text-black hover:bg-violet-50 px-4 py-2 rounded-[14px] font-black text-[9px] transition-all active:scale-95 shadow-2xl overflow-hidden shrink-0"
+                className="group relative flex items-center gap-2.5 bg-white text-black hover:bg-violet-50 px-5 py-2.5 rounded-[16px] font-black text-[10px] transition-all active:scale-95 shadow-2xl overflow-hidden shrink-0"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-4 h-4" />
                 <span className="tracking-widest uppercase hidden sm:inline">Nova Transação</span>
               </button>
             )}
@@ -121,94 +101,108 @@ export function UnifiedSurvivalHeader({
           </div>
         </div>
 
+        {/* [Bloco Valores Compactos] - Visível apenas em compact */}
+        {variant === 'compact' && (
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-1">Liquidez do Ciclo</span>
+              <h2 
+                data-testid="net-liquidity-value"
+                className={cn(
+                  "text-2xl font-black tabular-nums tracking-tight",
+                  isCrisisMode ? "text-red-400" : "text-white"
+                )}
+              >
+                {isCrisisMode ? "Ajuste Necessário" : formatCurrency(netLiquidityCents)}
+              </h2>
+            </div>
+            <div className="text-right flex flex-col items-end">
+              <span className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-1">Saldo Real</span>
+              <span className="text-sm font-black text-emerald-400 tabular-nums">{formatCurrency(accumulatedBalanceCents)}</span>
+            </div>
+          </div>
+        )}
+
         {variant === 'full' && (
-          <>
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 items-end">
             {/* [Bloco Valor Principal] */}
-            <div className="w-full">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={`${monthOffset}-${activeSimulations.length}`}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="space-y-2"
-                >
-                  <div className="space-y-1">
-                    <span className={cn(
-                      "text-[10px] font-black uppercase tracking-[0.4em] block",
-                      isCrisisMode ? "text-red-400/60" : isRecoveryMode ? "text-amber-400/60" : "text-white/30"
-                    )}>
-                      {isCrisisMode ? "Alerta de Crise" : isRecoveryMode ? "Liquidez Zero em" : "Liquidez ao Fim do Mês"}
-                      {hasSimulations && (
-                        <span className="ml-2 text-[8px] font-black bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full vertical-middle uppercase tracking-widest">
-                          Impacto Simulado Ativo
-                        </span>
-                      )}
-                    </span>
-                    <h1 
-                      data-testid="net-liquidity-value"
-                      className={cn(
-                        "text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter tabular-nums leading-none drop-shadow-2xl",
-                        isCrisisMode ? "text-red-400" : isRecoveryMode ? "text-white" : hasSimulations ? "text-violet-400" : isFuture ? "text-white/90" : "text-white"
-                      )}
-                    >
-                      {isCrisisMode 
-                        ? "Ajuste Necessário" 
-                        : isRecoveryMode 
-                          ? (debtExit.exitDate ? format(debtExit.exitDate, "MMM'/'yy", { locale: ptBR }) : "---")
-                          : formatCurrency(netLiquidityCents)
-                      }
-                    </h1>
-                    
-                    <div className="flex flex-wrap items-center gap-4 mt-4">
-                      <div className="flex flex-col">
-                        <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Saldo Bancário Real</span>
-                        <span className="text-sm font-black text-emerald-400 tabular-nums">{formatCurrency(accumulatedBalanceCents)}</span>
-                      </div>
-                      <div className="w-px h-8 bg-white/5" />
-                      <div className="flex flex-col">
-                        <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Dívida Total</span>
-                        <span className="text-sm font-black text-red-400/80 tabular-nums">{formatCurrency(totalConsolidatedDebtCents)}</span>
-                      </div>
-                      <div className="w-px h-8 bg-white/5" />
-                      <div className="flex flex-col">
-                        <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Status do Mês</span>
-                        <div className={cn(
-                          "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border mt-1",
-                          isCrisisMode ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                        )}>
-                          {isCrisisMode ? "Crítico" : "Equilibrado"}
-                        </div>
+            <div className="xl:col-span-8 w-full overflow-hidden sm:overflow-visible">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <span className={cn(
+                    "text-[10px] font-black uppercase tracking-[0.4em] block",
+                    isCrisisMode ? "text-red-400/60" : isRecoveryMode ? "text-amber-400/60" : "text-white/30"
+                  )}>
+                    {isCrisisMode ? "Alerta de Crise" : isRecoveryMode ? "Liquidez Zero em" : "Liquidez ao Fim do Mês"}
+                    {hasSimulations && (
+                      <span className="ml-2 text-[8px] font-black bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full vertical-middle uppercase tracking-widest">
+                        Impacto Simulado Ativo
+                      </span>
+                    )}
+                  </span>
+                  <h1 
+                    data-testid="net-liquidity-value"
+                    className={cn(
+                      "text-[clamp(2rem,6vw,4.5rem)] py-2 font-black tracking-tighter tabular-nums leading-none drop-shadow-2xl sm:whitespace-normal",
+                      isCrisisMode ? "text-red-400" : isRecoveryMode ? "text-white" : hasSimulations ? "text-violet-400" : isFuture ? "text-white/90" : "text-white"
+                    )}
+                  >
+                    {isCrisisMode 
+                      ? "Ajuste Necessário" 
+                      : isRecoveryMode 
+                        ? (debtExit.exitDate ? format(debtExit.exitDate, "MMM'/'yy", { locale: ptBR }) : "---")
+                        : formatCurrency(netLiquidityCents)
+                    }
+                  </h1>
+                  
+                  <div className="flex flex-wrap items-center gap-6 mt-6">
+                    <div className="flex flex-col">
+                      <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Saldo Bancário Real</span>
+                      <span className="text-sm font-black text-emerald-400 tabular-nums">{formatCurrency(accumulatedBalanceCents)}</span>
+                    </div>
+                    <div className="w-px h-8 bg-white/5" />
+                    <div className="flex flex-col">
+                      <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Dívida Total</span>
+                      <span className="text-sm font-black text-red-400/80 tabular-nums">{formatCurrency(totalConsolidatedDebtCents)}</span>
+                    </div>
+                    <div className="w-px h-8 bg-white/5" />
+                    <div className="flex flex-col">
+                      <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Status do Mês</span>
+                      <div className={cn(
+                        "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border mt-1.5",
+                        isCrisisMode ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                      )}>
+                        {isCrisisMode ? "Crítico" : "Equilibrado"}
                       </div>
                     </div>
                   </div>
-                </motion.div>
-              </AnimatePresence>
+                </div>
+              </div>
             </div>
 
             {/* [Bloco Teto Semanal] */}
-            <div className="w-full">
+            <div className="xl:col-span-4 w-full">
                <div className={cn(
-                 "min-h-[70px] bg-white/[0.03] border border-white/5 rounded-[24px] p-5 flex items-center justify-between gap-6 relative overflow-hidden shadow-inner",
+                 "bg-white/[0.03] border border-white/5 rounded-[32px] p-7 space-y-6 relative overflow-hidden shadow-inner backdrop-blur-xl",
                  isCrisisMode && "border-red-500/20"
                )}>
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-[40px] rounded-full" />
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-[40px] rounded-full pointer-events-none" />
                   
-                  <div className="flex items-center gap-4 shrink-0">
+                  <div className="flex items-center gap-5 relative z-10">
                     <div className={cn(
-                      "w-9 h-9 rounded-xl flex items-center justify-center border",
+                      "w-10 h-10 rounded-[14px] flex items-center justify-center border shrink-0",
                       isCrisisMode ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                     )}>
-                      <ShieldCheck className="w-4 h-4" />
+                      <ShieldCheck className="w-5 h-5" />
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/20 mb-0.5">
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-1 truncate">
                         {isCrisisMode ? "Alerta: Ciclo de Dívida" : "Oxigênio Semanal"}
                       </span>
                       <span 
                         data-testid="survival-ceiling-value"
                         className={cn(
-                          "text-2xl font-black tabular-nums tracking-tight leading-none",
+                          "text-3xl font-black tabular-nums tracking-tight leading-none block",
                           isCrisisMode ? "text-red-400" : "text-emerald-400"
                         )}
                       >
@@ -220,8 +214,8 @@ export function UnifiedSurvivalHeader({
                     </div>
                   </div>
 
-                  <div className="flex-1 flex flex-col gap-2 max-w-xs">
-                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                  <div className="space-y-3 relative z-10">
+                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden p-[2px]">
                       <motion.div 
                         initial={{ width: 0 }}
                         animate={{ width: `${Math.min(100, Math.max(5, (weeklySurvival.weeklySpentCents / (weeklyLimit || 1)) * 100))}%` }}
@@ -231,7 +225,7 @@ export function UnifiedSurvivalHeader({
                         )} 
                       />
                     </div>
-                    <div className="flex justify-between items-center text-[8px] font-black text-white/20 uppercase tracking-widest">
+                    <div className="flex justify-between items-center text-[10px] font-black text-white/20 uppercase tracking-widest">
                       <span>Uso da Semana</span>
                       <span className={cn(isCrisisMode ? "text-red-400" : "text-white/60")}>
                         {Math.round((weeklySurvival.weeklySpentCents / (weeklyLimit || 1)) * 100)}%
@@ -240,7 +234,7 @@ export function UnifiedSurvivalHeader({
                   </div>
                </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>
