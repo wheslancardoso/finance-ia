@@ -20,6 +20,7 @@ import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 import { UnifiedSurvivalHeader } from "./dashboard/UnifiedSurvivalHeader";
 import { WeeklySurvivalCard } from "./dashboard/WeeklySurvivalCard";
 import { MonthlyConsolidatedExcel } from "./dashboard/MonthlyConsolidatedExcel";
+import { BillCommitmentCard } from "./dashboard/BillCommitmentCard";
 
 interface RealtimeDashboardProps {
   initialBalance: number;
@@ -102,8 +103,8 @@ export default function RealtimeDashboard({
       frequency: (r.frequency || 'monthly') as any,
     }));
 
-    return getProjectedDetails(currentBalance, targetDate, formattedRecurring, formattedBudgets, displayAccounts, futureTransactions);
-  }, [currentBalance, displayRecurring, targetDate, displayBudgets, displayAccounts]);
+    return getProjectedDetails(currentBalance, targetDate, formattedRecurring, formattedBudgets, displayAccounts, futureTransactions, activeSimulations);
+  }, [currentBalance, displayRecurring, targetDate, displayBudgets, displayAccounts, activeSimulations]);
 
   const monthOffset = useMemo(() => {
     const today = startOfMonth(new Date());
@@ -111,14 +112,13 @@ export default function RealtimeDashboard({
     const months = (target.getFullYear() - today.getFullYear()) * 12 + (target.getMonth() - today.getMonth());
     return Math.max(0, months);
   }, [targetDate]);
-
   const { 
     monthlyOutlook, 
     netLiquidityCents, 
     debtExit, 
     weeklySurvival, 
     isCrisisMode 
-  } = useFinancialAnalysis(monthOffset);
+  } = useFinancialAnalysis(monthOffset, activeSimulations);
 
   const isFuture = monthOffset > 0;
 
@@ -150,67 +150,33 @@ export default function RealtimeDashboard({
   , [consolidatedItems]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pb-20">
       {/* Coluna Esquerda: Header + Navigator */}
       <div className="lg:col-span-8 space-y-8">
         
         {/* NOVO CABEÇALHO UNIFICADO */}
         <UnifiedSurvivalHeader 
-        monthOffset={monthOffset} 
-        targetDate={targetDate}
-        activeSimulations={activeSimulations}
-      />
-
-        {/* Practical Insights Bar (Somente se necessário, parte já está no header) */}
-        {!isCrisisMode && (
-          <div className="flex flex-wrap gap-4">
-            <div className="flex items-center gap-3 bg-white/5 px-4 py-3 rounded-2xl border border-white/10 group relative cursor-help">
-              <ArrowDownRight className="w-4 h-4 text-red-400/60" />
-              <div>
-                <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Compromissos do Mês</p>
-                <p className="text-sm font-bold text-white/80">{formatCurrency(monthlyOutlook.plannedExpenses)}</p>
-              </div>
-              
-              <div className="absolute bottom-full left-0 mb-4 w-64 p-4 bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-50">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] text-white/40 uppercase font-bold">Faturas Imediatas</span>
-                    <span className="text-xs font-bold text-red-400">{formatCurrency(monthlyOutlook.immediateCardDebt)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] text-white/40 uppercase font-bold">Agendados</span>
-                    <span className="text-xs font-bold text-violet-400">{formatCurrency(monthlyOutlook.scheduledOnly)}</span>
-                  </div>
-                  <div className="pt-2 border-t border-white/5 flex justify-between items-center">
-                    <span className="text-[10px] text-white/60 uppercase font-black">Total</span>
-                    <span className="text-sm font-black text-white">{formatCurrency(monthlyOutlook.plannedExpenses)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Account Sync Bar - Integrado aqui para economizar espaço */}
-            <div className="flex flex-wrap gap-2">
-              {displayAccounts.filter(a => a.type !== "CREDIT_CARD").map((acc, idx) => (
-                <button 
-                  key={acc.id ? acc.id : `acc-sync-${idx}`}
-                  onClick={() => handleQuickSync(acc)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/2 border border-white/5 hover:bg-white/10 transition-all group"
-                >
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: acc.color_hex }} />
-                  <span className="text-[9px] font-black text-white/40 uppercase tracking-tighter tabular-nums">{formatCurrency(acc.balance_cents)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Month Navigator */}
-        <MonthNavigator 
-          selectedDate={targetDate}
-          onDateChange={setTargetDate}
-          lastFutureTransactionDate={lastFutureTransactionDate}
+          monthOffset={monthOffset} 
+          targetDate={targetDate}
+          activeSimulations={activeSimulations}
         />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+           <BillCommitmentCard 
+              immediateCardDebt={monthlyOutlook.immediateCardDebt}
+              upcomingCardDebt={monthlyOutlook.upcomingCardDebt}
+              scheduledExpenses={monthlyOutlook.scheduledOnly}
+              budgetReserves={monthlyOutlook.budgetReserves}
+              totalPlanned={monthlyOutlook.plannedExpenses}
+              isCrisis={isCrisisMode}
+           />
+           
+           <MonthNavigator 
+            selectedDate={targetDate}
+            onDateChange={setTargetDate}
+            lastFutureTransactionDate={lastFutureTransactionDate}
+          />
+        </div>
       </div>
 
       {/* Coluna Direita: Insights + Recentes */}

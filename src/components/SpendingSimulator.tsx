@@ -166,18 +166,6 @@ export default function SpendingSimulator({ onSimulate }: SpendingSimulatorProps
               </div>
             </div>
 
-            {result.debt_exit_delay_months > 0 && (
-              <div className="bg-black/20 rounded-xl p-3 flex items-center gap-3">
-                <Calendar className="w-4 h-4 text-amber-400/60" />
-                <div>
-                  <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Nova Saída das Dívidas</p>
-                  <p className="text-xs font-bold text-amber-400">
-                    {result.new_exit_date ? format(result.new_exit_date, "MMMM 'de' yyyy", { locale: ptBR }) : 'Indefinida'}
-                  </p>
-                </div>
-              </div>
-            )}
-
             {installments > 1 && (
               <div className="space-y-2">
                 <p className="text-[9px] font-black text-white/20 uppercase tracking-widest">Cronograma de Parcelas</p>
@@ -203,17 +191,30 @@ export default function SpendingSimulator({ onSimulate }: SpendingSimulatorProps
 
             <button 
               onClick={handleSaveAsGoal}
-              className="w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center justify-center gap-2 transition-all group"
+              className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex items-center justify-center gap-2 transition-all group"
               data-testid="simulator-save-button"
             >
               <PlusCircle className="w-4 h-4 text-white/40 group-hover:text-violet-400" />
               <span className="text-[10px] font-black text-white/60 uppercase tracking-widest group-hover:text-white">Planejar esta Compra</span>
             </button>
+            
+            <div className="pt-2">
+              <button
+                onClick={() => {
+                  setAmount("");
+                  setInstallments(1);
+                }}
+                className="w-full py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all flex items-center justify-center gap-2 shadow-xl active:scale-[0.98]"
+              >
+                <XCircle className="w-4 h-4" />
+                Limpar Simulação
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="py-6 text-center px-4 bg-white/2 rounded-2xl border border-dashed border-white/5">
-            <p className="text-xs text-white/20 font-medium italic">
-              &quot;Quanto custa seu desejo? Simule o impacto antes de comprometer seu futuro.&quot;
+          <div className="py-8 text-center px-6 bg-white/[0.02] rounded-[24px] border border-dashed border-white/10">
+            <p className="text-xs text-white/30 font-medium italic leading-relaxed">
+              &quot;O segredo da riqueza não é o quanto você ganha, mas o quanto você simula antes de gastar.&quot;
             </p>
           </div>
         )}

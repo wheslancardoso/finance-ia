@@ -227,6 +227,7 @@ export function calculateMonthlyOutlook(params: {
   budgets: Budget[];
   netLiquidityCents: number;
   monthOffset?: number; // 0 = atual, 1 = próximo...
+  activeSimulations?: Simulation[];
 }): MonthlyOutlook {
   const { 
     accounts, 
@@ -236,7 +237,8 @@ export function calculateMonthlyOutlook(params: {
     recurringExpensesCents,
     budgets, 
     netLiquidityCents,
-    monthOffset = 0 
+    monthOffset = 0,
+    activeSimulations = []
   } = params;
   
   const liquidity = calculateAccumulatedBalance(accounts);
@@ -250,12 +252,22 @@ export function calculateMonthlyOutlook(params: {
     return sum + Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0));
   }, 0);
 
+  // Impacto de Simulações no mês atual/projetado
+  const simulationImpact = activeSimulations.reduce((sum, s) => {
+    // Se a simulação tiver parcelas, calculamos o impacto mensal
+    // No contexto do Outlook (um mês específico), pegamos a parcela
+    if (monthOffset <= s.installments) {
+      return sum + (s.amount_cents / (s.installments || 1));
+    }
+    return sum;
+  }, 0);
+
   // Sobra mensal estimada
-  const monthlySurplus = Math.max(0, monthlyIncome - monthlyExpenses - budgetReserves);
+  const monthlySurplus = Math.max(0, monthlyIncome - monthlyExpenses - budgetReserves - simulationImpact);
   
   // Projeção Simplificada: Liquidez Atual + (Sobra * meses)
   // Mas para o saldo de final de mês, consideramos apenas o ciclo atual.
-  const balanceAtMonthEnd = liquidity + monthlyIncome - (monthlyExpenses + currentMonthDebt) - budgetReserves;
+  const balanceAtMonthEnd = liquidity + monthlyIncome - (monthlyExpenses + currentMonthDebt + budgetReserves + simulationImpact);
 
   const immediateCardDebt = accounts
     .filter((a) => a.type === "CREDIT_CARD")
@@ -270,7 +282,7 @@ export function calculateMonthlyOutlook(params: {
 
   return {
     balanceAtMonthEnd: Number(balanceAtMonthEnd) || 0,
-    plannedExpenses: Number(monthlyExpenses + currentMonthDebt + budgetReserves) || 0,
+    plannedExpenses: Number(monthlyExpenses + currentMonthDebt + budgetReserves + simulationImpact) || 0,
     immediateCardDebt: Number(immediateCardDebt) || 0,
     upcomingCardDebt: Number(upcomingCardDebt) || 0,
     scheduledOnly: Number(monthlyExpenses) || 0,

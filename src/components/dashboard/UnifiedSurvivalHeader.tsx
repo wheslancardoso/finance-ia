@@ -32,171 +32,172 @@ export function UnifiedSurvivalHeader({
 
   const isFuture = monthOffset > 0;
   const isRecoveryMode = netLiquidityCents < -100;
+  const hasSimulations = activeSimulations.length > 0;
 
   // Lógica do Teto de Sobrevivência (Unificada do HUD)
   const survivalCeilingCents = Math.max(0, monthlyOutlook.balanceAtMonthEnd);
   const weeklyLimit = survivalCeilingCents / 4;
 
   return (
-    <div className="relative bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-8 md:p-12 overflow-hidden group">
-      {/* Background dynamic glow */}
+    <div className="relative bg-[#0d0d0d] border border-white/5 rounded-[48px] p-8 md:p-14 overflow-hidden group shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)]">
+      {/* Premium Background Effects */}
       <div className={cn(
-        "absolute -top-24 -left-24 w-96 h-96 blur-[120px] rounded-full transition-colors duration-1000",
-        isCrisisMode ? "bg-red-600/20" : isRecoveryMode ? "bg-amber-600/15" : "bg-emerald-600/10"
+        "absolute -top-32 -left-32 w-[600px] h-[600px] blur-[160px] rounded-full transition-all duration-1000 opacity-20",
+        isCrisisMode ? "bg-red-600" : isRecoveryMode ? "bg-amber-600" : "bg-violet-600"
       )} />
+      
+      <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/[0.02] blur-[100px] rounded-full -mr-32 -mt-32" />
 
-      <div className="relative z-10 flex flex-col gap-10">
+      <div className="relative z-10 flex flex-col gap-12">
         {/* Top Row: Context & Action */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <div className={cn(
-              "w-10 h-10 rounded-2xl flex items-center justify-center border transition-all duration-500",
-              isCrisisMode ? "bg-red-500/20 border-red-500/20 text-red-400" : "bg-white/10 border-white/10 text-white/40"
+              "w-12 h-12 rounded-[20px] flex items-center justify-center border transition-all duration-700 shadow-2xl",
+              isCrisisMode ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-white/5 border-white/10 text-white/60"
             )}>
-              {isCrisisMode ? <Zap className="w-5 h-5" /> : <Wallet className="w-5 h-5" />}
+              {isCrisisMode ? <Zap className="w-6 h-6 animate-pulse" /> : <Wallet className="w-6 h-6" />}
             </div>
             <div>
-              <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">
-                {isFuture ? `Projeção ${format(targetDate, "MMMM", { locale: ptBR })}` : "Status Financeiro Atual"}
-              </p>
-              {isRecoveryMode && !isFuture && (
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[9px] font-black text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse">
-                    Modo de Recuperação Ativo
-                  </span>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em]">
+                  {isFuture ? `Time Machine: ${format(targetDate, "MMMM", { locale: ptBR })}` : "Patrimônio Líquido Real"}
+                </p>
+                {hasSimulations && (
+                  <span className="flex h-1.5 w-1.5 rounded-full bg-violet-400 animate-ping" />
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-xs font-bold text-white/60">
+                  {isFuture ? "Projeção acumulada de liquidez" : "Saldo imediato descontando dívidas"}
+                </p>
+              </div>
             </div>
           </div>
 
           {!isFuture && (
             <button 
               onClick={openAdd}
-              className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-6 py-3 rounded-2xl font-bold text-sm transition-all shadow-lg shadow-violet-600/20 active:scale-95"
+              className="group relative flex items-center gap-3 bg-white text-black hover:bg-violet-50 px-8 py-4 rounded-[22px] font-black text-xs transition-all active:scale-95 shadow-2xl overflow-hidden"
             >
+              <div className="absolute inset-0 bg-gradient-to-tr from-violet-200/0 via-violet-200/0 to-violet-200/50 opacity-0 group-hover:opacity-100 transition-opacity" />
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Nova Transação</span>
+              <span className="hidden sm:inline tracking-widest uppercase">Nova Transação</span>
               <span className="sm:hidden">Novo</span>
             </button>
           )}
         </div>
 
-        {/* Main Value Row - Refatorada para Grid de 12 colunas */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-end">
-          <div className="lg:col-span-7 space-y-4">
+        {/* Main Value Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-end">
+          <div className="lg:col-span-8">
             <AnimatePresence mode="wait">
               <motion.div
-                key={monthOffset}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="space-y-1"
+                key={`${monthOffset}-${hasSimulations}`}
+                initial={{ opacity: 0, filter: "blur(10px)", y: 20 }}
+                animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
+                exit={{ opacity: 0, filter: "blur(10px)", y: -20 }}
+                transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
+                className="space-y-4"
               >
                 {isRecoveryMode && !isFuture ? (
-                  <>
+                  <div className="space-y-2">
+                    <span className="text-sm font-black text-amber-400/60 uppercase tracking-[0.4em] block">
+                      Data Alvo para Liquidez Zero
+                    </span>
                     <h1 
                       data-testid="net-liquidity-value"
-                      className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tighter text-white"
+                      className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter text-white drop-shadow-2xl"
                     >
                       {debtExit.exitDate 
-                        ? format(debtExit.exitDate, "MMMM 'de' yyyy", { locale: ptBR }) 
-                        : "Ajuste Necessário"}
+                        ? format(debtExit.exitDate, "MMM'/'yy", { locale: ptBR }) 
+                        : "---"}
                     </h1>
-                    <p className="text-sm font-bold text-white/40 uppercase tracking-widest">
-                      {debtExit.exitDate ? "Alvo para Quitação Total (Mês Zero)" : "Sobra insuficiente para projetar saída"}
-                    </p>
-                  </>
+                  </div>
                 ) : (
-                  <>
-                    <div className="flex flex-col gap-2">
-                      {activeSimulations.length > 0 && (
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="px-3 py-1 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-400 text-[10px] font-black uppercase tracking-widest animate-pulse">
-                            Impacto Simulado Ativo
-                          </span>
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                      {hasSimulations && (
+                        <motion.div 
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-violet-600/20 border border-violet-500/30 text-violet-400 text-[9px] font-black uppercase tracking-widest"
+                        >
+                          <Zap className="w-3 h-3 fill-current" />
+                          Impacto Simulado Ativo
+                        </motion.div>
+                      )}
+                      {isFuture && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white/40 text-[9px] font-black uppercase tracking-widest">
+                          Simulação de Fluxo de Caixa
                         </div>
                       )}
-                      <h1 
-                        data-testid="net-liquidity-value"
-                        className={cn(
-                          "text-4xl md:text-7xl lg:text-8xl font-black tracking-tighter tabular-nums transition-all duration-700 leading-none",
-                          activeSimulations.length > 0 ? "text-violet-400 drop-shadow-[0_0_30px_rgba(139,92,246,0.4)]" : 
-                          isFuture ? "text-violet-400/80" : "text-white"
-                        )}
-                      >
-                        {formatCurrency(netLiquidityCents)}
-                      </h1>
                     </div>
-                    <p className="text-sm font-bold text-white/40 uppercase tracking-widest mt-2">
-                      {isFuture ? "Liquidez Projetada no Fim do Mês" : "Saldo Projetado (Final do Mês)"}
-                    </p>
-                  </>
+                    <h1 
+                      data-testid="net-liquidity-value"
+                      className={cn(
+                        "text-6xl md:text-8xl lg:text-[100px] font-black tracking-tighter tabular-nums transition-all duration-700 leading-[0.9] drop-shadow-2xl",
+                        hasSimulations ? "text-violet-400" : isFuture ? "text-white/90" : "text-white"
+                      )}
+                    >
+                      {formatCurrency(netLiquidityCents)}
+                    </h1>
+                  </div>
                 )}
               </motion.div>
             </AnimatePresence>
           </div>
 
-          {/* Secondary Stats Row - Mais espaço garantido */}
-          <div className="lg:col-span-5 w-full">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex flex-col justify-between gap-3 min-w-0 h-full">
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/30 block mb-1">
-                    {isRecoveryMode ? "Teto Semanal (Oxigênio)" : "Sobra p/ Investir (Semana)"}
-                  </span>
+          {/* Survival/Oxygen Card - Refactored for Premium look */}
+          <div className="lg:col-span-4 w-full">
+            <div className="bg-white/[0.03] border border-white/5 rounded-[32px] p-7 md:p-8 space-y-6 relative overflow-hidden shadow-inner">
+               <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-[40px] rounded-full" />
+               
+               <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/20">
+                      Teto Semanal (Oxigênio)
+                    </span>
+                    <ShieldCheck className={cn("w-4 h-4", isCrisisMode ? "text-red-400" : "text-emerald-400")} />
+                  </div>
                   <span 
                     data-testid="survival-ceiling-value"
                     className={cn(
-                      "text-2xl font-black tabular-nums block",
-                      isCrisisMode ? "text-red-400" : isRecoveryMode ? "text-amber-400" : "text-emerald-400"
+                      "text-3xl font-black tabular-nums block tracking-tight",
+                      isCrisisMode ? "text-red-400" : "text-emerald-400"
                     )}
                   >
                     {formatCurrency(weeklyLimit)}
                   </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-1 flex-1 bg-white/5 rounded-full overflow-hidden">
-                    <div 
+               </div>
+
+               <div className="space-y-3">
+                  <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, Math.max(5, (weeklySurvival.weeklySpentCents / (weeklyLimit || 1)) * 100))}%` }}
                       className={cn(
-                        "h-full rounded-full transition-all duration-1000",
-                        isCrisisMode ? "bg-red-500" : "bg-emerald-500"
+                        "h-full rounded-full",
+                        isCrisisMode ? "bg-red-500" : "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]"
                       )} 
-                      style={{ width: `${Math.min(100, Math.max(5, (weeklySurvival.weeklySpentCents / (weeklyLimit || 1)) * 100))}%` }} 
                     />
                   </div>
-                  <span className="text-[9px] font-bold text-white/20 uppercase tabular-nums">
-                    {Math.round((weeklySurvival.weeklySpentCents / (weeklyLimit || 1)) * 100)}%
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex flex-col justify-between gap-3 min-w-0 h-full">
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/30 block mb-1">
-                    Patrimônio Líquido Real
-                  </span>
-                  <span 
-                    data-testid="real-liquidity-value"
-                    className={cn(
-                      "text-2xl font-black tabular-nums block",
-                      netLiquidityCents >= 0 ? "text-white" : "text-red-400"
-                    )}
-                  >
-                    {formatCurrency(netLiquidityCents)}
-                  </span>
-                </div>
-                <p className="text-[9px] font-bold text-white/20 uppercase tracking-tighter leading-tight">
-                  {netLiquidityCents < 0 ? "Saldo - Dívida Consolidada" : "Saldo Total Disponível"}
-                </p>
-              </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] font-bold text-white/30 uppercase tracking-tighter">
+                      Consumo da Semana
+                    </span>
+                    <span className="text-[9px] font-black text-white/60 uppercase tabular-nums">
+                      {Math.round((weeklySurvival.weeklySpentCents / (weeklyLimit || 1)) * 100)}%
+                    </span>
+                  </div>
+               </div>
             </div>
           </div>
         </div>
-
         {/* Bottom Alert/Insight Bar */}
         {isRecoveryMode && (
           <div className={cn(
-            "flex items-center gap-3 px-5 py-4 rounded-2xl border transition-all",
+            "flex items-center gap-3 px-5 py-4 rounded-2xl border transition-all mt-8",
             isCrisisMode ? "bg-red-500/10 border-red-500/20" : "bg-amber-500/5 border-amber-500/10"
           )}>
             {isCrisisMode ? <Zap className="w-4 h-4 text-red-400" /> : <AlertTriangle className="w-4 h-4 text-amber-400" />}
@@ -213,3 +214,4 @@ export function UnifiedSurvivalHeader({
     </div>
   );
 }
+

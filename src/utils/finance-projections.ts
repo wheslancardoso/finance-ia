@@ -52,7 +52,8 @@ export function getProjectedDetails(
   recurringItems: RecurringItem[] = [],
   budgets: Budget[] = [],
   accounts: any[] = [],
-  futureTransactions: any[] = []
+  futureTransactions: any[] = [],
+  activeSimulations: any[] = []
 ): ProjectedDetails {
   let projected = currentBalance;
   const today = new Date();
@@ -198,6 +199,35 @@ export function getProjectedDetails(
       const nextDate = advanceDate(occurrenceDate, item.frequency);
       if (!nextDate || item.frequency === "once") break;
       occurrenceDate = nextDate;
+    }
+  });
+
+  // 5. Simulações Ativas
+  activeSimulations.forEach((sim, simIdx) => {
+    const installments = sim.installments || 1;
+    const monthlyAmount = Math.round(sim.amount_cents / installments);
+    
+    for (let i = 0; i < installments; i++) {
+      const simDate = addMonths(today, i);
+      
+      // Se a simulação for ANTES ou NO mês alvo, ela afeta o saldo projetado
+      if (isBefore(simDate, targetMonthEnd) || isSameMonth(simDate, targetMonthEnd)) {
+        projected -= monthlyAmount;
+      }
+
+      // Se a simulação cair no mês alvo, ela aparece na timeline
+      if (isSameMonth(simDate, targetDate)) {
+        transactions.push({
+          id: `sim-${simIdx}-${i}`,
+          description: `Simulado: ${sim.description || 'Compra'} (${i + 1}/${installments})`,
+          amount_cents: monthlyAmount,
+          transaction_type: "EXPENSE",
+          date: simDate,
+          category: "Simulação",
+          isRecurring: false,
+          accountName: "Simulador"
+        });
+      }
     }
   });
 

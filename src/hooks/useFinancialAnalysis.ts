@@ -67,7 +67,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       recurringExpensesCents,
       budgets,
       netLiquidityCents: netLiquidity,
-      monthOffset
+      monthOffset,
+      activeSimulations
     });
 
     // Projeção Avançada: Usa o novo motor de acumulação dinâmica

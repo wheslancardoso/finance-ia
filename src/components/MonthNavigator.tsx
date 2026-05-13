@@ -71,6 +71,7 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
              <button 
               onClick={handlePrev}
               disabled={isAtToday}
+              aria-label="Mês Anterior"
               className={cn(
                 "p-2 rounded-xl transition-all",
                 isAtToday ? "text-white/10 cursor-not-allowed" : "text-white/60 hover:text-white hover:bg-white/10"
@@ -102,6 +103,7 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
 
             <button 
               onClick={handleNext}
+              aria-label="Próximo Mês"
               className="p-2 rounded-xl text-white/60 hover:text-white hover:bg-white/10 transition-all"
             >
               <ChevronRight className="w-5 h-5" />
