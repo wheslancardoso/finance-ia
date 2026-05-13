@@ -9,9 +9,10 @@ interface GlassCardProps {
   className?: string;
   onClick?: () => void;
   "data-testid"?: string;
+  actions?: ReactNode;
 }
 
-export default function GlassCard({ children, className, onClick, "data-testid": dataTestId }: GlassCardProps) {
+export default function GlassCard({ children, className, onClick, "data-testid": dataTestId, actions }: GlassCardProps) {
   return (
     <motion.div
       onClick={onClick}
@@ -34,6 +35,7 @@ export default function GlassCard({ children, className, onClick, "data-testid":
       <div className="relative z-10 h-full flex flex-col">
         {children}
       </div>
+      {actions}
     </motion.div>
   );
 }
