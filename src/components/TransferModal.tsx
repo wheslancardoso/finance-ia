@@ -83,7 +83,6 @@ export function TransferModal() {
       await createTransfer(fromAccountId, toAccountId, amountCents);
       closeTransfer();
     } catch (error) {
-      console.error("Erro na transferência:", error);
       setStatusModal({
         isOpen: true,
         title: "Erro na Transferência",

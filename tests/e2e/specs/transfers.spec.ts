@@ -34,8 +34,8 @@ test.describe('Transferências entre Contas (Refatorado)', () => {
     await expect(page.getByTestId('account-card-acc-checking')).toContainText('8.000,00');
     await expect(page.getByTestId('account-card-acc-savings')).toContainText('7.000,00');
     
-    // Verificar HUD de Liquidez (deve permanecer inalterado ou refletir o total consolidado)
-    await expect(page.getByTestId('hud-net-liquidity')).toContainText('15.000,00');
+    // Verificar Saldo Consolidado (Líquido)
+    await expect(page.getByTestId('net-liquidity-value')).toContainText('15.000,00');
   });
 
   test('deve impedir transferência para a mesma conta', async ({ page }) => {

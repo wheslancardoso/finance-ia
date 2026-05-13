@@ -7,8 +7,6 @@ import { financialService } from "@/services/financialService";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { useRouter } from "next/navigation";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { StatusModal } from "./StatusModal";
 
 interface PayInvoiceModalProps {
@@ -42,44 +40,55 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
   const invoiceAmount = creditCardAccount?.closed_invoice_cents || 0;
   const invoiceMonth = creditCardAccount?.closed_invoice_month || "---";
 
-  React.useEffect(() => {
-    if (isOpen && creditCardAccount) {
-      setPaymentAmount((invoiceAmount / 100).toFixed(2).replace(".", ","));
-      setSelectedAccountId(debitAccounts[0]?.id || "");
-      setSuccess(false);
-    }
-  }, [isOpen, creditCardAccount]);
+  const prevOpenRef = React.useRef(isOpen);
 
-  // Pagar agora: marca como pago + debita da conta
+  React.useEffect(() => {
+    // Resetar estado ao abrir
+    if (isOpen && !prevOpenRef.current) {
+      setSuccess(false);
+      setPaymentAmount(""); // Começa vazio e espera o sync abaixo
+    }
+    
+    // Sincronizar valor se tivermos fatura e o campo estiver vazio
+    if (isOpen && !paymentAmount && invoiceAmount > 0) {
+      setPaymentAmount((invoiceAmount / 100).toFixed(2).replace(".", ","));
+    }
+
+    // Auto-selecionar conta se nada estiver selecionado e tivermos contas disponíveis
+    if (isOpen && !selectedAccountId && debitAccounts.length > 0) {
+      setSelectedAccountId(debitAccounts[0].id);
+    }
+    
+    prevOpenRef.current = isOpen;
+  }, [isOpen, creditCardAccount, invoiceAmount, debitAccounts, selectedAccountId, paymentAmount]);
+
   async function handlePayInvoice() {
     if (!selectedAccountId || !paymentAmount || !creditCardAccount) return;
     setLoading(true);
 
     const paymentCents = Math.round(parseFloat(paymentAmount.replace(",", ".")) * 100);
 
-    const { error } = await financialService.payInvoice({
-      creditCardAccountId: creditCardAccount.id,
-      paymentAccountId: selectedAccountId,
-      amountCents: paymentCents,
-      alreadyPaid: false
-    });
-
-    if (error) {
-      console.error("Erro ao pagar fatura:", error);
-      setLoading(false);
-      setStatusModal({
-        isOpen: true,
-        status: "error",
-        title: "Erro no Pagamento",
-        message: error.message || "Não foi possível registrar o pagamento da fatura."
+      const { error } = await financialService.payInvoice({
+        creditCardAccountId: creditCardAccount.id,
+        paymentAccountId: selectedAccountId,
+        amountCents: paymentCents,
+        alreadyPaid: false
       });
-    } else {
-      setLoading(false);
-      await finishSuccess();
-    }
+  
+      if (error) {
+        setLoading(false);
+        setStatusModal({
+          isOpen: true,
+          status: "error",
+          title: "Erro no Pagamento",
+          message: error.message || "Não foi possível registrar o pagamento da fatura."
+        });
+      } else {
+        setLoading(false);
+        await finishSuccess();
+      }
   }
 
-  // Já paguei: só marca como pago, sem debitar
   async function handleAlreadyPaid() {
     setLoading(true);
     const paymentCents = Math.round(parseFloat(paymentAmount.replace(",", ".")) * 100);
@@ -106,9 +115,12 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
 
   async function finishSuccess() {
     setSuccess(true);
-    setTimeout(() => { onClose(); setSuccess(false); }, 1500);
+    setTimeout(() => { 
+      onClose(); 
+      setSuccess(false); 
+    }, 4000); // 4s para garantir estabilidade E2E
     await refreshData();
-    router.refresh();
+    // router.refresh(); // Removido para evitar turbulência de estado
   }
 
   const selectedAccount = debitAccounts.find(a => a.id === selectedAccountId);
@@ -125,21 +137,32 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
             className="absolute inset-0 bg-black/80 backdrop-blur-md"
           />
 
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              data-testid="pay-invoice-modal"
-              className="relative w-full max-w-sm bg-[#0A0A0A] border border-white/10 rounded-[32px] p-8 shadow-2xl overflow-hidden"
-            >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+            data-testid="pay-invoice-modal"
+            className="relative w-full max-w-sm bg-[#0A0A0A] border border-white/10 rounded-[32px] p-8 shadow-2xl overflow-hidden"
+          >
+            {/* Mensagem de Sucesso no Topo */}
+            {success && (
+              <div 
+                data-testid="payment-success-message"
+                className="mb-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center gap-3 text-emerald-400 font-bold"
+              >
+                <Check className="w-5 h-5" />
+                Pagamento Processado
+              </div>
+            )}
+
             {/* Header */}
             <div className="flex justify-between items-center mb-8">
               <div className="space-y-1">
-                <h2 className="text-lg font-bold text-white tracking-tight">Pagar Fatura</h2>
+                <h2 className="text-lg font-bold text-white tracking-tight text-[11px] uppercase tracking-[0.3em] opacity-40">Pagar Fatura</h2>
                 <div className="flex items-center gap-2">
                   <CreditCard className="w-3 h-3 text-white/20" />
-                  <p className="text-white/30 text-[10px] font-bold uppercase tracking-widest">
-                    {creditCardAccount?.name} — {invoiceMonth}
+                  <p className="text-white text-sm font-bold">
+                    {creditCardAccount?.name}
                   </p>
                 </div>
               </div>
@@ -152,25 +175,27 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
               {/* Valor */}
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-1">Valor do Pagamento</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 font-bold">R$</span>
+                <div className="relative group">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 font-bold transition-colors group-focus-within:text-violet-400">R$</span>
                   <input
                     value={paymentAmount}
                     onChange={(e) => setPaymentAmount(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-10 pr-4 text-white text-xl font-bold outline-none focus:border-violet-500/50 tabular-nums"
+                    data-testid="pay-invoice-amount-input"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-10 pr-4 text-white text-xl font-bold outline-none focus:border-violet-500/50 transition-all tabular-nums"
                   />
                 </div>
-                <p className="text-[9px] text-white/20 font-bold px-1">
-                  Fatura fechada: {formatCurrency(invoiceAmount)}
-                </p>
               </div>
 
               {/* Conta de Débito */}
               <div className="space-y-2 relative">
                 <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-1">Debitar de</label>
                 <div
-                  onClick={() => setOpenDropdown(!openDropdown)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-sm text-white font-bold flex justify-between items-center cursor-pointer hover:border-white/20 transition-all"
+                  onClick={() => !success && setOpenDropdown(!openDropdown)}
+                  className={cn(
+                    "w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-sm text-white font-bold flex justify-between items-center cursor-pointer hover:border-white/20 transition-all",
+                    success && "opacity-50 cursor-not-allowed"
+                  )}
+                  data-testid="pay-invoice-account-select"
                 >
                   <span className="flex items-center gap-2">
                     {selectedAccount ? (
@@ -178,10 +203,12 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
                         <Wallet className="w-4 h-4 text-white/30" />
                         {selectedAccount.name}
                         <span className="text-white/20 text-xs tabular-nums">
-                          ({formatCurrency(selectedAccount.balance_cents)})
+                          ({formatCurrency(selectedAccount.balance_cents || 0)})
                         </span>
                       </>
-                    ) : "Selecione"}
+                    ) : (
+                      <span className="opacity-50 italic">Selecione uma conta</span>
+                    )}
                   </span>
                   <ChevronDown className={cn("w-4 h-4 transition-transform", openDropdown && "rotate-180")} />
                 </div>
@@ -198,6 +225,7 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
                         <div
                           key={acc.id || `acc-${idx}`}
                           onClick={() => { setSelectedAccountId(acc.id); setOpenDropdown(false); }}
+                          data-testid={`pay-invoice-account-option-${acc.id}`}
                           className={cn(
                             "px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-medium text-white/80 hover:text-white transition-colors border-b border-white/5 last:border-0 flex items-center justify-between",
                             acc.id === selectedAccountId && "bg-violet-500/10 text-violet-300"
@@ -216,26 +244,24 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
               </div>
 
               {/* Botões */}
-              <div className="space-y-3">
-                  <button
-                    onClick={handlePayInvoice}
-                    disabled={loading || !selectedAccountId || !paymentAmount || success}
-                    className={cn(
-                      "w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-2",
-                      success
-                        ? "bg-emerald-500/20 border border-emerald-500/30 text-emerald-400"
-                        : "bg-white text-black hover:bg-white/90 active:scale-[0.98] shadow-xl disabled:opacity-40"
-                    )}
-                    data-testid="confirm-payment-button"
-                  >
+              <div className="space-y-3 pt-4">
+                <button
+                  onClick={handlePayInvoice}
+                  disabled={loading || !selectedAccountId || !paymentAmount || success}
+                  className={cn(
+                    "w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-2",
+                    success
+                      ? "bg-emerald-500/20 border border-emerald-500/30 text-emerald-400"
+                      : "bg-white text-black hover:bg-white/90 active:scale-[0.98] shadow-xl disabled:opacity-40"
+                  )}
+                  data-testid="confirm-payment-button"
+                >
                   {loading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : success ? (
-                    <div data-testid="payment-success-message" className="flex items-center gap-2">
-                      <Check className="w-4 h-4" /> Pago com Sucesso
-                    </div>
+                    <>Processado</>
                   ) : (
-                    "Pagar Agora"
+                    "Confirmar Pagamento"
                   )}
                 </button>
 

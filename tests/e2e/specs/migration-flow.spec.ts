@@ -6,7 +6,6 @@ test.describe('Migration Flow (ADR-004)', () => {
   const USER_ID = 'migration-user';
 
   test.beforeEach(async ({ page }) => {
-    page.on('console', msg => console.log(`BROWSER [${msg.type()}]: ${msg.text()}`));
     await setupAuthMock(page, { id: USER_ID });
     
     await setupFinancialMocks(page, {
@@ -27,30 +26,29 @@ test.describe('Migration Flow (ADR-004)', () => {
     // Abrir modal de transação (clicar no botão do header)
     await page.getByTestId('add-transaction-button').click();
     
-    await page.getByPlaceholder('O que você comprou?').fill('Notebook Antigo');
-    await page.getByPlaceholder('0,00').fill('1200,00');
+    await page.getByTestId('transaction-description-input').fill('Notebook Antigo');
+    await page.getByTestId('transaction-amount-input').fill('1200,00');
     
     // Selecionar cartão
-    await page.getByText('Selecionar Conta').click();
-    await page.getByText('Nubank').click();
+    await page.getByTestId('transaction-account-select').click();
+    await page.getByTestId('account-option-acc-1').click();
     
-    // Ativar parcelas
-    await page.getByText('Parcelar').click();
+    // Ativar parcelas (automático ao selecionar cartão)
     
     // Total de parcelas
-    await page.locator('input[type="number"]').first().fill('12');
+    await page.getByTestId('transaction-installments-input').fill('12');
     
     // Definir que estamos na parcela 4
     await page.getByTestId('starting-installment-input').fill('4');
     
     // Salvar
-    await page.getByRole('button', { name: 'Confirmar Lançamento' }).click();
+    await page.getByTestId('transaction-submit-button').click();
     
     // Esperar modal fechar para garantir processamento
-    await expect(page.getByText('Novo Lançamento')).not.toBeVisible();
+    await expect(page.getByTestId('add-transaction-modal')).not.toBeVisible();
     
     // Ir para aba de Linha do Tempo para ver as transações
-    await page.getByRole('button', { name: 'Linha do Tempo' }).click();
+    await page.getByRole('button', { name: 'Timeline' }).click();
 
     // Verificar se as transações foram criadas (de 4 a 12 = 9 parcelas)
     // No mock, a UI deve mostrar 4/12
@@ -58,8 +56,8 @@ test.describe('Migration Flow (ADR-004)', () => {
   });
 
   test('deve permitir ajustar saldo da fatura e marcar como pago sem débito', async ({ page }) => {
-    // Ir para aba de contas
-    await page.getByTestId('nav-contas').click();
+    // Ir para aba de contas via URL (mais robusto entre mobile/desktop)
+    await page.goto('/accounts');
     
     // Esperar o card carregar
     await expect(page.getByText('Nubank')).toBeVisible();
@@ -68,8 +66,8 @@ test.describe('Migration Flow (ADR-004)', () => {
     await page.getByTestId('adjust-invoice-button').click();
     
     // Ajustar para 250,00
-    await page.getByPlaceholder('0,00').fill('250,00');
-    await page.getByRole('button', { name: 'Salvar' }).click();
+    await page.getByTestId('invoice-adjustment-input').fill('250,00');
+    await page.getByTestId('invoice-adjustment-save-button').click();
     
     // Verificar se o valor apareceu
     await expect(page.getByTestId('invoice-amount')).toContainText('250,00', { timeout: 15000 });

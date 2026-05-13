@@ -2,11 +2,6 @@ import { Page } from '@playwright/test';
 import { isSameMonth } from 'date-fns';
 
 export async function setupFinancialMocks(page: Page, state: any) {
-  // Monitor de rede global para depuração de rotas
-  page.on('request', request => {
-    const url = request.url();
-  });
-
   // Injeta o estado diretamente no window e desabilita animações
   await page.addInitScript((mockState) => {
     (window as any).__E2E_MOCK_STATE__ = mockState;
@@ -51,7 +46,7 @@ export async function setupFinancialMocks(page: Page, state: any) {
   };
 
   // 1. Mock de Estado Financeiro
-  await page.route('**/api/financial-state*', async (route) => {
+  await page.route(url => url.toString().includes('financial-state'), async (route) => {
     const recurringIncome = (state.recurring_transactions || [])
       .filter((rt: any) => rt.transaction_type === 'INCOME' && rt.status === 'active')
       .reduce((sum: number, rt: any) => sum + rt.amount_cents, 0) || 0;
@@ -67,23 +62,26 @@ export async function setupFinancialMocks(page: Page, state: any) {
       recent_transactions: (state.transactions || []).slice(0, 50),
       month_transactions: state.transactions || [],
       future_transactions: [],
-      scheduledIncomeCents: recurringIncome,
-      scheduledExpensesCents: recurringExpenses,
       recurringIncomeCents: recurringIncome,
       recurringExpensesCents: recurringExpenses
     };
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response) });
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(response)
+    });
   });
 
   // 2. Mock de Contas
-  await page.route('**/api/accounts', async (route) => {
+  await page.route(url => matches(url.toString(), 'accounts'), async (route) => {
     const method = route.request().method();
     if (['POST', 'PUT'].includes(method)) {
       const payload = route.request().postDataJSON();
       const newItem = upsertItem(state.accounts, payload);
       await route.fulfill({ status: 200, body: JSON.stringify(newItem) });
     } else if (method === 'DELETE') {
-      const id = new URL(route.request().url()).searchParams.get('id');
+      const url = new URL(route.request().url());
+      const id = url.searchParams.get('id');
       if (id) deleteItem(state.accounts, id);
       await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
     } else {
@@ -94,35 +92,50 @@ export async function setupFinancialMocks(page: Page, state: any) {
   // 3. Mock de Pagamento de Fatura
   await page.route('**/api/accounts/pay-invoice', async (route) => {
     if (route.request().method() === 'POST') {
-      const { creditCardAccountId, amountCents } = route.request().postDataJSON();
-      const acc = state.accounts.find((a: any) => a.id === creditCardAccountId);
-      if (acc) {
-        acc.closed_invoice_cents = Math.max(0, (acc.closed_invoice_cents || 0) - amountCents);
-        acc.balance_cents = (acc.balance_cents || 0) + amountCents;
+      const payload = route.request().postDataJSON();
+      console.log('💳 [MOCK] Pay Invoice:', payload);
+      const { creditCardAccountId, paymentAccountId, amountCents } = payload;
+      
+      if (paymentAccountId) {
+        const paymentAcc = state.accounts.find((a: any) => a.id === paymentAccountId);
+        if (paymentAcc) paymentAcc.balance_cents = (paymentAcc.balance_cents || 0) - amountCents;
+      }
+
+      const creditAcc = state.accounts.find((a: any) => a.id === creditCardAccountId);
+      if (creditAcc) {
+        creditAcc.closed_invoice_cents = Math.max(0, (creditAcc.closed_invoice_cents || 0) - amountCents);
+        creditAcc.balance_cents = (creditAcc.balance_cents || 0) + amountCents;
       }
       await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
     }
   });
 
   // 4. Mock de Transações
-  await page.route('**/api/transactions*', async (route) => {
+  await page.route(url => matches(url.toString(), 'transactions'), async (route) => {
     const method = route.request().method();
     if (method === 'GET') {
       await route.fulfill({ status: 200, body: JSON.stringify(state.transactions || []) });
     } else if (['POST', 'PUT'].includes(method)) {
       const payload = route.request().postDataJSON();
+      console.log(`💸 [MOCK] Transaction ${method}:`, payload.description);
       const amount = Number(payload.amount_cents || 0);
       
-      const acc = state.accounts.find((a: any) => a.id === payload.account_id);
-      if (acc && method === 'POST') {
-        const isCredit = acc.type === 'CREDIT_CARD';
-        if (payload.transaction_type === 'INCOME') {
-          acc.balance_cents = (acc.balance_cents || 0) + amount;
-        } else if (payload.transaction_type !== 'TRANSFER') {
-          acc.balance_cents = (acc.balance_cents || 0) - amount;
-          if (isCredit) {
-            if (payload.is_adjustment) acc.closed_invoice_cents = (acc.closed_invoice_cents || 0) + amount;
-            else acc.open_invoice_cents = (acc.open_invoice_cents || 0) + amount;
+      if (method === 'POST') {
+        if (payload.transaction_type === 'TRANSFER') {
+          // O balance já foi atualizado pelo serviço chamando /api/accounts
+          // Não subtrair/somar de novo aqui para evitar double counting no mock
+        } else {
+          const acc = state.accounts.find((a: any) => a.id === payload.account_id);
+          if (acc) {
+            if (payload.transaction_type === 'INCOME') {
+              acc.balance_cents = (acc.balance_cents || 0) + amount;
+            } else {
+              acc.balance_cents = (acc.balance_cents || 0) - amount;
+              if (acc.type === 'CREDIT_CARD') {
+                if (payload.is_adjustment) acc.closed_invoice_cents = (acc.closed_invoice_cents || 0) + amount;
+                else acc.open_invoice_cents = (acc.open_invoice_cents || 0) + amount;
+              }
+            }
           }
         }
       }
@@ -130,20 +143,22 @@ export async function setupFinancialMocks(page: Page, state: any) {
       const newItem = upsertItem(state.transactions, payload);
       await route.fulfill({ status: 200, body: JSON.stringify(newItem) });
     } else if (method === 'DELETE') {
-      const id = new URL(route.request().url()).searchParams.get('id');
+      const url = new URL(route.request().url());
+      const id = url.searchParams.get('id');
       if (id) deleteItem(state.transactions, id);
       await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
     }
   });
 
   // 5. Mock de Metas
-  await page.route('**/api/goals*', async (route) => {
+  await page.route(url => matches(url.toString(), 'goals'), async (route) => {
     const method = route.request().method();
     if (['POST', 'PUT'].includes(method)) {
       const newItem = upsertItem(state.goals, route.request().postDataJSON());
       await route.fulfill({ status: 200, body: JSON.stringify(newItem) });
     } else if (method === 'DELETE') {
-      const id = new URL(route.request().url()).searchParams.get('id');
+      const url = new URL(route.request().url());
+      const id = url.searchParams.get('id');
       if (id) deleteItem(state.goals, id);
       await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
     } else {
@@ -151,14 +166,15 @@ export async function setupFinancialMocks(page: Page, state: any) {
     }
   });
 
-  // 5. Mock de Assinaturas (Recurring Transactions)
-  await page.route('**/api/recurring-transactions*', async (route) => {
+  // 6. Mock de Assinaturas (Recurring Transactions)
+  await page.route(url => matches(url.toString(), 'recurring-transactions'), async (route) => {
     const method = route.request().method();
     if (['POST', 'PUT'].includes(method)) {
       const newItem = upsertItem(state.recurring_transactions, route.request().postDataJSON());
       await route.fulfill({ status: 200, body: JSON.stringify(newItem) });
     } else if (method === 'DELETE') {
-      const id = new URL(route.request().url()).searchParams.get('id');
+      const url = new URL(route.request().url());
+      const id = url.searchParams.get('id');
       if (id) deleteItem(state.recurring_transactions, id);
       await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
     } else {
@@ -166,8 +182,8 @@ export async function setupFinancialMocks(page: Page, state: any) {
     }
   });
 
-  // 6. Mock de Perfil
-  await page.route('**/api/user-profile*', async (route) => {
+  // 7. Mock de Perfil
+  await page.route(url => matches(url.toString(), 'user-profile'), async (route) => {
     const method = route.request().method();
     if (['POST', 'PUT'].includes(method)) {
       state.user_profile = { ...state.user_profile, ...route.request().postDataJSON() };
@@ -177,11 +193,15 @@ export async function setupFinancialMocks(page: Page, state: any) {
     }
   });
 
-  // 7. Mock de Profiles (Supabase REST)
+  // 8. Mock de Profiles (Supabase REST)
   await page.route(url => matches(url.toString(), 'profiles'), async (route) => {
+    const urlObj = new URL(route.request().url());
+    const idParam = urlObj.searchParams.get('id');
+    const userId = idParam?.replace('eq.', '') || 'e2e-user';
+    console.log(`👤 [MOCK] Profiles Requested for ${userId}`);
     await route.fulfill({ 
       status: 200, 
-      body: JSON.stringify([{ full_name: 'Test User', id: 'e2e-user' }]) 
+      body: JSON.stringify([{ full_name: 'Test User', id: userId }]) 
     });
   });
 }

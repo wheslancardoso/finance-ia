@@ -15,6 +15,9 @@ import { StatusModal, type StatusType } from "./StatusModal";
 
 export function AddTransactionModal() {
   const { isOpen, transactionToEdit, closeModal, openAdd } = useTransactionModal();
+  if (isOpen) {
+    // console.log('🟢 [UI] AddTransactionModal is OPEN');
+  }
   const { userId } = useAccountModal();
   const router = useRouter();
   const pathname = usePathname();
@@ -30,6 +33,7 @@ export function AddTransactionModal() {
     createInstallmentSeries,
     updateGoalBalance
   } = useFinancialData();
+  
 
   const [loading, setLoading] = useState(false);
   const [statusModal, setStatusModal] = useState<{
@@ -455,21 +459,23 @@ export function AddTransactionModal() {
                   </AnimatePresence>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="relative group">
-                    <label className="absolute -top-2.5 left-5 bg-[#0A0A0A] px-2 text-[9px] font-black text-white/20 uppercase tracking-widest group-focus-within:text-violet-400 transition-colors z-10">
-                      {type === "EXPENSE" ? "O que você comprou?" : "Descrição do Recebimento"}
-                    </label>
-                    <div className="relative">
-                      <PencilLine className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/10" />
-                      <input
-                        placeholder={type === "EXPENSE" ? "Ex: Almoço, Netflix, Aluguel" : "Ex: Salário, Freela, Venda..."}
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        className="w-full bg-white/[0.02] border border-white/10 rounded-[22px] py-5 px-14 text-white text-lg font-medium outline-none focus:border-white/20 focus:bg-white/[0.05] transition-all placeholder:text-white/5"
-                        required
-                        data-testid="transaction-description-input"
-                      />
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <div className="relative group">
+                      <label className="absolute -top-2.5 left-5 bg-[#0A0A0A] px-2 text-[9px] font-black text-white/20 uppercase tracking-widest group-focus-within:text-violet-400 transition-colors z-10">
+                        {type === "EXPENSE" ? "O que você comprou?" : "Descrição do Recebimento"}
+                      </label>
+                      <div className="relative">
+                        <PencilLine className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/10" />
+                        <input
+                          placeholder={type === "EXPENSE" ? "Ex: Almoço, Netflix, Aluguel" : "Ex: Salário, Freela, Venda..."}
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          className="w-full bg-white/[0.02] border border-white/10 rounded-[22px] py-5 px-14 text-white text-lg font-medium outline-none focus:border-white/20 focus:bg-white/[0.05] transition-all placeholder:text-white/5"
+                          required
+                          data-testid="transaction-description-input"
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -526,7 +532,6 @@ export function AddTransactionModal() {
                                   setOpenAccount(false);
                                 }}
                                 data-testid={`account-option-${acc.id}`}
-                                data-testname={acc.name}
                                 className={cn(
                                   "px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-medium text-white/80 hover:text-white transition-colors border-b border-white/5 last:border-0 flex items-center gap-3",
                                   acc.id === accountId && "bg-violet-500/10 text-violet-300"
@@ -568,7 +573,6 @@ export function AddTransactionModal() {
                           ) : (
                             <div className="flex items-center gap-2">
                               <span className="text-white">{categories.find(c => c.id === categoryId)?.name || "Selecione a categoria"}</span>
-                              {contextLoading && <Loader2 className="w-2 h-2 animate-spin text-white/20" />}
                             </div>
                           )}
                         </span>
@@ -759,8 +763,6 @@ export function AddTransactionModal() {
                     </motion.div>
                   )}
                 </div>
-
-                {/* Toggle de edição em massa removido pois agora é o padrão via primeira parcela */}
 
                 <button
                   disabled={loading || !amount || !description}

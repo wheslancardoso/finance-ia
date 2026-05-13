@@ -58,6 +58,7 @@ export class AccountsPage {
     await this.page.getByTestId(`transfer-account-to-${toId}`).click();
     
     await this.transferSubmitButton.click();
+    await expect(this.page.getByTestId('transfer-modal')).not.toBeVisible({ timeout: 10000 });
   }
 
   get payInvoiceButton() {
@@ -74,11 +75,17 @@ export class AccountsPage {
 
   async payInvoice(amount?: string) {
     await this.payInvoiceButton.click();
+    const input = this.page.getByTestId('pay-invoice-amount-input');
+    
     if (amount) {
-      // O input de valor pode já estar preenchido com o total
-      const input = this.page.locator('input[value*=","]'); // Fallback se não tiver testid
       await input.fill(amount);
+    } else {
+      // Aguardar o auto-fill do modal antes de prosseguir
+      await expect(input).not.toHaveValue('', { timeout: 7000 });
     }
+
     await this.confirmPaymentButton.click();
+    // Validar que o modal foi fechado (indica sucesso no processamento)
+    await expect(this.page.getByTestId('pay-invoice-modal')).not.toBeVisible({ timeout: 10000 });
   }
 }

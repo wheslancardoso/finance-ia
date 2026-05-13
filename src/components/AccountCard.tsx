@@ -246,6 +246,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
                       value={adjustmentValue}
                       onChange={(e) => setAdjustmentValue(e.target.value)}
                       placeholder="0,00"
+                      data-testid="invoice-adjustment-input"
                       autoFocus
                       className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-lg font-bold text-white w-full focus:outline-none focus:border-violet-500/50"
                     />
@@ -281,6 +282,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
                           setIsMigrationLoading(false);
                         }
                       }}
+                      data-testid="invoice-adjustment-save-button"
                       className="px-4 py-2 rounded-lg bg-violet-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-violet-600 transition-all disabled:opacity-50"
                     >
                       {isMigrationLoading ? "..." : "Salvar"}
