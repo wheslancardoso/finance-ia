@@ -77,6 +77,7 @@ export default function TransactionItem({
 
         {/* Premium Circle Check */}
         <Pressable 
+          testID="toggle-paid-button"
           onPress={onTogglePaid}
           className={`w-10 h-10 rounded-full items-center justify-center border-2 transition-all ${isPaid ? 'bg-emerald-500 border-emerald-500 shadow-lg shadow-emerald-500/40' : 'bg-white/5 border-white/10'}`}
         >
