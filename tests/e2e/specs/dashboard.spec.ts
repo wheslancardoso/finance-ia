@@ -45,7 +45,8 @@ test.describe('Dashboard e Projeções (Refatorado)', () => {
     await expect(async () => {
       // Deve mostrar mensagem de erro no header unificado (net-liquidity-value mostra "Ajuste Necessário" ou data)
       await expect(page.getByTestId('net-liquidity-value')).toContainText(/Ajuste Necessário/i);
-      await expect(page.getByText(/Modo de Recuperação Ativo/i)).toBeVisible();
+      await expect(page.getByText(/Alerta de Crise/i)).toBeVisible();
+      await expect(page.getByText(/Crítico/i).first()).toBeVisible();
     }).toPass({ timeout: 15000 });
   });
 

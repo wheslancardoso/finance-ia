@@ -25,7 +25,7 @@ async function getAuthUser() {
 /**
  * GET /api/recurring-transactions
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   const user = await getAuthUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
@@ -39,8 +39,9 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
     return NextResponse.json(data);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Erro desconhecido";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -62,7 +63,8 @@ export async function POST(request: NextRequest) {
       next_date,
       status = "active",
       category_id,
-      account_id
+      account_id,
+      is_primary_income
     } = body;
 
     if (!description || !amount_cents) {
@@ -85,6 +87,7 @@ export async function POST(request: NextRequest) {
       status,
       category_id,
       account_id,
+      is_primary_income,
       updated_at: new Date().toISOString()
     };
 
@@ -94,9 +97,11 @@ export async function POST(request: NextRequest) {
       .select();
 
     if (error) throw error;
+
     return NextResponse.json(data ? data[0] : null);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Erro desconhecido";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -120,7 +125,8 @@ export async function DELETE(request: NextRequest) {
 
     if (error) throw error;
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Erro desconhecido";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

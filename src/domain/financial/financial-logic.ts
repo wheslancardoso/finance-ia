@@ -175,9 +175,10 @@ export interface WeeklySurvival {
  */
 export function calculateWeeklySurvival(params: {
   monthlySurplusCents: number;
-  currentMonthTransactions: any[];
+  currentMonthTransactions: unknown[];
 }): WeeklySurvival {
-  const { monthlySurplusCents, currentMonthTransactions } = params;
+  const { monthlySurplusCents, currentMonthTransactions: rawTransactions } = params;
+  const currentMonthTransactions = rawTransactions as any[];
   
   // Limite semanal é a sobra mensal dividida por 4 (janelas de 7 dias)
   const weeklyLimitCents = Math.max(0, Math.round(monthlySurplusCents / 4));
@@ -285,7 +286,7 @@ export function calculateMonthlyOutlook(params: {
   
   // Saldo projetado do final do mês (Aqui usamos os valores reais de saída para o saldo ser preciso)
   const realOutflow = (monthOffset === 0 ? (scheduledExpensesCents + currentMonthDebt) : (recurringExpensesCents + installmentDebt)) + (monthOffset === 0 ? (budgets.reduce((sum, b) => sum + Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0)), 0)) : (budgets.reduce((sum, b) => sum + (b.amount_cents || 0), 0))) + simulationImpact;
-  const balanceAtMonthEnd = liquidity + (monthOffset === 0 ? scheduledIncomeCents : recurringIncomeCents) - realOutflow;
+  const balanceAtMonthEnd = liquidity + monthlyIncome - realOutflow;
 
   // Para o card de compromissos: Mostrar o planejado consolidado
   const immediateCardDebt = monthOffset === 0 
@@ -326,6 +327,8 @@ export function calculateAdvancedProjection(params: {
   budgets: Budget[];
   monthOffset: number;
   activeSimulations?: Simulation[];
+  scheduledIncomeCents?: number;
+  scheduledExpensesCents?: number;
 }): number {
   const {
     currentNetLiquidity,
@@ -334,7 +337,9 @@ export function calculateAdvancedProjection(params: {
     goals,
     budgets,
     monthOffset,
-    activeSimulations = []
+    activeSimulations = [],
+    scheduledIncomeCents = 0,
+    scheduledExpensesCents = 0
   } = params;
 
   let projectedBalance = currentNetLiquidity;
@@ -347,13 +352,16 @@ export function calculateAdvancedProjection(params: {
     const targetEnd = endOfMonth(targetDate);
 
     // 1. Receitas e Despesas Recorrentes
-    const monthlyIncome = recurringTransactions
-      .filter(r => r.transaction_type === "INCOME" && r.status === "active")
-      .reduce((sum, r) => sum + (r.amount_cents || 0), 0);
+    const baseIncome = recurringTransactions
+          .filter(r => r.transaction_type === "INCOME" && r.status === "active")
+          .reduce((sum, r) => sum + (r.amount_cents || 0), 0);
 
-    const monthlyExpenses = recurringTransactions
+    const baseExpenses = recurringTransactions
       .filter(r => r.transaction_type === "EXPENSE" && r.status === "active")
       .reduce((sum, r) => sum + (r.amount_cents || 0), 0);
+
+    const monthlyIncome = i === 0 ? Math.max(scheduledIncomeCents, baseIncome) : baseIncome;
+    const monthlyExpenses = i === 0 ? Math.max(scheduledExpensesCents, baseExpenses) : baseExpenses;
 
     // 2. Parcelamentos do Cartão (Transactions futuras)
     // Apenas transações que caem no mês específico da iteração

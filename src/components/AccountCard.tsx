@@ -48,6 +48,8 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
   const [migrationValue, setMigrationValue] = useState("");
   const [isMigrationLoading, setIsMigrationLoading] = useState(false);
   const [showMigrationInput, setShowMigrationInput] = useState(false);
+  const [showAdjustmentInput, setShowAdjustmentInput] = useState(false);
+  const [adjustmentValue, setAdjustmentValue] = useState("");
 
   // Detectar status da fatura
   const openAmount = liveAccount.open_invoice_cents || 0;
@@ -202,14 +204,75 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
                     {formatCurrency(invoiceAmount)}
                   </h2>
                   
-                  {isCreditCard && invoiceAmount === 0 && (
+                  {isCreditCard && (
                     <button 
-                      onClick={() => setShowMigrationInput(true)}
+                      onClick={() => {
+                        setAdjustmentValue((invoiceAmount / 100).toString());
+                        setShowAdjustmentInput(true);
+                      }}
                       className="text-[9px] font-bold text-violet-400/60 uppercase tracking-widest hover:text-violet-400 transition-colors border-b border-violet-400/20"
                     >
-                      Informar Saldo
+                      {invoiceAmount === 0 ? "Informar Saldo" : "Reajustar"}
                     </button>
                   )}
+                </div>
+              )}
+
+              {showAdjustmentInput && (
+                <div className="flex flex-col gap-2 mt-2 p-3 bg-white/5 rounded-2xl border border-white/10 animate-in fade-in slide-in-from-top-2">
+                  <p className="text-[8px] font-black text-white/40 uppercase tracking-widest">Valor Real da Fatura</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={adjustmentValue}
+                      onChange={(e) => setAdjustmentValue(e.target.value)}
+                      placeholder="0,00"
+                      autoFocus
+                      className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-lg font-bold text-white w-full focus:outline-none focus:border-violet-500/50"
+                    />
+                    <button
+                      disabled={isMigrationLoading}
+                      onClick={async () => {
+                        const targetCents = Math.round(parseFloat(adjustmentValue.replace(",", ".")) * 100);
+                        if (isNaN(targetCents)) return;
+                        
+                        setIsMigrationLoading(true);
+                        const diffCents = targetCents - invoiceAmount;
+                        
+                        if (diffCents !== 0) {
+                          const invoiceMonthRaw = closedAmount > 0 
+                            ? liveAccount.closed_invoice_month 
+                            : liveAccount.open_invoice_month;
+                            
+                          const invoiceId = closedAmount > 0 
+                            ? liveAccount.closed_invoice_id 
+                            : liveAccount.open_invoice_id;
+
+                          await financialService.adjustInvoiceBalance({
+                            user_id: liveAccount.user_id,
+                            account_id: id,
+                            invoice_id: invoiceId, // Usamos o ID real da fatura visível
+                            amount_cents: diffCents,
+                            description: "Ajuste de Saldo (Manual)",
+                            date: new Date().toISOString()
+                          });
+                        }
+                        
+                        setIsMigrationLoading(false);
+                        setShowAdjustmentInput(false);
+                        window.dispatchEvent(new CustomEvent('financial-data-updated'));
+                      }}
+                      className="px-4 py-2 rounded-lg bg-violet-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-violet-600 transition-all"
+                    >
+                      Salvar
+                    </button>
+                    <button 
+                      onClick={() => setShowAdjustmentInput(false)}
+                      className="p-2 text-white/20 hover:text-white/40 transition-colors"
+                    >
+                      X
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

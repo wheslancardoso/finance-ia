@@ -655,6 +655,26 @@ export const financialService = {
     });
   },
 
+  async adjustInvoiceBalance(data: {
+    user_id: string;
+    account_id: string;
+    invoice_id: string;
+    amount_cents: number;
+    description: string;
+    date: string;
+  }) {
+    console.log("🛠️ Criando transação de ajuste de fatura:", data.description);
+    return this.upsertTransaction({
+      ...data,
+      transaction_type: data.amount_cents >= 0 ? "EXPENSE" : "INCOME",
+      amount_cents: Math.abs(data.amount_cents),
+      category_id: null,
+      is_adjustment: true,
+      is_paid: false,
+      source: "ADJUSTMENT"
+    });
+  },
+
   async payInvoice(params: {
     creditCardAccountId: string;
     paymentAccountId?: string;

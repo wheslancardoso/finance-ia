@@ -32,6 +32,7 @@ test.describe('Teto de Sobrevivência Semanal', () => {
     
     const ceiling = page.getByTestId('survival-ceiling-value');
     await expect(ceiling).toBeVisible();
+    // No modo saudável/sobrevivência, mostra o limite semanal
     await expect(ceiling).toContainText(/1\.212,50/);
   });
 
@@ -48,5 +49,9 @@ test.describe('Teto de Sobrevivência Semanal', () => {
     await page.goto('/');
     
     await expect(page.getByText(/ciclo de dívida/i)).toBeVisible();
+    // No modo crise, mostra o rombo total (Math.abs(balanceAtMonthEnd))
+    // Saldo -1k + Renda 2k - Despesa 3k = -2k de rombo
+    const ceiling = page.getByTestId('survival-ceiling-value');
+    await expect(ceiling).toContainText(/2\.000,00/);
   });
 });

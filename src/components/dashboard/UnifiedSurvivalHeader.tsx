@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Wallet, Plus, ShieldCheck, Zap, AlertTriangle } from "lucide-react";
+import { Wallet, Plus, ShieldCheck, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, formatCurrency } from "@/lib/utils";
 import { format, startOfMonth } from "date-fns";
@@ -28,6 +28,8 @@ export function UnifiedSurvivalHeader({
   const { openAdd } = useTransactionModal();
   const {
     netLiquidityCents,
+    accumulatedBalanceCents,
+    totalConsolidatedDebtCents,
     monthlyOutlook,
     isCrisisMode,
     debtExit,
@@ -68,8 +70,16 @@ export function UnifiedSurvivalHeader({
                   Time Machine: {format(targetDate, "MMMM", { locale: ptBR })}
                 </p>
               </div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <p className="text-[10px] font-bold text-white/60 truncate uppercase tracking-widest">Fluxo de Caixa Projetado</p>
+              <div className="flex items-center gap-3 mt-1">
+                <div className="flex flex-col">
+                  <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest">Saldo em Contas</p>
+                  <p className="text-xs font-black text-emerald-400/80 tabular-nums">{formatCurrency(accumulatedBalanceCents)}</p>
+                </div>
+                <div className="w-px h-6 bg-white/5" />
+                <div className="flex flex-col">
+                  <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest">Fluxo Projetado</p>
+                  <p className="text-xs font-black text-white/40 uppercase tracking-tighter">Estável</p>
+                </div>
               </div>
             </div>
           </div>
@@ -111,6 +121,11 @@ export function UnifiedSurvivalHeader({
                   isCrisisMode ? "text-red-400/60" : isRecoveryMode ? "text-amber-400/60" : "text-white/30"
                 )}>
                   {isCrisisMode ? "Alerta de Crise" : isRecoveryMode ? "Liquidez Zero em" : "Patrimônio Líquido"}
+                  {hasSimulations && (
+                    <span className="ml-2 text-[8px] font-black bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full vertical-middle uppercase tracking-widest">
+                      Impacto Simulado Ativo
+                    </span>
+                  )}
                 </span>
                 <h1 
                   data-testid="net-liquidity-value"
@@ -127,19 +142,26 @@ export function UnifiedSurvivalHeader({
                   }
                 </h1>
                 
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  {isRecoveryMode && (
-                    <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-amber-600/20 border border-amber-500/30 text-amber-400 text-[9px] font-black uppercase tracking-widest">
-                      <AlertTriangle className="w-2.5 h-2.5" />
-                      Modo de Recuperação Ativo
+                <div className="flex flex-wrap items-center gap-4 mt-4">
+                  <div className="flex flex-col">
+                    <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Saldo Atual</span>
+                    <span className="text-sm font-black text-emerald-400 tabular-nums">{formatCurrency(accumulatedBalanceCents)}</span>
+                  </div>
+                  <div className="w-px h-8 bg-white/5" />
+                  <div className="flex flex-col">
+                    <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Dívida Total</span>
+                    <span className="text-sm font-black text-red-400/80 tabular-nums">{formatCurrency(totalConsolidatedDebtCents)}</span>
+                  </div>
+                  <div className="w-px h-8 bg-white/5" />
+                  <div className="flex flex-col">
+                    <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Status do Mês</span>
+                    <div className={cn(
+                      "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border mt-1",
+                      isCrisisMode ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                    )}>
+                      {isCrisisMode ? "Crítico" : "Equilibrado"}
                     </div>
-                  )}
-                  {hasSimulations && (
-                    <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-violet-600/20 border border-violet-500/30 text-violet-400 text-[9px] font-black uppercase tracking-widest">
-                      <Zap className="w-2.5 h-2.5 fill-current" />
-                      Impacto Simulado Ativo
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -172,7 +194,10 @@ export function UnifiedSurvivalHeader({
                       isCrisisMode ? "text-red-400" : "text-emerald-400"
                     )}
                   >
-                    {formatCurrency(weeklyLimit)}
+                    {isCrisisMode 
+                      ? formatCurrency(Math.abs(netLiquidityCents)) 
+                      : formatCurrency(weeklyLimit)
+                    }
                   </span>
                 </div>
               </div>

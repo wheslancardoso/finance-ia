@@ -80,7 +80,9 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       goals,
       budgets,
       monthOffset,
-      activeSimulations
+      activeSimulations,
+      scheduledIncomeCents,
+      scheduledExpensesCents
     });
 
     return {

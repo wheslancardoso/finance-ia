@@ -86,6 +86,7 @@ export interface Transaction {
   source?: string;
   category?: Category;
   account?: Account;
+  is_adjustment?: boolean;
 }
 
 export class VesperDB extends Dexie {
