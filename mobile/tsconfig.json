@@ -3,6 +3,8 @@
   "compilerOptions": {
     "jsx": "react-native",
     "types": ["nativewind/types"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "strict": true
   }
 }
