@@ -12,6 +12,14 @@ export interface MonthlyOutlook {
   plannedExpenses: number;
   immediateCardDebt: number;
   upcomingCardDebt: number;
+  scheduledOnly: number;
+  budgetReserves: number;
+  isHealthy: boolean;
+  isRecovering: boolean;
+  isCritical: boolean;
+  isCrisisMode: boolean;
+  totalDebt: number;       // Dívida total remanescente no mês projetado
+  totalAssets: number;     // Saldo bruto projetado no mês projetado
   projectedNetLiquidity?: number; // Patrimônio Líquido na data projetada
 }
 
@@ -203,6 +211,8 @@ export interface MonthlyOutlook {
   isRecovering: boolean;
   isCritical: boolean;
   isCrisisMode: boolean;
+  totalDebt: number;
+  totalAssets: number;
   projectedNetLiquidity?: number;
 }
 
@@ -386,6 +396,26 @@ export function calculateMonthlyOutlook(params: {
   const isCritical = balanceAtMonthEnd < 0;
   const isCrisisMode = isCritical && netLiquidityCents < 0;
 
+  // CÁLCULO DE DÍVIDA TOTAL REMANESCENTE (Time Machine)
+  // No mês 0, é a dívida consolidada atual.
+  // Nos meses futuros, é a soma de todas as parcelas que vencem NAQUELE MÊS ou DEPOIS.
+  const projectedTotalDebt = monthOffset === 0 
+    ? calculateTotalConsolidatedDebt(accounts)
+    : futureTransactions
+        .filter(t => {
+          const tDate = new Date(t.date);
+          return t.transaction_type === "EXPENSE" && (isSameMonth(tDate, targetDate) || isAfter(tDate, targetDate));
+        })
+        .reduce((sum, t) => sum + (t.amount_cents || 0), 0);
+
+  // O Saldo Bruto Projetado (Total Assets) é o que sobra + a dívida que ainda será paga
+  // Mas para o usuário, o que importa é o Saldo Bancário projetado.
+  // Usamos a lógica: Assets = Net Liquidity + Total Debt
+  // No mês 0 usamos o valor real. No futuro usamos a projeção acumulada + dívida remanescente.
+  const projectedAssets = monthOffset === 0 
+    ? calculateAccumulatedBalance(accounts)
+    : (balanceAtMonthEnd + projectedTotalDebt);
+
   return {
     balanceAtMonthEnd: Number(balanceAtMonthEnd) || 0,
     plannedExpenses: Number(monthlyExpenses + effectiveCardDebt + budgetReserves + simulationImpact) || 0,
@@ -397,6 +427,8 @@ export function calculateMonthlyOutlook(params: {
     isRecovering: balanceAtMonthEnd >= 0 && netLiquidityCents < 0,
     isCritical,
     isCrisisMode,
+    totalDebt: projectedTotalDebt,
+    totalAssets: projectedAssets,
     projectedNetLiquidity: Number(balanceAtMonthEnd)
   };
 }

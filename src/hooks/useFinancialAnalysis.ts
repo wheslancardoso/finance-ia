@@ -154,8 +154,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
 
   return useMemo(() => ({
     netLiquidityCents: activeNetLiquidity,
-    totalConsolidatedDebtCents: consolidatedDebt,
-    accumulatedBalanceCents: currentAssets,
+    totalConsolidatedDebtCents: monthOffset === 0 ? consolidatedDebt : monthlyOutlook.totalDebt,
+    accumulatedBalanceCents: monthOffset === 0 ? currentAssets : monthlyOutlook.totalAssets,
     monthlyOutlook,
     healthScore,
     isSurvivalMode: monthlyOutlook.balanceAtMonthEnd < 0 || activeNetLiquidity < 0,
@@ -164,5 +164,5 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     weeklySurvival,
     goalProjections,
     simulateDetailedImpact: simulateDetailedImpactFn
-  }), [activeNetLiquidity, consolidatedDebt, currentAssets, monthlyOutlook, healthScore, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn]);
+  }), [activeNetLiquidity, consolidatedDebt, currentAssets, monthlyOutlook, healthScore, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn, monthOffset]);
 }
