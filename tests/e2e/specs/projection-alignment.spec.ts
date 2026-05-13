@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { setupFinancialMocks } from './mocks/financialMocks';
-import { setupAuthMock } from './mocks/authMocks';
-import { DashboardPage } from './e2e/pages/DashboardPage';
-import { createDashboardState } from './e2e/fixtures/financialState';
+import { setupFinancialMocks } from '../../mocks/financialMocks';
+import { setupAuthMock } from '../../mocks/authMocks';
+import { DashboardPage } from '../pages/DashboardPage';
+import { createDashboardState } from '../fixtures/financialState';
 
 test.describe('Projection Alignment (Time Machine)', () => {
   let mockState: any;

@@ -39,7 +39,7 @@ export function UnifiedSurvivalHeader({
   const weeklyLimit = survivalCeilingCents / 4;
 
   return (
-    <div className="relative bg-[#0d0d0d] border border-white/5 rounded-[48px] p-8 md:p-14 overflow-hidden group shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)]">
+    <div className="relative bg-[#0d0d0d] border border-white/5 rounded-[48px] p-6 md:p-10 overflow-hidden group shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)]">
       {/* Premium Background Effects */}
       <div className={cn(
         "absolute -top-32 -left-32 w-[600px] h-[600px] blur-[160px] rounded-full transition-all duration-1000 opacity-20",
@@ -136,7 +136,7 @@ export function UnifiedSurvivalHeader({
                     <h1 
                       data-testid="net-liquidity-value"
                       className={cn(
-                        "text-6xl md:text-8xl lg:text-[100px] font-black tracking-tighter tabular-nums transition-all duration-700 leading-[0.9] drop-shadow-2xl",
+                        "text-[clamp(2.5rem,8vw,6rem)] font-black tracking-tighter tabular-nums transition-all duration-700 leading-[0.85] drop-shadow-2xl py-2",
                         hasSimulations ? "text-violet-400" : isFuture ? "text-white/90" : "text-white"
                       )}
                     >

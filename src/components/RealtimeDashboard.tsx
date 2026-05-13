@@ -150,7 +150,7 @@ export default function RealtimeDashboard({
   , [consolidatedItems]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pb-20">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start pb-20">
       {/* Coluna Esquerda: Header + Navigator */}
       <div className="lg:col-span-8 space-y-8">
         
@@ -161,21 +161,25 @@ export default function RealtimeDashboard({
           activeSimulations={activeSimulations}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-           <BillCommitmentCard 
-              immediateCardDebt={monthlyOutlook.immediateCardDebt}
-              upcomingCardDebt={monthlyOutlook.upcomingCardDebt}
-              scheduledExpenses={monthlyOutlook.scheduledOnly}
-              budgetReserves={monthlyOutlook.budgetReserves}
-              totalPlanned={monthlyOutlook.plannedExpenses}
-              isCrisis={isCrisisMode}
-           />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+           <div className="h-full">
+             <BillCommitmentCard 
+                immediateCardDebt={monthlyOutlook.immediateCardDebt}
+                upcomingCardDebt={monthlyOutlook.upcomingCardDebt}
+                scheduledExpenses={monthlyOutlook.scheduledOnly}
+                budgetReserves={monthlyOutlook.budgetReserves}
+                totalPlanned={monthlyOutlook.plannedExpenses}
+                isCrisis={isCrisisMode}
+             />
+           </div>
            
-           <MonthNavigator 
-            selectedDate={targetDate}
-            onDateChange={setTargetDate}
-            lastFutureTransactionDate={lastFutureTransactionDate}
-          />
+           <div className="h-full">
+             <MonthNavigator 
+              selectedDate={targetDate}
+              onDateChange={setTargetDate}
+              lastFutureTransactionDate={lastFutureTransactionDate}
+            />
+           </div>
         </div>
       </div>
 
@@ -245,7 +249,7 @@ export default function RealtimeDashboard({
       </div>
 
       {/* Budget Grid */}
-      <div className="lg:col-span-12">
+      <div className="lg:col-span-12 mt-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {(displayBudgets || []).map((budget, i) => (
             <SpendingCapacity 
