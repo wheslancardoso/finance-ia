@@ -53,6 +53,7 @@ export interface RecurringTransaction {
   account_id?: string;
   user_id?: string;
   is_primary_income?: boolean;
+  excluded_months?: string[];
 }
 
 export interface Budget {
@@ -87,6 +88,10 @@ export interface Transaction {
   category?: Category;
   account?: Account;
   is_adjustment?: boolean;
+  source_metadata?: {
+    recurring_id?: string;
+    [key: string]: any;
+  };
 }
 
 export class VesperDB extends Dexie {
@@ -100,7 +105,7 @@ export class VesperDB extends Dexie {
 
   constructor() {
     super('VesperDB');
-    this.version(4).stores({
+    this.version(5).stores({
       accounts: 'id, user_id, type',
       categories: 'id, user_id, type',
       goals: 'id, user_id',

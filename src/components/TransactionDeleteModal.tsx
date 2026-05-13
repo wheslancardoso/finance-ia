@@ -8,8 +8,9 @@ import { cn } from "@/lib/utils";
 interface TransactionDeleteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (deleteType: "single" | "all") => void;
+  onConfirm: (deleteType: "single" | "future" | "all") => void;
   isInstallment: boolean;
+  isRecurring: boolean;
   description: string;
 }
 
@@ -18,6 +19,7 @@ export function TransactionDeleteModal({
   onClose,
   onConfirm,
   isInstallment,
+  isRecurring,
   description
 }: TransactionDeleteModalProps) {
   return (
@@ -58,7 +60,38 @@ export function TransactionDeleteModal({
             </div>
 
             <div className="flex flex-col gap-3">
-              {isInstallment ? (
+              {isRecurring ? (
+                <>
+                  <button
+                    onClick={() => {
+                      onConfirm("all");
+                      onClose();
+                    }}
+                    className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] text-white bg-red-500 hover:bg-red-600 transition-all active:scale-[0.98] shadow-xl shadow-red-500/10"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Excluir TODAS as ocorrências
+                  </button>
+                  <button
+                    onClick={() => {
+                      onConfirm("future");
+                      onClose();
+                    }}
+                    className="w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] text-white/70 hover:text-white bg-white/5 hover:bg-white/10 transition-all border border-white/5"
+                  >
+                    Excluir esta e as próximas
+                  </button>
+                  <button
+                    onClick={() => {
+                      onConfirm("single");
+                      onClose();
+                    }}
+                    className="w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] text-white/40 hover:text-white transition-all"
+                  >
+                    Excluir apenas esta
+                  </button>
+                </>
+              ) : isInstallment ? (
                 <>
                   <button
                     onClick={() => {

@@ -1,5 +1,5 @@
 import { Account, Budget, Goal, RecurringTransaction, Transaction } from "@/lib/db";
-import { addMonths, startOfMonth, endOfMonth, isSameMonth, isAfter, isBefore } from "date-fns";
+import { addMonths, startOfMonth, endOfMonth, isSameMonth, isAfter, isBefore, format } from "date-fns";
 
 export interface Simulation {
   amount_cents: number;
@@ -58,27 +58,43 @@ export function calculateScheduledExpenses(recurring: RecurringTransaction[]): n
 /**
  * Calcula o total mensal de receitas recorrentes ativas
  */
-export function calculateRecurringIncome(recurring: RecurringTransaction[]): number {
+export function calculateRecurringIncome(recurring: RecurringTransaction[], date: Date = new Date()): number {
+  const monthKey = format(date, 'yyyy-MM');
   return (recurring || [])
-    .filter((r) => r.transaction_type === "INCOME" && r.status === 'active')
+    .filter((r) => 
+      r.transaction_type === "INCOME" && 
+      r.status === 'active' && 
+      !r.excluded_months?.includes(monthKey)
+    )
     .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
 }
 
 /**
  * Calcula o total mensal de despesas recorrentes ativas
  */
-export function calculateRecurringExpenses(recurring: RecurringTransaction[]): number {
+export function calculateRecurringExpenses(recurring: RecurringTransaction[], date: Date = new Date()): number {
+  const monthKey = format(date, 'yyyy-MM');
   return (recurring || [])
-    .filter((r) => r.transaction_type === "EXPENSE" && r.status === 'active')
+    .filter((r) => 
+      r.transaction_type === "EXPENSE" && 
+      r.status === 'active' && 
+      !r.excluded_months?.includes(monthKey)
+    )
     .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
 }
 
 /**
  * Calcula o total mensal da renda primária ativa
  */
-export function calculatePrimaryIncome(recurring: RecurringTransaction[]): number {
+export function calculatePrimaryIncome(recurring: RecurringTransaction[], date: Date = new Date()): number {
+  const monthKey = format(date, 'yyyy-MM');
   return (recurring || [])
-    .filter((r) => r.transaction_type === "INCOME" && r.status === 'active' && r.is_primary_income)
+    .filter((r) => 
+      r.transaction_type === "INCOME" && 
+      r.status === 'active' && 
+      r.is_primary_income &&
+      !r.excluded_months?.includes(monthKey)
+    )
     .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
 }
 
@@ -350,14 +366,15 @@ export function calculateAdvancedProjection(params: {
     const targetDate = addMonths(now, i);
     const targetStart = startOfMonth(targetDate);
     const targetEnd = endOfMonth(targetDate);
+    const monthKey = format(targetDate, 'yyyy-MM');
 
     // 1. Receitas e Despesas Recorrentes
     const baseIncome = recurringTransactions
-          .filter(r => r.transaction_type === "INCOME" && r.status === "active")
+          .filter(r => r.transaction_type === "INCOME" && r.status === "active" && !r.excluded_months?.includes(monthKey))
           .reduce((sum, r) => sum + (r.amount_cents || 0), 0);
 
     const baseExpenses = recurringTransactions
-      .filter(r => r.transaction_type === "EXPENSE" && r.status === "active")
+      .filter(r => r.transaction_type === "EXPENSE" && r.status === "active" && !r.excluded_months?.includes(monthKey))
       .reduce((sum, r) => sum + (r.amount_cents || 0), 0);
 
     const monthlyIncome = i === 0 ? Math.max(scheduledIncomeCents, baseIncome) : baseIncome;

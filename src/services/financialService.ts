@@ -100,6 +100,18 @@ export const financialService = {
         const index = (mock.transactions || []).findIndex((t: any) => t.id === payload.id);
         if (index >= 0) mock.transactions[index] = { ...mock.transactions[index], ...payload };
         else (mock.transactions = mock.transactions || []).push(payload);
+
+        // Atualizar saldo da conta no mock se for cartão
+        if (mock.accounts) {
+          const acc = mock.accounts.find((a: any) => a.id === payload.account_id);
+          if (acc && acc.type === 'CREDIT_CARD') {
+            const isExpense = payload.transaction_type === 'EXPENSE';
+            const delta = isExpense ? payload.amount_cents : -payload.amount_cents;
+            // Simplificação para E2E: assume que tudo vai pra fatura fechada se estivermos testando migração
+            acc.closed_invoice_cents = (acc.closed_invoice_cents || 0) + delta;
+            acc.balance_cents = (acc.balance_cents || 0) - delta;
+          }
+        }
       }
 
       return { data: saved, error: null };
@@ -192,17 +204,19 @@ export const financialService = {
     account_id: string;
     category_id?: string | null;
     start_date: string;
+    starting_installment?: number;
   }) {
-    console.log(`📦 Criando série de parcelamento: ${data.description} (${data.installments}x)`);
+    const startingInstallment = data.starting_installment || 1;
+    console.log(`📦 Criando série de parcelamento: ${data.description} (${data.installments}x) iniciando na ${startingInstallment}ª`);
     try {
       const amountPerInstallment = Math.round(data.amount_total_cents / data.installments);
       const groupId = generateId();
       const transactions: Transaction[] = [];
       
       const now = new Date();
-      for (let i = 0; i < data.installments; i++) {
+      for (let i = startingInstallment - 1; i < data.installments; i++) {
         const date = new Date(data.start_date);
-        date.setMonth(date.getMonth() + i);
+        date.setMonth(date.getMonth() + (i - (startingInstallment - 1)));
         
         const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const isPastMonth = date < currentMonthStart;
@@ -235,6 +249,13 @@ export const financialService = {
       }
 
       await db.transactions.bulkPut(transactions);
+      
+      // Suporte a E2E Mock State
+      if (typeof window !== 'undefined' && (window as any).__E2E_MOCK_STATE__) {
+        const mock = (window as any).__E2E_MOCK_STATE__;
+        mock.transactions = [...(mock.transactions || []), ...transactions];
+      }
+
       console.log("✅ Todas as parcelas foram processadas.");
       return { data: true, error: null };
     } catch (error) {
@@ -692,7 +713,25 @@ export const financialService = {
       // No mock para testes, atualizamos o estado local
       if (typeof window !== 'undefined' && (window as any).__E2E_MOCK_STATE__) {
         const mock = (window as any).__E2E_MOCK_STATE__;
-        mock.user_profile = { ...mock.user_profile, ...params };
+        // Limpar faturas fechadas da conta e transações vinculadas
+        if (mock.accounts) {
+          const acc = mock.accounts.find((a: any) => a.id === params.creditCardAccountId);
+          if (acc) {
+            acc.closed_invoice_cents = 0;
+            // Se for pagamento total ou migração, o balance (dívida) diminui
+            if (params.alreadyPaid) {
+               acc.balance_cents = (acc.balance_cents || 0) + params.amountCents;
+            }
+          }
+        }
+        // Marcar transações do cartão como pagas no mock
+        if (mock.transactions) {
+          mock.transactions = mock.transactions.map((t: any) => 
+            (t.account_id === params.creditCardAccountId && !t.is_paid) 
+            ? { ...t, is_paid: true } 
+            : t
+          );
+        }
       }
 
       return { data: result, error: null };
@@ -755,6 +794,28 @@ export const financialService = {
       return { data: saved, error: null };
     } catch (error: any) {
       console.error("❌ toggleRecurringStatus error:", error);
+      return { data: null, error };
+    }
+  },
+
+  async skipRecurringOccurrence(recurringId: string, monthKey: string) {
+    console.log(`⏭️ Pulando ocorrência ${monthKey} do fluxo ${recurringId}`);
+    try {
+      const recurring = await db.recurring_transactions.get(recurringId);
+      if (!recurring) throw new Error("Fluxo não encontrado");
+
+      const excluded_months = Array.from(new Set([...(recurring.excluded_months || []), monthKey]));
+      const updated = { ...recurring, excluded_months };
+
+      const saved = await apiFetch("/api/recurring-transactions", {
+        method: "POST",
+        body: JSON.stringify(updated),
+      });
+
+      await db.recurring_transactions.put({ ...updated, ...saved });
+      return { data: saved, error: null };
+    } catch (error: any) {
+      console.error("❌ skipRecurringOccurrence falhou:", error.message);
       return { data: null, error };
     }
   }

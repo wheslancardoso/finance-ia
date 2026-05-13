@@ -20,7 +20,7 @@ interface AccountCardProps {
 }
 
 export function AccountCard({ account: initialAccount }: AccountCardProps) {
-  const { accounts, deleteAccount } = useFinancialData();
+  const { accounts, deleteAccount, refreshData } = useFinancialData();
   const liveAccount = accounts.find(a => a.id === initialAccount.id) || initialAccount;
   
   const { 
@@ -239,32 +239,32 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
                         setIsMigrationLoading(true);
                         const diffCents = targetCents - invoiceAmount;
                         
-                        if (diffCents !== 0) {
-                          const invoiceMonthRaw = closedAmount > 0 
-                            ? liveAccount.closed_invoice_month 
-                            : liveAccount.open_invoice_month;
-                            
-                          const invoiceId = closedAmount > 0 
-                            ? liveAccount.closed_invoice_id 
-                            : liveAccount.open_invoice_id;
+                        try {
+                          if (diffCents !== 0) {
+                            const invoiceId = closedAmount > 0 
+                              ? liveAccount.closed_invoice_id 
+                              : liveAccount.open_invoice_id;
 
-                          await financialService.adjustInvoiceBalance({
-                            user_id: liveAccount.user_id,
-                            account_id: id,
-                            invoice_id: invoiceId, // Usamos o ID real da fatura visível
-                            amount_cents: diffCents,
-                            description: "Ajuste de Saldo (Manual)",
-                            date: new Date().toISOString()
-                          });
+                            await financialService.adjustInvoiceBalance({
+                              user_id: liveAccount.user_id,
+                              account_id: id,
+                              invoice_id: invoiceId,
+                              amount_cents: diffCents,
+                              description: "Ajuste de Saldo (Manual)",
+                              date: new Date().toISOString()
+                            });
+                          }
+                          setShowAdjustmentInput(false);
+                          refreshData();
+                        } catch (err) {
+                          console.error("Erro ao ajustar saldo:", err);
+                        } finally {
+                          setIsMigrationLoading(false);
                         }
-                        
-                        setIsMigrationLoading(false);
-                        setShowAdjustmentInput(false);
-                        window.dispatchEvent(new CustomEvent('financial-data-updated'));
                       }}
-                      className="px-4 py-2 rounded-lg bg-violet-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-violet-600 transition-all"
+                      className="px-4 py-2 rounded-lg bg-violet-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-violet-600 transition-all disabled:opacity-50"
                     >
-                      Salvar
+                      {isMigrationLoading ? "..." : "Salvar"}
                     </button>
                     <button 
                       onClick={() => setShowAdjustmentInput(false)}
@@ -330,13 +330,37 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colorHex }} />
         )}
         {isCreditCard && hasClosedInvoice ? (
-          <button
-            onClick={() => setPayModalOpen(true)}
-            className="px-4 py-2 rounded-xl bg-white/10 border border-white/10 text-[9px] font-black text-white/70 uppercase tracking-widest hover:bg-white/20 hover:text-white transition-all"
-            data-testid="pay-invoice-button"
-          >
-            Pagar Fatura
-          </button>
+          <div className="flex gap-2">
+            <button
+              disabled={isMigrationLoading}
+              onClick={async () => {
+                if (!confirm("Isso liberará seu limite sem registrar saída de dinheiro das suas contas. Use apenas se já pagou por fora ou se é uma fatura de migração. Confirmar?")) return;
+                setIsMigrationLoading(true);
+                try {
+                  await financialService.payInvoice({
+                    creditCardAccountId: id,
+                    amountCents: closedAmount,
+                    alreadyPaid: true
+                  });
+                  refreshData();
+                } catch (err) {
+                  console.error("Erro ao marcar como pago:", err);
+                } finally {
+                  setIsMigrationLoading(false);
+                }
+              }}
+              className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black text-white/40 uppercase tracking-widest hover:bg-white/10 hover:text-amber-400/80 transition-all disabled:opacity-50"
+            >
+              {isMigrationLoading ? "..." : "Já Paguei"}
+            </button>
+            <button
+              onClick={() => setPayModalOpen(true)}
+              className="px-4 py-2 rounded-xl bg-violet-500/20 border border-violet-500/20 text-[9px] font-black text-violet-400 uppercase tracking-widest hover:bg-violet-500/30 hover:text-violet-300 transition-all"
+              data-testid="pay-invoice-button"
+            >
+              Pagar Agora
+            </button>
+          </div>
         ) : (
           <span className="text-[10px] text-white/20 font-bold uppercase tracking-tighter">
             Vesper Sync

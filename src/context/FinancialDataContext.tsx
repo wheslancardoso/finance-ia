@@ -112,6 +112,7 @@ interface FinancialDataContextType {
     account_id: string;
     category_id?: string | null;
     start_date: string;
+    starting_installment?: number;
   }) => Promise<void>;
   upsertAccount: (data: Partial<Account>) => Promise<void>;
   deleteAccount: (id: string) => Promise<void>;
@@ -122,6 +123,8 @@ interface FinancialDataContextType {
   getIncomeMix: () => IncomeMixItem[];
   getNetWorthHistory: () => NetWorthHistoryItem[];
   createTransfer: (fromId: string, toId: string, amountCents: number) => Promise<void>;
+  skipRecurringOccurrence: (recurringId: string, monthKey: string) => Promise<void>;
+  deleteRecurringTransaction: (id: string) => Promise<void>;
   primaryIncomeCents: number;
   userId: string | null;
 }
@@ -427,89 +430,94 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     await refreshData();
   };
 
-  const upsertTransaction = async (data: any) => {
+  const upsertTransaction = useCallback(async (data: Partial<Transaction>) => {
     if (!userId) return;
-    const res = await financialService.upsertTransaction({
-      ...data,
-      user_id: userId
-    });
+    setLoading(true);
+    const res = await financialService.upsertTransaction({ ...data, user_id: userId });
     await refreshData();
+    setLoading(false);
     return res;
-  };
+  }, [userId, refreshData]);
 
-  const deleteTransaction = async (id: string) => {
+  const skipRecurringOccurrence = useCallback(async (recurringId: string, monthKey: string) => {
+    setLoading(true);
+    await financialService.skipRecurringOccurrence(recurringId, monthKey);
+    await refreshData();
+    setLoading(false);
+  }, [refreshData]);
+
+  const deleteRecurringTransaction = useCallback(async (id: string) => {
+    setLoading(true);
+    await financialService.deleteRecurringTransaction(id);
+    await refreshData();
+    setLoading(false);
+  }, [refreshData]);
+
+  const deleteTransaction = useCallback(async (id: string) => {
     const { error } = await financialService.deleteTransaction(id);
     await refreshData();
-  };
+  }, [refreshData]);
 
-  const deleteTransactionSeries = async (description: string, total: number, accId: string) => {
+  const deleteTransactionSeries = useCallback(async (description: string, total: number, accId: string) => {
     const { error } = await financialService.deleteTransactionSeries(description, total, accId);
     await refreshData();
-  };
+  }, [refreshData]);
 
-  const updateTransactionSeries = async (description: string, total: number, accId: string, updates: any) => {
+  const updateTransactionSeries = useCallback(async (description: string, total: number, accId: string, updates: any) => {
     const { error } = await financialService.updateTransactionSeries(description, total, accId, updates);
     await refreshData();
-  };
+  }, [refreshData]);
 
-  const createInstallmentSeries = async (data: {
+  const createInstallmentSeries = useCallback(async (data: {
     description: string;
     amount_total_cents: number;
     installments: number;
     account_id: string;
     category_id?: string | null;
     start_date: string;
+    starting_installment?: number;
   }) => {
-    if (!userId) {
-      console.warn("⚠️ [Context:FinancialData] Tentativa de criar série de parcelas sem userId identificado.");
-      return;
-    }
-    const { error } = await financialService.createInstallmentSeries({
+    if (!userId) return;
+    await financialService.createInstallmentSeries({
       ...data,
       user_id: userId
     });
     await refreshData();
-  };
+  }, [userId, refreshData]);
 
-  const upsertAccount = async (data: Partial<Account>) => {
-    if (!userId) {
-      console.warn("⚠️ [Context:FinancialData] Tentativa de upsertAccount sem userId identificado.");
-      return;
-    }
+  const upsertAccount = useCallback(async (data: Partial<Account>) => {
+    if (!userId) return;
     await financialService.upsertAccount({
       ...data,
       user_id: userId
     });
     await refreshData();
-  };
+  }, [userId, refreshData]);
 
-  const deleteAccount = async (id: string) => {
-    const { error } = await financialService.deleteAccount(id);
+  const deleteAccount = useCallback(async (id: string) => {
+    await financialService.deleteAccount(id);
     await refreshData();
-  };
+  }, [refreshData]);
 
-  const upsertGoal = async (data: Partial<Goal> & { status?: string }) => {
-    if (!userId) {
-      console.warn("⚠️ [Context:FinancialData] Tentativa de upsertGoal sem userId identificado.");
-      return;
-    }
+  const upsertGoal = useCallback(async (data: Partial<Goal> & { status?: string }) => {
+    if (!userId) return;
     const res = await financialService.upsertGoal({
       ...data,
       user_id: userId
     });
     await refreshData();
     return res;
-  };
+  }, [userId, refreshData]);
 
-  const updateGoalBalance = async (id: string, amount: number) => {
-    const { error } = await financialService.updateGoalBalance(id, amount);
+  const updateGoalBalance = useCallback(async (id: string, amount: number) => {
+    await financialService.updateGoalBalance(id, amount);
     await refreshData();
-  };
+  }, [refreshData]);
 
-  const toggleTransactionPaid = async (transactionId: string, currentStatus: boolean) => {
-    const { error } = await financialService.toggleTransactionPaid(transactionId, currentStatus);
+  const toggleTransactionPaid = useCallback(async (transactionId: string, currentStatus: boolean) => {
+    await financialService.toggleTransactionPaid(transactionId, currentStatus);
     await refreshData();
-  };
+  }, [refreshData]);
 
   // 1. Carregar preferências do LocalStorage (Apenas uma vez no mount)
   useEffect(() => {
@@ -601,7 +609,10 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       getIncomeMix,
       getNetWorthHistory,
       createTransfer,
+      skipRecurringOccurrence,
+      deleteRecurringTransaction,
       upsertTransaction,
+      primaryIncomeCents,
       deleteTransaction,
       deleteTransactionSeries,
       updateTransactionSeries,
@@ -619,7 +630,6 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       simulatePurchaseImpact,
       getGoalRecommendations,
       toggleTransactionPaid,
-      primaryIncomeCents,
       userId
     }}>
       {children}

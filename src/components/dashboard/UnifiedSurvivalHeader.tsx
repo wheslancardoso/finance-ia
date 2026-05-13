@@ -87,6 +87,7 @@ export function UnifiedSurvivalHeader({
           {!isFuture ? (
             <button 
               onClick={openAdd}
+              data-testid="add-transaction-button"
               className="group relative flex items-center gap-2.5 bg-white text-black hover:bg-violet-50 px-5 py-2.5 rounded-[16px] font-black text-[9px] transition-all active:scale-95 shadow-2xl overflow-hidden shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />

@@ -22,7 +22,15 @@ interface TransactionItemProps {
 }
 
 export function TransactionItem({ transaction: tx }: TransactionItemProps) {
-  const { toggleTransactionPaid, deleteTransaction, deleteTransactionSeries, updateGoalBalance, goals } = useFinancialData();
+  const { 
+    toggleTransactionPaid, 
+    deleteTransaction, 
+    deleteTransactionSeries, 
+    updateGoalBalance, 
+    goals,
+    skipRecurringOccurrence,
+    deleteRecurringTransaction
+  } = useFinancialData();
   const { userId } = useAccountModal();
   const [isTimelineOpen, setIsTimelineOpen] = React.useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
@@ -38,38 +46,58 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
 
   const isIncome = tx.transaction_type === "INCOME";
   const isInstallment = (tx.installment_total || 0) > 1;
+  const isRecurring = tx.source === "RECURRING" || !!tx.source_metadata?.recurring_id;
+  const recurringId = tx.source_metadata?.recurring_id;
 
   const handleDelete = () => {
     setIsDeleteModalOpen(true);
   };
 
-  const confirmDelete = async (deleteType: "single" | "all") => {
+  const confirmDelete = async (deleteType: "single" | "future" | "all") => {
     setIsDeleteModalOpen(false);
-    const isGroup = deleteType === "all";
     
     // --- SINCRONIZAÇÃO COM METAS (Reversão de Aporte) ---
     if (tx.description?.startsWith("Aporte: ")) {
       const goalName = tx.description.replace("Aporte: ", "");
-      
       const goal = goals.find((g: any) => g.name === goalName && g.user_id === userId);
       if (goal) {
         await updateGoalBalance(goal.id, -tx.amount_cents);
-        console.log(`REVERSÃO: Meta '${goalName}' atualizada.`);
       }
     }
     
     try {
-      if (isGroup) {
-        await deleteTransactionSeries(tx.description, tx.installment_total || 0, tx.account_id);
+      if (isRecurring && recurringId) {
+        if (deleteType === "single") {
+          const monthKey = format(new Date(tx.date), "yyyy-MM");
+          await skipRecurringOccurrence(recurringId, monthKey);
+          await deleteTransaction(tx.id); // Remove a transação física gerada também
+        } else if (deleteType === "future") {
+          const supabase = createClient();
+          await supabase
+            .from("recurring_transactions")
+            .update({ status: "inactive" })
+            .eq("id", recurringId);
+          await deleteTransaction(tx.id);
+        } else if (deleteType === "all") {
+          await deleteRecurringTransaction(recurringId);
+        }
+      } else if (isInstallment) {
+        if (deleteType === "all") {
+          await deleteTransactionSeries(tx.description, tx.installment_total || 0, tx.account_id);
+        } else {
+          await deleteTransaction(tx.id);
+        }
       } else {
         await deleteTransaction(tx.id);
       }
+      
       router.refresh();
     } catch (error) {
+      console.error("Erro ao deletar:", error);
       setStatusModal({
         isOpen: true,
         title: "Erro na Transação",
-        message: "Ocorreu um erro ao tentar excluir esta transação. Por favor, tente novamente.",
+        message: "Ocorreu um erro ao tentar excluir esta transação.",
         type: "error"
       });
     }
@@ -206,6 +234,7 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
               onClose={() => setIsDeleteModalOpen(false)}
               onConfirm={confirmDelete}
               isInstallment={isInstallment}
+              isRecurring={isRecurring}
               description={tx.description}
             />,
             document.body

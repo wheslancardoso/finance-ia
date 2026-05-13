@@ -55,6 +55,7 @@ export function AddTransactionModal() {
   const [transactionTime, setTransactionTime] = useState(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
 
   const [isLegacyDebt, setIsLegacyDebt] = useState(false);
+  const [startingInstallment, setStartingInstallment] = useState(1);
 
   // Custom Select States
   const [openCategory, setOpenCategory] = useState(false);
@@ -247,7 +248,8 @@ export function AddTransactionModal() {
               installments: capturedInstallments,
               account_id: capturedAccountId,
               category_id: capturedCategoryId,
-              start_date: finalDateISO
+              start_date: finalDateISO,
+              starting_installment: startingInstallment
             });
           } else {
             // Update only metadata for the series
@@ -277,7 +279,8 @@ export function AddTransactionModal() {
             installments: capturedInstallments,
             account_id: capturedAccountId,
             category_id: capturedCategoryId,
-            start_date: finalDateISO
+            start_date: finalDateISO,
+            starting_installment: startingInstallment
           });
         } else {
           await upsertTransaction({
@@ -318,6 +321,7 @@ export function AddTransactionModal() {
     setAmount("");
     setDescription("");
     setInstallments(1);
+    setStartingInstallment(1);
     setIsLegacyDebt(false);
     setTransactionTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
   }
@@ -692,6 +696,34 @@ export function AddTransactionModal() {
                           data-testid="transaction-installments-input"
                         />
                       </div>
+                    </div>
+                  )}
+
+                  {/* Parcelas Legadas - Ponto de Início */}
+                  {showInstallments && installments > 1 && (
+                    <div className="space-y-2 pt-2 animate-in fade-in slide-in-from-top-2">
+                      <label className="text-[9px] font-black text-violet-400/60 uppercase tracking-widest px-4">Esta é a parcela nº</label>
+                      <div className="flex items-center gap-3 bg-violet-500/5 border border-violet-500/10 rounded-2xl p-4">
+                        <div className="flex-1">
+                          <input
+                            type="number"
+                            min="1"
+                            max={installments}
+                            value={startingInstallment}
+                            onChange={(e) => setStartingInstallment(parseInt(e.target.value) || 1)}
+                            data-testid="starting-installment-input"
+                            className="w-full bg-transparent text-white text-xl font-black outline-none tabular-nums"
+                          />
+                        </div>
+                        <div className="text-white/20 font-bold text-xl">/</div>
+                        <div className="flex-1 text-white/40 text-xl font-bold">{installments}</div>
+                        <div className="w-10 h-10 rounded-full bg-violet-500/10 flex items-center justify-center text-violet-400">
+                          <Sparkles className="w-5 h-5" />
+                        </div>
+                      </div>
+                      <p className="px-4 text-[9px] text-white/20 font-medium italic">
+                        O sistema registrará as parcelas de {startingInstallment} até {installments}.
+                      </p>
                     </div>
                   )}
 
