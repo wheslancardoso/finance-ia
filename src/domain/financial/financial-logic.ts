@@ -299,23 +299,27 @@ export function calculateMonthlyOutlook(params: {
   recurringExpensesCents: number;
   budgets: Budget[];
   netLiquidityCents: number;
-  monthOffset?: number; // 0 = atual, 1 = próximo...
+  monthOffset?: number;
   activeSimulations?: Simulation[];
   futureTransactions?: Transaction[];
-  allTransactions?: Transaction[]; // Adicionado
+  allTransactions?: Transaction[];
+  recurringTransactions?: RecurringTransaction[];
+  goals?: Goal[];
 }): MonthlyOutlook {
   const { 
     accounts, 
     scheduledIncomeCents, 
     scheduledExpensesCents, 
-    recurringIncomeCents,
-    recurringExpensesCents,
+    recurringIncomeCents, 
+    recurringExpensesCents, 
     budgets, 
-    netLiquidityCents,
+    netLiquidityCents, 
     monthOffset = 0,
     activeSimulations = [],
     futureTransactions = [],
-    allTransactions = [] // Adicionado
+    recurringTransactions = [],
+    goals = [],
+    allTransactions = []
   } = params;
   
   const liquidity = calculateAccumulatedBalance(accounts);
@@ -382,23 +386,26 @@ export function calculateMonthlyOutlook(params: {
                      (monthOffset === 0 ? (budgets.reduce((sum, b) => sum + Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0)), 0)) : (budgets.reduce((sum, b) => sum + (b.amount_cents || 0), 0))) + 
                      simulationImpact;
   
-  const balanceAtMonthEnd = liquidity + adjustedMonthlyIncome - realOutflow;
+  // Determinamos a liquidez final projetada (Patrimônio Líquido)
+  const finalLiquidity = monthOffset === 0
+    ? (liquidity + adjustedMonthlyIncome - realOutflow)
+    : calculateAdvancedProjection({
+        currentNetLiquidity: netLiquidityCents,
+        recurringTransactions,
+        futureTransactions,
+        goals,
+        budgets,
+        monthOffset,
+        activeSimulations,
+        scheduledIncomeCents: (monthOffset === 0 ? adjustedMonthlyIncome : 0),
+        scheduledExpensesCents: (monthOffset === 0 ? realOutflow : 0),
+        allTransactions: accounts.flatMap(a => []) // placeholder para types
+      });
 
-  // Para o card de compromissos: Mostrar o planejado consolidado
-  const immediateCardDebt = monthOffset === 0 
-    ? Math.max(currentMonthDebt, installmentDebt)
-    : installmentDebt;
-
-  const upcomingCardDebt = monthOffset === 0 
-    ? 0 // No modo consolidado, o immediateCardDebt já engloba o que é planejado
-    : 0;
-
-  const isCritical = balanceAtMonthEnd < 0;
+  const isCritical = finalLiquidity < 0;
   const isCrisisMode = isCritical && netLiquidityCents < 0;
 
   // CÁLCULO DE DÍVIDA TOTAL REMANESCENTE (Time Machine)
-  // No mês 0, é a dívida consolidada atual.
-  // Nos meses futuros, é a soma de todas as parcelas que vencem NAQUELE MÊS ou DEPOIS.
   const projectedTotalDebt = monthOffset === 0 
     ? calculateTotalConsolidatedDebt(accounts)
     : futureTransactions
@@ -408,28 +415,32 @@ export function calculateMonthlyOutlook(params: {
         })
         .reduce((sum, t) => sum + (t.amount_cents || 0), 0);
 
-  // O Saldo Bruto Projetado (Total Assets) é o que sobra + a dívida que ainda será paga
-  // Mas para o usuário, o que importa é o Saldo Bancário projetado.
-  // Usamos a lógica: Assets = Net Liquidity + Total Debt
-  // No mês 0 usamos o valor real. No futuro usamos a projeção acumulada + dívida remanescente.
+  // O Saldo Bruto Projetado (Total Assets) é Liquidez + Dívida Remanescente
   const projectedAssets = monthOffset === 0 
     ? calculateAccumulatedBalance(accounts)
-    : (balanceAtMonthEnd + projectedTotalDebt);
+    : (finalLiquidity + projectedTotalDebt);
+
+  // Para o card de compromissos: Mostrar o planejado consolidado
+  const immediateCardDebt = monthOffset === 0 
+    ? Math.max(currentMonthDebt, installmentDebt)
+    : installmentDebt;
+
+  const upcomingCardDebt = 0;
 
   return {
-    balanceAtMonthEnd: Number(balanceAtMonthEnd) || 0,
+    balanceAtMonthEnd: Number(finalLiquidity) || 0,
     plannedExpenses: Number(monthlyExpenses + effectiveCardDebt + budgetReserves + simulationImpact) || 0,
     immediateCardDebt: Number(immediateCardDebt) || 0,
     upcomingCardDebt: Number(upcomingCardDebt) || 0,
     scheduledOnly: Number(monthlyExpenses) || 0,
     budgetReserves: Number(budgetReserves) || 0,
-    isHealthy: balanceAtMonthEnd >= 0 && netLiquidityCents >= 0,
-    isRecovering: balanceAtMonthEnd >= 0 && netLiquidityCents < 0,
+    isHealthy: finalLiquidity >= 0 && netLiquidityCents >= 0,
+    isRecovering: finalLiquidity >= 0 && netLiquidityCents < 0,
     isCritical,
     isCrisisMode,
     totalDebt: projectedTotalDebt,
     totalAssets: projectedAssets,
-    projectedNetLiquidity: Number(balanceAtMonthEnd)
+    projectedNetLiquidity: Number(finalLiquidity)
   };
 }
 

@@ -88,7 +88,9 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       monthOffset,
       activeSimulations,
       futureTransactions,
-      allTransactions: monthTransactions
+      allTransactions: monthTransactions,
+      recurringTransactions,
+      goals
     });
 
     // Projeção Avançada: Usa o novo motor de acumulação dinâmica
