@@ -2,7 +2,7 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "jsx": "react-native",
-    "types": ["nativewind/types"],
+    "types": ["nativewind/types", "jest"],
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "strict": true
