@@ -220,7 +220,7 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
             openEdit(tx);
           }}
           onDelete={handleDelete}
-          className="absolute top-2 right-2 z-20"
+          className="absolute -top-1 -right-1 md:-top-2 md:-right-2 z-20"
         />
       </GlassCard>
 
