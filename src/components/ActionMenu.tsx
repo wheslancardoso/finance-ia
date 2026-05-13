@@ -56,7 +56,7 @@ export function ActionMenu({ onEdit, onDelete, className }: ActionMenuProps) {
         whileHover={{ scale: 1.05, backgroundColor: "rgba(255, 255, 255, 0.05)" }}
         whileTap={{ scale: 0.95 }}
         onClick={toggleMenu}
-        className="w-8 h-8 md:w-10 md:h-10 rounded-xl text-white/30 hover:text-white transition-all outline-none flex items-center justify-center border border-transparent hover:border-white/10"
+        className="w-8 h-8 md:w-10 md:h-10 rounded-xl text-white/50 hover:text-white transition-all outline-none flex items-center justify-center border border-transparent hover:border-white/10"
         data-testid="action-menu-button"
       >
         <MoreVertical className="w-5 h-5" />
