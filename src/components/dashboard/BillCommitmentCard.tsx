@@ -1,9 +1,8 @@
 "use client";
 
 import React from "react";
-import { CreditCard, Calendar, ShoppingCart, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { CreditCard, Calendar, ShoppingCart, ArrowRight } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
-import { motion } from "framer-motion";
 
 interface BillCommitmentCardProps {
   immediateCardDebt: number;
@@ -24,111 +23,69 @@ export function BillCommitmentCard({
 }: BillCommitmentCardProps) {
   const items = [
     { 
-      label: "Cartões (Vencendo)", 
+      label: "Cartões", 
       value: immediateCardDebt, 
       icon: CreditCard, 
       color: "text-red-400", 
-      bgColor: "bg-red-400/10",
-      description: "Faturas fechadas e vencendo agora"
+      bgColor: "bg-red-400/10"
     },
     { 
-      label: "Agendados / Fixos", 
+      label: "Agendados", 
       value: scheduledExpenses, 
       icon: Calendar, 
       color: "text-violet-400", 
-      bgColor: "bg-violet-400/10",
-      description: "Aluguel, assinaturas e boletos"
+      bgColor: "bg-violet-400/10"
     },
     { 
-      label: "Reservas de Gastos", 
+      label: "Reservas", 
       value: budgetReserves, 
       icon: ShoppingCart, 
       color: "text-emerald-400", 
-      bgColor: "bg-emerald-400/10",
-      description: "Mercado, lazer e provisões"
+      bgColor: "bg-emerald-400/10"
     }
   ];
 
   return (
-    <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] p-6 shadow-2xl relative overflow-hidden group h-full flex flex-col">
-      {/* Background Decorative Element */}
+    <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] p-5 shadow-2xl relative overflow-hidden group h-full flex flex-col">
       <div className="absolute top-0 right-0 w-32 h-32 bg-violet-600/5 blur-[60px] rounded-full -mr-16 -mt-16" />
       
       <div className="relative z-10 flex flex-col h-full">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="text-sm font-bold text-white uppercase tracking-widest">
-              Compromissos do Mês
+        <div className="flex items-center justify-between mb-4">
+          <div className="min-w-0">
+            <h3 className="text-xs font-bold text-white uppercase tracking-widest truncate">
+              Compromissos
             </h3>
-            <p className="text-[10px] text-white/30 font-bold uppercase tracking-tighter">
-              O que você precisa quitar
+            <p className="text-[9px] text-white/30 font-bold uppercase tracking-tighter">
+              Saídas previstas
             </p>
           </div>
           <div className={cn(
-            "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
+            "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border",
             isCrisis ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
           )}>
-            {isCrisis ? "Atenção Crítica" : "Sob Controle"}
+            {isCrisis ? "Crítico" : "Ok"}
           </div>
         </div>
 
-        <div className="space-y-4 flex-1">
+        <div className="space-y-1 flex-1">
           {items.map((item, idx) => (
-            <div key={idx} className="group/item cursor-help relative">
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all">
-                <div className="flex items-center gap-3">
-                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover/item:scale-110", item.bgColor, item.color)}>
-                    <item.icon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-bold text-white/80">{item.label}</p>
-                    <p className="text-[9px] font-medium text-white/20 uppercase tracking-tighter">{formatCurrency(item.value)}</p>
-                  </div>
+            <div key={idx} className="flex items-center justify-between py-2.5 border-b border-white/5 last:border-0 group/item">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className={cn("w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center transition-transform group-hover/item:scale-110", item.bgColor)}>
+                  <item.icon className={cn("w-3.5 h-3.5", item.color)} />
                 </div>
-                <ArrowRight className="w-4 h-4 text-white/10 group-hover/item:text-white/40 transition-colors" />
+                <span className="text-xs font-bold text-white/70 truncate">{item.label}</span>
               </div>
-              
-              {/* Tooltip on hover */}
-              <div className="absolute left-0 bottom-full mb-2 w-48 p-3 bg-[#0a0a0a] border border-white/10 rounded-xl shadow-2xl opacity-0 group-hover/item:opacity-100 transition-all pointer-events-none z-50">
-                <p className="text-[10px] text-white/60 font-medium leading-tight">
-                  {item.description}
-                </p>
-              </div>
+              <span className="text-xs font-black tabular-nums text-white/90 shrink-0">
+                {formatCurrency(item.value)}
+              </span>
             </div>
           ))}
         </div>
 
-        <div className="mt-8 pt-6 border-t border-white/5">
-          <div className="flex items-end justify-between mb-2">
-            <div>
-              <p className="text-[10px] font-black text-white/20 uppercase tracking-widest">Total Acumulado</p>
-              <h2 className="text-3xl font-black text-white tabular-nums tracking-tighter">
-                {formatCurrency(totalPlanned)}
-              </h2>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] font-black text-white/20 uppercase tracking-widest">Pendente</p>
-              <p className="text-xs font-bold text-white/60 tabular-nums">
-                {formatCurrency(totalPlanned)}
-              </p>
-            </div>
-          </div>
-          
-          {/* Progress Bar */}
-          <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden mt-4">
-            <motion.div 
-              initial={{ width: 0 }}
-              animate={{ width: "35%" }} // Exemplo: 35% quitado
-              className={cn(
-                "h-full rounded-full",
-                isCrisis ? "bg-red-500" : "bg-violet-600"
-              )}
-            />
-          </div>
-          <div className="flex justify-between items-center mt-2">
-            <span className="text-[9px] font-bold text-white/20 uppercase">Progresso de Quitação</span>
-            <span className="text-[9px] font-bold text-white/40 uppercase">35% do planejado</span>
-          </div>
+        <div className="pt-3 mt-1 border-t border-white/10 flex items-center justify-between">
+          <span className="text-[10px] font-black text-white/30 uppercase tracking-widest">Total</span>
+          <span className="text-xl font-black text-white tabular-nums">{formatCurrency(totalPlanned)}</span>
         </div>
       </div>
     </div>
