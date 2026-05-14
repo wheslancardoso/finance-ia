@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { supabase } from '../lib/supabase';
 import TransactionItem from './TransactionItem';
+import { TransactionSkeleton } from './Skeleton';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -71,8 +72,10 @@ export default function TransactionList({ limit = 20 }: TransactionListProps) {
 
   if (loading && !refreshing) {
     return (
-      <View className="py-10 items-center">
-        <ActivityIndicator color="#10b981" />
+      <View className="py-4">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <TransactionSkeleton key={i} />
+        ))}
       </View>
     );
   }

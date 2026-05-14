@@ -11,6 +11,7 @@ import MonthNavigator from '../src/components/MonthNavigator';
 import ProjectedTimeline from '../src/components/ProjectedTimeline';
 import NetWorthChart from '../src/components/NetWorthChart';
 import GoalCard from '../src/components/GoalCard';
+import { DashboardSkeleton } from '../src/components/Skeleton';
 
 import { useFinancialAnalysis } from '../src/hooks/useFinancialAnalysis';
 import { useProjectionTimeline } from '../src/hooks/useProjectionTimeline';
@@ -52,8 +53,10 @@ export default function Dashboard() {
 
   if (loading && !analysis) {
     return (
-      <SafeAreaView className="flex-1 bg-[#050505] items-center justify-center">
-        <ActivityIndicator color="#10b981" size="large" />
+      <SafeAreaView className="flex-1 bg-[#050505]">
+        <View className="px-4 py-10">
+          <DashboardSkeleton />
+        </View>
       </SafeAreaView>
     );
   }
