@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CreditCard, Plus, History, Calculator, Target, PieChart } from 'lucide-react-native';
+import { CreditCard, Plus, History, Calculator, Target, PieChart, User } from 'lucide-react-native';
 import { startOfMonth, isSameMonth } from 'date-fns';
 
 import TransactionList from '../src/components/TransactionList';
@@ -78,6 +78,12 @@ export default function Dashboard() {
             <Text className="text-white text-3xl font-black tracking-tighter">Vesper</Text>
           </View>
           <View className="flex-row gap-2">
+            <Pressable 
+              onPress={() => router.push('/profile')}
+              className="w-12 h-12 bg-white/5 rounded-2xl items-center justify-center border border-white/10"
+            >
+              <User color="rgba(255,255,255,0.4)" size={24} />
+            </Pressable>
             <Pressable 
               onPress={() => router.push('/analytics')}
               className="w-12 h-12 bg-white/5 rounded-2xl items-center justify-center border border-white/10"
