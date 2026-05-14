@@ -52,3 +52,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+/**
+ * GET /api/user-profile
+ * Carrega as configurações de perfil do usuário.
+ */
+export async function GET() {
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
+  try {
+    const supabase = await createAdminClient();
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('monthly_income_cents, fixed_expenses_cents, accumulated_balance_cents')
+      .eq('id', user.id)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows found
+    
+    return NextResponse.json(data || { 
+      monthly_income_cents: 0, 
+      fixed_expenses_cents: 0, 
+      accumulated_balance_cents: 0 
+    });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

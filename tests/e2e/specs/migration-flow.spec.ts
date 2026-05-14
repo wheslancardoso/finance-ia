@@ -21,10 +21,13 @@ test.describe('Migration Flow (ADR-004)', () => {
     await page.goto('/');
   });
 
-  test('deve criar parcelamento começando em uma parcela específica', async ({ page }) => {
+  test('deve criar parcelamento começando em uma parcela específica', async ({ page, isMobile }) => {
     // Abrir modal de transação
-    // Abrir modal de transação (clicar no botão do header)
-    await page.getByTestId('add-transaction-button').click();
+    if (isMobile) {
+      await page.getByTestId('mobile-add-button').click({ force: true });
+    } else {
+      await page.getByTestId('add-transaction-button').click();
+    }
     
     await page.getByTestId('transaction-description-input').fill('Notebook Antigo');
     await page.getByTestId('transaction-amount-input').fill('1200,00');
@@ -52,7 +55,7 @@ test.describe('Migration Flow (ADR-004)', () => {
 
     // Verificar se as transações foram criadas (de 4 a 12 = 9 parcelas)
     // No mock, a UI deve mostrar 4/12
-    await expect(page.locator('text=4/12')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('4/12', { exact: true })).toBeVisible({ timeout: 15000 });
   });
 
   test('deve permitir ajustar saldo da fatura e marcar como pago sem débito', async ({ page }) => {

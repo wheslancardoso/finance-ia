@@ -13,6 +13,7 @@ test.describe('Autenticação e Perfil (Refatorado)', () => {
       user_profile: {
         monthly_income_cents: 500000,
         fixed_expenses_cents: 200000,
+        accumulated_balance_cents: 0,
       }
     });
 
