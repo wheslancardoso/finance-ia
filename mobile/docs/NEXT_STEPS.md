@@ -11,7 +11,7 @@ Este documento detalha o roadmap para alcançar a paridade total com a versão W
 - [x] **Tela de Contas e Cartões**: Criar a visualização de saldos consolidados e limites de cartão (`app/accounts.tsx`).
 - [x] **Modais Natas**: Implementar os modais de "Adicionar Transação" e "Transferência" usando o `BottomSheet` nativo para uma experiência mais fluida.
 - [x] **Time Machine Mobile**: Portar os gráficos de projeção financeira (usando `react-native-wagmi-charts`).
-- [ ] **Metas (Goals)**: Replicar os cards de progresso de metas.
+- [x] **Metas (Goals)**: Replicar os cards de progresso de metas.
 
 ## ✨ 3. Refinamento de UX
 - [ ] **Haptic Feedback**: Adicionar vibrações táteis (Taptic Engine) ao marcar transações como pagas.

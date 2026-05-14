@@ -3,6 +3,7 @@ import { View, Text, Pressable } from 'react-native';
 import { Sparkles, ShieldCheck } from 'lucide-react-native';
 import { formatCurrency } from '../utils/format';
 import { Goal } from '../hooks/useGoals';
+import * as Haptics from 'expo-haptics';
 
 interface GoalCardProps {
   goal: Goal;
@@ -84,7 +85,10 @@ export default function GoalCard({ goal, onPress, onContribute }: GoalCardProps)
           Detalhes
         </Text>
         <Pressable 
-          onPress={onContribute}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onContribute?.();
+          }}
           className="bg-white/5 px-4 py-2 rounded-xl"
         >
           <Text className="text-white text-[9px] font-black uppercase tracking-widest">Aportar</Text>

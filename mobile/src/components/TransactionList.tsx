@@ -9,6 +9,8 @@ interface TransactionListProps {
   limit?: number;
 }
 
+import * as Haptics from 'expo-haptics';
+
 export default function TransactionList({ limit = 20 }: TransactionListProps) {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +45,9 @@ export default function TransactionList({ limit = 20 }: TransactionListProps) {
 
   async function togglePaid(id: string, currentStatus: boolean) {
     try {
+      // Feedback imediato ao toque
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
       const { error } = await supabase
         .from('transactions')
         .update({ is_paid: !currentStatus })
@@ -53,8 +58,14 @@ export default function TransactionList({ limit = 20 }: TransactionListProps) {
       setTransactions(prev => prev.map(tx => 
         tx.id === id ? { ...tx, is_paid: !currentStatus } : tx
       ));
+      
+      // Feedback de sucesso se estiver marcando como pago
+      if (!currentStatus) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
     } catch (error) {
       console.error('Error toggling paid status:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   }
 
