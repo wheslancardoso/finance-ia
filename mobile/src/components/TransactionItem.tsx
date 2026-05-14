@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
-import { ArrowUpRight, ArrowDownLeft, EllipsisVertical } from 'lucide-react-native';
+import { ArrowUpRight, ArrowDownLeft, EllipsisVertical, Trash2 } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import Svg, { Path } from 'react-native-svg';
 import Animated, { useAnimatedProps, withSpring } from 'react-native-reanimated';
@@ -15,6 +15,7 @@ interface TransactionItemProps {
   account: string;
   isPaid: boolean;
   onTogglePaid: () => void;
+  onDelete?: () => void;
 }
 
 export default function TransactionItem({
@@ -25,6 +26,7 @@ export default function TransactionItem({
   account,
   isPaid,
   onTogglePaid,
+  onDelete,
 }: TransactionItemProps) {
   const isNegative = amount < 0;
 
@@ -69,9 +71,19 @@ export default function TransactionItem({
 
       <View className="flex-row items-center gap-4 ml-2">
         <View className="items-end">
-          <Text className={`text-lg font-bold tabular-nums ${isNegative ? 'text-white' : 'text-emerald-400'}`}>
-            {isNegative ? '-' : '+'} R$ {Math.abs(amount).toFixed(2)}
-          </Text>
+          <View className="flex-row items-center">
+            <Text className={`text-lg font-bold tabular-nums mr-2 ${isNegative ? 'text-white' : 'text-emerald-400'}`}>
+              {isNegative ? '-' : '+'} R$ {Math.abs(amount).toFixed(2)}
+            </Text>
+            {onDelete && (
+              <Pressable 
+                onPress={onDelete}
+                className="w-8 h-8 rounded-full bg-rose-500/10 items-center justify-center"
+              >
+                <Trash2 size={14} color="#f43f5e" />
+              </Pressable>
+            )}
+          </View>
           <Text className="text-white/20 text-[10px] font-medium">{date}</Text>
         </View>
 

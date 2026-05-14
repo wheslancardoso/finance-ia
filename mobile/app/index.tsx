@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CreditCard, Plus, History, Calculator, Target, PieChart, User } from 'lucide-react-native';
+import { CreditCard, Plus, History, Calculator, Target, PieChart, User, Repeat } from 'lucide-react-native';
 import { startOfMonth, isSameMonth } from 'date-fns';
 
 import TransactionList from '../src/components/TransactionList';
@@ -89,6 +89,12 @@ export default function Dashboard() {
               className="w-12 h-12 bg-white/5 rounded-2xl items-center justify-center border border-white/10"
             >
               <PieChart color="#8b5cf6" size={24} />
+            </Pressable>
+            <Pressable 
+              onPress={() => router.push('/recurring')}
+              className="w-12 h-12 bg-white/5 rounded-2xl items-center justify-center border border-white/10"
+            >
+              <Repeat color="rgba(255,255,255,0.4)" size={20} />
             </Pressable>
             <Pressable 
               onPress={() => setShowAddModal(true)}

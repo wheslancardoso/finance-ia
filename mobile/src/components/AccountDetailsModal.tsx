@@ -1,9 +1,9 @@
-import React, { useMemo, useRef, useCallback } from 'react';
+import React, { useMemo, useRef, useCallback, useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { X, CreditCard, ArrowUpRight, ArrowDownLeft, Receipt, CheckCircle2 } from 'lucide-react-native';
 import { formatCurrency } from '../utils/format';
-import { Account } from '../hooks/useAccounts';
+import { Account, useAccounts } from '../hooks/useAccounts';
 import { useAccountDetails } from '../hooks/useAccountDetails';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -15,8 +15,20 @@ interface AccountDetailsModalProps {
 
 export default function AccountDetailsModal({ account, onClose }: AccountDetailsModalProps) {
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo(() => ['50%', '90%'], []);
-  const { transactions, invoices, loading } = useAccountDetails(account?.id || '');
+  const snapPoints = useMemo(() => ['50%', '95%'], []);
+  const { transactions, invoices, loading, payInvoice } = useAccountDetails(account?.id || '');
+  const { accounts: allAccounts } = useAccounts();
+  
+  const [showPaymentSelector, setShowPaymentSelector] = useState(false);
+  const [paymentAccountId, setPaymentAccountId] = useState('');
+
+  const checkingAccounts = useMemo(() => 
+    allAccounts.filter(a => a.type !== 'CREDIT_CARD' && a.balance_cents > 0),
+  [allAccounts]);
+
+  useEffect(() => {
+    if (checkingAccounts.length > 0) setPaymentAccountId(checkingAccounts[0].id);
+  }, [checkingAccounts]);
 
   const renderBackdrop = useCallback(
     (props: any) => (
@@ -71,12 +83,55 @@ export default function AccountDetailsModal({ account, onClose }: AccountDetails
 
           {/* Actions */}
           {isCreditCard && (
-            <Pressable className="bg-emerald-500 w-full py-5 rounded-[24px] items-center mb-8 shadow-xl shadow-emerald-500/20">
-               <View className="flex-row items-center">
-                  <CheckCircle2 size={18} color="#fff" className="mr-2" />
-                  <Text className="text-white font-black uppercase tracking-widest">Pagar Fatura Fechada</Text>
-               </View>
-            </Pressable>
+            <View className="mb-8">
+              {!showPaymentSelector ? (
+                <Pressable 
+                  onPress={() => setShowPaymentSelector(true)}
+                  className="bg-emerald-500 w-full py-5 rounded-[24px] items-center shadow-xl shadow-emerald-500/20"
+                >
+                  <View className="flex-row items-center">
+                    <CheckCircle2 size={18} color="#fff" className="mr-2" />
+                    <Text className="text-white font-black uppercase tracking-widest">Pagar Fatura Fechada</Text>
+                  </View>
+                </Pressable>
+              ) : (
+                <View className="bg-white/5 border border-white/10 rounded-[32px] p-6">
+                  <Text className="text-white/40 text-[10px] font-black uppercase tracking-widest mb-4">Escolha a conta de origem</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6">
+                    {checkingAccounts.map(acc => (
+                      <Pressable 
+                        key={acc.id}
+                        onPress={() => setPaymentAccountId(acc.id)}
+                        className={`px-4 py-2 rounded-full mr-2 border ${
+                          paymentAccountId === acc.id ? 'bg-white/20 border-white/40' : 'bg-white/5 border-white/5'
+                        }`}
+                      >
+                        <Text className={`text-xs font-bold ${paymentAccountId === acc.id ? 'text-white' : 'text-white/40'}`}>
+                          {acc.name} ({formatCurrency(acc.balance_cents)})
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                  <View className="flex-row gap-2">
+                    <Pressable 
+                      onPress={() => setShowPaymentSelector(false)}
+                      className="flex-1 py-4 bg-white/5 rounded-2xl items-center"
+                    >
+                      <Text className="text-white/40 font-black uppercase text-[10px]">Cancelar</Text>
+                    </Pressable>
+                    <Pressable 
+                      onPress={() => {
+                        payInvoice(account, paymentAccountId, Math.abs(account.balance_cents));
+                        setShowPaymentSelector(false);
+                      }}
+                      className="flex-[2] py-4 bg-emerald-500 rounded-2xl items-center"
+                    >
+                      <Text className="text-white font-black uppercase text-[10px]">Confirmar Pagamento</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+            </View>
           )}
 
           {/* Recent Transactions */}

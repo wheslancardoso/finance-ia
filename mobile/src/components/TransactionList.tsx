@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Search, Filter, LayoutGrid } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { useTransactions } from '../hooks/useTransactions';
 
 interface TransactionListProps {
   limit?: number;
@@ -14,6 +15,7 @@ interface TransactionListProps {
 
 export default function TransactionList({ limit = 20 }: TransactionListProps) {
   const [transactions, setTransactions] = useState<any[]>([]);
+  const { deleteTransaction } = useTransactions();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -94,6 +96,15 @@ export default function TransactionList({ limit = 20 }: TransactionListProps) {
     }
   }
 
+  async function handleDelete(id: string) {
+    try {
+      await deleteTransaction(id);
+      setTransactions(prev => prev.filter(tx => tx.id !== id));
+    } catch (err) {
+      // Erro tratado no hook
+    }
+  }
+
   if (loading && !refreshing) {
     return (
       <View className="py-4">
@@ -166,12 +177,13 @@ export default function TransactionList({ limit = 20 }: TransactionListProps) {
             <TransactionItem
               key={tx.id}
               description={tx.description}
-              amount={tx.amount}
+              amount={tx.amount_cents}
               date={format(new Date(tx.date), 'dd/MM/yy', { locale: ptBR })}
               category={tx.categories?.name || 'Sem Categoria'}
               account={tx.accounts?.name || 'Conta Geral'}
               isPaid={tx.is_paid}
               onTogglePaid={() => togglePaid(tx.id, tx.is_paid)}
+              onDelete={() => handleDelete(tx.id)}
             />
           ))}
         </View>

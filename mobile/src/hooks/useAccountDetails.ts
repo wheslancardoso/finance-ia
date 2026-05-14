@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Transaction } from '../hooks/useTransactions'; // I should define Transaction type somewhere shared
+import * as Haptics from 'expo-haptics';
 
 export function useAccountDetails(accountId: string) {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -8,10 +8,10 @@ export function useAccountDetails(accountId: string) {
   const [loading, setLoading] = useState(true);
 
   async function fetchDetails() {
+    if (!accountId) return;
     try {
       setLoading(true);
       
-      // 1. Transações recentes da conta
       const { data: txs, error: txsError } = await supabase
         .from('transactions')
         .select('*')
@@ -22,7 +22,6 @@ export function useAccountDetails(accountId: string) {
       if (txsError) throw txsError;
       setTransactions(txs || []);
 
-      // 2. Faturas se for cartão (tentativa)
       const { data: invs, error: invsError } = await supabase
         .from('credit_card_invoices')
         .select('*')
@@ -39,9 +38,68 @@ export function useAccountDetails(accountId: string) {
     }
   }
 
+  async function payInvoice(creditCardAccount: any, paymentAccountId: string, amountCents: number) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const cDay = creditCardAccount.closing_day || 31;
+      const now = new Date();
+      let closedY = now.getFullYear();
+      let closedM = now.getMonth();
+      if (now.getDate() < cDay) {
+        closedM--;
+        if (closedM < 0) { closedM = 11; closedY--; }
+      }
+      const closedMonthStr = `${closedY}-${String(closedM + 1).padStart(2, '0')}-01`;
+
+      const { data: txs } = await supabase
+        .from('transactions')
+        .select('id, date')
+        .eq('account_id', creditCardAccount.id)
+        .eq('is_paid', false);
+
+      const toPayIds = (txs || []).filter(tx => {
+        const d = new Date(tx.date);
+        let m = d.getUTCMonth();
+        let y = d.getUTCFullYear();
+        if (d.getUTCDate() >= cDay) {
+          m++;
+          if (m > 11) { m = 0; y++; }
+        }
+        return `${y}-${String(m + 1).padStart(2, '0')}-01` === closedMonthStr;
+      }).map(tx => tx.id);
+
+      if (toPayIds.length > 0) {
+        await supabase.from('transactions').update({ is_paid: true }).in('id', toPayIds);
+        await supabase.from('credit_card_invoices')
+          .update({ status: 'PAID' })
+          .eq('account_id', creditCardAccount.id)
+          .eq('reference_month', closedMonthStr.substring(0, 7));
+      }
+
+      await supabase.from('transactions').insert([{
+        user_id: user.id,
+        account_id: paymentAccountId,
+        amount_cents: amountCents,
+        transaction_type: 'EXPENSE',
+        date: new Date().toISOString(),
+        description: `Pgto Fatura — ${creditCardAccount.name}`,
+        is_paid: true,
+        source: 'MANUAL'
+      }]);
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      fetchDetails();
+    } catch (error) {
+      console.error('Error paying invoice:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  }
+
   useEffect(() => {
-    if (accountId) fetchDetails();
+    fetchDetails();
   }, [accountId]);
 
-  return { transactions, invoices, loading, refresh: fetchDetails };
+  return { transactions, invoices, loading, payInvoice, refresh: fetchDetails };
 }
