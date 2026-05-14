@@ -29,3 +29,29 @@ jest.mock('react-native-reanimated/plugin', () => ({}));
 try {
   jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
 } catch (e) {}
+
+// Mock Supabase
+jest.mock('./src/lib/supabase', () => ({
+  supabase: {
+    from: jest.fn(() => ({
+      select: jest.fn(() => ({
+        eq: jest.fn(() => ({
+          single: jest.fn(() => Promise.resolve({ data: null, error: null })),
+          order: jest.fn(() => ({
+            then: jest.fn((cb) => cb({ data: [], error: null })),
+          })),
+        })),
+        order: jest.fn(() => ({
+          then: jest.fn((cb) => cb({ data: [], error: null })),
+        })),
+        match: jest.fn(() => ({
+          order: jest.fn(() => Promise.resolve({ data: [], error: null })),
+        })),
+      })),
+    })),
+    auth: {
+      getUser: jest.fn(() => Promise.resolve({ data: { user: null }, error: null })),
+      onAuthStateChange: jest.fn(() => ({ data: { subscription: { unsubscribe: jest.fn() } } })),
+    }
+  }
+}));

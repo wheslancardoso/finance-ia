@@ -52,7 +52,7 @@ test.describe('Migration Flow (ADR-004)', () => {
 
     // Verificar se as transações foram criadas (de 4 a 12 = 9 parcelas)
     // No mock, a UI deve mostrar 4/12
-    await expect(page.locator('text=4/12')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('4/12', { exact: true })).toBeVisible({ timeout: 15000 });
   });
 
   test('deve permitir ajustar saldo da fatura e marcar como pago sem débito', async ({ page }) => {

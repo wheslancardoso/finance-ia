@@ -1,0 +1,67 @@
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2msrc/components/__tests__/[22m[1mTransactionItem.test.tsx[22m
+  [1m● [22mTest suite failed to run
+
+    Cannot find module 'babel-preset-expo'
+    Require stack:
+    - /home/lan/finance-ia/mobile/node_modules/@babel/core/lib/config/files/plugins.js
+    - /home/lan/finance-ia/mobile/node_modules/@babel/core/lib/config/files/index.js
+    - /home/lan/finance-ia/mobile/node_modules/@babel/core/lib/index.js
+    - /home/lan/finance-ia/mobile/node_modules/jest-snapshot/build/index.js
+    - /home/lan/finance-ia/mobile/node_modules/jest-runtime/build/index.js
+    - /home/lan/finance-ia/mobile/node_modules/@jest/core/build/index.js
+    - /home/lan/finance-ia/mobile/node_modules/jest-cli/build/index.js
+    - /home/lan/finance-ia/mobile/node_modules/jest-cli/bin/jest.js
+    - /home/lan/finance-ia/mobile/node_modules/jest/bin/jest.js
+
+    Make sure that all the Babel plugins and presets you are using
+    are defined as dependencies or devDependencies in your package.json
+    file. It's possible that the missing plugin is loaded by a preset
+    you are using that forgot to add the plugin to its dependencies: you
+    can workaround this problem by explicitly adding the missing package
+    to your top-level package.json.
+
+      [2mat tryRequireResolve ([22mnode_modules/@babel/core/lib/config/files/plugins.js[2m:128:11)[22m
+      [2mat resolveStandardizedNameForRequire ([22mnode_modules/@babel/core/lib/config/files/plugins.js[2m:162:19)[22m
+      [2mat resolveStandardizedName ([22mnode_modules/@babel/core/lib/config/files/plugins.js[2m:183:12)[22m
+      [2mat loadPreset ([22mnode_modules/@babel/core/lib/config/files/plugins.js[2m:68:7)[22m
+          at loadPreset.next (<anonymous>)
+      [2mat createDescriptor ([22mnode_modules/@babel/core/lib/config/config-descriptors.js[2m:140:16)[22m
+          at createDescriptor.next (<anonymous>)
+      [2mat evaluateSync ([22mnode_modules/gensync/index.js[2m:251:28)[22m
+      [2mat [22mnode_modules/gensync/index.js[2m:31:34[22m
+          at Array.map (<anonymous>)
+      [2mat Function.sync ([22mnode_modules/gensync/index.js[2m:31:22)[22m
+      [2mat Function.all ([22mnode_modules/gensync/index.js[2m:210:24)[22m
+      [2mat createDescriptors ([22mnode_modules/@babel/core/lib/config/config-descriptors.js[2m:102:41)[22m
+          at createDescriptors.next (<anonymous>)
+      [2mat createPresetDescriptors ([22mnode_modules/@babel/core/lib/config/config-descriptors.js[2m:96:17)[22m
+          at createPresetDescriptors.next (<anonymous>)
+      [2mat [22mnode_modules/@babel/core/lib/gensync-utils/functional.js[2m:22:27[22m
+      [2mat mergeChainOpts ([22mnode_modules/@babel/core/lib/config/config-chain.js[2m:350:34)[22m
+          at mergeChainOpts.next (<anonymous>)
+      [2mat chainWalker ([22mnode_modules/@babel/core/lib/config/config-chain.js[2m:316:14)[22m
+          at chainWalker.next (<anonymous>)
+      [2mat loadFileChain ([22mnode_modules/@babel/core/lib/config/config-chain.js[2m:191:24)[22m
+          at loadFileChain.next (<anonymous>)
+      [2mat buildRootChain ([22mnode_modules/@babel/core/lib/config/config-chain.js[2m:77:27)[22m
+          at buildRootChain.next (<anonymous>)
+      [2mat loadPrivatePartialConfig ([22mnode_modules/@babel/core/lib/config/partial.js[2m:72:62)[22m
+          at loadPrivatePartialConfig.next (<anonymous>)
+      [2mat loadPartialConfig ([22mnode_modules/@babel/core/lib/config/partial.js[2m:115:25)[22m
+          at loadPartialConfig.next (<anonymous>)
+      [2mat evaluateSync ([22mnode_modules/gensync/index.js[2m:251:28)[22m
+      [2mat sync ([22mnode_modules/gensync/index.js[2m:89:14)[22m
+      [2mat stopHiding - secret - don't use this - v1 ([22mnode_modules/@babel/core/lib/errors/rewrite-stack-trace.js[2m:47:12)[22m
+      [2mat loadPartialConfigSync ([22mnode_modules/@babel/core/lib/config/index.js[2m:37:84)[22m
+      [2mat ScriptTransformer._getCacheKey ([22mnode_modules/@jest/transform/build/index.js[2m:188:41)[22m
+      [2mat ScriptTransformer._getFileCachePath ([22mnode_modules/@jest/transform/build/index.js[2m:224:27)[22m
+      [2mat ScriptTransformer.transformSource ([22mnode_modules/@jest/transform/build/index.js[2m:395:32)[22m
+      [2mat revertHook.exts ([22mnode_modules/@jest/transform/build/index.js[2m:594:21)[22m
+      [2mat Module._compile ([22mnode_modules/pirates/lib/index.js[2m:124:29)[22m
+      [2mat Object.newLoader ([22mnode_modules/pirates/lib/index.js[2m:134:7)[22m
+
+[1mTest Suites: [22m[1m[31m1 failed[39m[22m, 1 total
+[1mTests:       [22m0 total
+[1mSnapshots:   [22m0 total
+[1mTime:[22m        0.024 s
+[2mRan all test suites[22m[2m matching [22msrc/components/__tests__/TransactionItem.test.tsx[2m.[22m

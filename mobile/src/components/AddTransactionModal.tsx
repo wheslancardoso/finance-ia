@@ -164,23 +164,43 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
         {/* Account Selectors */}
         <View className="flex-row gap-4 mb-10">
           <View className="flex-1">
-            <Text className="text-white/20 text-[10px] font-black uppercase tracking-[2px] mb-2">
+            <Text className="text-white/20 text-[10px] font-black uppercase tracking-[2px] mb-2 px-1">
               {type === 'TRANSFER' ? 'De Onde?' : 'Conta'}
             </Text>
-            <View className="bg-white/5 border border-white/10 rounded-[20px] overflow-hidden">
-               <Text className="text-white/60 p-4 font-bold text-xs uppercase tracking-widest">
-                  {accounts.find(a => a.id === accountId)?.name || 'Selecionar'}
-               </Text>
+            <View className="flex-row items-center bg-white/5 border border-white/10 rounded-[24px] px-5 py-4 overflow-hidden">
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {accounts.map((acc) => (
+                  <Pressable 
+                    key={acc.id}
+                    onPress={() => setAccountId(acc.id)}
+                    className={`px-4 py-1.5 rounded-full mr-2 ${accountId === acc.id ? 'bg-white/20' : 'bg-transparent'}`}
+                  >
+                    <Text className={`text-xs font-bold ${accountId === acc.id ? 'text-white' : 'text-white/40'}`}>
+                      {acc.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
             </View>
           </View>
 
           {type === 'TRANSFER' && (
             <View className="flex-1">
-              <Text className="text-white/20 text-[10px] font-black uppercase tracking-[2px] mb-2">Para Onde?</Text>
-              <View className="bg-white/5 border border-white/10 rounded-[20px] overflow-hidden">
-                <Text className="text-white/60 p-4 font-bold text-xs uppercase tracking-widest">
-                    {accounts.find(a => a.id === targetAccountId)?.name || 'Selecionar'}
-                </Text>
+              <Text className="text-white/20 text-[10px] font-black uppercase tracking-[2px] mb-2 px-1">Para Onde?</Text>
+              <View className="flex-row items-center bg-white/5 border border-white/10 rounded-[24px] px-5 py-4 overflow-hidden">
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {accounts.filter(a => a.id !== accountId).map((acc) => (
+                    <Pressable 
+                      key={acc.id}
+                      onPress={() => setTargetAccountId(acc.id)}
+                      className={`px-4 py-1.5 rounded-full mr-2 ${targetAccountId === acc.id ? 'bg-white/20' : 'bg-transparent'}`}
+                    >
+                      <Text className={`text-xs font-bold ${targetAccountId === acc.id ? 'text-white' : 'text-white/40'}`}>
+                        {acc.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
               </View>
             </View>
           )}

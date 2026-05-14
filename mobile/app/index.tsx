@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CreditCard, Plus, History, Calculator, Target, PieChart, User, Repeat, TrendingUp } from 'lucide-react-native';
+import { CreditCard, Plus, Target, PieChart, User, Repeat, TrendingUp } from 'lucide-react-native';
 import { startOfMonth, isSameMonth } from 'date-fns';
 
 import TransactionList from '../src/components/TransactionList';
@@ -13,6 +13,9 @@ import NetWorthChart from '../src/components/NetWorthChart';
 import GoalCard from '../src/components/GoalCard';
 import SurvivalCeiling from '../src/components/SurvivalCeiling';
 import { DashboardSkeleton } from '../src/components/Skeleton';
+import SpendingSimulator from '../src/components/SpendingSimulator';
+import * as Haptics from 'expo-haptics';
+import { History, Calculator, Sparkles, Trash2, Layers } from 'lucide-react-native';
 
 import { useFinancialAnalysis } from '../src/hooks/useFinancialAnalysis';
 import { useProjectionTimeline } from '../src/hooks/useProjectionTimeline';
@@ -23,7 +26,9 @@ export default function Dashboard() {
   const router = useRouter();
   const [targetDate, setTargetDate] = useState<Date>(new Date());
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showSimulator, setShowSimulator] = useState(false);
   const [activeTab, setActiveTab] = useState<'timeline' | 'summary'>('summary');
+  const [simulations, setSimulations] = useState<any[]>([]);
 
   const monthOffset = useMemo(() => {
     const today = startOfMonth(new Date());
@@ -33,7 +38,7 @@ export default function Dashboard() {
   }, [targetDate]);
 
   const { analysis, loading, refresh } = useFinancialAnalysis(monthOffset);
-  const { transactions: projectedTransactions } = useProjectionTimeline(targetDate);
+  const { transactions: projectedTransactions } = useProjectionTimeline(targetDate, simulations);
   const { goals } = useGoals();
 
   const isFuture = monthOffset > 0;
@@ -212,11 +217,33 @@ export default function Dashboard() {
              <TransactionList limit={5} />
           </View>
         ) : (
-          isFuture ? (
-            <ProjectedTimeline transactions={projectedTransactions} />
-          ) : (
-            <TransactionList />
-          )
+          <View>
+            {isFuture && (
+              <View className="mb-6 flex-row gap-2">
+                <Pressable 
+                  onPress={() => setShowSimulator(true)}
+                  className="flex-1 flex-row items-center justify-center bg-violet-600/10 border border-violet-600/20 py-4 rounded-2xl"
+                >
+                  <Sparkles size={14} color="#8b5cf6" className="mr-2" />
+                  <Text className="text-violet-400 text-[10px] font-black uppercase tracking-widest">Simular Gasto</Text>
+                </Pressable>
+                
+                {simulations.length > 0 && (
+                  <Pressable 
+                    onPress={() => setSimulations([])}
+                    className="w-14 items-center justify-center bg-rose-500/10 border border-rose-500/20 rounded-2xl"
+                  >
+                    <Trash2 size={16} color="#fb7185" />
+                  </Pressable>
+                )}
+              </View>
+            )}
+            {isFuture ? (
+              <ProjectedTimeline transactions={projectedTransactions} />
+            ) : (
+              <TransactionList />
+            )}
+          </View>
         )}
 
         {/* Spacer for FAB */}
@@ -237,9 +264,19 @@ export default function Dashboard() {
       {showAddModal && (
         <AddTransactionModal 
           onClose={() => setShowAddModal(false)}
-          onSave={(data) => {
-            console.log('Saving transaction:', data);
+          onSave={() => {
             setShowAddModal(false);
+            refresh();
+          }}
+        />
+      )}
+
+      {showSimulator && (
+        <SpendingSimulator 
+          onClose={() => setShowSimulator(false)}
+          onSimulate={(sim) => {
+            setSimulations(prev => [...prev, sim]);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }}
         />
       )}
