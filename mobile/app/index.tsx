@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CreditCard, Plus, History, Calculator, Target } from 'lucide-react-native';
+import { CreditCard, Plus, History, Calculator, Target, PieChart } from 'lucide-react-native';
 import { startOfMonth, isSameMonth } from 'date-fns';
 
 import TransactionList from '../src/components/TransactionList';
@@ -70,21 +70,27 @@ export default function Dashboard() {
           <RefreshControl refreshing={loading} onRefresh={refresh} tintColor="#10b981" />
         }
       >
-        <View className="mb-8 flex-row justify-between items-end">
+        <View className="flex-row items-center justify-between mb-8">
           <View>
-            <Text className="text-white/40 text-[10px] font-black uppercase tracking-[3px] mb-1">
-              Time Machine
+            <Text className="text-white/40 text-[10px] font-black uppercase tracking-[2px] mb-1">
+              {monthOffset > 0 ? 'Simulação Futura' : 'Panorama Atual'}
             </Text>
-            <Text className="text-white text-3xl font-black tracking-tight">
-              Vesper
-            </Text>
+            <Text className="text-white text-3xl font-black tracking-tighter">Vesper</Text>
           </View>
-          <Pressable 
-            onPress={() => router.push('/accounts')}
-            className="p-3 bg-white/5 border border-white/10 rounded-2xl"
-          >
-            <CreditCard color="#fff" size={20} />
-          </Pressable>
+          <View className="flex-row gap-2">
+            <Pressable 
+              onPress={() => router.push('/analytics')}
+              className="w-12 h-12 bg-white/5 rounded-2xl items-center justify-center border border-white/10"
+            >
+              <PieChart color="#8b5cf6" size={24} />
+            </Pressable>
+            <Pressable 
+              onPress={() => setShowAddModal(true)}
+              className="w-12 h-12 bg-violet-600 rounded-2xl items-center justify-center shadow-xl shadow-violet-600/20"
+            >
+              <Plus color="#fff" size={24} />
+            </Pressable>
+          </View>
         </View>
 
         <MonthNavigator 
