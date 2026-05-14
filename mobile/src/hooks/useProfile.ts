@@ -3,11 +3,10 @@ import { supabase } from '../lib/supabase';
 import * as Haptics from 'expo-haptics';
 
 export interface Profile {
-  id: string;
   monthly_income_cents: number;
   fixed_expenses_cents: number;
-  full_name?: string;
-  avatar_url?: string;
+  accumulated_balance_cents: number;
+  whatsapp_number?: string;
 }
 
 export function useProfile() {
@@ -22,22 +21,12 @@ export function useProfile() {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('monthly_income_cents, fixed_expenses_cents, accumulated_balance_cents, whatsapp_number')
         .eq('id', user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows
-      
-      if (data) {
-        setProfile(data);
-      } else {
-        // Inicializar perfil se não existir
-        setProfile({
-          id: user.id,
-          monthly_income_cents: 0,
-          fixed_expenses_cents: 0
-        });
-      }
+      if (error) throw error;
+      setProfile(data);
     } catch (error) {
       console.error('Error fetching profile:', error);
     } finally {
@@ -47,16 +36,14 @@ export function useProfile() {
 
   async function updateProfile(updates: Partial<Profile>) {
     try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { error } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
-          ...updates,
-          updated_at: new Date().toISOString()
-        });
+        .update(updates)
+        .eq('id', user.id);
 
       if (error) throw error;
       
@@ -65,7 +52,6 @@ export function useProfile() {
     } catch (error) {
       console.error('Error updating profile:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      throw error;
     }
   }
 
