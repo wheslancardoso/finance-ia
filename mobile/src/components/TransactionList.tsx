@@ -11,9 +11,10 @@ import { useTransactions } from '../hooks/useTransactions';
 
 interface TransactionListProps {
   limit?: number;
+  onEdit?: (transaction: any) => void;
 }
 
-export default function TransactionList({ limit = 20 }: TransactionListProps) {
+export default function TransactionList({ limit = 20, onEdit }: TransactionListProps) {
   const [transactions, setTransactions] = useState<any[]>([]);
   const { deleteTransaction } = useTransactions();
   const [loading, setLoading] = useState(true);
@@ -184,6 +185,7 @@ export default function TransactionList({ limit = 20 }: TransactionListProps) {
               isPaid={tx.is_paid}
               onTogglePaid={() => togglePaid(tx.id, tx.is_paid)}
               onDelete={() => handleDelete(tx.id)}
+              onPress={() => onEdit?.(tx)}
             />
           ))}
         </View>

@@ -55,9 +55,60 @@ export function useRecurring() {
     }
   }
 
-  useEffect(() => {
-    fetchRecurring();
-  }, []);
+  async function createRecurring(data: Omit<RecurringTransaction, 'id' | 'status'>) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not found');
 
-  return { recurring, loading, toggleStatus, refresh: fetchRecurring };
+      const { error } = await supabase
+        .from('recurring_transactions')
+        .insert({ ...data, user_id: user.id, status: 'active' });
+
+      if (error) throw error;
+      await fetchRecurring();
+    } catch (error) {
+      console.error('Error creating recurring:', error);
+      throw error;
+    }
+  }
+
+  async function updateRecurring(id: string, updates: Partial<RecurringTransaction>) {
+    try {
+      const { error } = await supabase
+        .from('recurring_transactions')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) throw error;
+      await fetchRecurring();
+    } catch (error) {
+      console.error('Error updating recurring:', error);
+      throw error;
+    }
+  }
+
+  async function deleteRecurring(id: string) {
+    try {
+      const { error } = await supabase
+        .from('recurring_transactions')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      await fetchRecurring();
+    } catch (error) {
+      console.error('Error deleting recurring:', error);
+      throw error;
+    }
+  }
+
+  return { 
+    recurring, 
+    loading, 
+    toggleStatus, 
+    refresh: fetchRecurring,
+    createRecurring,
+    updateRecurring,
+    deleteRecurring
+  };
 }

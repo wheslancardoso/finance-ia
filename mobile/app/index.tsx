@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [showSimulator, setShowSimulator] = useState(false);
   const [activeTab, setActiveTab] = useState<'timeline' | 'summary'>('summary');
   const [simulations, setSimulations] = useState<any[]>([]);
+  const [editingTransaction, setEditingTransaction] = useState<any>(null);
 
   const monthOffset = useMemo(() => {
     const today = startOfMonth(new Date());
@@ -188,7 +189,10 @@ export default function Dashboard() {
         {/* Tab Selector */}
         <View className="flex-row bg-white/5 p-1 rounded-2xl border border-white/10 mb-6">
           <Pressable 
-            onPress={() => setActiveTab('summary')}
+            onPress={() => {
+              setActiveTab('summary');
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
             className={`flex-1 flex-row items-center justify-center py-3 rounded-xl ${
               activeTab === 'summary' ? 'bg-violet-600' : ''
             }`}
@@ -199,7 +203,10 @@ export default function Dashboard() {
             }`}>Resumo</Text>
           </Pressable>
           <Pressable 
-            onPress={() => setActiveTab('timeline')}
+            onPress={() => {
+              setActiveTab('timeline');
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
             className={`flex-1 flex-row items-center justify-center py-3 rounded-xl ${
               activeTab === 'timeline' ? 'bg-violet-600' : ''
             }`}
@@ -214,7 +221,10 @@ export default function Dashboard() {
         {activeTab === 'summary' ? (
           <View>
              {/* Content for Summary - already covered by LiquidityCard and stats for now */}
-             <TransactionList limit={5} />
+             <TransactionList 
+               limit={5} 
+               onEdit={(tx) => setEditingTransaction(tx)}
+             />
           </View>
         ) : (
           <View>
@@ -241,7 +251,9 @@ export default function Dashboard() {
             {isFuture ? (
               <ProjectedTimeline transactions={projectedTransactions} />
             ) : (
-              <TransactionList />
+              <TransactionList 
+                onEdit={(tx) => setEditingTransaction(tx)}
+              />
             )}
           </View>
         )}
@@ -261,11 +273,16 @@ export default function Dashboard() {
         </Pressable>
       )}
 
-      {showAddModal && (
+      {(showAddModal || editingTransaction) && (
         <AddTransactionModal 
-          onClose={() => setShowAddModal(false)}
+          transaction={editingTransaction}
+          onClose={() => {
+            setShowAddModal(false);
+            setEditingTransaction(null);
+          }}
           onSave={() => {
             setShowAddModal(false);
+            setEditingTransaction(null);
             refresh();
           }}
         />

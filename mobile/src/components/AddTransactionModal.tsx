@@ -5,23 +5,31 @@ import { Plus, X, ArrowUpRight, ArrowDownLeft, ArrowRightLeft, Hash, Tag } from 
 import { formatCurrency } from '../utils/format';
 import { useTransactions } from '../hooks/useTransactions';
 import { supabase } from '../lib/supabase';
+import * as Haptics from 'expo-haptics';
 
 interface AddTransactionModalProps {
   onClose: () => void;
   onSave?: (data: any) => void;
+  transaction?: any; // If provided, we are editing
 }
 
-export default function AddTransactionModal({ onClose, onSave }: AddTransactionModalProps) {
+export default function AddTransactionModal({ onClose, onSave, transaction }: AddTransactionModalProps) {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const snapPoints = useMemo(() => ['50%', '95%'], []);
-  const { createTransaction, createTransfer, createInstallmentSeries, loading: saving } = useTransactions();
+  const { 
+    createTransaction, 
+    createTransfer, 
+    createInstallmentSeries, 
+    updateTransaction,
+    loading: saving 
+  } = useTransactions();
 
-  const [type, setType] = useState<'INCOME' | 'EXPENSE' | 'TRANSFER'>('EXPENSE');
-  const [value, setValue] = useState('');
-  const [description, setDescription] = useState('');
-  const [accountId, setAccountId] = useState<string>('');
+  const [type, setType] = useState<'INCOME' | 'EXPENSE' | 'TRANSFER'>(transaction?.transaction_type || 'EXPENSE');
+  const [value, setValue] = useState(transaction ? (Math.abs(transaction.amount_cents) / 100).toString() : '');
+  const [description, setDescription] = useState(transaction?.description || '');
+  const [accountId, setAccountId] = useState<string>(transaction?.account_id || '');
   const [targetAccountId, setTargetAccountId] = useState<string>('');
-  const [categoryId, setCategoryId] = useState<string>('');
+  const [categoryId, setCategoryId] = useState<string>(transaction?.category_id || '');
   const [installments, setInstallments] = useState('1');
   const [accounts, setAccounts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -58,7 +66,15 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
     const numInstallments = parseInt(installments) || 1;
 
     try {
-      if (type === 'TRANSFER') {
+      if (transaction?.id) {
+        await updateTransaction(transaction.id, {
+          description,
+          amount_cents: amountCents,
+          transaction_type: type,
+          account_id: accountId,
+          category_id: categoryId || null,
+        });
+      } else if (type === 'TRANSFER') {
         await createTransfer({
           description,
           amount_cents: amountCents,
@@ -85,9 +101,11 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
           date: new Date().toISOString(),
         });
       }
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onSave?.({});
       bottomSheetRef.current?.close();
     } catch (err) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error(err);
     }
   };
@@ -105,7 +123,9 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
     >
       <ScrollView contentContainerStyle={styles.contentContainer}>
         <View className="flex-row justify-between items-center mb-8">
-          <Text className="text-white text-xl font-black uppercase tracking-widest">Nova Transação</Text>
+          <Text className="text-white text-xl font-black uppercase tracking-widest">
+            {transaction ? 'Editar Lançamento' : 'Nova Transação'}
+          </Text>
           <Pressable onPress={() => bottomSheetRef.current?.close()}>
             <X color="#fff" size={24} />
           </Pressable>
@@ -114,21 +134,30 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
         {/* Type Toggle */}
         <View className="flex-row p-1 bg-white/5 rounded-2xl mb-8">
           <Pressable 
-            onPress={() => setType('EXPENSE')}
+            onPress={() => {
+              setType('EXPENSE');
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
             className={`flex-1 flex-row items-center justify-center py-3 rounded-xl ${type === 'EXPENSE' ? 'bg-rose-500/20 border border-rose-500/50' : ''}`}
           >
             <ArrowDownLeft size={16} color={type === 'EXPENSE' ? '#f43f5e' : 'rgba(255,255,255,0.4)'} />
             <Text className={`ml-2 text-[10px] font-black uppercase tracking-widest ${type === 'EXPENSE' ? 'text-rose-400' : 'text-white/40'}`}>Saída</Text>
           </Pressable>
           <Pressable 
-            onPress={() => setType('INCOME')}
+            onPress={() => {
+              setType('INCOME');
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
             className={`flex-1 flex-row items-center justify-center py-3 rounded-xl ${type === 'INCOME' ? 'bg-emerald-500/20 border border-emerald-500/50' : ''}`}
           >
             <ArrowUpRight size={16} color={type === 'INCOME' ? '#34d399' : 'rgba(255,255,255,0.4)'} />
             <Text className={`ml-2 text-[10px] font-black uppercase tracking-widest ${type === 'INCOME' ? 'text-emerald-400' : 'text-white/40'}`}>Entrada</Text>
           </Pressable>
           <Pressable 
-            onPress={() => setType('TRANSFER')}
+            onPress={() => {
+              setType('TRANSFER');
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
             className={`flex-1 flex-row items-center justify-center py-3 rounded-xl ${type === 'TRANSFER' ? 'bg-violet-500/20 border border-violet-500/50' : ''}`}
           >
             <ArrowRightLeft size={16} color={type === 'TRANSFER' ? '#8b5cf6' : 'rgba(255,255,255,0.4)'} />
@@ -172,7 +201,10 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
                 {accounts.map((acc) => (
                   <Pressable 
                     key={acc.id}
-                    onPress={() => setAccountId(acc.id)}
+                    onPress={() => {
+                      setAccountId(acc.id);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
                     className={`px-4 py-1.5 rounded-full mr-2 ${accountId === acc.id ? 'bg-white/20' : 'bg-transparent'}`}
                   >
                     <Text className={`text-xs font-bold ${accountId === acc.id ? 'text-white' : 'text-white/40'}`}>
@@ -192,7 +224,10 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
                   {accounts.filter(a => a.id !== accountId).map((acc) => (
                     <Pressable 
                       key={acc.id}
-                      onPress={() => setTargetAccountId(acc.id)}
+                      onPress={() => {
+                        setTargetAccountId(acc.id);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
                       className={`px-4 py-1.5 rounded-full mr-2 ${targetAccountId === acc.id ? 'bg-white/20' : 'bg-transparent'}`}
                     >
                       <Text className={`text-xs font-bold ${targetAccountId === acc.id ? 'text-white' : 'text-white/40'}`}>
@@ -216,7 +251,10 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
                 {categories.map((cat) => (
                   <Pressable 
                     key={cat.id}
-                    onPress={() => setCategoryId(cat.id)}
+                    onPress={() => {
+                      setCategoryId(cat.id);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
                     className={`px-4 py-1.5 rounded-full mr-2 ${categoryId === cat.id ? 'bg-white/20' : 'bg-transparent'}`}
                   >
                     <Text className={`text-xs font-bold ${categoryId === cat.id ? 'text-white' : 'text-white/40'}`}>
@@ -258,7 +296,7 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
           }`}
         >
           <Text className="text-white font-black uppercase tracking-widest">
-            {saving ? 'Processando...' : 'Confirmar Lançamento'}
+            {saving ? 'Processando...' : (transaction ? 'Salvar Alterações' : 'Confirmar Lançamento')}
           </Text>
         </Pressable>
       </ScrollView>

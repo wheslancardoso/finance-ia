@@ -1,14 +1,17 @@
 import React from 'react';
 import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, PieChart, TrendingUp, TrendingDown, Target } from 'lucide-react-native';
-import { useBudgets } from '../src/hooks/useBudgets';
+import { ArrowLeft, PieChart, TrendingUp, TrendingDown, Target, Plus } from 'lucide-react-native';
+import { useBudgets, Budget } from '../src/hooks/useBudgets';
 import SpendingCapacity from '../src/components/SpendingCapacity';
+import AddBudgetModal from '../src/components/AddBudgetModal';
 import { formatCurrency } from '../src/utils/format';
 
 export default function AnalyticsScreen() {
   const router = useRouter();
   const { budgets, loading, refresh } = useBudgets();
+  const [selectedBudget, setSelectedBudget] = React.useState<Budget | null>(null);
+  const [showAddModal, setShowAddModal] = React.useState(false);
 
   const totalBudget = budgets.reduce((sum, b) => sum + b.amount_cents, 0);
   const totalSpent = budgets.reduce((sum, b) => sum + b.spent_cents, 0);
@@ -34,7 +37,12 @@ export default function AnalyticsScreen() {
           <ArrowLeft color="#fff" size={20} />
         </Pressable>
         <Text className="text-white text-lg font-black uppercase tracking-widest">Painel HUD</Text>
-        <View className="w-10" />
+        <Pressable 
+          onPress={() => setShowAddModal(true)}
+          className="w-10 h-10 rounded-full bg-emerald-500/10 items-center justify-center border border-emerald-500/20"
+        >
+          <Plus color="#10b981" size={20} />
+        </Pressable>
       </View>
 
       <ScrollView 
@@ -85,17 +93,29 @@ export default function AnalyticsScreen() {
           </View>
         ) : (
           budgets.map((budget) => (
-            <SpendingCapacity 
-              key={budget.id}
-              category={budget.category_name || 'Geral'}
-              spent={budget.spent_cents}
-              limit={budget.amount_cents}
-            />
+            <Pressable key={budget.id} onPress={() => setSelectedBudget(budget)}>
+              <SpendingCapacity 
+                category={budget.category_name || 'Geral'}
+                spent={budget.spent_cents}
+                limit={budget.amount_cents}
+              />
+            </Pressable>
           ))
         )}
         
         <View className="h-10" />
       </ScrollView>
+
+      {(showAddModal || selectedBudget) && (
+        <AddBudgetModal 
+          budget={selectedBudget}
+          onClose={() => {
+            setShowAddModal(false);
+            setSelectedBudget(null);
+            refresh();
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }

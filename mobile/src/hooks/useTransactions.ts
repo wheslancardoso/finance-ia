@@ -141,5 +141,27 @@ export function useTransactions() {
     }
   };
 
-  return { createTransaction, createTransfer, createInstallmentSeries, deleteTransaction, loading };
+  const updateTransaction = async (id: string, data: any) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('transactions').update(data).eq('id', id);
+      if (error) throw error;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error('Error updating transaction:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { 
+    createTransaction, 
+    createTransfer, 
+    createInstallmentSeries, 
+    updateTransaction,
+    deleteTransaction, 
+    loading 
+  };
 }
