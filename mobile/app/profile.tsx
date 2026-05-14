@@ -186,6 +186,16 @@ export default function ProfileScreen() {
                   </View>
                   <ChevronRight color="rgba(255,255,255,0.1)" size={16} />
                 </View>
+                <Pressable 
+                  onPress={() => router.push('/categories' as any)}
+                  className="bg-white/5 border border-white/10 rounded-[24px] p-4 flex-row items-center justify-between"
+                >
+                  <View>
+                    <Text className="text-white font-bold text-xs">Categorias</Text>
+                    <Text className="text-white/20 text-[10px] font-black uppercase">Gerenciar classificações</Text>
+                  </View>
+                  <ChevronRight color="rgba(255,255,255,0.1)" size={16} />
+                </Pressable>
               </View>
             </MotiView>
 

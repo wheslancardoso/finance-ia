@@ -5,12 +5,15 @@ import { ChevronLeft, Plus } from 'lucide-react-native';
 import { useAccounts, Account } from '../src/hooks/useAccounts';
 import AccountCard from '../src/components/AccountCard';
 import AccountDetailsModal from '../src/components/AccountDetailsModal';
+import AddAccountModal from '../src/components/AddAccountModal';
 import { formatCurrency } from '../src/utils/format';
 
 export default function AccountsPage() {
   const router = useRouter();
   const { accounts, loading, refresh } = useAccounts();
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
 
   const totalBalanceCents = accounts.reduce((acc, curr) => 
     curr.type !== 'CREDIT_CARD' ? acc + curr.balance_cents : acc, 0
@@ -39,7 +42,10 @@ export default function AccountsPage() {
           <ChevronLeft color="#fff" size={24} />
         </Pressable>
         <Text className="text-white font-bold text-lg">Contas e Cartões</Text>
-        <Pressable className="p-2 -mr-2 bg-emerald-500/10 rounded-full">
+        <Pressable 
+          onPress={() => setShowAddModal(true)}
+          className="p-2 -mr-2 bg-emerald-500/10 rounded-full"
+        >
           <Plus color="#10b981" size={20} />
         </Pressable>
       </View>
@@ -101,6 +107,20 @@ export default function AccountsPage() {
         <AccountDetailsModal 
           account={selectedAccount} 
           onClose={() => setSelectedAccount(null)} 
+          onEdit={(acc) => {
+            setSelectedAccount(null);
+            setEditingAccount(acc);
+          }}
+        />
+      )}
+
+      {(showAddModal || editingAccount) && (
+        <AddAccountModal 
+          account={editingAccount}
+          onClose={() => {
+            setShowAddModal(false);
+            setEditingAccount(null);
+          }} 
         />
       )}
     </SafeAreaView>

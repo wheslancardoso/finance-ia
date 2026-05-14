@@ -1,17 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { 
-  calculateNetLiquidity, 
-  calculateMonthlyOutlook, 
+import {
+  calculateNetLiquidity,
+  calculateMonthlyOutlook,
   calculateTotalConsolidatedDebt,
   calculateAccumulatedBalance,
   calculateRealCycleLiquidity,
   calculateDebtExitProjection,
   calculateWeeklySurvival,
   calculateGoalProjections,
-  calculateAdvancedProjection,
-  calculateNetWorthHistory,
-  calculateIncomeMix
+  calculateAdvancedProjection
 } from '../../../src/domain/financial/financial-logic';
 
 export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations: any[] = []) {
@@ -66,7 +64,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       const recurringIncomeCents = safeRecurring
         .filter(r => r.transaction_type === 'INCOME' && r.status === 'active')
         .reduce((sum, r) => sum + (r.amount_cents || 0), 0);
-      
+
       const recurringExpensesCents = safeRecurring
         .filter(r => r.transaction_type === 'EXPENSE' && r.status === 'active')
         .reduce((sum, r) => sum + (r.amount_cents || 0), 0);
@@ -90,16 +88,16 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       const projectedNetLiquidity = monthOffset === 0
         ? realCycleLiquidity
         : calculateAdvancedProjection({
-            currentNetLiquidity: netLiquidity,
-            recurringTransactions: safeRecurring,
-            futureTransactions,
-            goals: safeGoals,
-            budgets: safeBudgets,
-            monthOffset,
-            activeSimulations,
-            scheduledIncomeCents: recurringIncomeCents,
-            scheduledExpensesCents: recurringExpensesCents
-          });
+          currentNetLiquidity: netLiquidity,
+          recurringTransactions: safeRecurring,
+          futureTransactions,
+          goals: safeGoals,
+          budgets: safeBudgets,
+          monthOffset,
+          activeSimulations,
+          scheduledIncomeCents: recurringIncomeCents,
+          scheduledExpensesCents: recurringExpensesCents
+        });
 
       const activeNetLiquidity = monthOffset === 0 ? realCycleLiquidity : projectedNetLiquidity;
 
@@ -133,8 +131,6 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
         weeklySurvival,
         goalProjections,
         healthScore: profile?.financial_health_score || 0,
-        netWorthHistory: calculateNetWorthHistory(safeAccounts, safeTransactions),
-        incomeMix: calculateIncomeMix(safeTransactions, safeBudgets),
         // Mantendo compatibilidade com o que o useFinancialSummary retornava
         incomeCents: recurringIncomeCents,
         expenseCents: recurringExpensesCents
@@ -151,9 +147,9 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     fetchAllData();
   }, [monthOffset, activeSimulations.length]);
 
-  return { 
-    analysis: data, 
-    loading, 
-    refresh: fetchAllData 
+  return {
+    analysis: data,
+    loading,
+    refresh: fetchAllData
   };
 }

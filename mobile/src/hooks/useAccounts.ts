@@ -9,7 +9,7 @@ export interface Account {
   color?: string;
   institution?: string;
   last_four?: string;
-  limit_cents?: number;
+  limit_cents?: number | null;
 }
 
 export function useAccounts() {
@@ -33,9 +33,59 @@ export function useAccounts() {
     }
   }
 
-  useEffect(() => {
-    fetchAccounts();
-  }, []);
+  async function createAccount(account: Omit<Account, 'id'>) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not found');
 
-  return { accounts, loading, refresh: fetchAccounts };
+      const { error } = await supabase
+        .from('accounts')
+        .insert({ ...account, user_id: user.id });
+
+      if (error) throw error;
+      await fetchAccounts();
+    } catch (error) {
+      console.error('Error creating account:', error);
+      throw error;
+    }
+  }
+
+  async function updateAccount(id: string, updates: Partial<Account>) {
+    try {
+      const { error } = await supabase
+        .from('accounts')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) throw error;
+      await fetchAccounts();
+    } catch (error) {
+      console.error('Error updating account:', error);
+      throw error;
+    }
+  }
+
+  async function deleteAccount(id: string) {
+    try {
+      const { error } = await supabase
+        .from('accounts')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      await fetchAccounts();
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      throw error;
+    }
+  }
+
+  return { 
+    accounts, 
+    loading, 
+    refresh: fetchAccounts,
+    createAccount,
+    updateAccount,
+    deleteAccount
+  };
 }

@@ -11,7 +11,10 @@ export function useSurvivalCeiling() {
   const { accounts } = useAccounts();
 
   async function calculateCeiling() {
-    if (!profile || accounts.length === 0) return;
+    if (!profile || accounts.length === 0) {
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);

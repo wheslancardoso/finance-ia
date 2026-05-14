@@ -11,9 +11,10 @@ import { ptBR } from 'date-fns/locale';
 interface AccountDetailsModalProps {
   account: Account | null;
   onClose: () => void;
+  onEdit?: (account: Account) => void;
 }
 
-export default function AccountDetailsModal({ account, onClose }: AccountDetailsModalProps) {
+export default function AccountDetailsModal({ account, onClose, onEdit }: AccountDetailsModalProps) {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const snapPoints = useMemo(() => ['50%', '95%'], []);
   const { transactions, invoices, loading, payInvoice } = useAccountDetails(account?.id || '');
@@ -58,9 +59,17 @@ export default function AccountDetailsModal({ account, onClose }: AccountDetails
             <Text className="text-white/40 text-[10px] font-black uppercase tracking-[2px] mb-1">Detalhes da Conta</Text>
             <Text className="text-white text-xl font-black uppercase tracking-tight">{account.name}</Text>
           </View>
-          <Pressable onPress={() => bottomSheetRef.current?.close()}>
-            <X color="#fff" size={24} />
-          </Pressable>
+          <View className="flex-row items-center">
+            <Pressable 
+              onPress={() => onEdit?.(account)}
+              className="mr-4 px-4 py-2 bg-white/5 rounded-xl border border-white/10"
+            >
+              <Text className="text-white/60 text-[10px] font-black uppercase">Editar</Text>
+            </Pressable>
+            <Pressable onPress={() => bottomSheetRef.current?.close()}>
+              <X color="#fff" size={24} />
+            </Pressable>
+          </View>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>

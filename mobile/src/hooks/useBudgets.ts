@@ -63,9 +63,59 @@ export function useBudgets() {
     }
   }
 
-  useEffect(() => {
-    fetchBudgets();
-  }, []);
+  async function createBudget(budget: Omit<Budget, 'id' | 'spent_cents' | 'category_name'>) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not found');
 
-  return { budgets, loading, refresh: fetchBudgets };
+      const { error } = await supabase
+        .from('budgets')
+        .insert({ ...budget, user_id: user.id });
+
+      if (error) throw error;
+      await fetchBudgets();
+    } catch (error) {
+      console.error('Error creating budget:', error);
+      throw error;
+    }
+  }
+
+  async function updateBudget(id: string, updates: Partial<Budget>) {
+    try {
+      const { error } = await supabase
+        .from('budgets')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) throw error;
+      await fetchBudgets();
+    } catch (error) {
+      console.error('Error updating budget:', error);
+      throw error;
+    }
+  }
+
+  async function deleteBudget(id: string) {
+    try {
+      const { error } = await supabase
+        .from('budgets')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      await fetchBudgets();
+    } catch (error) {
+      console.error('Error deleting budget:', error);
+      throw error;
+    }
+  }
+
+  return { 
+    budgets, 
+    loading, 
+    refresh: fetchBudgets,
+    createBudget,
+    updateBudget,
+    deleteBudget
+  };
 }
