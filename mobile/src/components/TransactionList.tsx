@@ -1,21 +1,24 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, FlatList, ActivityIndicator, RefreshControl, TextInput, ScrollView, Pressable } from 'react-native';
 import { supabase } from '../lib/supabase';
 import TransactionItem from './TransactionItem';
 import { TransactionSkeleton } from './Skeleton';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Search, Filter, LayoutGrid } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 
 interface TransactionListProps {
   limit?: number;
 }
 
-import * as Haptics from 'expo-haptics';
-
 export default function TransactionList({ limit = 20 }: TransactionListProps) {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<any[]>([]);
 
   async function fetchTransactions() {
     try {
@@ -35,9 +38,30 @@ export default function TransactionList({ limit = 20 }: TransactionListProps) {
     }
   }
 
+  async function fetchAccounts() {
+    try {
+      const { data, error } = await supabase.from('accounts').select('*').order('name');
+      if (error) throw error;
+      setAccounts(data || []);
+    } catch (error) {
+      console.error('Error fetching accounts:', error);
+    }
+  }
+
   useEffect(() => {
     fetchTransactions();
+    fetchAccounts();
   }, []);
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(tx => {
+      const matchesAccount = !selectedAccountId || tx.account_id === selectedAccountId;
+      const matchesSearch = !searchQuery || 
+        tx.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tx.categories?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesAccount && matchesSearch;
+    });
+  }, [transactions, selectedAccountId, searchQuery]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -82,20 +106,63 @@ export default function TransactionList({ limit = 20 }: TransactionListProps) {
 
   return (
     <View className="flex-1">
-      <View className="flex-row items-center justify-between mb-4 px-1">
-        <Text className="text-white/60 text-xs font-bold uppercase tracking-[2px]">
-          Transações Recentes
-        </Text>
-        <Text className="text-emerald-400 text-xs font-bold">Ver todas</Text>
+      {/* Search Bar */}
+      <View className="flex-row items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-3 mb-4">
+        <Search size={16} color="rgba(255,255,255,0.4)" />
+        <TextInput
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Buscar transações..."
+          placeholderTextColor="rgba(255,255,255,0.2)"
+          className="flex-1 ml-3 text-white text-sm"
+        />
       </View>
 
-      {transactions.length === 0 ? (
+      {/* Account Filters */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-6">
+        <Pressable
+          onPress={() => setSelectedAccountId(null)}
+          className={`px-5 py-2 rounded-xl border flex-row items-center mr-2 ${
+            !selectedAccountId ? 'bg-violet-600 border-violet-500' : 'bg-white/5 border-white/10'
+          }`}
+        >
+          <LayoutGrid size={12} color={!selectedAccountId ? '#fff' : 'rgba(255,255,255,0.4)'} />
+          <Text className={`ml-2 text-[10px] font-black uppercase tracking-widest ${
+            !selectedAccountId ? 'text-white' : 'text-white/40'
+          }`}>Tudo</Text>
+        </Pressable>
+        {accounts.map((acc) => (
+          <Pressable
+            key={acc.id}
+            onPress={() => setSelectedAccountId(acc.id)}
+            className={`px-5 py-2 rounded-xl border mr-2 ${
+              selectedAccountId === acc.id ? 'bg-white/10 border-white/30' : 'bg-white/5 border-white/10'
+            }`}
+          >
+            <Text className={`text-[10px] font-black uppercase tracking-widest ${
+              selectedAccountId === acc.id ? 'text-white' : 'text-white/40'
+            }`}>{acc.name}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      <View className="flex-row items-center justify-between mb-4 px-1">
+        <Text className="text-white/60 text-xs font-bold uppercase tracking-[2px]">
+          {searchQuery || selectedAccountId ? 'Resultados' : 'Transações Recentes'}
+        </Text>
+        <Text className="text-emerald-400 text-xs font-bold">
+          {filteredTransactions.length} total
+        </Text>
+      </View>
+
+      {filteredTransactions.length === 0 ? (
         <View className="py-20 items-center bg-white/[0.02] rounded-[40px] border border-white/5 border-dashed">
+          <Search size={32} color="rgba(255,255,255,0.1)" className="mb-4" />
           <Text className="text-white/20 font-medium">Nenhuma transação encontrada</Text>
         </View>
       ) : (
         <View>
-          {transactions.map((tx) => (
+          {filteredTransactions.map((tx) => (
             <TransactionItem
               key={tx.id}
               description={tx.description}
