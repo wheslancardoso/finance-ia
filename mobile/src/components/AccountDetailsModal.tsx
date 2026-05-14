@@ -1,0 +1,135 @@
+import React, { useMemo, useRef, useCallback } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { X, CreditCard, ArrowUpRight, ArrowDownLeft, Receipt, CheckCircle2 } from 'lucide-react-native';
+import { formatCurrency } from '../utils/format';
+import { Account } from '../hooks/useAccounts';
+import { useAccountDetails } from '../hooks/useAccountDetails';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+interface AccountDetailsModalProps {
+  account: Account | null;
+  onClose: () => void;
+}
+
+export default function AccountDetailsModal({ account, onClose }: AccountDetailsModalProps) {
+  const bottomSheetRef = useRef<BottomSheet>(null);
+  const snapPoints = useMemo(() => ['50%', '90%'], []);
+  const { transactions, invoices, loading } = useAccountDetails(account?.id || '');
+
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop {...props} disappearsAt={-1} appearsAt={0} opacity={0.5} />
+    ),
+    []
+  );
+
+  if (!account) return null;
+
+  const isCreditCard = account.type === 'CREDIT_CARD';
+
+  return (
+    <BottomSheet
+      ref={bottomSheetRef}
+      index={1}
+      snapPoints={snapPoints}
+      enablePanDownToClose
+      onClose={onClose}
+      backdropComponent={renderBackdrop}
+      backgroundStyle={{ backgroundColor: '#0a0a0a' }}
+      handleIndicatorStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
+    >
+      <View style={styles.container}>
+        <View className="flex-row justify-between items-center mb-8">
+          <View>
+            <Text className="text-white/40 text-[10px] font-black uppercase tracking-[2px] mb-1">Detalhes da Conta</Text>
+            <Text className="text-white text-xl font-black uppercase tracking-tight">{account.name}</Text>
+          </View>
+          <Pressable onPress={() => bottomSheetRef.current?.close()}>
+            <X color="#fff" size={24} />
+          </Pressable>
+        </View>
+
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* balance info */}
+          <View className="bg-white/5 border border-white/10 rounded-[32px] p-6 mb-8">
+            <Text className="text-white/40 text-[10px] font-black uppercase tracking-widest mb-2">
+              {isCreditCard ? 'Saldo Devedor Atual' : 'Saldo Disponível'}
+            </Text>
+            <Text className={`text-4xl font-black tracking-tighter ${account.balance_cents < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+              {formatCurrency(account.balance_cents)}
+            </Text>
+            
+            {isCreditCard && account.limit_cents && (
+               <View className="mt-4 pt-4 border-t border-white/5">
+                  <Text className="text-white/20 text-[9px] font-black uppercase mb-1">Limite Total</Text>
+                  <Text className="text-white/60 font-bold">{formatCurrency(account.limit_cents)}</Text>
+               </View>
+            )}
+          </View>
+
+          {/* Actions */}
+          {isCreditCard && (
+            <Pressable className="bg-emerald-500 w-full py-5 rounded-[24px] items-center mb-8 shadow-xl shadow-emerald-500/20">
+               <View className="flex-row items-center">
+                  <CheckCircle2 size={18} color="#fff" className="mr-2" />
+                  <Text className="text-white font-black uppercase tracking-widest">Pagar Fatura Fechada</Text>
+               </View>
+            </Pressable>
+          )}
+
+          {/* Recent Transactions */}
+          <View className="mb-8">
+            <View className="flex-row justify-between items-center mb-6">
+               <Text className="text-white/40 text-[10px] font-black uppercase tracking-[2px]">Últimos Lançamentos</Text>
+               <Receipt size={16} color="rgba(255,255,255,0.2)" />
+            </View>
+
+            {loading ? (
+              <ActivityIndicator color="#8b5cf6" />
+            ) : transactions.length === 0 ? (
+              <Text className="text-white/20 text-center py-10 font-medium italic">Nenhuma transação encontrada</Text>
+            ) : (
+              transactions.map((tx) => (
+                <View key={tx.id} className="flex-row justify-between items-center mb-5">
+                  <View className="flex-row items-center flex-1">
+                    <View className={`w-10 h-10 rounded-2xl items-center justify-center mr-4 ${
+                      tx.transaction_type === 'INCOME' ? 'bg-emerald-500/10' : 'bg-rose-500/10'
+                    }`}>
+                      {tx.transaction_type === 'INCOME' 
+                        ? <ArrowUpRight size={18} color="#34d399" />
+                        : <ArrowDownLeft size={18} color="#f43f5e" />
+                      }
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-white font-bold" numberOfLines={1}>{tx.description}</Text>
+                      <Text className="text-white/40 text-[10px] uppercase font-black">
+                        {format(new Date(tx.date), "dd 'de' MMMM", { locale: ptBR })}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text className={`font-black tracking-tight ${
+                    tx.transaction_type === 'INCOME' ? 'text-emerald-400' : 'text-white/80'
+                  }`}>
+                    {tx.transaction_type === 'EXPENSE' ? '-' : ''}{formatCurrency(tx.amount_cents)}
+                  </Text>
+                </View>
+              ))
+            )}
+          </View>
+          
+          <View className="h-10" />
+        </ScrollView>
+      </View>
+    </BottomSheet>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 8,
+  },
+});

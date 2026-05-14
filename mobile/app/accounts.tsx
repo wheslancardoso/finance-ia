@@ -1,14 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, SafeAreaView, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Plus } from 'lucide-react-native';
-import { useAccounts } from '../src/hooks/useAccounts';
+import { useAccounts, Account } from '../src/hooks/useAccounts';
 import AccountCard from '../src/components/AccountCard';
+import AccountDetailsModal from '../src/components/AccountDetailsModal';
 import { formatCurrency } from '../src/utils/format';
 
 export default function AccountsPage() {
   const router = useRouter();
   const { accounts, loading, refresh } = useAccounts();
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
 
   const totalBalanceCents = accounts.reduce((acc, curr) => 
     curr.type !== 'CREDIT_CARD' ? acc + curr.balance_cents : acc, 0
@@ -72,7 +74,12 @@ export default function AccountsPage() {
         <View className="mb-8">
           <Text className="text-white/40 text-[10px] font-black uppercase tracking-widest mb-6">Contas Correntes e Dinheiro</Text>
           {accounts.filter(a => a.type !== 'CREDIT_CARD').map((account, index) => (
-            <AccountCard key={account.id} account={account} index={index} />
+            <AccountCard 
+              key={account.id} 
+              account={account} 
+              index={index} 
+              onPress={setSelectedAccount} 
+            />
           ))}
         </View>
 
@@ -80,10 +87,22 @@ export default function AccountsPage() {
         <View className="mb-12">
           <Text className="text-white/40 text-[10px] font-black uppercase tracking-widest mb-6">Cartões de Crédito</Text>
           {accounts.filter(a => a.type === 'CREDIT_CARD').map((account, index) => (
-            <AccountCard key={account.id} account={account} index={index} />
+            <AccountCard 
+              key={account.id} 
+              account={account} 
+              index={index} 
+              onPress={setSelectedAccount} 
+            />
           ))}
         </View>
       </ScrollView>
+
+      {selectedAccount && (
+        <AccountDetailsModal 
+          account={selectedAccount} 
+          onClose={() => setSelectedAccount(null)} 
+        />
+      )}
     </SafeAreaView>
   );
 }
