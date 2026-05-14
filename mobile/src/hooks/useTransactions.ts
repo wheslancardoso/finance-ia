@@ -76,5 +76,70 @@ export function useTransactions() {
     }
   };
 
-  return { createTransaction, createTransfer, loading };
+  const createInstallmentSeries = async (data: {
+    description: string;
+    amount_total_cents: number;
+    installments: number;
+    account_id: string;
+    category_id?: string;
+    date: string;
+  }) => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not found');
+
+      const amountPerInstallment = Math.round(data.amount_total_cents / data.installments);
+      const transactions = [];
+      const startDate = new Date(data.date);
+
+      for (let i = 0; i < data.installments; i++) {
+        const txDate = new Date(startDate);
+        txDate.setMonth(txDate.getMonth() + i);
+        
+        transactions.push({
+          user_id: user.id,
+          description: `${data.description} (${i + 1}/${data.installments})`,
+          amount_cents: amountPerInstallment,
+          transaction_type: 'EXPENSE',
+          account_id: data.account_id,
+          category_id: data.category_id,
+          date: txDate.toISOString(),
+          is_paid: i === 0, // Apenas a primeira parcela é marcada como paga geralmente
+          installment_current: i + 1,
+          installment_total: data.installments,
+          source: 'MANUAL'
+        });
+      }
+
+      const { error } = await supabase.from('transactions').insert(transactions);
+      if (error) throw error;
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error('Error creating installments:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteTransaction = async (id: string) => {
+    setLoading(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      const { error } = await supabase.from('transactions').delete().eq('id', id);
+      if (error) throw error;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { createTransaction, createTransfer, createInstallmentSeries, deleteTransaction, loading };
 }

@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, ScrollView } from 'react-native';
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import { Plus, X, ArrowUpRight, ArrowDownLeft, ArrowRightLeft } from 'lucide-react-native';
+import { Plus, X, ArrowUpRight, ArrowDownLeft, ArrowRightLeft, Hash, Tag } from 'lucide-react-native';
 import { formatCurrency } from '../utils/format';
 import { useTransactions } from '../hooks/useTransactions';
 import { supabase } from '../lib/supabase';
@@ -13,26 +13,35 @@ interface AddTransactionModalProps {
 
 export default function AddTransactionModal({ onClose, onSave }: AddTransactionModalProps) {
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo(() => ['50%', '90%'], []);
-  const { createTransaction, createTransfer, loading: saving } = useTransactions();
+  const snapPoints = useMemo(() => ['50%', '95%'], []);
+  const { createTransaction, createTransfer, createInstallmentSeries, loading: saving } = useTransactions();
 
   const [type, setType] = useState<'INCOME' | 'EXPENSE' | 'TRANSFER'>('EXPENSE');
   const [value, setValue] = useState('');
   const [description, setDescription] = useState('');
   const [accountId, setAccountId] = useState<string>('');
   const [targetAccountId, setTargetAccountId] = useState<string>('');
+  const [categoryId, setCategoryId] = useState<string>('');
+  const [installments, setInstallments] = useState('1');
   const [accounts, setAccounts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
 
   useEffect(() => {
-    async function fetchAccounts() {
-      const { data } = await supabase.from('accounts').select('*').order('name');
-      if (data) {
-        setAccounts(data);
-        if (data.length > 0) setAccountId(data[0].id);
-        if (data.length > 1) setTargetAccountId(data[1].id);
+    async function fetchData() {
+      const { data: accs } = await supabase.from('accounts').select('*').order('name');
+      if (accs) {
+        setAccounts(accs);
+        if (accs.length > 0) setAccountId(accs[0].id);
+        if (accs.length > 1) setTargetAccountId(accs[1].id);
+      }
+
+      const { data: cats } = await supabase.from('categories').select('*').order('name');
+      if (cats) {
+        setCategories(cats);
+        if (cats.length > 0) setCategoryId(cats[0].id);
       }
     }
-    fetchAccounts();
+    fetchData();
   }, []);
 
   const renderBackdrop = useCallback(
@@ -44,19 +53,27 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
 
   const handleSave = async () => {
     if (!value || !description || !accountId) return;
-
+    
     const amountCents = Math.round(parseFloat(value.replace(',', '.')) * 100);
-    const date = new Date().toISOString();
+    const numInstallments = parseInt(installments) || 1;
 
     try {
       if (type === 'TRANSFER') {
-        if (!targetAccountId) return;
         await createTransfer({
+          description,
+          amount_cents: amountCents,
           from_account_id: accountId,
           to_account_id: targetAccountId,
-          amount_cents: amountCents,
+          date: new Date().toISOString(),
+        });
+      } else if (type === 'EXPENSE' && numInstallments > 1) {
+        await createInstallmentSeries({
           description,
-          date,
+          amount_total_cents: amountCents,
+          installments: numInstallments,
+          account_id: accountId,
+          category_id: categoryId || undefined,
+          date: new Date().toISOString(),
         });
       } else {
         await createTransaction({
@@ -64,15 +81,14 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
           amount_cents: amountCents,
           transaction_type: type,
           account_id: accountId,
-          date,
-          is_paid: true,
+          category_id: categoryId || undefined,
+          date: new Date().toISOString(),
         });
       }
-
-      if (onSave) onSave({ type, value, description });
+      onSave?.({});
       bottomSheetRef.current?.close();
     } catch (err) {
-      // Erro já tratado no hook
+      console.error(err);
     }
   };
 
@@ -170,17 +186,59 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
           )}
         </View>
 
+        {/* Category Selection (Only if not transfer) */}
+        {type !== 'TRANSFER' && (
+          <View className="mb-6">
+            <Text className="text-white/20 text-[10px] font-black uppercase tracking-[2px] mb-2 px-1">Categoria</Text>
+            <View className="flex-row items-center bg-white/5 border border-white/10 rounded-[24px] px-5 py-4 overflow-hidden">
+              <Tag size={18} color="rgba(255,255,255,0.2)" className="mr-3" />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {categories.map((cat) => (
+                  <Pressable 
+                    key={cat.id}
+                    onPress={() => setCategoryId(cat.id)}
+                    className={`px-4 py-1.5 rounded-full mr-2 ${categoryId === cat.id ? 'bg-white/20' : 'bg-transparent'}`}
+                  >
+                    <Text className={`text-xs font-bold ${categoryId === cat.id ? 'text-white' : 'text-white/40'}`}>
+                      {cat.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        )}
+
+        {/* Installments Selection (Only if expense) */}
+        {type === 'EXPENSE' && (
+          <View className="mb-8">
+            <Text className="text-white/20 text-[10px] font-black uppercase tracking-[2px] mb-2 px-1">Parcelamento</Text>
+            <View className="flex-row items-center bg-white/5 border border-white/10 rounded-[24px] px-5 py-4">
+              <Hash size={18} color="rgba(255,255,255,0.2)" className="mr-3" />
+              <TextInput
+                className="flex-1 text-white text-base font-bold"
+                placeholder="Número de parcelas (ex: 12)"
+                placeholderTextColor="rgba(255,255,255,0.1)"
+                keyboardType="numeric"
+                value={installments}
+                onChangeText={setInstallments}
+              />
+              <Text className="text-white/40 text-[10px] font-black uppercase">Vezes</Text>
+            </View>
+          </View>
+        )}
+
         <Pressable 
           onPress={handleSave}
           disabled={saving}
-          className={`w-full py-5 rounded-[24px] items-center shadow-xl ${
+          className={`w-full py-6 rounded-[32px] items-center shadow-2xl ${
             type === 'INCOME' ? 'bg-emerald-500 shadow-emerald-500/20' : 
             type === 'TRANSFER' ? 'bg-violet-600 shadow-violet-600/20' : 
             'bg-rose-500 shadow-rose-500/20'
           }`}
         >
           <Text className="text-white font-black uppercase tracking-widest">
-            {saving ? 'Processando...' : 'Ativar Lançamento'}
+            {saving ? 'Processando...' : 'Confirmar Lançamento'}
           </Text>
         </Pressable>
       </ScrollView>
