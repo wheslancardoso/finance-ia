@@ -11,6 +11,7 @@ import MonthNavigator from '../src/components/MonthNavigator';
 import ProjectedTimeline from '../src/components/ProjectedTimeline';
 import NetWorthChart from '../src/components/NetWorthChart';
 import GoalCard from '../src/components/GoalCard';
+import SurvivalCeiling from '../src/components/SurvivalCeiling';
 import { DashboardSkeleton } from '../src/components/Skeleton';
 
 import { useFinancialAnalysis } from '../src/hooks/useFinancialAnalysis';
@@ -115,6 +116,8 @@ export default function Dashboard() {
           selectedDate={targetDate} 
           onDateChange={setTargetDate} 
         />
+
+        <SurvivalCeiling />
 
         <LiquidityCard 
           netLiquidityCents={analysis?.netLiquidityCents || 0}
