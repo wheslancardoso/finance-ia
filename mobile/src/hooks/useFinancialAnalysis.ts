@@ -9,7 +9,9 @@ import {
   calculateDebtExitProjection,
   calculateWeeklySurvival,
   calculateGoalProjections,
-  calculateAdvancedProjection
+  calculateAdvancedProjection,
+  calculateNetWorthHistory,
+  calculateIncomeMix
 } from '../../../src/domain/financial/financial-logic';
 
 export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations: any[] = []) {
@@ -24,13 +26,15 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
         { data: recurring },
         { data: transactions },
         { data: budgets },
-        { data: goals }
+        { data: goals },
+        { data: profile }
       ] = await Promise.all([
         supabase.from('accounts').select('*'),
         supabase.from('recurring_transactions').select('*'),
         supabase.from('transactions').select('*'),
         supabase.from('budgets').select('*'),
-        supabase.from('goals').select('*')
+        supabase.from('goals').select('*'),
+        supabase.from('profiles').select('financial_health_score').single()
       ]);
 
       const safeAccounts = accounts || [];
@@ -128,6 +132,9 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
         debtExit,
         weeklySurvival,
         goalProjections,
+        healthScore: profile?.financial_health_score || 0,
+        netWorthHistory: calculateNetWorthHistory(safeAccounts, safeTransactions),
+        incomeMix: calculateIncomeMix(safeTransactions, safeBudgets),
         // Mantendo compatibilidade com o que o useFinancialSummary retornava
         incomeCents: recurringIncomeCents,
         expenseCents: recurringExpensesCents
