@@ -1,19 +1,53 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CreditCard, Plus } from 'lucide-react-native';
+import { CreditCard, Plus, History, Calculator } from 'lucide-react-native';
+import { startOfMonth, isSameMonth } from 'date-fns';
+
 import TransactionList from '../src/components/TransactionList';
 import LiquidityCard from '../src/components/LiquidityCard';
 import AddTransactionModal from '../src/components/AddTransactionModal';
-import { useFinancialSummary } from '../src/hooks/useFinancialSummary';
+import MonthNavigator from '../src/components/MonthNavigator';
+import ProjectedTimeline from '../src/components/ProjectedTimeline';
+import NetWorthChart from '../src/components/NetWorthChart';
+
+import { useFinancialAnalysis } from '../src/hooks/useFinancialAnalysis';
+import { useProjectionTimeline } from '../src/hooks/useProjectionTimeline';
 import { formatCurrency } from '../src/utils/format';
 
 export default function Dashboard() {
   const router = useRouter();
-  const { summary, loading, refresh } = useFinancialSummary();
+  const [targetDate, setTargetDate] = useState<Date>(new Date());
   const [showAddModal, setShowAddModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'timeline' | 'summary'>('summary');
 
-  if (loading && !summary) {
+  const monthOffset = useMemo(() => {
+    const today = startOfMonth(new Date());
+    const target = startOfMonth(targetDate);
+    const months = (target.getFullYear() - today.getFullYear()) * 12 + (target.getMonth() - today.getMonth());
+    return Math.max(0, months);
+  }, [targetDate]);
+
+  const { analysis, loading, refresh } = useFinancialAnalysis(monthOffset);
+  const { transactions: projectedTransactions, loading: loadingProjections } = useProjectionTimeline(targetDate);
+
+  const isFuture = monthOffset > 0;
+  const isCurrentMonth = isSameMonth(targetDate, new Date());
+
+  const chartData = useMemo(() => {
+    if (!analysis) return [];
+    // Mocking some data points for the chart based on current and projected liquidity
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    return [
+      { timestamp: now - 30 * dayMs, value: analysis.netLiquidityCents * 0.9 },
+      { timestamp: now - 15 * dayMs, value: analysis.netLiquidityCents * 0.95 },
+      { timestamp: now, value: analysis.netLiquidityCents },
+      { timestamp: now + 30 * dayMs, value: analysis.monthlyOutlook?.projectedNetLiquidity || analysis.netLiquidityCents }
+    ];
+  }, [analysis]);
+
+  if (loading && !analysis) {
     return (
       <SafeAreaView className="flex-1 bg-[#050505] items-center justify-center">
         <ActivityIndicator color="#10b981" size="large" />
@@ -32,11 +66,11 @@ export default function Dashboard() {
       >
         <View className="mb-8 flex-row justify-between items-end">
           <View>
-            <Text className="text-white/40 text-sm font-bold uppercase tracking-[2px] mb-1">
-              Dashboard
+            <Text className="text-white/40 text-[10px] font-black uppercase tracking-[3px] mb-1">
+              Time Machine
             </Text>
-            <Text className="text-white text-3xl font-bold tracking-tight">
-              Vesper Finance
+            <Text className="text-white text-3xl font-black tracking-tight">
+              Vesper
             </Text>
           </View>
           <Pressable 
@@ -47,29 +81,76 @@ export default function Dashboard() {
           </Pressable>
         </View>
 
-        <LiquidityCard 
-          netLiquidityCents={summary?.netLiquidityCents || 0}
-          totalAssetsCents={summary?.accumulatedBalanceCents || 0}
-          isCrisis={summary?.outlook?.isCrisisMode}
+        <MonthNavigator 
+          selectedDate={targetDate} 
+          onDateChange={setTargetDate} 
         />
 
-        {/* Stats Grid */}
-        <View className="flex-row gap-4 mb-10">
-          <View className="flex-1 p-6 bg-white/[0.03] border border-white/10 rounded-[32px]">
-            <Text className="text-white/40 text-[10px] font-bold uppercase mb-1">Entradas</Text>
-            <Text className="text-emerald-400 text-xl font-bold">
-              {formatCurrency(summary?.incomeCents || 0)}
-            </Text>
+        <LiquidityCard 
+          netLiquidityCents={analysis?.netLiquidityCents || 0}
+          totalAssetsCents={analysis?.accumulatedBalanceCents || 0}
+          isCrisis={analysis?.monthlyOutlook?.isCrisisMode}
+        />
+
+        {isCurrentMonth && (
+          <View className="flex-row gap-4 mb-10">
+            <View className="flex-1 p-6 bg-white/[0.03] border border-white/10 rounded-[32px]">
+              <Text className="text-white/40 text-[10px] font-black uppercase mb-1">Entradas</Text>
+              <Text className="text-emerald-400 text-xl font-bold">
+                {formatCurrency(analysis?.incomeCents || 0)}
+              </Text>
+            </View>
+            <View className="flex-1 p-6 bg-white/[0.03] border border-white/10 rounded-[32px]">
+              <Text className="text-white/40 text-[10px] font-black uppercase mb-1">Saídas</Text>
+              <Text className="text-red-400 text-xl font-bold">
+                {formatCurrency(analysis?.expenseCents || 0)}
+              </Text>
+            </View>
           </View>
-          <View className="flex-1 p-6 bg-white/[0.03] border border-white/10 rounded-[32px]">
-            <Text className="text-white/40 text-[10px] font-bold uppercase mb-1">Saídas</Text>
-            <Text className="text-red-400 text-xl font-bold">
-              {formatCurrency(summary?.expenseCents || 0)}
-            </Text>
-          </View>
+        )}
+
+        {!isCurrentMonth && (
+           <NetWorthChart data={chartData} />
+        )}
+
+        {/* Tab Selector */}
+        <View className="flex-row bg-white/5 p-1 rounded-2xl border border-white/10 mb-6">
+          <Pressable 
+            onPress={() => setActiveTab('summary')}
+            className={`flex-1 flex-row items-center justify-center py-3 rounded-xl ${
+              activeTab === 'summary' ? 'bg-violet-600' : ''
+            }`}
+          >
+            <Calculator size={14} color={activeTab === 'summary' ? '#fff' : 'rgba(255,255,255,0.4)'} />
+            <Text className={`ml-2 text-[10px] font-black uppercase tracking-widest ${
+              activeTab === 'summary' ? 'text-white' : 'text-white/40'
+            }`}>Resumo</Text>
+          </Pressable>
+          <Pressable 
+            onPress={() => setActiveTab('timeline')}
+            className={`flex-1 flex-row items-center justify-center py-3 rounded-xl ${
+              activeTab === 'timeline' ? 'bg-violet-600' : ''
+            }`}
+          >
+            <History size={14} color={activeTab === 'timeline' ? '#fff' : 'rgba(255,255,255,0.4)'} />
+            <Text className={`ml-2 text-[10px] font-black uppercase tracking-widest ${
+              activeTab === 'timeline' ? 'text-white' : 'text-white/40'
+            }`}>Linha do Tempo</Text>
+          </Pressable>
         </View>
 
-        <TransactionList />
+        {activeTab === 'summary' ? (
+          <View>
+             {/* Content for Summary - already covered by LiquidityCard and stats for now */}
+             <TransactionList limit={5} />
+          </View>
+        ) : (
+          isFuture ? (
+            <ProjectedTimeline transactions={projectedTransactions} />
+          ) : (
+            <TransactionList />
+          )
+        )}
 
         {/* Spacer for FAB */}
         <View className="h-24" />
@@ -77,12 +158,14 @@ export default function Dashboard() {
       </ScrollView>
 
       {/* FAB */}
-      <Pressable 
-        onPress={() => setShowAddModal(true)}
-        className="absolute bottom-10 right-6 w-16 h-16 bg-white rounded-full items-center justify-center shadow-xl shadow-white/20"
-      >
-        <Plus color="#000" size={32} />
-      </Pressable>
+      {isCurrentMonth && (
+        <Pressable 
+          onPress={() => setShowAddModal(true)}
+          className="absolute bottom-10 right-6 w-16 h-16 bg-white rounded-full items-center justify-center shadow-xl shadow-white/20"
+        >
+          <Plus color="#000" size={32} />
+        </Pressable>
+      )}
 
       {showAddModal && (
         <AddTransactionModal 

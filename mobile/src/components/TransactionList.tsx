@@ -5,7 +5,11 @@ import TransactionItem from './TransactionItem';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-export default function TransactionList() {
+interface TransactionListProps {
+  limit?: number;
+}
+
+export default function TransactionList({ limit = 20 }: TransactionListProps) {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -16,7 +20,7 @@ export default function TransactionList() {
         .from('transactions')
         .select('*, categories(name), accounts(name)')
         .order('date', { ascending: false })
-        .limit(20);
+        .limit(limit);
 
       if (error) throw error;
       setTransactions(data || []);
