@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, SafeAreaView, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, User, DollarSign, Wallet, LogOut, ShieldCheck } from 'lucide-react-native';
+import { ArrowLeft, User, DollarSign, Wallet, LogOut, ShieldCheck, ChevronRight, MessageSquare, Phone, Zap, Palette } from 'lucide-react-native';
 import { useProfile } from '../src/hooks/useProfile';
 import { supabase } from '../src/lib/supabase';
+import { MotiView } from 'moti';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -128,12 +129,72 @@ export default function ProfileScreen() {
 
             <View className="h-4" />
 
+            {/* WhatsApp Protocol */}
+            <MotiView
+              from={{ opacity: 0, translateY: 20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ delay: 300 }}
+              className="mb-8"
+            >
+              <View className="flex-row items-center mb-4">
+                <MessageSquare color="#10b981" size={18} className="mr-2" />
+                <Text className="text-white/40 text-[10px] font-black uppercase tracking-[2px]">Protocolo WhatsApp</Text>
+              </View>
+              <View className="bg-white/5 border border-white/10 rounded-[32px] p-6">
+                <Text className="text-white/30 text-[10px] font-bold mb-4">Comande o Vesper via mensagens.</Text>
+                <View className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3 flex-row items-center mb-4">
+                  <Phone size={16} color="rgba(255,255,255,0.2)" className="mr-3" />
+                  <TextInput
+                    className="flex-1 text-white font-bold"
+                    placeholder="5511999999999"
+                    placeholderTextColor="rgba(255,255,255,0.1)"
+                    keyboardType="numeric"
+                    value={profile?.whatsapp_number || ''}
+                    onChangeText={(val) => updateProfile({ whatsapp_number: val.replace(/\D/g, '') })}
+                  />
+                </View>
+                <View className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex-row items-center">
+                  <Zap size={14} color="#10b981" className="mr-2" />
+                  <Text className="text-emerald-400 text-[10px] font-bold">Número sincronizado com sucesso.</Text>
+                </View>
+              </View>
+            </MotiView>
+
+            {/* Preferences */}
+            <MotiView
+              from={{ opacity: 0, translateY: 20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ delay: 400 }}
+              className="mb-10"
+            >
+              <View className="flex-row items-center mb-4">
+                <Palette color="#fbbf24" size={18} className="mr-2" />
+                <Text className="text-white/40 text-[10px] font-black uppercase tracking-[2px]">Preferências</Text>
+              </View>
+              <View className="space-y-3">
+                <View className="bg-white/5 border border-white/10 rounded-[24px] p-4 flex-row items-center justify-between">
+                  <View>
+                    <Text className="text-white font-bold text-xs">Moeda Padrão</Text>
+                    <Text className="text-white/20 text-[10px] font-black uppercase">Real Brasileiro (BRL)</Text>
+                  </View>
+                  <ChevronRight color="rgba(255,255,255,0.1)" size={16} />
+                </View>
+                <View className="bg-white/5 border border-white/10 rounded-[24px] p-4 flex-row items-center justify-between">
+                  <View>
+                    <Text className="text-white font-bold text-xs">Tema Visual</Text>
+                    <Text className="text-white/20 text-[10px] font-black uppercase">Liquid Glass (Dark)</Text>
+                  </View>
+                  <ChevronRight color="rgba(255,255,255,0.1)" size={16} />
+                </View>
+              </View>
+            </MotiView>
+
+            {/* Logout */}
             <Pressable 
               onPress={handleLogout}
-              className="flex-row items-center justify-center py-4 rounded-[24px] border border-rose-500/20 bg-rose-500/5"
+              className="w-full py-5 rounded-3xl border border-rose-500/20 bg-rose-500/5 items-center mb-10"
             >
-              <LogOut size={16} color="#f43f5e" className="mr-2" />
-              <Text className="text-rose-500 font-black uppercase tracking-widest text-xs">Sair da Conta</Text>
+              <Text className="text-rose-500 font-black uppercase text-[10px] tracking-[4px]">Sair do Centro de Comando</Text>
             </Pressable>
           </View>
           
