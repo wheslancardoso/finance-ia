@@ -16,7 +16,7 @@ Este documento detalha o roadmap para alcançar a paridade total com a versão W
 ## ✨ 3. Refinamento de UX
 - [x] **Haptic Feedback**: Adicionar vibrações táteis (Taptic Engine) ao marcar transações como pagas.
 - [x] **Skeletons**: Implementar estados de carregamento elegantes para o Dashboard e Lista de Transações.
-- [ ] **Filtros Avançados**: Implementar a busca e filtragem de transações por período/categoria.
+- [x] **Filtros Avançados**: Implementar a busca e filtragem de transações por período/categoria.
 
 ---
 **Status Atual**: Fundação sólida, Dashboard funcional com dados reais, primeiro teste unitário criado.

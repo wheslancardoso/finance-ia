@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Plus, Target } from 'lucide-react-native';
 import { useGoals } from '../src/hooks/useGoals';
 import GoalCard from '../src/components/GoalCard';
+import AddGoalModal from '../src/components/AddGoalModal';
 
 export default function GoalsScreen() {
   const router = useRouter();
-  const { goals, loading, refresh, contribute } = useGoals();
+  const { goals, loading, refresh, contribute, createGoal } = useGoals();
+  const [showAddModal, setShowAddModal] = useState(false);
 
   if (loading && goals.length === 0) {
     return (
@@ -27,7 +29,10 @@ export default function GoalsScreen() {
           <ArrowLeft color="#fff" size={20} />
         </Pressable>
         <Text className="text-white text-lg font-black uppercase tracking-widest">Minhas Metas</Text>
-        <Pressable className="p-3 bg-violet-600 rounded-2xl">
+        <Pressable 
+          onPress={() => setShowAddModal(true)}
+          className="p-3 bg-violet-600 rounded-2xl"
+        >
           <Plus color="#fff" size={20} />
         </Pressable>
       </View>
@@ -49,6 +54,12 @@ export default function GoalsScreen() {
               <Text className="text-white/40 text-center mt-2 px-10">
                 Defina seu primeiro objetivo para começar a visualizar o futuro do seu dinheiro.
               </Text>
+              <Pressable 
+                onPress={() => setShowAddModal(true)}
+                className="mt-6 bg-white/5 border border-white/10 px-6 py-3 rounded-2xl"
+              >
+                <Text className="text-white font-bold">Criar Meta agora →</Text>
+              </Pressable>
             </View>
           </View>
         ) : (
@@ -63,6 +74,16 @@ export default function GoalsScreen() {
           </View>
         )}
       </ScrollView>
+
+      {showAddModal && (
+        <AddGoalModal 
+          onClose={() => setShowAddModal(false)}
+          onSave={(data) => {
+            createGoal(data);
+            setShowAddModal(false);
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
