@@ -1,5 +1,4 @@
-import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { Wallet, CreditCard, Landmark, PiggyBank, CircleDollarSign } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import { formatCurrency } from '../utils/format';
@@ -8,9 +7,10 @@ import { Account } from '../hooks/useAccounts';
 interface AccountCardProps {
   account: Account;
   index: number;
+  onPress?: (account: Account) => void;
 }
 
-export default function AccountCard({ account, index }: AccountCardProps) {
+export default function AccountCard({ account, index, onPress }: AccountCardProps) {
   const getIcon = () => {
     switch (account.type) {
       case 'CREDIT_CARD': return CreditCard;
@@ -26,12 +26,13 @@ export default function AccountCard({ account, index }: AccountCardProps) {
   const balanceColor = account.balance_cents < 0 ? 'text-rose-400' : 'text-emerald-400';
 
   return (
-    <MotiView
-      from={{ opacity: 0, scale: 0.9, translateY: 20 }}
-      animate={{ opacity: 1, scale: 1, translateY: 0 }}
-      transition={{ type: 'spring', delay: index * 100 }}
-      className="bg-white/[0.03] border border-white/10 rounded-[32px] p-6 mb-4 overflow-hidden"
-    >
+    <Pressable onPress={() => onPress?.(account)}>
+      <MotiView
+        from={{ opacity: 0, scale: 0.9, translateY: 20 }}
+        animate={{ opacity: 1, scale: 1, translateY: 0 }}
+        transition={{ type: 'spring', delay: index * 100 }}
+        className="bg-white/[0.03] border border-white/10 rounded-[32px] p-6 mb-4 overflow-hidden"
+      >
       {/* Background Glow */}
       <View 
         className="absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-10"
@@ -79,6 +80,7 @@ export default function AccountCard({ account, index }: AccountCardProps) {
           </View>
         </View>
       )}
-    </MotiView>
+      </MotiView>
+    </Pressable>
   );
 }

@@ -2,6 +2,17 @@ import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import * as Haptics from 'expo-haptics';
 
+export interface Transaction {
+  id: string;
+  description: string;
+  amount_cents: number;
+  transaction_type: 'INCOME' | 'EXPENSE' | 'TRANSFER';
+  account_id: string;
+  category_id?: string;
+  date: string;
+  is_paid: boolean;
+}
+
 export function useTransactions() {
   const [loading, setLoading] = useState(false);
 
