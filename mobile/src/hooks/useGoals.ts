@@ -56,9 +56,26 @@ export function useGoals() {
     }
   }
 
+  async function createGoal(goal: Omit<Goal, 'id' | 'status'>) {
+    try {
+      const { data, error } = await supabase
+        .from('goals')
+        .insert([{ ...goal, status: 'ACTIVE', current_amount_cents: 0 }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      setGoals(prev => [data, ...prev]);
+      return data;
+    } catch (error) {
+      console.error('Error creating goal:', error);
+      throw error;
+    }
+  }
+
   useEffect(() => {
     fetchGoals();
   }, []);
 
-  return { goals, loading, refresh: fetchGoals, contribute };
+  return { goals, loading, refresh: fetchGoals, contribute, createGoal };
 }
