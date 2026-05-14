@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CreditCard, Plus, History, Calculator } from 'lucide-react-native';
+import { CreditCard, Plus, History, Calculator, Target } from 'lucide-react-native';
 import { startOfMonth, isSameMonth } from 'date-fns';
 
 import TransactionList from '../src/components/TransactionList';
@@ -10,9 +10,11 @@ import AddTransactionModal from '../src/components/AddTransactionModal';
 import MonthNavigator from '../src/components/MonthNavigator';
 import ProjectedTimeline from '../src/components/ProjectedTimeline';
 import NetWorthChart from '../src/components/NetWorthChart';
+import GoalCard from '../src/components/GoalCard';
 
 import { useFinancialAnalysis } from '../src/hooks/useFinancialAnalysis';
 import { useProjectionTimeline } from '../src/hooks/useProjectionTimeline';
+import { useGoals } from '../src/hooks/useGoals';
 import { formatCurrency } from '../src/utils/format';
 
 export default function Dashboard() {
@@ -29,7 +31,8 @@ export default function Dashboard() {
   }, [targetDate]);
 
   const { analysis, loading, refresh } = useFinancialAnalysis(monthOffset);
-  const { transactions: projectedTransactions, loading: loadingProjections } = useProjectionTimeline(targetDate);
+  const { transactions: projectedTransactions } = useProjectionTimeline(targetDate);
+  const { goals } = useGoals();
 
   const isFuture = monthOffset > 0;
   const isCurrentMonth = isSameMonth(targetDate, new Date());
@@ -111,6 +114,40 @@ export default function Dashboard() {
 
         {!isCurrentMonth && (
            <NetWorthChart data={chartData} />
+        )}
+
+        {/* Goals Section */}
+        {isCurrentMonth && (
+          <View className="mb-10">
+            <View className="flex-row items-center justify-between mb-4 px-1">
+              <Text className="text-white/60 text-xs font-bold uppercase tracking-[2px]">
+                Suas Metas
+              </Text>
+              <Pressable onPress={() => router.push('/goals')}>
+                <Text className="text-emerald-400 text-xs font-bold">Ver todas</Text>
+              </Pressable>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+              {goals.slice(0, 3).map((goal) => (
+                <View key={goal.id} style={{ width: 280, marginRight: 16 }}>
+                  <GoalCard 
+                    goal={goal} 
+                    onPress={() => router.push('/goals')}
+                  />
+                </View>
+              ))}
+              {goals.length === 0 && (
+                <Pressable 
+                  onPress={() => router.push('/goals')}
+                  className="bg-white/[0.03] border border-white/10 border-dashed rounded-[32px] p-6 items-center justify-center"
+                  style={{ width: 280 }}
+                >
+                  <Target size={24} color="rgba(255,255,255,0.2)" />
+                  <Text className="text-white/20 text-[10px] font-black uppercase mt-2">Criar Primeira Meta</Text>
+                </Pressable>
+              )}
+            </ScrollView>
+          </View>
         )}
 
         {/* Tab Selector */}
