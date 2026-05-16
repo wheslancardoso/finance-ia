@@ -13,7 +13,7 @@ interface GoalsManagerProps {
 }
 
 export function GoalsManager({ initialGoals }: GoalsManagerProps) {
-  const { goals: contextGoals, loading, netLiquidityCents } = useFinancialData();
+  const { goals: contextGoals, loading, netLiquidityCents, isGamificationEnabled } = useFinancialData();
   const { openModal, openContribution, openDetail } = useGoalModal();
 
   const goalsToDisplay = contextGoals.length > 0 ? contextGoals : (initialGoals || []);
@@ -49,7 +49,7 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
             
             const isCrisisMode = netLiquidityCents < 0;
             const isEmergencyGoal = (name: string) => /emerg[êe]ncia|sobreviv[êe]ncia|oxig[êe]nio|reserva/i.test(name);
-            const isLocked = isCrisisMode && !isEmergencyGoal(goal.name);
+            const isLocked = isGamificationEnabled && isCrisisMode && !isEmergencyGoal(goal.name);
             
             return (
               <div key={goal.id} className="group relative" data-testid={`goal-card-${goal.id}`}>

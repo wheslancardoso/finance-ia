@@ -12,7 +12,7 @@ import { useGoalModal } from "@/context/GoalModalContext";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 
 export default function GoalsPage() {
-  const { goals, loading } = useFinancialData();
+  const { goals, loading, isGamificationEnabled } = useFinancialData();
   const { openModal } = useGoalModal();
   const { netLiquidityCents, totalConsolidatedDebtCents, isSurvivalMode } = useFinancialAnalysis();
 
@@ -71,32 +71,34 @@ export default function GoalsPage() {
       </header>
       
       {/* Intelligence Bridge Insight */}
-      <GlassCard className={cn(
-        "p-6 flex flex-col md:flex-row items-center gap-6 border-l-4 transition-all",
-        !isSurvivalMode 
-          ? "border-l-emerald-500 bg-emerald-500/5 border-emerald-500/10" 
-          : "border-l-red-500 bg-red-500/5 border-red-500/10"
-      )}>
-        <div className={cn(
-          "w-16 h-16 rounded-3xl flex items-center justify-center shrink-0",
-          !isSurvivalMode ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
+      {isGamificationEnabled && (
+        <GlassCard className={cn(
+          "p-6 flex flex-col md:flex-row items-center gap-6 border-l-4 transition-all",
+          !isSurvivalMode 
+            ? "border-l-emerald-500 bg-emerald-500/5 border-emerald-500/10" 
+            : "border-l-red-500 bg-red-500/5 border-red-500/10"
         )}>
-          {!isSurvivalMode ? <ShieldCheck className="w-8 h-8" /> : <AlertCircle className="w-8 h-8" />}
-        </div>
-        <div className="space-y-1 flex-1 text-center md:text-left">
-          <h3 className="text-sm font-black uppercase tracking-[0.15em] text-white/80">Insight Estratégico: Capacidade de Aporte</h3>
-          <p className="text-xs text-white/40 leading-relaxed max-w-2xl">
-            {netLiquidityCents >= 0 
-              ? "Com base no seu Panorama Mensal, você tem segurança para manter seus aportes conforme o planejado."
-              : `Trava de Segurança: Você possui uma dívida consolidada de ${formatCurrency(totalConsolidatedDebtCents)}. O sistema recomenda pausar os aportes em metas. Sua prioridade agora é converter sua sobra mensal em liquidez real para quitar as faturas.`}
-          </p>
-        </div>
-        {isSurvivalMode && (
-          <div className="px-4 py-2 bg-red-500/20 border border-red-500/20 rounded-xl text-[10px] font-black text-red-400 uppercase tracking-widest animate-pulse">
-            Ciclo de Dívida Detectado
+          <div className={cn(
+            "w-16 h-16 rounded-3xl flex items-center justify-center shrink-0",
+            !isSurvivalMode ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
+          )}>
+            {!isSurvivalMode ? <ShieldCheck className="w-8 h-8" /> : <AlertCircle className="w-8 h-8" />}
           </div>
-        )}
-      </GlassCard>
+          <div className="space-y-1 flex-1 text-center md:text-left">
+            <h3 className="text-sm font-black uppercase tracking-[0.15em] text-white/80">Insight Estratégico: Capacidade de Aporte</h3>
+            <p className="text-xs text-white/40 leading-relaxed max-w-2xl">
+              {netLiquidityCents >= 0 
+                ? "Com base no seu Panorama Mensal, você tem segurança para manter seus aportes conforme o planejado."
+                : `Trava de Segurança: Você possui uma dívida consolidada de ${formatCurrency(totalConsolidatedDebtCents)}. O sistema recomenda pausar os aportes em metas. Sua prioridade agora é converter sua sobra mensal em liquidez real para quitar as faturas.`}
+            </p>
+          </div>
+          {isSurvivalMode && (
+            <div className="px-4 py-2 bg-red-500/20 border border-red-500/20 rounded-xl text-[10px] font-black text-red-400 uppercase tracking-widest animate-pulse">
+              Ciclo de Dívida Detectado
+            </div>
+          )}
+        </GlassCard>
+      )}
 
       {loading ? (
         <div className="py-24 flex flex-col items-center text-center">
