@@ -10,7 +10,8 @@ import {
   calculateRecurringIncome,
   calculateRecurringExpenses,
   simulateDetailedImpact,
-  calculateAdvancedProjection
+  calculateAdvancedProjection,
+  calculateAntifragilityTier
 } from './financial-logic';
 import { Account, Budget, RecurringTransaction } from '@/lib/db';
 
@@ -214,4 +215,27 @@ describe('Financial Logic Domain', () => {
       expect(result).toBe(100000);
     });
   });
+
+  describe('calculateAntifragilityTier', () => {
+    it('deve retornar Tier 0 (Crise) quando a liquidez for negativa', () => {
+      expect(calculateAntifragilityTier(-50000, 100000)).toBe(0);
+      expect(calculateAntifragilityTier(-1, 200000)).toBe(0);
+    });
+
+    it('deve retornar Tier 1 (Sobrevivente) se a cobertura de despesas for menor que 3 meses', () => {
+      expect(calculateAntifragilityTier(200000, 100000)).toBe(1);
+      expect(calculateAntifragilityTier(0, 100000)).toBe(1);
+    });
+
+    it('deve retornar Tier 2 (Imune) se a cobertura for entre 3 e 6 meses', () => {
+      expect(calculateAntifragilityTier(400000, 100000)).toBe(2);
+      expect(calculateAntifragilityTier(300000, 100000)).toBe(2);
+    });
+
+    it('deve retornar Tier 3 (Antifrágil) se a cobertura for maior ou igual a 6 meses', () => {
+      expect(calculateAntifragilityTier(800000, 100000)).toBe(3);
+      expect(calculateAntifragilityTier(600000, 100000)).toBe(3);
+    });
+  });
 });
+
