@@ -71,6 +71,18 @@ export interface FinancialHealthScore {
   updated_at: string;
 }
 
+export interface UserGamificationProfile {
+  id: string;
+  user_id: string;
+  resilience_points: number;
+  current_streak: number;
+  max_streak: number;
+  active_theme: string;
+  unlocked_achievements: any[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Transaction {
   id: string;
   description: string;
@@ -102,6 +114,7 @@ export class VesperDB extends Dexie {
   budgets!: Table<Budget>;
   financial_health_score!: Table<FinancialHealthScore>;
   transactions!: Table<Transaction>;
+  gamification_profile!: Table<UserGamificationProfile>;
 
   constructor() {
     super('VesperDB');
@@ -113,6 +126,9 @@ export class VesperDB extends Dexie {
       budgets: 'id, user_id, category_id',
       financial_health_score: 'id',
       transactions: 'id, user_id, account_id, category_id, date'
+    });
+    this.version(6).stores({
+      gamification_profile: 'id, user_id'
     });
   }
 }
