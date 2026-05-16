@@ -101,6 +101,34 @@ CREATE TRIGGER handle_updated_at_gamification
 
 ---
 
+## 🗺️ Roadmap de Causalidade: Consequências Ativas
+
+Para garantir que a gamificação do Vesper permaneça sóbria, premium e focada em causalidade financeira real, o desenvolvimento de novas mecânicas obedece a um cronograma de implantação que maximiza o impacto psicológico sem introduzir excesso de poluição visual ("megazord conceitual"):
+
+### 1. Heatmap Temporal de Colapso (Sutil & Complementar)
+*   **Implementação Visual**: Integrado na área do *Spending Simulator* ou como uma fina linha de LEDs discretos (CSS glassmorphic) no rodapé do dashboard. Não substitui o HUD limpo principal.
+*   **Lógica de Dados**: Um loop preditivo que projeta a liquidez acumulada pelos próximos 12 meses. Se o saldo atingir valores negativos, o sistema pinta o LED do mês correspondente de vermelho/fogo e alerta:
+    > `OUTUBRO 🔥 (Saldo colapsa em -R$ 450,00)`
+
+### 2. Impact Radius (Efeito Cascata)
+*   **Implementação Visual**: Um painel expansível de "Dano Preditivo" que surge silenciosamente na lateral do simulador ao inserir um valor de compra hipotético.
+*   **Lógica de Dados**: O motor intercepta a simulação e calcula a variação imediata no array de metas, reduzindo os aportes projetados das Ambições por ordem de prioridade.
+*   **Retorno Clínico**:
+    ```text
+    - Tempo de Reserva de Emergência: -1.4 meses (Redução de Escudo)
+    - Prazo da Meta "Intercâmbio": Postergado em +75 dias
+    ```
+
+### 3. Timeline Viva
+*   **Implementação Visual**: Uma feed vertical de logs estilizada como um terminal UNIX no rodapé do Dashboard, com scroll suave.
+*   **Lógica de Dados**: Mapeia transações marcantes do banco Dexie e as traduz em eventos de sistema estruturados (ex: depósitos significativos, estouros de orçamento ou transições de Tiers de Antifragilidade).
+
+### 4. Shadow Future & DNA Financeiro
+*   **Lógica de Análise**: Um algoritmo em background no Next.js que analisa a correlação temporal entre o recebimento da receita primária e a taxa de variação de saídas em categorias de lazer/consumo.
+*   **Linguagem de Retorno**: Puramente estatística, clínica e sem ruído motivacional, expressa no painel de conselhos sob a forma de fatos científicos inquestionáveis.
+
+---
+
 ## 🧪 Estratégia de Testes para Gamificação
 
 Para garantir a blindagem dessa mecânica no Playwright, adicionamos as seguintes asserções determinísticas na nossa suíte de testes E2E:
