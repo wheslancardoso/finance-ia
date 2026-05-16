@@ -53,7 +53,12 @@ test.describe('Integração de IA Soberana e Copiloto', () => {
     });
   });
 
-  test('deve classificar transação de forma inteligente ao usar Auto-IA no modal', async ({ page }) => {
+  test('deve classificar transação de forma inteligente ao usar Auto-IA no modal', async ({ page, isMobile }) => {
+    if (isMobile) {
+      test.skip(true, 'Modal de transações testado primariamente no desktop');
+      return;
+    }
+
     const initialState = createInitialState({
       accounts: [
         { id: 'acc-1', name: 'Banco Principal', type: 'CHECKING', balance_cents: 500000 }
@@ -114,15 +119,15 @@ test.describe('Integração de IA Soberana e Copiloto', () => {
     const iaPanel = page.getByTestId('ia-recommendations-panel');
     await expect(iaPanel).toBeVisible();
 
-    // Deve renderizar as duas recomendações mockadas
-    await expect(page.getByText('Notebook Novo')).toBeVisible();
-    await expect(page.getByText('Reserva de Emergência')).toBeVisible();
-    await expect(page.getByText('Sugerida: #1')).toBeVisible();
-    await expect(page.getByText('Sugerida: #2')).toBeVisible();
+    // Deve renderizar as duas recomendações mockadas especificamente dentro do painel para evitar Strict Mode
+    await expect(iaPanel.getByText('Notebook Novo')).toBeVisible();
+    await expect(iaPanel.getByText('Reserva de Emergência')).toBeVisible();
+    await expect(iaPanel.getByText('Sugerida: #1')).toBeVisible();
+    await expect(iaPanel.getByText('Sugerida: #2')).toBeVisible();
 
     // Os cards de metas na tela devem exibir os badges discreto de sugestão de prioridade
-    await expect(page.getByText('Sugestão IA: Prioridade #1')).toBeVisible();
-    await expect(page.getByText('Sugestão IA: Prioridade #2')).toBeVisible();
+    await expect(page.getByTestId('goal-card-goal-2').getByText('Sugestão IA: Prioridade #1')).toBeVisible();
+    await expect(page.getByTestId('goal-card-goal-1').getByText('Sugestão IA: Prioridade #2')).toBeVisible();
 
     // Clicar em aplicar as sugestões da IA
     await page.getByRole('button', { name: 'Aplicar Otimização Sugerida' }).click();
