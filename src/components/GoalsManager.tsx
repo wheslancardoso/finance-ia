@@ -1,26 +1,207 @@
 "use client";
 
-import React from "react";
-import { Target, Plus, Sparkles, ShieldCheck } from "lucide-react";
+import React, { useState } from "react";
+import { Target, Plus, Sparkles, ShieldCheck, Loader2 } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 import GlassCard from "@/components/GlassCard";
 import { useGoalModal } from "@/context/GoalModalContext";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import GoalRecommendations from "./GoalRecommendations";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface GoalsManagerProps {
   initialGoals?: any[];
 }
 
 export function GoalsManager({ initialGoals }: GoalsManagerProps) {
-  const { goals: contextGoals, loading, netLiquidityCents, isGamificationEnabled } = useFinancialData();
+  const { goals: contextGoals, loading, netLiquidityCents, isGamificationEnabled, upsertGoal, refreshData } = useFinancialData();
   const { openModal, openContribution, openDetail } = useGoalModal();
 
+  const [iaLoading, setIaLoading] = useState(false);
+  const [recommendations, setRecommendations] = useState<any[] | null>(null);
+  const [showIAPanel, setShowIAPanel] = useState(false);
+
   const goalsToDisplay = contextGoals.length > 0 ? contextGoals : (initialGoals || []);
+
+  const handleOptimizeWithIA = async () => {
+    setIaLoading(true);
+    setShowIAPanel(true);
+    try {
+      const res = await fetch("/api/ia", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "optimize-goals",
+          goals: goalsToDisplay,
+          financial_summary: {
+            net_liquidity_cents: netLiquidityCents
+          }
+        })
+      });
+
+      if (!res.ok) throw new Error("Erro na classificação de IA");
+
+      const data = await res.json();
+      if (data.recommendations) {
+        setRecommendations(data.recommendations);
+      }
+    } catch (error) {
+      console.error("Falha ao otimizar metas com IA:", error);
+    } finally {
+      setIaLoading(false);
+    }
+  };
+
+  const handleApplyRecommendations = async () => {
+    if (!recommendations) return;
+    setIaLoading(true);
+
+    try {
+      const updatedGoals = goalsToDisplay.map(goal => {
+        const rec = recommendations.find(r => r.goal_id === goal.id);
+        if (rec) {
+          return {
+            ...goal,
+            priority: rec.suggested_priority
+          };
+        }
+        return goal;
+      });
+
+      for (const g of updatedGoals) {
+        await upsertGoal(g);
+      }
+
+      await refreshData();
+      setRecommendations(null);
+      setShowIAPanel(false);
+    } catch (error) {
+      console.error("Falha ao aplicar recomendações da IA:", error);
+    } finally {
+      setIaLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-10">
       <GoalRecommendations />
+
+      {goalsToDisplay.length > 0 && (
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/5 pb-4">
+            <div>
+              <h2 className="text-xl font-bold text-white tracking-tight">Suas Ambições</h2>
+              <p className="text-xs text-white/40">Fila soberana de prioridades ativas</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleOptimizeWithIA}
+                disabled={iaLoading || goalsToDisplay.length < 2}
+                data-testid="optimize-goals-ia-button"
+                className="px-4 py-2.5 rounded-xl bg-violet-600/10 hover:bg-violet-600/20 text-violet-400 border border-violet-500/20 text-[10px] font-black uppercase tracking-wider flex items-center gap-2 transition-all active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {iaLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5" />
+                )}
+                <span>Auditar Fila com IA</span>
+              </button>
+            </div>
+          </div>
+
+          <AnimatePresence>
+            {showIAPanel && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                data-testid="ia-recommendations-panel"
+                className="p-6 rounded-[28px] bg-violet-955/10 border border-violet-500/20 space-y-6 relative overflow-hidden backdrop-blur-md"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-violet-400 flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3" /> Copiloto IA Soberana
+                    </span>
+                    <h4 className="text-base font-bold text-white">Auditoria Diagnóstica de Fila</h4>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRecommendations(null);
+                      setShowIAPanel(false);
+                    }}
+                    className="text-[10px] font-bold uppercase tracking-wider text-white/30 hover:text-white/60 transition-colors"
+                  >
+                    Ignorar
+                  </button>
+                </div>
+
+                {iaLoading ? (
+                  <div className="flex flex-col items-center justify-center py-10 space-y-4">
+                    <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+                    <span className="text-xs font-bold text-white/40 uppercase tracking-widest animate-pulse">
+                      Processando causalidade matemática da fila...
+                    </span>
+                  </div>
+                ) : recommendations && recommendations.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {recommendations.map((rec) => {
+                        const goal = goalsToDisplay.find(g => g.id === rec.goal_id);
+                        if (!goal) return null;
+
+                        return (
+                          <div
+                            key={rec.goal_id}
+                            className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2 flex flex-col justify-between"
+                          >
+                            <div className="flex items-start justify-between">
+                              <span className="text-sm font-bold text-white">{goal.name}</span>
+                              <span className="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 font-extrabold text-[9px] uppercase tracking-wider">
+                                Sugerida: #{rec.suggested_priority}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-white/50 leading-relaxed font-medium">
+                              {rec.reason}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={handleApplyRecommendations}
+                        className="px-5 py-3 rounded-xl bg-white text-black font-black text-[10px] uppercase tracking-widest hover:bg-white/90 transition-all active:scale-95 cursor-pointer"
+                      >
+                        Aplicar Otimização Sugerida
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRecommendations(null);
+                          setShowIAPanel(false);
+                        }}
+                        className="px-5 py-3 rounded-xl bg-white/5 text-white/50 border border-white/10 font-black text-[10px] uppercase tracking-widest hover:bg-white/10 hover:text-white transition-all active:scale-95 cursor-pointer"
+                      >
+                        Manter Fila Manual
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-white/40 italic py-4">
+                    Nenhuma otimização necessária. Sua fila está matematicamente perfeita sob os Tiers de Antifragilidade!
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
 
       {(!goalsToDisplay || goalsToDisplay.length === 0) ? (
         <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
@@ -91,6 +272,20 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
                   )}
 
                   <div className="space-y-2">
+                    {recommendations && (
+                      (() => {
+                        const rec = recommendations.find(r => r.goal_id === goal.id);
+                        if (rec && rec.suggested_priority !== goal.priority) {
+                          return (
+                            <div className="flex items-center gap-1.5 text-amber-400 bg-amber-400/5 border border-amber-400/10 px-2.5 py-1 rounded-lg w-fit text-[9px] font-black uppercase tracking-wider animate-pulse">
+                              <Sparkles className="w-2.5 h-2.5" />
+                              <span>Sugestão IA: Prioridade #{rec.suggested_priority}</span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()
+                    )}
                     <h3 className="text-2xl font-bold text-white tracking-tight" data-testid="goal-card-title">{goal.name}</h3>
                     <div className="flex items-center justify-between">
                       <div className="flex items-baseline gap-1.5">
