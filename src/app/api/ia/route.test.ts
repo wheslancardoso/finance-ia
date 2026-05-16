@@ -1,0 +1,78 @@
+import { POST } from "./route";
+import { NextRequest } from "next/server";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// Mock do cookies do Next.js
+vi.mock("next/headers", () => ({
+  cookies: vi.fn().mockResolvedValue({
+    getAll: () => []
+  })
+}));
+
+// Mock do Supabase Auth SSR
+vi.mock("@supabase/ssr", () => ({
+  createServerClient: vi.fn().mockReturnValue({
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: { id: "test-user-id" } } })
+    }
+  })
+}));
+
+describe("API Route: /api/ia", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubEnv("GEMINI_API_KEY", ""); // Zera para forçar o fallback determinístico local nos testes convencionais
+  });
+
+  it("deve retornar 400 se a action estiver faltando", async () => {
+    const req = new NextRequest("http://localhost:3000/api/ia", {
+      method: "POST",
+      body: JSON.stringify({})
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toContain("action é obrigatório");
+  });
+
+  it("deve classificar uma transação com sucesso usando o fallback determinístico local se GEMINI_API_KEY estiver vazia", async () => {
+    const req = new NextRequest("http://localhost:3000/api/ia", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "classify-transaction",
+        text: "uber 45",
+        categories: [
+          { id: "cat-1", name: "Transporte", type: "EXPENSE" },
+          { id: "cat-2", name: "Alimentação", type: "EXPENSE" }
+        ]
+      })
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.description).toBe("Uber");
+    expect(data.amount_cents).toBe(4500);
+    expect(data.category_id).toBe("cat-1");
+  });
+
+  it("deve otimizar a fila de metas com sucesso usando o fallback se GEMINI_API_KEY estiver vazia", async () => {
+    const req = new NextRequest("http://localhost:3000/api/ia", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "optimize-goals",
+        goals: [
+          { id: "g-1", title: "Viagem", priority: 1 },
+          { id: "g-2", title: "Reserva Emergência", priority: 2 }
+        ]
+      })
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.recommendations).toHaveLength(2);
+    expect(data.recommendations[0].goal_id).toBe("g-2"); // Reserva assume topo
+  });
+});
