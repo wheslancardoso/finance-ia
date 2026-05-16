@@ -12,6 +12,7 @@
 - [x] **05. Interface e Design System** `(Concluído)`
 - [x] **06. Estratégia de Testes e Qualidade** `(Concluído)`
 - [x] **07. Guia de Onboarding e Deployment** `(Concluído)`
+- [x] **08. Gamificação Brutalista de Metas** `(Concluído)`
 
 ---
 
@@ -52,6 +53,11 @@
 *   Configuração do ambiente local (.env).
 *   Scripts de build e deploy.
 *   Manutenção de Migrações.
+
+### 8. [Gamificação Brutalista de Metas](./08_goals_gamification.md)
+*   Tiers de Antifragilidade e Escudo de Liquidez.
+*   Mecânicas de Lockout de Metas em Crise e Streaks.
+*   Modelagem de banco de dados e persistência.
 
 ---
 
