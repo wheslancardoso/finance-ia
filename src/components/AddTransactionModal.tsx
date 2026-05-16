@@ -60,6 +60,7 @@ export function AddTransactionModal() {
 
   const [isLegacyDebt, setIsLegacyDebt] = useState(false);
   const [startingInstallment, setStartingInstallment] = useState(1);
+  const [iaLoading, setIaLoading] = useState(false);
 
   // Custom Select States
   const [openCategory, setOpenCategory] = useState(false);
@@ -330,6 +331,47 @@ export function AddTransactionModal() {
     setTransactionTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
   }
 
+  const handleClassifyWithIA = async () => {
+    if (!description.trim()) return;
+    setIaLoading(true);
+
+    try {
+      const res = await fetch("/api/ia", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "classify-transaction",
+          text: description,
+          categories
+        })
+      });
+
+      if (!res.ok) throw new Error("Erro na classificação de IA");
+
+      const data = await res.json();
+      
+      if (data.description) {
+        setDescription(data.description);
+      }
+      
+      if (data.amount_cents) {
+        setAmount((data.amount_cents / 100).toFixed(2).replace(".", ","));
+      }
+
+      if (data.category_id) {
+        setCategoryId(data.category_id);
+        const matchedCat = categories.find(c => c.id === data.category_id);
+        if (matchedCat && (matchedCat.type === "EXPENSE" || matchedCat.type === "INCOME")) {
+          setType(matchedCat.type);
+        }
+      }
+    } catch (error) {
+      console.error("Falha ao classificar transação com IA:", error);
+    } finally {
+      setIaLoading(false);
+    }
+  };
+
   const selectedAccount = accounts.find(a => a.id === accountId);
   const showInstallments = type === "EXPENSE" && selectedAccount?.type === "CREDIT_CARD";
 
@@ -471,10 +513,26 @@ export function AddTransactionModal() {
                           placeholder={type === "EXPENSE" ? "Ex: Almoço, Netflix, Aluguel" : "Ex: Salário, Freela, Venda..."}
                           value={description}
                           onChange={(e) => setDescription(e.target.value)}
-                          className="w-full bg-white/[0.02] border border-white/10 rounded-[22px] py-5 px-14 text-white text-lg font-medium outline-none focus:border-white/20 focus:bg-white/[0.05] transition-all placeholder:text-white/5"
+                          className="w-full bg-white/[0.02] border border-white/10 rounded-[22px] py-5 pl-14 pr-32 text-white text-lg font-medium outline-none focus:border-white/20 focus:bg-white/[0.05] transition-all placeholder:text-white/5"
                           required
                           data-testid="transaction-description-input"
                         />
+                        {description.trim().length > 2 && (
+                          <button
+                            type="button"
+                            onClick={handleClassifyWithIA}
+                            disabled={iaLoading}
+                            data-testid="auto-ia-button"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 bg-violet-600/10 hover:bg-violet-600/20 text-violet-400 border border-violet-500/20 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                          >
+                            {iaLoading ? (
+                              <Loader2 className="w-3 h-3 animate-spin animate-infinite" />
+                            ) : (
+                              <Sparkles className="w-3 h-3" />
+                            )}
+                            <span>Auto-IA</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
