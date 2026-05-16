@@ -101,31 +101,21 @@ CREATE TRIGGER handle_updated_at_gamification
 
 ---
 
-## 🗺️ Roadmap de Causalidade: Consequências Ativas
+## 🗺️ O Futuro da Simulação: O Impact Radius (Consequências Ativas)
 
-Para garantir que a gamificação do Vesper permaneça sóbria, premium e focada em causalidade financeira real, o desenvolvimento de novas mecânicas obedece a um cronograma de implantação que maximiza o impacto psicológico sem introduzir excesso de poluição visual ("megazord conceitual"):
+Para garantir que o motor do Vesper permaneça focado em causalidade financeira real sem poluição visual ou complexidade excessiva ("megazord conceitual"), o roadmap de evolução técnica prioriza unicamente e com foco total o **Impact Radius (Raio de Impacto)** como a mecânica de consequências ativas:
 
-### 1. Heatmap Temporal de Colapso (Sutil & Complementar)
-*   **Implementação Visual**: Integrado na área do *Spending Simulator* ou como uma fina linha de LEDs discretos (CSS glassmorphic) no rodapé do dashboard. Não substitui o HUD limpo principal.
-*   **Lógica de Dados**: Um loop preditivo que projeta a liquidez acumulada pelos próximos 12 meses. Se o saldo atingir valores negativos, o sistema pinta o LED do mês correspondente de vermelho/fogo e alerta:
-    > `OUTUBRO 🔥 (Saldo colapsa em -R$ 450,00)`
-
-### 2. Impact Radius (Efeito Cascata)
-*   **Implementação Visual**: Um painel expansível de "Dano Preditivo" que surge silenciosamente na lateral do simulador ao inserir um valor de compra hipotético.
-*   **Lógica de Dados**: O motor intercepta a simulação e calcula a variação imediata no array de metas, reduzindo os aportes projetados das Ambições por ordem de prioridade.
-*   **Retorno Clínico**:
+### O Impact Radius (Efeito Cascata)
+*   **Implementação Visual**: Um painel brutalista de "Raio de Impacto" que surge sutilmente na lateral ou no rodapé do *Spending Simulator* ao simular uma despesa.
+*   **Lógica de Dados**: O motor preditivo calcula em tempo real o impacto dos aportes de metas ativas e a resiliência futura do usuário com base no fluxo simulado:
+    *   **Metas Afetadas**: Identifica qual ambição de consumo será impactada pela indisponibilidade imediata de fundos e projeta o atraso em dias/meses.
+    *   **Reserva Reduzida**: Mostra a variação na métrica de cobertura de despesas ordinárias (*Liquidity Armor*).
+*   **Retorno Clínico de Amostra**:
     ```text
     - Tempo de Reserva de Emergência: -1.4 meses (Redução de Escudo)
-    - Prazo da Meta "Intercâmbio": Postergado em +75 dias
+    - Prazo da Meta "Intercâmbio Japão": Postergado em +120 dias
+    - Mês de Setembro entra na zona de alerta (caixa crítico)
     ```
-
-### 3. Timeline Viva
-*   **Implementação Visual**: Uma feed vertical de logs estilizada como um terminal UNIX no rodapé do Dashboard, com scroll suave.
-*   **Lógica de Dados**: Mapeia transações marcantes do banco Dexie e as traduz em eventos de sistema estruturados (ex: depósitos significativos, estouros de orçamento ou transições de Tiers de Antifragilidade).
-
-### 4. Shadow Future & DNA Financeiro
-*   **Lógica de Análise**: Um algoritmo em background no Next.js que analisa a correlação temporal entre o recebimento da receita primária e a taxa de variação de saídas em categorias de lazer/consumo.
-*   **Linguagem de Retorno**: Puramente estatística, clínica e sem ruído motivacional, expressa no painel de conselhos sob a forma de fatos científicos inquestionáveis.
 
 ---
 
