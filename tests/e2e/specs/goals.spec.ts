@@ -83,4 +83,60 @@ test.describe('Gestão de Metas (Refatorado)', () => {
     await expect(page.getByText('Realizar Aporte')).toBeVisible();
     await expect(page.getByTestId('contribution-goal-name')).toHaveText('Viagem para Japão');
   });
+
+  test('deve ativar o Lockout de Metas brutalista sob Modo Crise', async ({ page }) => {
+    // 1. Sobrescrever o estado financeiro para simular Modo Crise (liquidez negativa)
+    const crisisState = createDashboardState({
+      accounts: [
+        { id: 'acc-goals-crisis', name: 'Conta com Dívida', type: 'CHECKING', balance_cents: -50000, color_hex: '#ef4444' }
+      ],
+      recurring_transactions: [],
+      goals: [
+        {
+          id: 'goal-crisis-1',
+          name: 'Reserva de Emergência',
+          target_amount_cents: 1000000,
+          current_amount_cents: 200000,
+          color_hex: '#10b981',
+          status: 'ACTIVE',
+          created_at: new Date().toISOString()
+        },
+        {
+          id: 'goal-crisis-2',
+          name: 'Viagem para Japão',
+          target_amount_cents: 2000000,
+          current_amount_cents: 500000,
+          color_hex: '#8b5cf6',
+          status: 'ACTIVE',
+          created_at: new Date().toISOString()
+        }
+      ]
+    });
+
+    await setupFinancialMocks(page, crisisState);
+
+    const goalsPage = new GoalsPage(page);
+    await goalsPage.goto();
+    await page.waitForLoadState('networkidle');
+
+    // 2. Validar que o insight estratégico exibe o "Ciclo de Dívida Detectado"
+    await expect(page.getByText('Ciclo de Dívida Detectado')).toBeVisible();
+
+    // 3. Validar lockout na meta de consumo "Viagem para Japão" (deve estar congelada)
+    const consumptionGoalCard = page.getByTestId('goal-card-goal-crisis-2');
+    await expect(consumptionGoalCard.getByText('⚠️ META CONGELADA')).toBeVisible();
+    
+    const contributeButton = consumptionGoalCard.getByTestId('goal-contribution-button');
+    await expect(contributeButton).toBeDisabled();
+    await expect(contributeButton).toHaveText('Bloqueada');
+
+    // 4. Validar que a meta de sobrevivência "Reserva de Emergência" continua aberta
+    const emergencyGoalCard = page.getByTestId('goal-card-goal-crisis-1');
+    await expect(emergencyGoalCard.getByText('⚠️ META CONGELADA')).not.toBeVisible();
+    
+    const emergencyContributeButton = emergencyGoalCard.getByTestId('goal-contribution-button');
+    await expect(emergencyContributeButton).toBeEnabled();
+    await expect(emergencyContributeButton).toHaveText('Aportar');
+  });
 });
+

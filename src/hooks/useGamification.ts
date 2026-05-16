@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { gamificationService } from "@/services/gamificationService";
 import { type UserGamificationProfile } from "@/lib/db";
+import { calculateAntifragilityTier } from "@/domain/financial/financial-logic";
 
 export type AntifragilityTier = 0 | 1 | 2 | 3;
 
@@ -77,17 +78,7 @@ export function useGamification() {
   }, [fetchProfile]);
 
   // Cálculo matemático do Tier de Resiliência com base em liquidez consolidada real e despesa fixa
-  const tier: AntifragilityTier = (() => {
-    if (netLiquidityCents < 0) return 0;
-    
-    // Meses de despesa cobertos
-    const despesaMensal = fixedExpensesCents > 0 ? fixedExpensesCents : 100000; // fallback se for 0 despesa para evitar NaN
-    const monthsOfCoverage = netLiquidityCents / despesaMensal;
-
-    if (monthsOfCoverage < 3) return 1;
-    if (monthsOfCoverage < 6) return 2;
-    return 3;
-  })();
+  const tier: AntifragilityTier = calculateAntifragilityTier(netLiquidityCents, fixedExpensesCents) as AntifragilityTier;
 
   const tierInfo = TIERS[tier];
 

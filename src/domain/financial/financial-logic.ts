@@ -769,4 +769,23 @@ function formatCurrency(cents: number) {
   return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+/**
+ * Calcula o Tier de Antifragilidade do usuário baseado no saldo líquido real versus despesa fixa.
+ * Tier 0: Modo Crise (netLiquidityCents < 0)
+ * Tier 1: Sobrevivente (cobertura < 3 meses)
+ * Tier 2: Imune (3 <= cobertura < 6 meses)
+ * Tier 3: Antifrágil (cobertura >= 6 meses)
+ */
+export function calculateAntifragilityTier(netLiquidityCents: number, fixedExpensesCents: number): number {
+  if (netLiquidityCents < 0) return 0;
+  
+  const despesaMensal = fixedExpensesCents > 0 ? fixedExpensesCents : 100000;
+  const monthsOfCoverage = netLiquidityCents / despesaMensal;
+
+  if (monthsOfCoverage < 3) return 1;
+  if (monthsOfCoverage < 6) return 2;
+  return 3;
+}
+
 import { ptBR } from "date-fns/locale";
+
