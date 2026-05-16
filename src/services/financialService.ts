@@ -47,7 +47,7 @@ async function apiFetch(path: string, options?: RequestInit) {
 
 export const financialService = {
   // --- USER PROFILE ---
-  async upsertUserProfile(data: { id: string; monthly_income_cents?: number; fixed_expenses_cents?: number }) {
+  async upsertUserProfile(data: { id: string; monthly_income_cents?: number; fixed_expenses_cents?: number; gamification_enabled?: boolean }) {
     try {
       const saved = await apiFetch("/api/user-profile", {
         method: "POST",

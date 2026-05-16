@@ -5,11 +5,11 @@ import { useFinancialData } from "@/context/FinancialDataContext";
 import { useAccountModal } from "@/context/AccountModalContext";
 import { financialService } from "@/services/financialService";
 import { formatCurrency } from "@/lib/utils";
-import { Save, User, Wallet, Calculator, CheckCircle2 } from "lucide-react";
+import { Save, User, Wallet, Calculator, CheckCircle2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function UserProfileSettings() {
-  const { monthlyIncomeCents, fixedExpensesCents, refreshData } = useFinancialData();
+  const { monthlyIncomeCents, fixedExpensesCents, refreshData, isGamificationEnabled, setGamificationEnabled } = useFinancialData();
   const { userId } = useAccountModal();
   
   const formatValue = (cents: number) => {
@@ -80,6 +80,35 @@ export function UserProfileSettings() {
               placeholder="0,00"
             />
           </div>
+        </div>
+      </div>
+
+      <div className="h-px bg-white/10 my-6" />
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-2xl">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-violet-400" />
+              <span className="text-xs font-black uppercase tracking-wider text-white">Modo Resiliência Gamificada</span>
+            </div>
+            <p className="text-[10px] text-white/40 leading-relaxed max-w-sm">
+              Ativa o HUD brutalista, contagem de streaks, ganho de pontos de resiliência e bloqueio automático de metas de consumo sob Modo Crise.
+            </p>
+          </div>
+          
+          <button
+            onClick={() => setGamificationEnabled(!isGamificationEnabled)}
+            data-testid="toggle-gamification-button"
+            className={cn(
+              "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+              isGamificationEnabled 
+                ? "bg-violet-500 text-white shadow-lg shadow-violet-500/20" 
+                : "bg-white/5 text-white/40 border border-white/10 hover:border-white/20"
+            )}
+          >
+            {isGamificationEnabled ? "Ativado" : "Desativado"}
+          </button>
         </div>
       </div>
 

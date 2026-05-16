@@ -5,6 +5,7 @@
 ---
 
 ## 🚦 Status da Documentação
+- [x] **Contexto do Sistema (Master)** `(Concluído)`
 - [x] **01. Visão Geral e Negócio** `(Concluído)`
 - [x] **02. Arquitetura do Sistema** `(Concluído)`
 - [x] **03. Motor Financeiro (O Algoritmo)** `(Concluído)`
@@ -17,6 +18,14 @@
 ---
 
 ## 📑 Seções Detalhadas
+
+### 🗺️ [Contexto do Sistema (Master)](./contexto_sistema.md)
+*   **Conceito & Proposta**: De reativo (diário de gastos) a ativo e preditivo.
+*   **Problemas Resolvidos**: Falsa sensação de riqueza e inércia das planilhas estáticas.
+*   **Como Funciona**: Time Machine, Liquidez Líquida Real e precisão centesimal.
+*   **Diferenciais**: Unified Survival HUD, Simulador de Impacto (Spending Simulator), Saída de Dívida.
+*   **Gamificação Brutalista**: Escudo de Liquidez, Tiers de Antifragilidade, Lockout de Metas.
+*   **Arquitetura**: Camadas desacopladas (Clean/Hexagonal) e Offline-First (Dexie.js + Supabase).
 
 ### 1. [Visão Geral e Negócio](./01_overview.md)
 *   Missão do Vesper Finance.

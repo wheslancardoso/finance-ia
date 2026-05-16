@@ -15,7 +15,8 @@ export default function SurvivalHUD() {
     monthlyIncomeCents, 
     recurringIncomeCents,
     primaryIncomeCents,
-    setMonthlyIncomeCents
+    setMonthlyIncomeCents,
+    isGamificationEnabled
   } = useFinancialData();
 
   const { 
@@ -78,6 +79,8 @@ export default function SurvivalHUD() {
 
   const effectiveIncome = primaryIncomeCents > 0 ? primaryIncomeCents : ((monthlyIncomeCents || 0) + (recurringIncomeCents || 0));
   const hasFinancialData = effectiveIncome > 0;
+
+  if (!isGamificationEnabled) return null;
 
   // Se não houver nenhum dado e não estiver em crise, podemos ocultar ou mostrar setup
   if (!hasFinancialData && !isSurvivalMode) {

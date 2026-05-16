@@ -32,18 +32,22 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { monthly_income_cents, fixed_expenses_cents } = body;
+    const { monthly_income_cents, fixed_expenses_cents, gamification_enabled } = body;
 
     const supabase = await createAdminClient();
     
+    const upsertData: any = {
+      id: user.id,
+      updated_at: new Date().toISOString()
+    };
+
+    if (monthly_income_cents !== undefined) upsertData.monthly_income_cents = Number(monthly_income_cents);
+    if (fixed_expenses_cents !== undefined) upsertData.fixed_expenses_cents = Number(fixed_expenses_cents);
+    if (gamification_enabled !== undefined) upsertData.gamification_enabled = Boolean(gamification_enabled);
+
     const { data, error } = await supabase
       .from('profiles')
-      .upsert({
-        id: user.id,
-        monthly_income_cents: Number(monthly_income_cents) || 0,
-        fixed_expenses_cents: Number(fixed_expenses_cents) || 0,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'id' })
+      .upsert(upsertData, { onConflict: 'id' })
       .select();
 
     if (error) throw error;

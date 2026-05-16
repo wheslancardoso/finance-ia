@@ -22,6 +22,7 @@ interface FinancialStateResponse {
     fixed_expenses_cents: number;
     accumulated_balance_cents: number;
     financial_health_score: number;
+    gamification_enabled?: boolean;
   };
   categories: Category[];
   accounts: Account[];
@@ -127,6 +128,8 @@ interface FinancialDataContextType {
   deleteRecurringTransaction: (id: string) => Promise<void>;
   primaryIncomeCents: number;
   userId: string | null;
+  isGamificationEnabled: boolean;
+  setGamificationEnabled: (val: boolean) => void;
 }
 
 export const FinancialDataContext = createContext<FinancialDataContextType | undefined>(undefined);
@@ -204,6 +207,31 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     }
   }, []);
 
+  const [isGamificationEnabled, setIsGamificationEnabledState] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("vesper_gamification_enabled");
+      if (saved !== null) {
+        setIsGamificationEnabledState(saved === "true");
+      }
+    }
+  }, []);
+
+  const setGamificationEnabled = useCallback((val: boolean) => {
+    setIsGamificationEnabledState(val);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("vesper_gamification_enabled", val ? "true" : "false");
+    }
+    if (userId) {
+      financialService.upsertUserProfile({
+        id: userId,
+        gamification_enabled: val
+      });
+    }
+  }, [userId]);
+
+
   const _applyState = (data: any) => {
     const recurring = data.recurring_transactions || [];
     const accounts = data.accounts || [];
@@ -222,6 +250,12 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       setFixedExpensesCentsState(data.user_profile.fixed_expenses_cents || 0);
       setHealthScore(data.user_profile.financial_health_score || 0);
       setAccumulatedBalanceCents(data.user_profile.accumulated_balance_cents || 0);
+      if (data.user_profile.gamification_enabled !== undefined) {
+        setIsGamificationEnabledState(data.user_profile.gamification_enabled);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("vesper_gamification_enabled", data.user_profile.gamification_enabled ? "true" : "false");
+        }
+      }
     }
   };
 
@@ -629,7 +663,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     simulatePurchaseImpact,
     getGoalRecommendations,
     toggleTransactionPaid,
-    userId
+    userId,
+    isGamificationEnabled,
+    setGamificationEnabled
   }), [
     categories, accounts, loading, refreshData, lastFetched,
     monthlyIncomeCents, setMonthlyIncomeCents,
@@ -666,7 +702,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     simulatePurchaseImpact,
     getGoalRecommendations,
     toggleTransactionPaid,
-    userId
+    userId,
+    isGamificationEnabled,
+    setGamificationEnabled
   ]);
 
   return (
