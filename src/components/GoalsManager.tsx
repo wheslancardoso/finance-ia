@@ -47,13 +47,20 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
             const percentage = Math.min((goal.current_amount_cents / goal.target_amount_cents) * 100, 100);
             const remaining = goal.target_amount_cents - goal.current_amount_cents;
             
+            const isCrisisMode = netLiquidityCents < 0;
+            const isEmergencyGoal = (name: string) => /emerg[êe]ncia|sobreviv[êe]ncia|oxig[êe]nio|reserva/i.test(name);
+            const isLocked = isCrisisMode && !isEmergencyGoal(goal.name);
+            
             return (
               <div key={goal.id} className="group relative" data-testid={`goal-card-${goal.id}`}>
-                <GlassCard className="h-full flex flex-col gap-8 transition-all hover:border-white/20">
+                <GlassCard className={cn(
+                  "h-full flex flex-col gap-8 transition-all hover:border-white/20",
+                  isLocked && "opacity-60 cursor-not-allowed select-none bg-red-950/5 border-red-500/20"
+                )}>
                   <div className="flex items-start justify-between">
                     <div 
                       className="w-14 h-14 rounded-2xl flex items-center justify-center border border-white/10 shadow-inner"
-                      style={{ backgroundColor: `${goal.color_hex}15`, color: goal.color_hex }}
+                      style={{ backgroundColor: isLocked ? "rgba(239, 68, 68, 0.05)" : `${goal.color_hex}15`, color: isLocked ? "#ef4444" : goal.color_hex }}
                     >
                       <Sparkles className="w-7 h-7" />
                     </div>
@@ -67,7 +74,16 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
                     )}
                   </div>
 
-                  {percentage >= 100 && (
+                  {isLocked && (
+                    <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex flex-col gap-1.5" data-testid="goal-lockout-warning">
+                      <span className="text-red-400 font-extrabold text-[10px] tracking-wider uppercase">⚠️ META CONGELADA</span>
+                      <p className="text-[10px] text-red-300/80 leading-relaxed font-bold">
+                        Seu oxigênio financeiro está abaixo do nível crítico. O motor de simulação bloqueou aportes nesta meta para preservar sua sobrevivência.
+                      </p>
+                    </div>
+                  )}
+
+                  {percentage >= 100 && !isLocked && (
                     <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-2xl flex items-center gap-2">
                       <ShieldCheck className="w-4 h-4 text-emerald-400" />
                       <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Pronto para Compra (Segurança Total)</span>
@@ -93,29 +109,39 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
                     <div className="relative h-2 w-full bg-white/5 rounded-full overflow-hidden">
                       <div 
                         className="absolute top-0 left-0 h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(255,255,255,0.1)]"
-                        style={{ width: `${percentage}%`, backgroundColor: goal.color_hex }}
+                        style={{ width: `${percentage}%`, backgroundColor: isLocked ? "#ef4444" : goal.color_hex }}
                       />
                     </div>
                     <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
-                      <span style={{ color: goal.color_hex }}>{percentage.toFixed(1)}% Completo</span>
+                      <span style={{ color: isLocked ? "#ef4444" : goal.color_hex }}>{percentage.toFixed(1)}% Completo</span>
                       <span className="text-white/20">Faltam {formatCurrency(remaining)}</span>
                     </div>
                   </div>
 
                   <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between">
                     <button 
-                      onClick={() => openDetail(goal)}
+                      onClick={() => !isLocked && openDetail(goal)}
+                      disabled={isLocked}
                       data-testid="goal-details-button"
-                      className="text-[10px] font-bold text-white/40 hover:text-white uppercase tracking-widest transition-colors"
+                      className={cn(
+                        "text-[10px] font-bold uppercase tracking-widest transition-colors",
+                        isLocked ? "text-white/10 cursor-not-allowed" : "text-white/40 hover:text-white"
+                      )}
                     >
                       Detalhes
                     </button>
                     <button 
-                      onClick={() => openContribution(goal)}
-                      className="bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl text-[10px] font-bold text-white uppercase tracking-widest transition-all"
+                      onClick={() => !isLocked && openContribution(goal)}
+                      disabled={isLocked}
+                      className={cn(
+                        "px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all",
+                        isLocked 
+                          ? "bg-red-500/5 text-red-500/40 cursor-not-allowed border border-red-500/10" 
+                          : "bg-white/5 hover:bg-white/10 text-white"
+                      )}
                       data-testid="goal-contribution-button"
                     >
-                      Aportar
+                      {isLocked ? "Bloqueada" : "Aportar"}
                     </button>
                   </div>
                 </GlassCard>
