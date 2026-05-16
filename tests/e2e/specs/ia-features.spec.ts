@@ -120,8 +120,8 @@ test.describe('Integração de IA Soberana e Copiloto', () => {
     await expect(iaPanel).toBeVisible();
 
     // Deve renderizar as duas recomendações mockadas especificamente dentro do painel para evitar Strict Mode
-    await expect(iaPanel.getByText('Notebook Novo')).toBeVisible();
-    await expect(iaPanel.getByText('Reserva de Emergência')).toBeVisible();
+    await expect(iaPanel.getByText('Notebook Novo', { exact: true })).toBeVisible();
+    await expect(iaPanel.getByText('Reserva de Emergência', { exact: true })).toBeVisible();
     await expect(iaPanel.getByText('Sugerida: #1')).toBeVisible();
     await expect(iaPanel.getByText('Sugerida: #2')).toBeVisible();
 
