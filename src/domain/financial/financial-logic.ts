@@ -699,9 +699,74 @@ export function simulateDetailedImpact(params: {
   };
 }
 
+/**
+ * Calcula o mix de receitas por categoria nos últimos 30 dias.
+ */
+export function calculateIncomeMix(transactions: Transaction[], budgets: Budget[]): any[] {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const incomeTransactions = (transactions || []).filter(tx => 
+    tx.transaction_type === "INCOME" && 
+    new Date(tx.date) >= thirtyDaysAgo
+  );
+
+  const mixMap: Record<string, number> = {};
+  
+  incomeTransactions.forEach((tx: Transaction) => {
+    const catName = tx.category?.name || "Outros";
+    mixMap[catName] = (mixMap[catName] || 0) + (tx.amount_cents / 100);
+  });
+
+  return Object.entries(mixMap).map(([name, value]) => ({
+    name,
+    value: Math.round(value * 100) / 100
+  }));
+}
+
+/**
+ * Calcula a evolução do Patrimônio Líquido nos últimos 6 meses.
+ */
+export function calculateNetWorthHistory(accounts: Account[], transactions: Transaction[]): any[] {
+  const history: any[] = [];
+  const now = new Date();
+  
+  let currentTotalCents = (accounts || []).reduce((sum, acc) => sum + (acc.balance_cents || 0), 0);
+  
+  for (let i = 0; i < 6; i++) {
+    const targetMonth = addMonths(now, -i);
+    const monthStr = format(targetMonth, "MMM", { locale: ptBR });
+    
+    history.unshift({
+      month: monthStr,
+      amount: Math.round(currentTotalCents / 100)
+    });
+
+    const monthStart = startOfMonth(targetMonth);
+    const monthEnd = endOfMonth(targetMonth);
+
+    const mTransactions = (transactions || []).filter(tx => {
+      const d = new Date(tx.date);
+      return d >= monthStart && d <= monthEnd;
+    });
+
+    const netChangeCents = mTransactions.reduce((net, tx) => {
+      if (tx.transaction_type === "INCOME") return net + tx.amount_cents;
+      if (tx.transaction_type === "EXPENSE") return net - tx.amount_cents;
+      return net;
+    }, 0);
+
+    currentTotalCents -= netChangeCents;
+  }
+
+  return history;
+}
+
 function formatCurrency(cents: number) {
   if (isNaN(cents) || cents === null || cents === undefined) {
     return "R$ 0,00";
   }
   return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
+
+import { ptBR } from "date-fns/locale";
