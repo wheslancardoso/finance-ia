@@ -150,6 +150,11 @@ A estrutura de pastas garante que a lógica de negócios seja blindada de qualqu
 ### 🧪 Blindagem Matemática Contínua
 A integridade das simulações é assegurada por uma bateria implacável de testes ponta a ponta (E2E) usando **Playwright** baseada em Page Object Model (POM), simulando cenários catastróficos para garantir que os cálculos do motor nunca quebrem após novas atualizações na plataforma.
 
+### 🤖 Motor de Inteligência Artificial Soberana
+* O ecossistema integra Inteligência Artificial como um motor invisível de causalidade em segundo plano através de APIs seguras (.env) integradas a Serverless API Routes do Next.js.
+* Foca estritamente em três pilares pragmáticos: classificação zero-fricção de faturas, interpretação "What If" de despesas complexas via linguagem natural, e análise preditiva de vazamento silencioso de caixa.
+* A especificação completa de fluxos, privacidade e infraestrutura está documentada em [09_ia_integration.md](file:///home/lan/finance-ia/docs/09_ia_integration.md).
+
 ---
 
 > [!TIP]
