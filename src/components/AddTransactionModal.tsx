@@ -223,13 +223,17 @@ export function AddTransactionModal() {
       const totalAmountCents = Math.round(parsedAmount * 100);
       const installmentAmountCents = Math.floor(totalAmountCents / capturedInstallments);
 
+      const selectedAccount = accounts.find((a: any) => a.id === capturedAccountId);
+      const isCreditCard = selectedAccount?.type === "CREDIT_CARD";
+      const isPaidVal = isCreditCard && capturedType === "EXPENSE" ? false : true;
+
       const basePayload = {
         user_id: userId,
         account_id: capturedAccountId,
         category_id: (capturedCategoryId && capturedCategoryId.trim() !== "") ? capturedCategoryId : null,
         transaction_type: capturedType,
         is_legacy_debt: capturedIsLegacyDebt,
-        is_paid: true,
+        is_paid: isPaidVal,
         source: "MANUAL",
         is_third_party: capturedIsThirdParty,
         third_party_name: capturedIsThirdParty ? capturedThirdPartyName : null,

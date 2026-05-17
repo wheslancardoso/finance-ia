@@ -89,10 +89,26 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createAdminClient();
     
+    let isCreditCard = false;
+    if (account_id) {
+      const { data: accountData } = await supabase
+        .from('accounts')
+        .select('type')
+        .eq('id', account_id)
+        .single();
+      if (accountData?.type === 'CREDIT_CARD') {
+        isCreditCard = true;
+      }
+    }
+
     const txDate = new Date(date);
     const now = new Date();
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const isPastMonth = txDate < currentMonthStart;
+
+    const resolvedIsPaid = isCreditCard && transaction_type === 'EXPENSE'
+      ? false
+      : (is_paid ?? (isPastMonth ? true : false));
 
     const txData = {
       ...(id ? { id } : {}),
@@ -106,7 +122,7 @@ export async function POST(request: NextRequest) {
       installment_current: Number(installment_current) || 1,
       installment_total: Number(installment_total) || 1,
       installment_group_id: installment_group_id || null,
-      is_paid: is_paid ?? (isPastMonth ? true : false),
+      is_paid: resolvedIsPaid,
       source,
       is_third_party: !!is_third_party,
       third_party_name: third_party_name || null,
