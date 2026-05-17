@@ -8,6 +8,7 @@ import { useGoalModal } from "@/context/GoalModalContext";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import GoalRecommendations from "./GoalRecommendations";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
+import { db } from "@/lib/db";
 
 interface GoalsManagerProps {
   initialGoals?: any[];
@@ -40,9 +41,24 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
         priority: index + 1
       }));
 
-      for (const g of updates) {
-        await upsertGoal(g);
-      }
+      // 1. Atualização atômica instantânea no cache local Dexie
+      await db.goals.bulkPut(updates);
+
+      // 2. Envio paralelo dos updates na API Supabase sem concorrência de refresh
+      await Promise.all(
+        updates.map(async (g) => {
+          const res = await fetch("/api/goals", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(g)
+          });
+          if (!res.ok) {
+            console.error(`Falha ao sincronizar meta ${g.id} na nuvem`);
+          }
+        })
+      );
+
+      // 3. Disparar um ÚNICO refresh global consistente para recalcular todo o motor
       await refreshData();
     } catch (error) {
       console.error("Falha ao salvar nova ordenação de metas:", error);

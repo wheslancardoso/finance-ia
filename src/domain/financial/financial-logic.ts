@@ -639,7 +639,7 @@ export function calculateGoalProjections(params: {
   let currentFocusDate = debtExit.exitDate ? new Date(debtExit.exitDate) : new Date();
 
   // Ordenar por prioridade (assumindo que já vêm ordenadas ou usando critério padrão)
-  const sortedGoals = [...goals].sort((a, b) => (b.priority || 0) - (a.priority || 0));
+  const sortedGoals = [...goals].sort((a, b) => (a.priority || 999) - (b.priority || 999));
 
   return sortedGoals.map((goal) => {
     const remainingCents = (goal.target_amount_cents || 0) - (goal.current_amount_cents || 0);
