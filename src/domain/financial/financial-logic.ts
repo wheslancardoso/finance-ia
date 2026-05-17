@@ -368,10 +368,18 @@ export function calculateMonthlyOutlook(params: {
     return sum + (reserve || (b.amount_cents || 0));
   }, 0);
 
-  // Parcelas de Cartão para o mês específico (Calculado a partir de futureTransactions)
+  // Parcelas de Cartão para o mês específico (Calculado a partir de futureTransactions + allTransactions)
+  // Consolidamos todas as transações para garantir que parcelas com data de compra no mês atual 
+  // mas cujo impacto de fatura caia em meses futuros (pós-fechamento) sejam computadas corretamente!
+  const consolidatedTx = [
+    ...(futureTransactions || []),
+    ...(allTransactions || [])
+  ];
+  const uniqueTx = Array.from(new Map(consolidatedTx.map(t => [t.id, t])).values());
+
   const now = new Date();
   const targetDate = addMonths(now, monthOffset);
-  const installmentDebt = futureTransactions
+  const installmentDebt = uniqueTx
     .filter(t => {
       const impactDate = getTransactionImpactDate(t, accounts);
       return t.transaction_type === "EXPENSE" && isSameMonth(impactDate, targetDate);
@@ -447,7 +455,7 @@ export function calculateMonthlyOutlook(params: {
   // CÁLCULO DE DÍVIDA TOTAL REMANESCENTE (Time Machine)
   const projectedTotalDebt = monthOffset === 0
     ? calculateTotalConsolidatedDebt(accounts)
-    : futureTransactions
+    : uniqueTx
       .filter(t => {
         const impactDate = getTransactionImpactDate(t, accounts);
         return t.transaction_type === "EXPENSE" && (isSameMonth(impactDate, targetDate) || isAfter(impactDate, targetDate));

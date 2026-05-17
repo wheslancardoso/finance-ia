@@ -61,6 +61,10 @@ export async function GET(request: NextRequest) {
 
         const openCents = openInvoice ? (Number(openInvoice.amount_cents) || 0) : 0;
         const closedCents = closedInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
+
+        // Dívida Consolidada Pendente Real: soma de todas as faturas abertas (OPEN) e fechadas (CLOSED) pendentes
+        const unpaidInvoices = sortedInvoices.filter((i: any) => i.status === "OPEN" || i.status === "CLOSED");
+        const unpaidDebtCents = unpaidInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
         const totalDebt = accountInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
 
         return {
@@ -68,6 +72,7 @@ export async function GET(request: NextRequest) {
           open_invoice_cents: openCents,
           closed_invoice_cents: closedCents,
           balance_cents: -totalDebt,
+          total_debt_cents: unpaidDebtCents,
           open_invoice_month: openInvoice ? openInvoice.reference_month : null,
           closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
         };
