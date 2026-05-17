@@ -117,6 +117,17 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const supabase = await createAdminClient();
+    
+    // 1. Deletar transações físicas geradas por este fluxo que ainda não foram pagas
+    // Isso evita deixar "previsões não pagas" fantasmas poluindo o extrato e distorcendo saldos de conta.
+    await supabase
+      .from('transactions')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('is_paid', false)
+      .filter('source_metadata->>recurring_id', 'eq', id);
+
+    // 2. Deletar a regra de recorrência
     const { error } = await supabase
       .from('recurring_transactions')
       .delete()
