@@ -222,7 +222,7 @@ export function UnifiedSurvivalHeader({
                     <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden p-[2px]">
                       <motion.div 
                         initial={{ width: 0 }}
-                        animate={{ width: `${Math.min(100, Math.max(5, (weeklySurvival.weeklySpentCents / (weeklyLimit || 1)) * 100))}%` }}
+                        animate={{ width: `${Math.min(100, Math.max(5, weeklyLimit > 0 ? (weeklySurvival.weeklySpentCents / weeklyLimit) * 100 : (weeklySurvival.weeklySpentCents > 0 ? 100 : 0)))}%` }}
                         className={cn(
                           "h-full rounded-full transition-all duration-1000",
                           isCrisisMode ? "bg-red-500" : "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]"
@@ -232,7 +232,10 @@ export function UnifiedSurvivalHeader({
                     <div className="flex justify-between items-center text-[10px] font-black text-white/20 uppercase tracking-widest">
                       <span>Uso da Semana</span>
                       <span className={cn(isCrisisMode ? "text-red-400" : "text-white/60")}>
-                        {Math.round((weeklySurvival.weeklySpentCents / (weeklyLimit || 1)) * 100)}%
+                        {weeklyLimit > 0 
+                          ? `${Math.round((weeklySurvival.weeklySpentCents / weeklyLimit) * 100)}%` 
+                          : weeklySurvival.weeklySpentCents > 0 ? "100%" : "0%"
+                        }
                       </span>
                     </div>
                   </div>

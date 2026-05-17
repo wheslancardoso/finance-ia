@@ -176,9 +176,19 @@ export function calculateTotalConsolidatedDebt(accounts: Account[]): number {
  */
 export function calculateCurrentMonthDebt(accounts: Account[]): number {
   if (!accounts || !Array.isArray(accounts)) return 0;
+  const currentMonthStr = format(new Date(), "yyyy-MM");
   return accounts
     .filter((a) => a && a.type === "CREDIT_CARD")
-    .reduce((sum, a) => sum + (Number(a.closed_invoice_cents) || 0) + (Number(a.open_invoice_cents) || 0), 0);
+    .reduce((sum, a) => {
+      let debt = 0;
+      if (a.closed_invoice_cents && a.closed_invoice_month === currentMonthStr) {
+        debt += Number(a.closed_invoice_cents) || 0;
+      }
+      if (a.open_invoice_cents && a.open_invoice_month === currentMonthStr) {
+        debt += Number(a.open_invoice_cents) || 0;
+      }
+      return sum + debt;
+    }, 0);
 }
 
 /**
