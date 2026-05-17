@@ -350,14 +350,6 @@ export function AddTransactionModal() {
 
       const data = await res.json();
       
-      if (data.description) {
-        setDescription(data.description);
-      }
-      
-      if (data.amount_cents) {
-        setAmount((data.amount_cents / 100).toFixed(2).replace(".", ","));
-      }
-
       if (data.category_id) {
         setCategoryId(data.category_id);
         const matchedCat = categories.find(c => c.id === data.category_id);

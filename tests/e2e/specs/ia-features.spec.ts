@@ -85,12 +85,17 @@ test.describe('Integração de IA Soberana e Copiloto', () => {
     await expect(autoIAButton).toBeVisible();
     await autoIAButton.click();
 
-    // Aguardar o preenchimento reativo inteligente
-    // A descrição deve atualizar para "Almoço Executivo Inteligente", o valor para "45,00" e a categoria para "Alimentação"
-    await expect(descInput).toHaveValue('Almoço Executivo Inteligente');
+    // Aguardar o preenchimento inteligente apenas da categoria
+    // A descrição deve continuar sendo "Almoço"
+    await expect(descInput).toHaveValue('Almoço');
     
+    // O valor deve continuar vazio
     const amountInput = page.getByTestId('transaction-amount-input');
-    await expect(amountInput).toHaveValue('45,00');
+    await expect(amountInput).toHaveValue('');
+
+    // A categoria "Alimentação" deve ter sido selecionada automaticamente
+    const categorySpan = page.locator('span.text-white', { hasText: 'Alimentação' });
+    await expect(categorySpan).toBeVisible();
 
     // Confirmar e fechar modal
     await page.getByTestId('transaction-submit-button').click();
