@@ -167,14 +167,10 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
   const activeDebt = useMemo(() => {
     const baseDebt = monthOffset === 0 ? consolidatedDebt : monthlyOutlook.totalDebt;
     if (activeSimulations.length > 0) {
-      const adjustedDebt = baseDebt + simulatedDebtAdjustment;
-      // Para manter coerência visual absoluta com a tela, a dívida total exibida no topo do HUD
-      // nunca pode ser menor do que o total de saídas previstas e compromissos físicos daquele mês.
-      const monthlyPhysicalCommitments = Math.max(0, monthlyOutlook.plannedExpenses || 0);
-      return Math.max(monthlyPhysicalCommitments, adjustedDebt);
+      return Math.max(0, baseDebt + simulatedDebtAdjustment);
     }
     return baseDebt;
-  }, [monthOffset, consolidatedDebt, monthlyOutlook.totalDebt, activeSimulations, simulatedDebtAdjustment, monthlyOutlook.plannedExpenses]);
+  }, [monthOffset, consolidatedDebt, monthlyOutlook.totalDebt, activeSimulations, simulatedDebtAdjustment]);
 
   const activeAssets = useMemo(() => {
     const baseAssets = monthOffset === 0 ? currentAssets : monthlyOutlook.totalAssets;
