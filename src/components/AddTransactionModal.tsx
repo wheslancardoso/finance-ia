@@ -73,6 +73,9 @@ export function AddTransactionModal() {
   const [editAllInstallments, setEditAllInstallments] = useState(false);
   const [isThirdParty, setIsThirdParty] = useState(false);
   const [thirdPartyName, setThirdPartyName] = useState("");
+  const [keepOpen, setKeepOpen] = useState(false);
+  const [showSuccessGlow, setShowSuccessGlow] = useState(false);
+  const descriptionInputRef = useRef<HTMLInputElement>(null);
 
   // Fechar dropdowns ao clicar fora
   useEffect(() => {
@@ -316,8 +319,29 @@ export function AddTransactionModal() {
 
       if (!errorOccurred) {
         await refreshData();
-        closeModal();
         router.refresh();
+
+        if (keepOpen && !transactionToEdit) {
+          // Mantém o modal aberto e dá um feedback de sucesso premium
+          setShowSuccessGlow(true);
+          setAmount("");
+          setDescription("");
+          setInstallments(1); // Reseta parcelas para o próximo
+          setIsThirdParty(false);
+          setThirdPartyName("");
+
+          // Foca no input de descrição após limpar
+          setTimeout(() => {
+            descriptionInputRef.current?.focus();
+          }, 100);
+
+          // Remove o glow verde após 2 segundos
+          setTimeout(() => {
+            setShowSuccessGlow(false);
+          }, 2000);
+        } else {
+          closeModal();
+        }
       } else {
         setStatusModal({
           isOpen: true,
@@ -436,11 +460,33 @@ export function AddTransactionModal() {
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-[#0A0A0A]/95 backdrop-blur-3xl border border-white/10 rounded-[40px] p-8 shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar"
+              className={cn(
+                "relative w-full max-w-lg bg-[#0A0A0A]/95 backdrop-blur-3xl border rounded-[40px] p-8 shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar transition-all duration-500",
+                showSuccessGlow 
+                  ? "border-emerald-500/50 shadow-[0_0_50px_rgba(16,185,129,0.2)] ring-2 ring-emerald-500/20" 
+                  : "border-white/10 shadow-black"
+              )}
             >
+              {/* Feedback Visual de Sucesso Flutuante */}
+              <AnimatePresence>
+                {showSuccessGlow && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                    className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-2 rounded-full shadow-lg backdrop-blur-md"
+                  >
+                    <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">
+                      Transação Registrada!
+                    </span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <div className={cn(
                 "absolute top-0 left-0 w-full h-[2px] transition-colors duration-500",
-                type === "EXPENSE" ? "bg-red-500/50" : "bg-emerald-500/50"
+                showSuccessGlow ? "bg-emerald-500" : (type === "EXPENSE" ? "bg-red-500/50" : "bg-emerald-500/50")
               )} />
 
               <div className="flex justify-between items-center mb-10">
@@ -525,6 +571,7 @@ export function AddTransactionModal() {
                       <div className="relative">
                         <PencilLine className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/10" />
                         <input
+                          ref={descriptionInputRef}
                           placeholder={type === "EXPENSE" ? "Ex: Almoço, Netflix, Aluguel" : "Ex: Salário, Freela, Venda..."}
                           value={description}
                           onChange={(e) => setDescription(e.target.value)}
@@ -884,6 +931,46 @@ export function AddTransactionModal() {
                     </motion.div>
                   )}
                 </div>
+
+                {/* Modo Lote / Cadastro Contínuo */}
+                {!transactionToEdit && (
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5 mt-4 mb-4 transition-all hover:bg-white/[0.04]">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-8 h-8 rounded-lg flex items-center justify-center transition-all",
+                        keepOpen 
+                          ? "bg-violet-500/20 text-violet-400" 
+                          : "bg-white/5 text-white/30"
+                      )}>
+                        <Sparkles className={cn("w-4 h-4", keepOpen && "animate-pulse")} />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-white">
+                          Cadastro Contínuo
+                        </span>
+                        <span className="text-[8px] text-white/40 font-bold uppercase tracking-tight">
+                          Manter modal aberto para registrar várias transações
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setKeepOpen(!keepOpen)}
+                      className={cn(
+                        "w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none cursor-pointer",
+                        keepOpen ? "bg-violet-500" : "bg-white/10"
+                      )}
+                      data-testid="keep-open-toggle"
+                    >
+                      <div
+                        className={cn(
+                          "bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300",
+                          keepOpen ? "translate-x-6" : "translate-x-0"
+                        )}
+                      />
+                    </button>
+                  </div>
+                )}
 
                 <button
                   disabled={loading || !amount || !description}
