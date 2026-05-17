@@ -138,11 +138,16 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
   }, [debtExit, goals]);
   
   const weeklySurvival = useMemo(() => {
+    const isCrisisOrSurvival = (monthlyOutlook.balanceAtMonthEnd < 0 || activeNetLiquidity < 0);
+    const monthlySurplusCents = (isCrisisOrSurvival && activeNetLiquidity > 0)
+      ? Math.max(0, Math.min(monthlyOutlook.balanceAtMonthEnd, activeNetLiquidity))
+      : Math.max(0, monthlyOutlook.balanceAtMonthEnd);
+
     return calculateWeeklySurvival({
-      monthlySurplusCents: Math.max(0, monthlyOutlook.balanceAtMonthEnd),
+      monthlySurplusCents,
       currentMonthTransactions: monthTransactions
     });
-  }, [monthlyOutlook.balanceAtMonthEnd, monthTransactions]);
+  }, [monthlyOutlook.balanceAtMonthEnd, activeNetLiquidity, monthTransactions]);
 
   const simulateDetailedImpactFn = useCallback((amountCents: number, installments: number) => 
     simulateDetailedImpact({

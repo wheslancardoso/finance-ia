@@ -43,7 +43,12 @@ export function UnifiedSurvivalHeader({
   const hasSimulations = activeSimulations.length > 0;
 
   // Lógica do Teto de Sobrevivência (Unificada do HUD)
-  const survivalCeilingCents = Math.max(0, monthlyOutlook.balanceAtMonthEnd);
+  // Só limitamos o teto mensal pela liquidez líquida atual em cenários de risco (recuperação/crise)
+  // e se a liquidez for positiva para evitar inflar os limites com receitas futuras ainda não recebidas.
+  const isCrisisOrSurvival = isCrisisMode || isRecoveryMode;
+  const survivalCeilingCents = (isCrisisOrSurvival && netLiquidityCents > 0)
+    ? Math.max(0, Math.min(monthlyOutlook.balanceAtMonthEnd, netLiquidityCents))
+    : Math.max(0, monthlyOutlook.balanceAtMonthEnd);
   const weeklyLimit = survivalCeilingCents / 4;
 
   return (
