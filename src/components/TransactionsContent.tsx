@@ -243,7 +243,7 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
 
       {/* Transactions List */}
       <div className="space-y-8 md:space-y-12 min-h-[400px]">
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           {Object.entries(groupedTransactions).map(([date, txs]) => (
             <motion.div 
               key={date}
