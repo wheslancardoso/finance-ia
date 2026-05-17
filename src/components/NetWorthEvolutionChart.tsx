@@ -33,18 +33,36 @@ export default function NetWorthEvolutionChart() {
   // Calcular a posição da linha do zero
   const zeroY = 100 - ((0 - chartMin) / chartRange) * 100;
 
+  const lastItem = data[data.length - 1];
+  const previousItem = data.length >= 2 ? data[data.length - 2] : null;
+  
+  let percentChange = 0;
+  let hasChange = false;
+  let isPositive = false;
+  
+  if (previousItem && previousItem.amount !== 0) {
+    const diff = lastItem.amount - previousItem.amount;
+    percentChange = (diff / Math.abs(previousItem.amount)) * 100;
+    hasChange = diff !== 0;
+    isPositive = diff > 0;
+  }
+
   return (
     <div className="w-full space-y-6">
       <div className="flex items-end justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-1">Patrimônio Atual</p>
           <p className="text-3xl font-black text-white tracking-tighter">
-            {formatCurrency(data[data.length - 1].amount * 100)}
+            {formatCurrency(lastItem.amount * 100)}
           </p>
         </div>
-        <div className="flex items-center gap-1 text-emerald-400 font-bold text-xs bg-emerald-500/10 px-2 py-1 rounded-lg">
-          <span>+12.4%</span>
-        </div>
+        {hasChange && (
+          <div className={`flex items-center gap-1 font-bold text-xs px-2 py-1 rounded-lg ${
+            isPositive ? "text-emerald-400 bg-emerald-500/10" : "text-rose-400 bg-rose-500/10"
+          }`}>
+            <span>{isPositive ? `+${percentChange.toFixed(1)}%` : `${percentChange.toFixed(1)}%`}</span>
+          </div>
+        )}
       </div>
 
       <div className="relative aspect-[3/1] min-h-[200px] w-full group mb-8">
@@ -142,6 +160,21 @@ export default function NetWorthEvolutionChart() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Bloco Explicativo de Patrimônio Líquido */}
+      <div className="mt-12 p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
+        <div className="flex items-center gap-2 text-violet-400">
+          <span className="text-xs font-bold uppercase tracking-wider italic flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
+            Metodologia do Patrimônio Líquido Real
+          </span>
+        </div>
+        <p className="text-[11px] leading-relaxed text-white/50 font-medium">
+          O Vesper calcula o seu <strong>Patrimônio Atual</strong> de forma ultra-conservadora: 
+          somamos o dinheiro disponível em suas contas correntes e deduzimos <strong>todas as parcelas e faturas futuras já comprometidas</strong> em seus cartões de crédito. 
+          Isso reflete o que restaria de liquidez imediata se você quitasse todas as suas obrigações hoje, evitando a ilusão de caixa.
+        </p>
       </div>
     </div>
   );
