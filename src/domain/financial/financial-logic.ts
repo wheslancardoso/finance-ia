@@ -490,27 +490,7 @@ export function calculateMonthlyOutlook(params: {
     (monthOffset === 0 ? (budgets.reduce((sum, b) => sum + Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0)), 0)) : (budgets.reduce((sum, b) => sum + (b.amount_cents || 0), 0))) +
     simulationExpenseImpact;
 
-  // Determinamos a liquidez final projetada (Patrimônio Líquido)
-  const finalLiquidity = monthOffset === 0
-    ? (liquidity + adjustedMonthlyIncome - realOutflow)
-    : calculateAdvancedProjection({
-      currentNetLiquidity: netLiquidityCents,
-      recurringTransactions,
-      futureTransactions,
-      goals,
-      budgets,
-      monthOffset,
-      activeSimulations,
-      scheduledIncomeCents: (monthOffset === 0 ? adjustedMonthlyIncome : 0),
-      scheduledExpensesCents: (monthOffset === 0 ? realOutflow : 0),
-      allTransactions: accounts.flatMap(a => []), // placeholder para types
-      accounts
-    });
-
-  const isCritical = finalLiquidity < 0;
-  const isCrisisMode = isCritical && netLiquidityCents < 0;
-
-  // CÁLCULO DE DÍVIDA TOTAL REMANESCENTE COM AMORTIZAÇÃO (Time Machine)
+  // 1. CÁLCULO DE DÍVIDA TOTAL REMANESCENTE COM AMORTIZAÇÃO (Time Machine)
   // Permite decair a dívida total física consolidada à medida que as faturas mensais são pagas,
   // garantindo no mínimo a fatura do próprio mês (sincronia perfeita).
   const getInstallmentDebtForOffset = (offset: number) => {
@@ -545,10 +525,30 @@ export function calculateMonthlyOutlook(params: {
     projectedTotalDebt = Math.max(projectedTotalDebt, monthlyCommitments);
   }
 
-  // O Saldo Bruto Projetado (Total Assets) é Liquidez + Dívida Remanescente
+  // 2. CÁLCULO DO SALDO BRUTO PROJETADO (Total Assets - Contas Correntes/Investimento)
+  // Usa o motor de projeção com o parâmetro currentAssetsCents para eliminar double-counting de cartões.
   const projectedAssets = monthOffset === 0
     ? calculateAccumulatedBalance(accounts)
-    : (finalLiquidity + projectedTotalDebt);
+    : calculateAdvancedProjection({
+        currentNetLiquidity: netLiquidityCents,
+        currentAssetsCents: calculateAccumulatedBalance(accounts),
+        recurringTransactions,
+        futureTransactions,
+        goals,
+        budgets,
+        monthOffset,
+        activeSimulations,
+        accounts
+      });
+
+  // 3. DETERMINAÇÃO DA LIQUIDEZ FINAL PROJETADA (Patrimônio Líquido)
+  // Nos meses futuros, é o saldo bruto projetado das contas (ativos) menos a dívida de cartão remanescente (passivo).
+  const finalLiquidity = monthOffset === 0
+    ? (liquidity + adjustedMonthlyIncome - realOutflow)
+    : (projectedAssets - projectedTotalDebt);
+
+  const isCritical = finalLiquidity < 0;
+  const isCrisisMode = isCritical && netLiquidityCents < 0;
 
   // Para o card de compromissos: Mostrar o planejado consolidado
   const immediateCardDebt = monthOffset === 0
@@ -580,6 +580,7 @@ export function calculateMonthlyOutlook(params: {
  */
 export function calculateAdvancedProjection(params: {
   currentNetLiquidity: number;       // Liquidez líquida REAL de hoje (saldo - dívidas)
+  currentAssetsCents?: number;       // Opcional: Ativos brutos de hoje (sem deduzir dívidas)
   recurringTransactions: RecurringTransaction[];
   futureTransactions: Transaction[];  // Parcelas futuras de cartão
   goals: Goal[];
@@ -593,6 +594,7 @@ export function calculateAdvancedProjection(params: {
 }): number {
   const {
     currentNetLiquidity,
+    currentAssetsCents,
     recurringTransactions,
     futureTransactions,
     goals,
@@ -616,7 +618,8 @@ export function calculateAdvancedProjection(params: {
     return sum + (s.amount_cents / (s.installments || 1));
   }, 0);
 
-  let projectedBalance = currentNetLiquidity + simulationIncomesMonth0 - simulationExpensesMonth0;
+  const startBalance = currentAssetsCents !== undefined ? currentAssetsCents : currentNetLiquidity;
+  let projectedBalance = startBalance + simulationIncomesMonth0 - simulationExpensesMonth0;
   const now = new Date();
 
   // Iterar mês a mês a partir do próximo mês (i=1) até o offset desejado
