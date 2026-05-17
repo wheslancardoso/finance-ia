@@ -190,7 +190,7 @@ export default function SpendingSimulator({ onSimulate }: SpendingSimulatorProps
                     target_amount_cents: valueCents,
                     current_amount_cents: 0,
                     monthly_contribution_cents: simulationType === "INCOME" ? -result.installment_impact : result.installment_impact,
-                    status: 'ACTIVE'
+                    status: 'active'
                   });
                   setAmount("");
                   setInstallments(1);

@@ -74,6 +74,8 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createAdminClient();
     
+    const normalizedStatus = (status || "active").toLowerCase();
+
     const goalData = {
       ...(id ? { id } : {}),
       user_id: user.id,
@@ -82,7 +84,7 @@ export async function POST(request: NextRequest) {
       current_amount_cents,
       monthly_contribution_cents,
       priority,
-      status,
+      status: normalizedStatus,
       deadline: deadline || null,
       color_hex: color_hex || "#8b5cf6",
       updated_at: new Date().toISOString()

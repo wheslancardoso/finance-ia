@@ -75,7 +75,7 @@ export function AddGoalModal() {
         current_amount_cents: currentCents,
         deadline: deadline || undefined,
         color_hex: colorHex,
-        status: "ACTIVE"
+        status: "active"
       });
 
       closeModal();

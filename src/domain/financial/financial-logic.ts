@@ -569,7 +569,7 @@ export function calculateAdvancedProjection(params: {
 
     // 4. Aportes em Metas (Compromisso de poupança mensal ativo)
     const goalContributions = goals
-      .filter(g => g.status === "ACTIVE")
+      .filter(g => g.status === "active" || g.status === "ACTIVE")
       .reduce((sum, g) => sum + (Number(g.monthly_contribution_cents) || 0), 0);
 
     // 5. Impacto das Simulações Ativas
