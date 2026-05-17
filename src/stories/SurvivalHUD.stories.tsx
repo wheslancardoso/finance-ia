@@ -23,6 +23,7 @@ const baseContext = {
   recentTransactions: [],
   monthTransactions: [],
   futureTransactions: [],
+  allTransactions: [],
   loading: false,
   refreshData: async () => {},
   lastFetched: Date.now(),
