@@ -46,8 +46,9 @@ export class TransactionsPage {
 
     // Preencher novos dados
     const descInput = this.page.getByTestId('transaction-description-input');
-    await descInput.clear();
     await descInput.focus();
+    await descInput.press('Control+A');
+    await descInput.press('Backspace');
     await descInput.pressSequentially(newDescription, { delay: 50 });
 
     // Salvar
