@@ -69,6 +69,62 @@ async function callGemini(prompt: string): Promise<string> {
 }
 
 /**
+ * Realiza a chamada HTTP nativa à API da OpenAI (GPT-4o-mini)
+ */
+async function callOpenAI(prompt: string): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY não configurada no ambiente.");
+  }
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.1
+    })
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Erro na API da OpenAI: ${response.status} - ${errText}`);
+  }
+
+  const resJson = await response.json();
+  const text = resJson.choices?.[0]?.message?.content;
+  if (!text) {
+    throw new Error("Resposta inválida ou vazia da OpenAI.");
+  }
+
+  return text;
+}
+
+/**
+ * Dicionário de Mapeamentos de Categorias Padrão e Palavras-chave em Português
+ */
+const CATEGORY_MAPPINGS: { [key: string]: string[] } = {
+  alimentacao: ["uber eats", "ifood", "restaurante", "padaria", "mercado", "supermercado", "comida", "alimento", "lanche", "janta", "almoco", "zaffari", "carrefour", "pao de acucar", "feira", "padaria", "cafe"],
+  lazer: ["netflix", "spotify", "disney", "hbo", "prime video", "cinema", "show", "festa", "jogo", "ps5", "xbox", "steam", "viagem", "hotel", "balada", "cerveja", "chopp", "lazer", "entretenimento", "gaming", "ingresso"],
+  transporte: ["uber", "99", "taxi", "gasolina", "combustivel", "carro", "moto", "pedagio", "onibus", "metro", "passagem", "estacionamento", "transporte", "blindado", "ipva", "oficina"],
+  moradia: ["casa", "aluguel", "condominio", "luz", "energia", "agua", "gas", "internet", "eletricidade", "reforma", "moradia", "habitacao", "moveis", "decoracao"],
+  saude: ["saude", "farmacia", "medico", "dentista", "consulta", "remedio", "hospital", "clinica", "drogaria", "exame", "psicologo", "terapia"],
+  educacao: ["educacao", "curso", "faculdade", "escola", "livro", "mensalidade", "estudo", "material escolar", "facul"],
+  eletronicos: ["notebook", "computador", "celular", "iphone", "tecnologia", "eletronico", "compras", "shopping", "roupa", "vestuario", "sapato", "tenis", "gadget", "pc", "hardware", "mouse", "teclado", "monitor", "compras", "eletronicos"],
+  salario: ["salario", "receita", "rendimento", "freela", "recebi", "faturamento", "pro-labore", "venda", "reembolso", "bonus", "investimento", "pro labore", "salary", "income"]
+};
+
+/**
  * Fallback determinístico de correspondência de texto local se a IA estiver offline
  */
 function localClassifyFallback(text: string, categories: any[]) {
@@ -85,26 +141,64 @@ function localClassifyFallback(text: string, categories: any[]) {
     }
   }
 
-  // Correspondência simples de palavra-chave para categorias
-  if (cleanText.includes("uber") || cleanText.includes("taxi") || cleanText.includes("gasolina") || cleanText.includes("combustivel") || cleanText.includes("carro")) {
-    categoryId = categories.find(c => c.name.toLowerCase().includes("transp") || c.name.toLowerCase().includes("carro") || c.type === "EXPENSE")?.id || null;
-  } else if (cleanText.includes("zaffari") || cleanText.includes("mercado") || cleanText.includes("supermercado") || cleanText.includes("comida") || cleanText.includes("alimento")) {
-    categoryId = categories.find(c => c.name.toLowerCase().includes("alim") || c.name.toLowerCase().includes("mercado") || c.type === "EXPENSE")?.id || null;
-  } else if (cleanText.includes("netflix") || cleanText.includes("spotify") || cleanText.includes("cinema") || cleanText.includes("lazer") || cleanText.includes("jogo") || cleanText.includes("ps5")) {
-    categoryId = categories.find(c => c.name.toLowerCase().includes("laz") || c.name.toLowerCase().includes("assin") || c.type === "EXPENSE")?.id || null;
-  } else if (cleanText.includes("salario") || cleanText.includes("receb") || cleanText.includes("pix") && cleanText.includes("recebi")) {
-    categoryId = categories.find(c => c.name.toLowerCase().includes("sal") || c.name.toLowerCase().includes("recei") || c.type === "INCOME")?.id || null;
+  // Mapeamentos de categorias para termos
+  const mappingKeys = Object.keys(CATEGORY_MAPPINGS);
+  let matchedGroup: string | null = null;
+
+  // Procura qual grupo de mapeamento combina com o texto inserido
+  for (const group of mappingKeys) {
+    const terms = CATEGORY_MAPPINGS[group];
+    if (terms.some(term => cleanText.includes(term))) {
+      matchedGroup = group;
+      break;
+    }
   }
 
-  // Categoria fallback padrão se nada casar
+  // Se casou com um grupo, procura na lista de categorias do usuário
+  if (matchedGroup) {
+    categoryId = categories.find(c => {
+      const catName = c.name.toLowerCase();
+      // Casamento por substring direta
+      if (catName.includes(matchedGroup!) || matchedGroup!.includes(catName)) return true;
+      
+      // Casamento por sinônimos comuns do grupo
+      if (matchedGroup === "eletronicos") {
+        return catName.includes("tecnol") || catName.includes("compra") || catName.includes("eletr") || catName.includes("lazer") || catName.includes("outro");
+      }
+      if (matchedGroup === "alimentacao") {
+        return catName.includes("alim") || catName.includes("merc") || catName.includes("comid") || catName.includes("outro");
+      }
+      if (matchedGroup === "lazer") {
+        return catName.includes("laz") || catName.includes("entr") || catName.includes("assin") || catName.includes("outro");
+      }
+      if (matchedGroup === "transporte") {
+        return catName.includes("trans") || catName.includes("viag") || catName.includes("outro");
+      }
+      if (matchedGroup === "moradia") {
+        return catName.includes("mora") || catName.includes("habi") || catName.includes("casa") || catName.includes("alug") || catName.includes("outro");
+      }
+      if (matchedGroup === "saude") {
+        return catName.includes("saud") || catName.includes("farm") || catName.includes("outro");
+      }
+      if (matchedGroup === "educacao") {
+        return catName.includes("educ") || catName.includes("estud") || catName.includes("outro");
+      }
+      if (matchedGroup === "salario") {
+        return catName.includes("sal") || catName.includes("recei") || catName.includes("rend") || catName.includes("outro");
+      }
+      return false;
+    })?.id || null;
+  }
+
+  // Fallback padrão final se nada casar ou se o ID continuou nulo
   if (!categoryId && categories.length > 0) {
     const targetType = cleanText.includes("salario") || cleanText.includes("recebi") ? "INCOME" : "EXPENSE";
-    categoryId = categories.find(c => c.type === targetType)?.id || categories[0].id;
+    const ofType = categories.find(c => c.type === targetType);
+    categoryId = ofType ? ofType.id : categories[0].id;
   }
 
   // Higieniza descrição de forma sutil
   let description = text.trim();
-  // Remove valor e "R$" da descrição
   description = description.replace(/(?:r\$|brl)?\s*\d+(?:[.,]\d{2})?/gi, "").trim();
   if (!description) description = "Transação sem título";
   description = description.charAt(0).toUpperCase() + description.slice(1);
@@ -140,8 +234,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Campo text é obrigatório para classificação" }, { status: 400 });
       }
 
-      // Se a chave não estiver configurada no .env, recorremos ao fallback determinístico de correspondência de strings local
-      if (!process.env.GEMINI_API_KEY) {
+      const hasGemini = !!process.env.GEMINI_API_KEY;
+      const hasOpenAI = !!process.env.OPENAI_API_KEY;
+
+      // Se nenhuma chave estiver configurada no .env, recorremos ao fallback determinístico de correspondência local
+      if (!hasGemini && !hasOpenAI) {
         const fallbackResult = localClassifyFallback(text, categories);
         return NextResponse.json(fallbackResult);
       }
@@ -162,11 +259,17 @@ Exemplo de saída esperada:
 
 Retorne APENAS o JSON puro estruturado sem markdown.`;
 
-        const geminiText = await callGemini(prompt);
-        const parsed = JSON.parse(geminiText.trim());
+        let aiText = "";
+        if (hasGemini) {
+          aiText = await callGemini(prompt);
+        } else {
+          aiText = await callOpenAI(prompt);
+        }
+
+        const parsed = JSON.parse(aiText.trim());
         return NextResponse.json(parsed);
       } catch (error: any) {
-        console.warn("[IA API Warning] Gemini indisponível ou falhou, usando fallback local:", error.message);
+        console.warn("[IA API Warning] Provedor de IA principal indisponível ou falhou, usando fallback local:", error.message);
         const fallbackResult = localClassifyFallback(text, categories);
         return NextResponse.json(fallbackResult);
       }
@@ -176,23 +279,23 @@ Retorne APENAS o JSON puro estruturado sem markdown.`;
     if (action === "optimize-goals") {
       const { goals = [], financial_summary = {} } = body;
 
-      // Se a chave não estiver configurada, simulamos um conselho sutil de fallback local
-      if (!process.env.GEMINI_API_KEY) {
+      const hasGemini = !!process.env.GEMINI_API_KEY;
+      const hasOpenAI = !!process.env.OPENAI_API_KEY;
+
+      // Se nenhuma chave estiver configurada, simulamos um conselho sutil de fallback local
+      if (!hasGemini && !hasOpenAI) {
         const recommendations = goals.map((g: any, idx: number) => {
           const isEmergency = g.title.toLowerCase().includes("emerg") || g.title.toLowerCase().includes("reserv");
           return {
             goal_id: g.id,
-            suggested_priority: isEmergency ? 1 : idx + 2, // Emergência assume prioridade máxima
+            suggested_priority: isEmergency ? 1 : idx + 2,
             reason: isEmergency 
               ? "Recomendamos priorizar a Ambição de Emergência para consolidar seu Escudo de Sobrevivência antes de outros focos."
               : "Fila mantida. Blindagem operacional ativa."
           };
         });
 
-        // Ordenar as recomendações para que a emergência com prioridade 1 vá para o topo
         recommendations.sort((a: any, b: any) => a.suggested_priority - b.suggested_priority);
-        
-        // Corrigir os índices sugeridos para sequencial de 1 a N
         recommendations.forEach((r: any, idx: number) => {
           r.suggested_priority = idx + 1;
         });
@@ -219,7 +322,7 @@ Retorne um objeto JSON estrito com o seguinte formato (sem comentários ou markd
   "recommendations": [
     {
       "goal_id": "id-da-meta",
-      "suggested_priority": 1, // 1 sendo a mais prioritária
+      "suggested_priority": 1,
       "reason": "Frase curta, clínica e fria justificando a recomendação (ex: 'Recomendamos priorizar o Escudo de Sobrevivência antes da meta de Lazer para blindar sua liquidez')"
     }
   ]
@@ -227,11 +330,17 @@ Retorne um objeto JSON estrito com o seguinte formato (sem comentários ou markd
 
 Retorne APENAS o objeto JSON estrito.`;
 
-        const geminiText = await callGemini(prompt);
-        const parsed = JSON.parse(geminiText.trim());
+        let aiText = "";
+        if (hasGemini) {
+          aiText = await callGemini(prompt);
+        } else {
+          aiText = await callOpenAI(prompt);
+        }
+
+        const parsed = JSON.parse(aiText.trim());
         return NextResponse.json(parsed);
       } catch (error: any) {
-        console.warn("[IA API Warning] Gemini de metas falhou, simulando recomendação local:", error.message);
+        console.warn("[IA API Warning] Copiloto de IA falhou, simulando recomendação local:", error.message);
         const recommendations = goals.map((g: any, idx: number) => ({
           goal_id: g.id,
           suggested_priority: idx + 1,
