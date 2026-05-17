@@ -34,7 +34,7 @@ export function MobileNav() {
           return (
             <button
               key={item.name}
-              onClick={openAdd}
+              onClick={() => openAdd()}
               data-testid="mobile-add-button"
               className="w-12 h-12 -mt-8 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/20 flex items-center justify-center text-white active:scale-95 transition-transform"
             >

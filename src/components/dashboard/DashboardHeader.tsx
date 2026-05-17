@@ -39,7 +39,7 @@ export function DashboardHeader({
           
           {!isFuture && (
             <button 
-              onClick={openAdd}
+              onClick={() => openAdd()}
               className="md:hidden flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl font-bold text-xs transition-all border border-white/10"
               data-testid="add-transaction-mobile-button"
             >
@@ -113,7 +113,7 @@ export function DashboardHeader({
 
         {!isFuture && (
           <button 
-            onClick={openAdd}
+            onClick={() => openAdd()}
             className="hidden md:flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-6 py-3 rounded-2xl font-semibold transition-all shadow-lg shadow-violet-600/20 active:scale-95"
             data-testid="add-transaction-button"
           >

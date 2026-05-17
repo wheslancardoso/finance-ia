@@ -84,7 +84,7 @@ export function UnifiedSurvivalHeader({
           <div className="flex items-center gap-3 hidden md:flex">
             {!isFuture && (
               <button 
-                onClick={openAdd}
+                onClick={() => openAdd()}
                 data-testid="add-transaction-button"
                 className="group relative flex items-center gap-2.5 bg-white text-black hover:bg-violet-50 px-5 py-2.5 rounded-[16px] font-black text-[10px] transition-all active:scale-95 shadow-2xl overflow-hidden shrink-0"
               >
