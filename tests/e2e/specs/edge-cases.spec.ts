@@ -65,4 +65,69 @@ test.describe('Cenários de Borda e Resiliência (Blindagem)', () => {
 
     await expect(page.getByTestId('goal-card-title').filter({ hasText: 'Meta Mínima' })).toBeVisible();
   });
+
+  test('deve criar parcelamento de cartão de crédito no dia 31 de janeiro de 2026 sem transbordo de dia', async ({ page }) => {
+    const state = createInitialState({
+      accounts: [
+        { id: 'acc-cc-1', name: 'Cartão Premium', type: 'CREDIT_CARD', balance_cents: 0, closing_day: 31, due_day: 10 }
+      ],
+      categories: [
+        { id: 'cat-1', name: 'Lazer', type: 'EXPENSE' }
+      ]
+    });
+    await setupFinancialMocks(page, state);
+    await page.goto('/transactions');
+
+    const openAddModal = async () => {
+      const desktopBtn = page.getByTestId('add-transaction-button');
+      if (await desktopBtn.isVisible()) {
+        await desktopBtn.click();
+      } else {
+        const mobileBtn = page.getByTestId('mobile-add-button');
+        await mobileBtn.waitFor({ state: 'visible' });
+        await mobileBtn.click();
+      }
+    };
+
+    await openAddModal();
+    await expect(page.getByTestId('add-transaction-modal')).toBeVisible();
+
+    await page.getByTestId('transaction-amount-input').fill('500,00');
+    await page.getByTestId('transaction-description-input').fill('Compra Parcelada Teste');
+
+    // Selecionar Conta 'Cartão Premium'
+    await page.getByTestId('transaction-account-select').click();
+    await page.getByTestId('account-option-acc-cc-1').click();
+
+    // Selecionar Categoria 'Lazer'
+    await page.getByTestId('transaction-category-select').click();
+    await page.getByText('Lazer').first().click();
+
+    // Inserir 5 parcelas
+    await page.getByTestId('transaction-installments-input').fill('5');
+
+    // Inserir Data 31/01/2026
+    await page.getByTestId('transaction-date-input').fill('2026-01-31');
+
+    // Submeter
+    await page.getByTestId('transaction-submit-button').click();
+
+    // Aguardar fechar o modal
+    await page.getByTestId('add-transaction-modal').waitFor({ state: 'hidden', timeout: 10000 });
+
+    // Validar as datas geradas no mock state
+    const mockState = await page.evaluate(() => (window as any).__E2E_MOCK_STATE__);
+    expect(mockState).toBeDefined();
+    
+    const transactions = mockState.transactions.filter((t: any) => t.description === 'Compra Parcelada Teste');
+    expect(transactions.length).toBe(5);
+
+    // Certificar as datas de cada uma das 5 parcelas
+    const dates = transactions.map((t: any) => t.date.split('T')[0]).sort();
+    expect(dates[0]).toBe('2026-01-31');
+    expect(dates[1]).toBe('2026-02-28');
+    expect(dates[2]).toBe('2026-03-31');
+    expect(dates[3]).toBe('2026-04-30');
+    expect(dates[4]).toBe('2026-05-31');
+  });
 });
