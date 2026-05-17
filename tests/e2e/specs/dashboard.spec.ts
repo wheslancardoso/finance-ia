@@ -64,7 +64,7 @@ test.describe('Dashboard e Projeções (Refatorado)', () => {
     await expect(page.getByTestId('survival-ceiling-value')).toContainText(/750.*00/, { timeout: 15000 });
 
     await subs.goto();
-    await subs.addSubscription('Gasto Gigante', '2000,00');
+    await subs.addSubscription('Gasto Gigante', '2000,00', '28');
     
     await dashboard.goto();
     

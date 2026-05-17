@@ -19,6 +19,10 @@ export class SubscriptionsPage {
     return this.page.getByTestId('subscription-amount-input');
   }
 
+  get dayInput() {
+    return this.page.getByTestId('subscription-day-input');
+  }
+
   get submitButton() {
     return this.page.getByTestId('subscription-submit-button');
   }
@@ -27,7 +31,7 @@ export class SubscriptionsPage {
     return this.page.getByTestId('status-modal-close');
   }
 
-  async addSubscription(description: string, amount: string) {
+  async addSubscription(description: string, amount: string, day: string = '28') {
     await this.addButton.click();
     
     // Esperar modal abrir e contas carregarem
@@ -42,6 +46,9 @@ export class SubscriptionsPage {
     // Usar o último (assumindo que é o modal ativo no portal)
     await this.descriptionInput.last().fill(description);
     await this.amountInput.last().fill(amount);
+    
+    // Definir o dia de forma determinística
+    await this.dayInput.last().fill(day);
     
     // Pequena espera para o estado estabilizar e verificações de depuração
     await this.page.waitForTimeout(1000);
