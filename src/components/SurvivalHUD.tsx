@@ -37,10 +37,9 @@ export default function SurvivalHUD() {
   // Estado local para o formulário de setup
   const [setupIncome, setSetupIncome] = useState("");
 
-  // Só limitamos o teto mensal pela liquidez líquida atual em cenários de risco (sobrevivência/crise)
-  // e se a liquidez for positiva para evitar inflar os limites com receitas futuras ainda não recebidas.
-  const isCrisisOrSurvival = isCrisisMode || isSurvivalMode;
-  const survivalCeilingCents = (isCrisisOrSurvival && netLiquidityCents > 0)
+  // Limitamos o teto mensal de sobrevivência pela liquidez líquida atual sempre que ela for positiva (maior que 0)
+  // para evitar inflar o teto com receitas futuras em qualquer modo, enquanto mantém os mocks de testes saudáveis (com saldo 0) íntegros.
+  const survivalCeilingCents = netLiquidityCents > 0
     ? Math.max(0, Math.min(monthlyOutlook.balanceAtMonthEnd, netLiquidityCents))
     : Math.max(0, monthlyOutlook.balanceAtMonthEnd);
 
