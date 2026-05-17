@@ -150,19 +150,37 @@ export const financialService = {
 
   async deleteTransactionSeries(description: string, installmentTotal: number, accountId: string) {
     try {
+      // 1. Chamar a API para deletar a série inteira (em lote) no Supabase remoto
+      const params = new URLSearchParams({
+        description,
+        installment_total: installmentTotal.toString(),
+        account_id: accountId
+      });
+      await apiFetch(`/api/transactions?${params.toString()}`, { method: "DELETE" });
+
+      // 2. Deletar do IndexedDB local as que estiverem presentes no cache local
       const transactions = await db.transactions
         .where({ account_id: accountId })
         .filter(t => t.description === description && t.installment_total === installmentTotal)
         .toArray();
 
-      // Deletar cada uma via API
-      for (const t of transactions) {
-        await apiFetch(`/api/transactions?id=${t.id}`, { method: "DELETE" }).catch(() => {});
+      if (transactions.length > 0) {
+        await db.transactions.bulkDelete(transactions.map(t => t.id));
       }
 
-      await db.transactions.bulkDelete(transactions.map(t => t.id));
+      // Suporte a E2E Mock State
+      if (typeof window !== 'undefined' && (window as any).__E2E_MOCK_STATE__) {
+        const mock = (window as any).__E2E_MOCK_STATE__;
+        if (mock.transactions) {
+          mock.transactions = mock.transactions.filter(
+            (t: any) => !(t.description === description && t.installment_total === installmentTotal && t.account_id === accountId)
+          );
+        }
+      }
+
       return { data: true, error: null };
     } catch (error) {
+      console.error("❌ deleteTransactionSeries error:", error);
       return { data: null, error };
     }
   },

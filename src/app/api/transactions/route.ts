@@ -133,19 +133,39 @@ export async function DELETE(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
   const txId = request.nextUrl.searchParams.get("id");
-  if (!txId) return NextResponse.json({ error: "id obrigatório" }, { status: 400 });
+  const description = request.nextUrl.searchParams.get("description");
+  const installmentTotalStr = request.nextUrl.searchParams.get("installment_total");
+  const accountId = request.nextUrl.searchParams.get("account_id");
 
   try {
     const supabase = await createAdminClient();
-    // Deletar apenas se pertencer ao usuário
-    const { error } = await supabase
-      .from('transactions')
-      .delete()
-      .eq('id', txId)
-      .eq('user_id', user.id);
+    
+    if (description && installmentTotalStr && accountId) {
+      const installmentTotal = parseInt(installmentTotalStr);
+      // Deletar a série inteira (em lote) no Supabase remoto
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('account_id', accountId)
+        .eq('description', description)
+        .eq('installment_total', installmentTotal);
+        
+      if (error) throw error;
+      return NextResponse.json({ success: true, mode: "series" });
+    } else if (txId) {
+      // Deletar transação individual
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', txId)
+        .eq('user_id', user.id);
 
-    if (error) throw error;
-    return NextResponse.json({ success: true });
+      if (error) throw error;
+      return NextResponse.json({ success: true, mode: "single" });
+    } else {
+      return NextResponse.json({ error: "Parâmetros obrigatórios faltando" }, { status: 400 });
+    }
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
