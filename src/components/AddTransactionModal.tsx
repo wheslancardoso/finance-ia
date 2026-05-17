@@ -76,6 +76,7 @@ export function AddTransactionModal() {
   const [keepOpen, setKeepOpen] = useState(false);
   const [showSuccessGlow, setShowSuccessGlow] = useState(false);
   const descriptionInputRef = useRef<HTMLInputElement>(null);
+  const wasOpenRef = useRef(false);
 
   // Fechar dropdowns ao clicar fora
   useEffect(() => {
@@ -117,49 +118,67 @@ export function AddTransactionModal() {
     }
   }, [transactionDate, transactionToEdit]);
 
+  // Inicialização única do formulário ao abrir o modal
   useEffect(() => {
     if (isOpen) {
-      if (transactionToEdit) {
-        const valCents = transactionToEdit.amount_cents || (transactionToEdit.amount ? transactionToEdit.amount : 0);
-        // Para parceladas, mostra o valor TOTAL da compra (parcela × total)
-        const displayCents = transactionToEdit.installment_total > 1
-          ? valCents * transactionToEdit.installment_total
-          : valCents;
-        setAmount((displayCents / 100).toString().replace(".", ","));
-        setDescription(transactionToEdit.description);
-        setCategoryId(transactionToEdit.category_id);
-        setAccountId(transactionToEdit.account_id);
-        setType(transactionToEdit.transaction_type || transactionToEdit.type || "EXPENSE");
-        setInstallments(1);
-        setIsLegacyDebt(transactionToEdit.is_legacy_debt || false);
-        setIsThirdParty(transactionToEdit.is_third_party || false);
-        setThirdPartyName(transactionToEdit.third_party_name || "");
-        const dateObj = new Date(transactionToEdit.date);
-
-        // Se for uma parcela, sempre editar a série a partir da primeira
-        if (transactionToEdit.installment_total > 1) {
-          setInstallments(transactionToEdit.installment_total);
-          setEditAllInstallments(true);
-          // Calcula a data da PRIMEIRA parcela subtraindo o offset
-          const firstInstallmentDate = addMonths(dateObj, -(transactionToEdit.installment_current - 1));
-          setTransactionDate(firstInstallmentDate.toISOString().split('T')[0]);
-          setTransactionTime(firstInstallmentDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
-        } else {
+      if (!wasOpenRef.current) {
+        // O modal acabou de ser aberto de fato!
+        if (transactionToEdit) {
+          const valCents = transactionToEdit.amount_cents || (transactionToEdit.amount ? transactionToEdit.amount : 0);
+          // Para parceladas, mostra o valor TOTAL da compra (parcela × total)
+          const displayCents = transactionToEdit.installment_total > 1
+            ? valCents * transactionToEdit.installment_total
+            : valCents;
+          setAmount((displayCents / 100).toString().replace(".", ","));
+          setDescription(transactionToEdit.description);
+          setCategoryId(transactionToEdit.category_id);
+          setAccountId(transactionToEdit.account_id);
+          setType(transactionToEdit.transaction_type || transactionToEdit.type || "EXPENSE");
           setInstallments(1);
-          setEditAllInstallments(false);
-          setTransactionDate(dateObj.toISOString().split('T')[0]);
-          setTransactionTime(dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+          setIsLegacyDebt(transactionToEdit.is_legacy_debt || false);
+          setIsThirdParty(transactionToEdit.is_third_party || false);
+          setThirdPartyName(transactionToEdit.third_party_name || "");
+          const dateObj = new Date(transactionToEdit.date);
+
+          // Se for uma parcela, sempre editar a série a partir da primeira
+          if (transactionToEdit.installment_total > 1) {
+            setInstallments(transactionToEdit.installment_total);
+            setEditAllInstallments(true);
+            // Calcula a data da PRIMEIRA parcela subtraindo o offset
+            const firstInstallmentDate = addMonths(dateObj, -(transactionToEdit.installment_current - 1));
+            setTransactionDate(firstInstallmentDate.toISOString().split('T')[0]);
+            setTransactionTime(firstInstallmentDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+          } else {
+            setInstallments(1);
+            setEditAllInstallments(false);
+            setTransactionDate(dateObj.toISOString().split('T')[0]);
+            setTransactionTime(dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+          }
+        } else {
+          resetForm();
+          if (defaultAccountId) {
+            setAccountId(defaultAccountId);
+          } else if (accounts.length > 0) {
+            setAccountId(accounts[0].id);
+          }
         }
-      } else {
-        resetForm();
-        if (defaultAccountId) {
-          setAccountId(defaultAccountId);
-        } else if (accounts.length > 0 && !accountId) {
-          setAccountId(accounts[0].id);
-        }
+        wasOpenRef.current = true;
       }
+    } else {
+      wasOpenRef.current = false;
     }
   }, [isOpen, transactionToEdit, defaultAccountId, accounts]);
+
+  // Preencher a conta padrão reativamente assim que as contas forem carregadas assincronamente (se nenhuma estiver selecionada)
+  useEffect(() => {
+    if (isOpen && !transactionToEdit && !accountId && accounts.length > 0) {
+      if (defaultAccountId) {
+        setAccountId(defaultAccountId);
+      } else {
+        setAccountId(accounts[0].id);
+      }
+    }
+  }, [isOpen, transactionToEdit, accountId, defaultAccountId, accounts]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -176,6 +195,7 @@ export function AddTransactionModal() {
     const capturedIsLegacyDebt = isLegacyDebt;
     const capturedIsThirdParty = isThirdParty;
     const capturedThirdPartyName = thirdPartyName;
+    const capturedKeepOpen = keepOpen;
 
     try {
       if (!capturedAccountId || !capturedAmount || !userId) {
@@ -321,7 +341,7 @@ export function AddTransactionModal() {
         await refreshData();
         router.refresh();
 
-        if (keepOpen && !transactionToEdit) {
+        if (capturedKeepOpen && !transactionToEdit) {
           // Mantém o modal aberto e dá um feedback de sucesso premium
           setShowSuccessGlow(true);
           setAmount("");
