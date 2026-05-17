@@ -376,9 +376,18 @@ export function calculateMonthlyOutlook(params: {
   const monthlyExpenses = baseMonthlyExpenses; // Restaurado para corrigir o lint
 
   // Saldo projetado do final do mês
+  const creditCardAccountIds = new Set(
+    accounts.filter(a => a.type === "CREDIT_CARD").map(a => a.id)
+  );
+
   const currentMonthPendingExpenses = monthOffset === 0
     ? allTransactions
-      .filter((t: any) => t.transaction_type === "EXPENSE" && !t.is_paid && isSameMonth(new Date(t.date), new Date()))
+      .filter((t: any) => 
+        t.transaction_type === "EXPENSE" && 
+        !t.is_paid && 
+        isSameMonth(new Date(t.date), new Date()) &&
+        !creditCardAccountIds.has(t.account_id)
+      )
       .reduce((sum: number, t: any) => sum + (t.amount_cents || 0), 0)
     : 0;
 

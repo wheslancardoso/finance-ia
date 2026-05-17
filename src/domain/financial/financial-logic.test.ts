@@ -141,6 +141,36 @@ describe('Financial Logic Domain', () => {
       expect(result.balanceAtMonthEnd).toBeGreaterThan(100000);
       expect(result.isHealthy).toBe(true);
     });
+
+    it('deve evitar double-counting de despesas de cartão em currentMonthPendingExpenses', () => {
+      const accounts: Account[] = [
+        { id: 'checking-1', type: 'CHECKING', balance_cents: 100000 } as any,
+        { id: 'card-1', type: 'CREDIT_CARD', open_invoice_cents: 20000 } as any
+      ];
+
+      const allTransactions = [
+        // Despesa no cartão de crédito (já contada na open_invoice_cents do card-1)
+        { account_id: 'card-1', transaction_type: 'EXPENSE', amount_cents: 20000, is_paid: false, date: new Date().toISOString() } as any,
+        // Despesa em conta corrente (não contada no card, deve ser considerada pendente)
+        { account_id: 'checking-1', transaction_type: 'EXPENSE', amount_cents: 5000, is_paid: false, date: new Date().toISOString() } as any
+      ];
+
+      const result = calculateMonthlyOutlook({
+        accounts,
+        scheduledIncomeCents: 0,
+        scheduledExpensesCents: 0,
+        recurringIncomeCents: 0,
+        recurringExpensesCents: 0,
+        budgets: [],
+        netLiquidityCents: 80000,
+        allTransactions
+      });
+
+      // Saldo projetado no final do mês = Saldo Checking (100000) - Fatura do Cartão (20000) - Despesa Pendente da Checking (5000)
+      // Se houvesse double-counting, ele subtrairia a despesa do cartão de 20000 de novo e daria 55000.
+      // Correto: 100000 - 20000 - 5000 = 75000.
+      expect(result.balanceAtMonthEnd).toBe(75000);
+    });
   });
 
   describe('calculateDebtExitProjection', () => {
