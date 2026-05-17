@@ -14,11 +14,12 @@ interface MonthNavigatorProps {
 
 export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransactionDate }: MonthNavigatorProps) {
   const today = startOfMonth(new Date());
-  const isFuture = !isSameMonth(selectedDate, today);
+  const isFuture = selectedDate > today && !isSameMonth(selectedDate, today);
+  const isPast = selectedDate < today && !isSameMonth(selectedDate, today);
   
   const handlePrev = () => {
     const prev = subMonths(selectedDate, 1);
-    if (prev >= today) onDateChange(prev);
+    onDateChange(prev);
   };
 
   const handleNext = () => onDateChange(addMonths(selectedDate, 1));
@@ -44,7 +45,7 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
       {/* Glow de fundo */}
       <div className={cn(
         "absolute -top-24 -right-24 w-48 h-48 blur-[80px] rounded-full transition-colors duration-500",
-        isFuture ? "bg-violet-600/20" : "bg-emerald-600/10"
+        isFuture ? "bg-violet-600/20" : (isPast ? "bg-slate-600/15" : "bg-emerald-600/10")
       )} />
 
       <div className="relative z-10 flex flex-col h-full gap-5">
@@ -56,17 +57,19 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
               "w-8 h-8 rounded-xl flex items-center justify-center border transition-all shrink-0",
               isFuture
                 ? "bg-violet-500/10 border-violet-500/20 text-violet-400"
-                : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                : (isPast
+                  ? "bg-slate-500/10 border-slate-500/20 text-slate-400"
+                  : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400")
             )}>
               {isFuture ? <Zap className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
             </div>
             <div>
               <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">
-                {isFuture ? "Projeção" : "Atual"}
+                {isFuture ? "Projeção" : (isPast ? "Histórico" : "Atual")}
               </p>
               <p className={cn(
                 "text-[10px] font-black uppercase tracking-widest",
-                isFuture ? "text-violet-400" : "text-emerald-400"
+                isFuture ? "text-violet-400" : (isPast ? "text-slate-400" : "text-emerald-400")
               )}>
                 Time Machine
               </p>
@@ -76,12 +79,8 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
           <div className="flex items-center gap-1 bg-black/30 border border-white/5 p-1 rounded-xl">
             <button
               onClick={handlePrev}
-              disabled={isAtToday}
               aria-label="Mês Anterior"
-              className={cn(
-                "p-1.5 rounded-lg transition-all",
-                isAtToday ? "text-white/10 cursor-not-allowed" : "text-white/60 hover:text-white hover:bg-white/10"
-              )}
+              className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -114,17 +113,19 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
               "px-5 py-3 rounded-2xl border transition-all duration-500",
               isFuture
                 ? "bg-violet-500/10 border-violet-500/20"
-                : "bg-emerald-500/10 border-emerald-500/20"
+                : (isPast
+                  ? "bg-slate-500/10 border-slate-500/20"
+                  : "bg-emerald-500/10 border-emerald-500/20")
             )}>
               <p className={cn(
                 "text-2xl font-black capitalize leading-none",
-                isFuture ? "text-violet-300" : "text-emerald-300"
+                isFuture ? "text-violet-300" : (isPast ? "text-slate-300" : "text-emerald-300")
               )}>
                 {format(selectedDate, "MMM", { locale: ptBR })}
               </p>
               <p className={cn(
                 "text-[10px] font-black uppercase tracking-widest mt-1",
-                isFuture ? "text-violet-400/60" : "text-emerald-400/60"
+                isFuture ? "text-violet-400/60" : (isPast ? "text-slate-400/60" : "text-emerald-400/60")
               )}>
                 {format(selectedDate, "yyyy")}
               </p>

@@ -50,14 +50,25 @@ export default function RealtimeDashboard({
     recentTransactions: liveRecentTransactions,
     budgets: liveBudgets,
     recurringTransactions,
-    futureTransactions
+    futureTransactions,
+    allTransactions: liveAllTransactions
   } = useFinancialData();
 
   // Usar dados live se disponíveis, senão inicial
-  const isCurrentMonth = isSameMonth(targetDate, new Date());
-  const displayTransactions = isCurrentMonth 
-    ? (liveMonthTransactions.length > 0 ? liveMonthTransactions : liveRecentTransactions)
-    : [];
+  const today = startOfMonth(new Date());
+  const isCurrentMonth = isSameMonth(targetDate, today);
+  const isPast = targetDate < today && !isSameMonth(targetDate, today);
+
+  const displayTransactions = useMemo(() => {
+    if (isCurrentMonth) {
+      return liveMonthTransactions.length > 0 ? liveMonthTransactions : liveRecentTransactions;
+    }
+    if (isPast) {
+      const targetMonth = startOfMonth(targetDate);
+      return (liveAllTransactions || []).filter(t => isSameMonth(new Date(t.date), targetMonth));
+    }
+    return [];
+  }, [isCurrentMonth, isPast, targetDate, liveMonthTransactions, liveRecentTransactions, liveAllTransactions]);
 
   const displayBudgets = liveBudgets.length > 0 ? liveBudgets : initialBudgets;
 

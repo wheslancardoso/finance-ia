@@ -94,6 +94,7 @@ interface FinancialDataContextType {
   recentTransactions: Transaction[];
   monthTransactions: Transaction[];
   futureTransactions: Transaction[];
+  allTransactions: Transaction[];
   transactions: Transaction[];
   healthScore: number;
   scheduledIncomeCents: number;
@@ -155,6 +156,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [monthTransactions, setMonthTransactions] = useState<Transaction[]>([]);
   const [futureTransactions, setFutureTransactions] = useState<Transaction[]>([]);
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [healthScore, setHealthScore] = useState<number>(0);
 
   const { userId: rawUserId } = useAccountModal();
@@ -244,6 +246,14 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     setRecentTransactions([...(data.recent_transactions || data.transactions || [])]);
     setMonthTransactions([...(data.month_transactions || data.transactions || [])]);
     setFutureTransactions([...(data.future_transactions || [])]);
+    
+    const allTx = [
+      ...(data.recent_transactions || data.transactions || []),
+      ...(data.month_transactions || []),
+      ...(data.future_transactions || [])
+    ];
+    const uniqueTx = Array.from(new Map(allTx.map(t => [t.id, t])).values());
+    setAllTransactions(uniqueTx);
     
     if (data.user_profile) {
       setMonthlyIncomeCentsState(data.user_profile.monthly_income_cents || 0);
@@ -351,6 +361,14 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         setRecentTransactions(localState.recent_transactions || []);
         setMonthTransactions(localState.month_transactions || []);
         setFutureTransactions(localState.future_transactions || []);
+        
+        const allTx = [
+          ...(localState.recent_transactions || []),
+          ...(localState.month_transactions || []),
+          ...(localState.future_transactions || [])
+        ];
+        const uniqueTx = Array.from(new Map(allTx.map(t => [t.id, t])).values());
+        setAllTransactions(uniqueTx);
         
         if (localState.month_stats) {
           setExtraIncomeCents(localState.month_stats.income || 0);
@@ -638,6 +656,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     recentTransactions,
     monthTransactions,
     futureTransactions,
+    allTransactions,
     transactions: monthTransactions,
     getIncomeMix,
     getNetWorthHistory,
@@ -678,6 +697,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     recentTransactions,
     monthTransactions,
     futureTransactions,
+    allTransactions,
     getIncomeMix,
     getNetWorthHistory,
     createTransfer,
