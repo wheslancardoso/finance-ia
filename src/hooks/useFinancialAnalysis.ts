@@ -174,8 +174,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
 
   const activeAssets = useMemo(() => {
     const baseAssets = monthOffset === 0 ? currentAssets : monthlyOutlook.totalAssets;
-    if (monthOffset === 0 && activeSimulations.length > 0) {
-      return Math.max(0, baseAssets + simulatedAssetsAdjustment);
+    if (activeSimulations.length > 0) {
+      return baseAssets + simulatedAssetsAdjustment;
     }
     return baseAssets;
   }, [monthOffset, currentAssets, monthlyOutlook.totalAssets, activeSimulations, simulatedAssetsAdjustment]);
