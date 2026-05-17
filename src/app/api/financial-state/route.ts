@@ -152,8 +152,23 @@ async function buildFinancialState(userId: string) {
     0
   );
 
-  // Transações recentes (10)
-  const recent_transactions = allTransactions.slice(0, 10);
+  const initialAccountMap = new Map((accounts || []).map((a: any) => [a.id, a]));
+
+  // Transações recentes (10) + transações de cartão de crédito não pagas + transações criadas nas últimas 24h para sincronização segura
+  const limitDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const unpaidOrNewTransactions = allTransactions.filter((t: any) => {
+    const acc = initialAccountMap.get(t.account_id);
+    const createdDate = new Date(t.created_at);
+    const isUnpaidCredit = acc?.type === "CREDIT_CARD" && !t.is_paid;
+    const isNew = createdDate >= limitDate;
+    return isUnpaidCredit || isNew;
+  });
+  
+  const recent_transactions = Array.from(
+    new Map(
+      [...allTransactions.slice(0, 10), ...unpaidOrNewTransactions].map((t: any) => [t.id, t])
+    ).values()
+  );
 
   // Transações do mês atual
   const now = new Date();
