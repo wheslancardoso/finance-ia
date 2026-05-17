@@ -238,6 +238,53 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     });
   }, [monthlyOutlook.balanceAtMonthEnd, activeNetLiquidity, monthTransactions]);
 
+  const simulatedIncomeTotal = useMemo(() => {
+    if (activeSimulations.length === 0) return 0;
+    return activeSimulations
+      .filter(s => s.type === "INCOME")
+      .reduce((sum, s) => {
+        if (s.installments > 1) {
+          return sum + Math.round(s.amount_cents / s.installments);
+        }
+        return sum + s.amount_cents;
+      }, 0);
+  }, [activeSimulations]);
+
+  const simulatedMonthlyOutlook = useMemo(() => {
+    if (simulatedIncomeTotal === 0) return monthlyOutlook;
+
+    let remainingIncome = simulatedIncomeTotal;
+
+    // 1. Quitar Cartões
+    const baseCard = monthlyOutlook.immediateCardDebt || 0;
+    const paidCard = Math.min(baseCard, remainingIncome);
+    const activeCardDebt = baseCard - paidCard;
+    remainingIncome -= paidCard;
+
+    // 2. Quitar Agendados
+    const baseScheduled = monthlyOutlook.scheduledOnly || 0;
+    const paidScheduled = Math.min(baseScheduled, remainingIncome);
+    const activeScheduled = baseScheduled - paidScheduled;
+    remainingIncome -= paidScheduled;
+
+    // 3. Quitar Reservas
+    const baseReserves = monthlyOutlook.budgetReserves || 0;
+    const paidReserves = Math.min(baseReserves, remainingIncome);
+    const activeReserves = baseReserves - paidReserves;
+    remainingIncome -= paidReserves;
+
+    // Recalcula o total planejado amortizado
+    const activePlannedExpenses = activeCardDebt + activeScheduled + activeReserves;
+
+    return {
+      ...monthlyOutlook,
+      immediateCardDebt: activeCardDebt,
+      scheduledOnly: activeScheduled,
+      budgetReserves: activeReserves,
+      plannedExpenses: activePlannedExpenses
+    };
+  }, [monthlyOutlook, simulatedIncomeTotal]);
+
   const simulateDetailedImpactFn = useCallback((amountCents: number, installments: number, type?: "EXPENSE" | "INCOME") => 
     simulateDetailedImpact({
       amountCents,
@@ -253,13 +300,13 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     netLiquidityCents: activeNetLiquidity,
     totalConsolidatedDebtCents: activeDebt,
     accumulatedBalanceCents: activeAssets,
-    monthlyOutlook,
+    monthlyOutlook: simulatedMonthlyOutlook,
     healthScore,
-    isSurvivalMode: monthlyOutlook.balanceAtMonthEnd < 0 || activeNetLiquidity < 0,
-    isCrisisMode: activeNetLiquidity < 0 && monthlyOutlook.balanceAtMonthEnd < 0,
+    isSurvivalMode: simulatedMonthlyOutlook.balanceAtMonthEnd < 0 || activeNetLiquidity < 0,
+    isCrisisMode: activeNetLiquidity < 0 && simulatedMonthlyOutlook.balanceAtMonthEnd < 0,
     debtExit,
     weeklySurvival,
     goalProjections,
     simulateDetailedImpact: simulateDetailedImpactFn
-  }), [activeNetLiquidity, activeDebt, activeAssets, monthlyOutlook, healthScore, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn]);
+  }), [activeNetLiquidity, activeDebt, activeAssets, simulatedMonthlyOutlook, healthScore, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn]);
 }
