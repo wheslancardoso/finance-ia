@@ -288,8 +288,9 @@ export function AddTransactionModal() {
           const originalFirstDate = addMonths(new Date(transactionToEdit.date), -(transactionToEdit.installment_current - 1));
           const dateChanged = new Date(finalDateISO).toISOString().split('T')[0] !== originalFirstDate.toISOString().split('T')[0];
           const amountChanged = installmentAmountCents !== transactionToEdit.amount_cents;
+          const accountChanged = capturedAccountId !== transactionToEdit.account_id;
 
-          if (installmentsChanged || dateChanged || amountChanged) {
+          if (installmentsChanged || dateChanged || amountChanged || accountChanged) {
             await deleteTransactionSeries(transactionToEdit.description, transactionToEdit.installment_total, transactionToEdit.account_id);
             
             await createInstallmentSeries({
