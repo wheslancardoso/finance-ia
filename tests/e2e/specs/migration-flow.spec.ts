@@ -21,7 +21,12 @@ test.describe('Migration Flow (ADR-004)', () => {
     await page.goto('/');
   });
 
-  test('deve criar parcelamento começando em uma parcela específica', async ({ page }) => {
+  test('deve criar parcelamento começando em uma parcela específica', async ({ page, isMobile }) => {
+    if (isMobile) {
+      test.skip(true, 'Modal de transações testado primariamente no desktop');
+      return;
+    }
+
     // Abrir modal de transação
     // Abrir modal de transação (clicar no botão do header)
     await page.getByTestId('add-transaction-button').click();
