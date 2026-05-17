@@ -68,6 +68,10 @@ const baseContext = {
   getIncomeMix: () => [],
   getNetWorthHistory: () => [],
   createTransfer: async () => {},
+  skipRecurringOccurrence: async () => {},
+  deleteRecurringTransaction: async () => {},
+  isGamificationEnabled: false,
+  setGamificationEnabled: () => {},
 };
 
 export const Healthy: Story = {
