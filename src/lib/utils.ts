@@ -16,10 +16,23 @@ export function formatCurrency(cents: number) {
 }
 
 export function getTransactionInvoiceMonth(dateStr: string, closingDay: number | null) {
-  const date = new Date(dateStr);
-  let year = date.getUTCFullYear();
-  let month = date.getUTCMonth();
-  const day = date.getUTCDate();
+  let year: number, month: number, day: number;
+
+  // Extração exata para ignorar Timezones e evitar UTC Shifts 
+  // ex: '2026-06-07T23:00:00-03:00' -> dia 7.
+  if (typeof dateStr === "string" && dateStr.includes("-")) {
+    const localDateStr = dateStr.split("T")[0];
+    const parts = localDateStr.split("-");
+    year = parseInt(parts[0], 10);
+    month = parseInt(parts[1], 10) - 1; // 0-indexed JS Date compatibility
+    day = parseInt(parts[2], 10);
+  } else {
+    // Fallback para outros formatos
+    const date = new Date(dateStr);
+    year = date.getUTCFullYear();
+    month = date.getUTCMonth();
+    day = date.getUTCDate();
+  }
   
   // Regra central: se o dia for >= ao fechamento, cai no próximo mês
   const cDay = closingDay || 31;
