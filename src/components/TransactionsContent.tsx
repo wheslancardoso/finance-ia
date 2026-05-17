@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { TransactionItem } from "./TransactionItem";
 import GlassCard from "./GlassCard";
 import { formatCurrency, cn, getTransactionInvoiceMonth } from "@/lib/utils";
@@ -16,7 +16,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { useTransactionModal } from "@/context/TransactionModalContext";
-import { format } from "date-fns";
+import { format, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface TransactionsContentProps {
@@ -29,6 +29,7 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
   const { openAdd } = useTransactionModal();
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedInvoiceKey, setSelectedInvoiceKey] = useState<string | null>(null);
 
   const [hasFetchedOnce, setHasFetchedOnce] = React.useState(false);
 
@@ -92,6 +93,91 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
     }
   }, [monthTransactions, hasFetchedOnce]);
   
+  const activeAccount = useMemo(() => {
+    return accounts.find(a => a.id === selectedAccountId);
+  }, [selectedAccountId, accounts]);
+
+  const isCreditSelected = activeAccount?.type === "CREDIT_CARD";
+
+  // Gera a lista de faturas/meses disponíveis para o cartão selecionado
+  const invoiceMonths = useMemo(() => {
+    if (!selectedAccountId || !isCreditSelected) return [];
+    
+    const closingDay = activeAccount?.closing_day || 10;
+    const monthsMap = new Map<string, { year: number; month: number; key: string; label: string }>();
+    
+    const now = new Date();
+    // Gerar 2 meses anteriores, mês atual e 6 meses futuros
+    for (let i = -2; i <= 6; i++) {
+      const d = addMonths(now, i);
+      const y = d.getFullYear();
+      const m = d.getMonth();
+      const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+      const label = format(d, "MMM'/'yy", { locale: ptBR });
+      monthsMap.set(key, { year: y, month: m, key, label });
+    }
+
+    // Adicionar outros meses reais das transações cadastradas no cartão
+    const txsArray = Array.isArray(localTransactions) ? localTransactions : [];
+    txsArray.forEach(tx => {
+      if (tx.account_id === selectedAccountId) {
+        const inv = getTransactionInvoiceMonth(tx.date, closingDay);
+        const key = `${inv.year}-${String(inv.month + 1).padStart(2, '0')}`;
+        if (!monthsMap.has(key)) {
+          const d = new Date(inv.year, inv.month, 1);
+          const label = format(d, "MMM'/'yy", { locale: ptBR });
+          monthsMap.set(key, { year: inv.year, month: inv.month, key, label });
+        }
+      }
+    });
+
+    return Array.from(monthsMap.values()).sort((a, b) => {
+      return new Date(a.year, a.month, 1).getTime() - new Date(b.year, b.month, 1).getTime();
+    });
+  }, [selectedAccountId, activeAccount, localTransactions, isCreditSelected]);
+
+  // Calcula o valor total de faturas para cada mês do seletor
+  const invoiceTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    if (!selectedAccountId || !isCreditSelected) return totals;
+
+    const txsArray = Array.isArray(localTransactions) ? localTransactions : [];
+    const cardTxs = txsArray.filter(tx => tx.account_id === selectedAccountId);
+
+    invoiceMonths.forEach(im => {
+      const totalCents = cardTxs
+        .filter(tx => {
+          const inv = getTransactionInvoiceMonth(tx.date, activeAccount?.closing_day);
+          return inv.year === im.year && inv.month === im.month;
+        })
+        .reduce((sum, tx) => sum + (tx.amount_cents || 0), 0);
+      totals[im.key] = totalCents;
+    });
+
+    return totals;
+  }, [selectedAccountId, isCreditSelected, localTransactions, invoiceMonths, activeAccount]);
+
+  // Atualiza a fatura ativa por padrão para a fatura aberta do ciclo
+  useEffect(() => {
+    if (selectedAccountId && isCreditSelected && invoiceMonths.length > 0) {
+      const now = new Date();
+      const closingDay = activeAccount?.closing_day || 10;
+      // Se já passou do dia de fechamento deste mês, a fatura aberta por padrão é a do mês que vem (Junho)
+      const isAfterClosing = now.getDate() >= closingDay;
+      const defaultDate = isAfterClosing ? addMonths(now, 1) : now;
+      const defaultKey = `${defaultDate.getFullYear()}-${String(defaultDate.getMonth() + 1).padStart(2, '0')}`;
+      
+      const exists = invoiceMonths.some(im => im.key === defaultKey);
+      if (exists) {
+        setSelectedInvoiceKey(defaultKey);
+      } else {
+        setSelectedInvoiceKey(invoiceMonths[2]?.key || invoiceMonths[0]?.key);
+      }
+    } else {
+      setSelectedInvoiceKey(null);
+    }
+  }, [selectedAccountId, isCreditSelected, invoiceMonths, activeAccount]);
+
   const filteredTransactions = useMemo(() => {
     const transactionsArray = Array.isArray(localTransactions) ? localTransactions : [];
     const filtered = transactionsArray.filter(tx => {
@@ -99,11 +185,20 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
       const matchesSearch = !searchQuery || 
         tx.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         tx.category?.name?.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesAccount && matchesSearch;
+      
+      const matchesInvoice = !selectedAccountId || !isCreditSelected || !selectedInvoiceKey || (() => {
+        const [yStr, mStr] = selectedInvoiceKey.split("-");
+        const y = parseInt(yStr);
+        const m = parseInt(mStr) - 1;
+        const inv = getTransactionInvoiceMonth(tx.date, tx.account?.closing_day || activeAccount?.closing_day);
+        return inv.year === y && inv.month === m;
+      })();
+
+      return matchesAccount && matchesSearch && matchesInvoice;
     });
 
     return filtered;
-  }, [localTransactions, selectedAccountId, searchQuery]);
+  }, [localTransactions, selectedAccountId, searchQuery, selectedInvoiceKey, isCreditSelected, activeAccount]);
 
   // Agrupar transações por data ou fatura
   const groupedTransactions = useMemo(() => {
@@ -129,6 +224,143 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
 
   return (
     <div className="space-y-6 md:space-y-8 overflow-x-hidden">
+      {/* Painel da Fatura Premium - Exibido apenas para Cartões de Crédito */}
+      <AnimatePresence>
+        {isCreditSelected && activeAccount && selectedInvoiceKey && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="relative overflow-hidden rounded-[2.5rem] border border-white/5 bg-gradient-to-b from-white/[0.04] to-transparent backdrop-blur-2xl p-6 md:p-8 shadow-2xl flex flex-col md:flex-row gap-6 items-center justify-between group"
+          >
+            {/* Luz Neon no fundo baseada na cor do cartão */}
+            <div 
+              className="absolute -right-32 -top-32 w-64 h-64 blur-[100px] rounded-full opacity-20 pointer-events-none transition-all duration-700" 
+              style={{ backgroundColor: activeAccount.color_hex }}
+            />
+
+            <div className="flex flex-col md:flex-row gap-6 items-center w-full md:w-auto">
+              <div 
+                className="w-16 h-16 rounded-[24px] flex items-center justify-center border shadow-2xl shrink-0 transition-transform duration-500 group-hover:scale-105"
+                style={{ 
+                  backgroundColor: `${activeAccount.color_hex}15`,
+                  borderColor: `${activeAccount.color_hex}30`,
+                  color: activeAccount.color_hex 
+                }}
+              >
+                <CreditCard className="w-8 h-8" />
+              </div>
+
+              <div className="text-center md:text-left space-y-1.5 min-w-0">
+                <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">
+                  Fatura do Cartão • {activeAccount.name}
+                </p>
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5">
+                  <h2 
+                    data-testid="invoice-total-value"
+                    className="text-3xl md:text-4xl font-black text-white tracking-tight tabular-nums leading-none"
+                  >
+                    {formatCurrency(invoiceTotals[selectedInvoiceKey] || 0)}
+                  </h2>
+                  <span 
+                    className={cn(
+                      "px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border shrink-0",
+                      (() => {
+                        const [yStr, mStr] = selectedInvoiceKey.split("-");
+                        const y = parseInt(yStr);
+                        const m = parseInt(mStr) - 1;
+                        const now = new Date();
+                        const currentYear = now.getFullYear();
+                        const currentMonth = now.getMonth();
+                        
+                        if (y < currentYear || (y === currentYear && m < currentMonth)) {
+                          return "bg-emerald-500/10 border-emerald-500/20 text-emerald-400";
+                        }
+                        return "bg-amber-500/10 border-amber-500/20 text-amber-400 animate-pulse";
+                      })()
+                    )}
+                  >
+                    {(() => {
+                      const [yStr, mStr] = selectedInvoiceKey.split("-");
+                      const y = parseInt(yStr);
+                      const m = parseInt(mStr) - 1;
+                      const now = new Date();
+                      const currentYear = now.getFullYear();
+                      const currentMonth = now.getMonth();
+                      
+                      if (y < currentYear || (y === currentYear && m < currentMonth)) {
+                        return "FECHADA";
+                      }
+                      return "ABERTA";
+                    })()}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-4 gap-y-1.5 text-[9px] font-black text-white/30 uppercase tracking-widest pt-1">
+                  <span>
+                    Fechamento: <strong className="text-white/60 font-black">
+                      {(() => {
+                        const [yStr, mStr] = selectedInvoiceKey.split("-");
+                        const y = parseInt(yStr);
+                        const m = parseInt(mStr) - 1;
+                        const closingDate = new Date(y, m - 1, activeAccount.closing_day || 10);
+                        return format(closingDate, "dd 'de' MMM", { locale: ptBR });
+                      })()}
+                    </strong>
+                  </span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/10 hidden sm:inline" />
+                  <span>
+                    Vencimento: <strong className="text-white/60 font-black">
+                      {(() => {
+                        const [yStr, mStr] = selectedInvoiceKey.split("-");
+                        const y = parseInt(yStr);
+                        const m = parseInt(mStr) - 1;
+                        const dueDate = new Date(y, m, activeAccount.due_day || 17);
+                        return format(dueDate, "dd 'de' MMMM", { locale: ptBR });
+                      })()}
+                    </strong>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-2 md:pb-0 scrollbar-hide shrink-0 border-t md:border-t-0 md:border-l border-white/5 pt-4 md:pt-0 md:pl-6 w-full md:w-auto justify-center md:justify-start">
+              {invoiceMonths.map((im) => {
+                const isChipSelected = selectedInvoiceKey === im.key;
+                const valueCents = invoiceTotals[im.key] || 0;
+                
+                return (
+                  <button
+                    key={im.key}
+                    onClick={() => setSelectedInvoiceKey(im.key)}
+                    className={cn(
+                      "relative flex flex-col items-center justify-center px-4 py-2.5 rounded-2xl border transition-all text-center min-w-[76px]",
+                      isChipSelected
+                        ? "bg-white/10 border-white/20 text-white shadow-lg"
+                        : "bg-white/2 border-white/5 text-white/40 hover:bg-white/5 hover:border-white/10 hover:text-white/70"
+                    )}
+                  >
+                    <span className="text-[9px] font-black uppercase tracking-wider">{im.label}</span>
+                    <span className={cn(
+                      "text-[8px] font-bold tabular-nums mt-0.5",
+                      isChipSelected ? "text-violet-300" : "text-white/30"
+                    )}>
+                      {valueCents > 0 ? formatCurrency(valueCents) : "R$ 0,00"}
+                    </span>
+                    {isChipSelected && (
+                      <motion.div 
+                        layoutId="active-invoice-chip"
+                        className="absolute inset-0 rounded-2xl border border-violet-500/30 bg-violet-600/5 shadow-[0_0_15px_rgba(139,92,246,0.15)] pointer-events-none"
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Account Selector Strip */}
       <div className="flex gap-3 overflow-x-auto pb-2 md:pb-4 scrollbar-hide">
         <button
