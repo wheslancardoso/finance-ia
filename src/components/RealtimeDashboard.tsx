@@ -20,6 +20,7 @@ import { ProjectedTimeline } from "./ProjectedTimeline";
 import { MonthlyConsolidatedExcel } from "./dashboard/MonthlyConsolidatedExcel";
 import { SpendingCapacity } from "./SpendingCapacity";
 import { QuickSyncModal } from "./QuickSyncModal";
+import { AICopilotChat } from "./dashboard/AICopilotChat";
 
 // Hooks
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
@@ -294,6 +295,9 @@ export default function RealtimeDashboard({
           account={selectedAccount}
         />
       )}
+
+      {/* Vesper AI Copilot Chatbot */}
+      <AICopilotChat />
     </div>
   );
 }
