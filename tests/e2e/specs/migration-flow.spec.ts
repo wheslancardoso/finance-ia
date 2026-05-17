@@ -22,14 +22,12 @@ test.describe('Migration Flow (ADR-004)', () => {
   });
 
   test('deve criar parcelamento começando em uma parcela específica', async ({ page, isMobile }) => {
+    // Abrir modal de transação de acordo com o dispositivo
     if (isMobile) {
-      test.skip(true, 'Modal de transações testado primariamente no desktop');
-      return;
+      await page.getByTestId('mobile-add-button').click({ force: true });
+    } else {
+      await page.getByTestId('add-transaction-button').click();
     }
-
-    // Abrir modal de transação
-    // Abrir modal de transação (clicar no botão do header)
-    await page.getByTestId('add-transaction-button').click();
     
     await page.getByTestId('transaction-description-input').fill('Notebook Antigo');
     await page.getByTestId('transaction-amount-input').fill('1200,00');
