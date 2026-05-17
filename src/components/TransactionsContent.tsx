@@ -60,27 +60,19 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
   React.useEffect(() => {
     if (monthTransactions && localTransactions && hasFetchedOnce) {
       const currentMonthMap = new Map(monthTransactions.map(t => [t.id, t]));
-      const now = new Date();
-      const isCurrentMonth = (dateStr: string) => {
-        const d = new Date(dateStr);
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-      };
-
       setLocalTransactions(prev => {
         const prevArray = Array.isArray(prev) ? prev : [];
         
-        // 1. Atualizar transações existentes e manter transações de outros meses
+        // 1. Atualizar transações locais com os dados mais recentes vindos do contexto do mês.
+        // A deleção não é feita por diffing aqui, pois monthTransactions omite parcelas de cartão
+        // que fecharam para o mês seguinte. A deleção real já é gerenciada por router.refresh() 
+        // nas ações do sistema, que re-alimenta initialTransactions.
         let hasChanges = false;
         const updated = prevArray.map(tx => {
-          if (!isCurrentMonth(tx.date)) return tx;
-          
           const latest = currentMonthMap.get(tx.id);
-          if (!latest) return tx; // Vai ser removido no filter abaixo
+          if (!latest) return tx; // Mantém transações de outros meses/faturas intactas
 
           // Merge profundo: monthTransactions do contexto não carrega JOIN com accounts/categories.
-          // Preservamos esses objetos do tx original (que veio de /api/transactions com SELECT completo).
-          // Sem isso, account?.type e account?.closing_day ficam undefined, quebrando o
-          // agrupamento por fatura dos cartões de crédito.
           const merged = {
             ...latest,
             account: (latest.account && latest.account.type) ? latest.account : tx.account,
@@ -95,16 +87,7 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
           return tx;
         });
 
-        // 2. Remover o que sumiu do contexto (apenas para o mês atual)
-        const currentMonthIds = new Set(monthTransactions.map(t => t.id));
-        const filtered = updated.filter(tx => {
-          if (!isCurrentMonth(tx.date)) return true;
-          return currentMonthIds.has(tx.id);
-        });
-
-        if (filtered.length !== prevArray.length) hasChanges = true;
-
-        return hasChanges ? filtered : prev;
+        return hasChanges ? updated : prev;
       });
     }
   }, [monthTransactions, hasFetchedOnce]);
