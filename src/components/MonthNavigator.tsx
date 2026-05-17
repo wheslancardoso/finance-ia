@@ -18,11 +18,11 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
   const isPast = selectedDate < today && !isSameMonth(selectedDate, today);
   
   const handlePrev = () => {
-    const prev = subMonths(selectedDate, 1);
+    const prev = subMonths(startOfMonth(selectedDate), 1);
     onDateChange(prev);
   };
 
-  const handleNext = () => onDateChange(addMonths(selectedDate, 1));
+  const handleNext = () => onDateChange(addMonths(startOfMonth(selectedDate), 1));
   const handleReset = () => onDateChange(today);
   const handleLastDebt = () => {
     if (lastFutureTransactionDate) {
@@ -100,10 +100,10 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
           {/* Mês anterior */}
           <div className="text-center opacity-30">
             <p className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1">
-              {format(subMonths(selectedDate, 1), "MMM", { locale: ptBR })}
+              {format(subMonths(startOfMonth(selectedDate), 1), "MMM", { locale: ptBR })}
             </p>
             <p className="text-lg font-black text-white/30">
-              {format(subMonths(selectedDate, 1), "yy")}
+              {format(subMonths(startOfMonth(selectedDate), 1), "yy")}
             </p>
           </div>
 
@@ -141,10 +141,10 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
           {/* Próximo mês */}
           <div className="text-center opacity-30">
             <p className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1">
-              {format(addMonths(selectedDate, 1), "MMM", { locale: ptBR })}
+              {format(addMonths(startOfMonth(selectedDate), 1), "MMM", { locale: ptBR })}
             </p>
             <p className="text-lg font-black text-white/30">
-              {format(addMonths(selectedDate, 1), "yy")}
+              {format(addMonths(startOfMonth(selectedDate), 1), "yy")}
             </p>
           </div>
 
@@ -178,16 +178,16 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
           )}
 
           <button
-            onClick={() => onDateChange(addMonths(today, 6))}
+            onClick={() => onDateChange(addMonths(today, 12))}
             className={cn(
               "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border",
-              isSameMonth(selectedDate, addMonths(today, 6))
+              isSameMonth(selectedDate, addMonths(today, 12))
                 ? "bg-violet-600 border-violet-600 text-white"
                 : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white"
             )}
           >
             <Calendar className="w-3 h-3" />
-            +6 Meses
+            12 Meses
           </button>
         </div>
 
