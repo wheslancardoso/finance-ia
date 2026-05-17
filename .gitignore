@@ -48,3 +48,9 @@ next-env.d.ts
 
 *storybook.log
 storybook-static
+
+# database backups and sql files
+*.sql
+
+# scratch directory (agent workspace temporary scripts)
+/scratch/
