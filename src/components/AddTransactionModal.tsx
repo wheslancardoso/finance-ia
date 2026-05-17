@@ -14,7 +14,7 @@ import { type Category, type Account, type Transaction } from "@/lib/db";
 import { StatusModal, type StatusType } from "./StatusModal";
 
 export function AddTransactionModal() {
-  const { isOpen, transactionToEdit, closeModal, openAdd } = useTransactionModal();
+  const { isOpen, transactionToEdit, defaultAccountId, closeModal, openAdd } = useTransactionModal();
   if (isOpen) {
     // console.log('🟢 [UI] AddTransactionModal is OPEN');
   }
@@ -145,9 +145,14 @@ export function AddTransactionModal() {
         }
       } else {
         resetForm();
+        if (defaultAccountId) {
+          setAccountId(defaultAccountId);
+        } else if (accounts.length > 0 && !accountId) {
+          setAccountId(accounts[0].id);
+        }
       }
     }
-  }, [isOpen, transactionToEdit]);
+  }, [isOpen, transactionToEdit, defaultAccountId, accounts]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -395,7 +400,7 @@ export function AddTransactionModal() {
   return (
     <>
       <button
-        onClick={openAdd}
+        onClick={() => openAdd()}
         className="hidden md:flex fixed bottom-8 right-8 w-14 h-14 rounded-full bg-violet-600 text-white shadow-2xl shadow-violet-600/40 items-center justify-center hover:scale-110 active:scale-95 transition-all z-40 border border-white/20"
         data-testid="add-transaction-floating-button"
       >

@@ -231,7 +231,7 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
             <Filter className="w-4 h-4 md:w-5 md:h-5" />
           </button>
           <button 
-            onClick={openAdd}
+            onClick={() => openAdd(selectedAccountId)}
             className="flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 text-white p-2.5 md:px-5 md:py-3 rounded-2xl font-semibold transition-all shadow-lg shadow-violet-600/20 active:scale-95 shrink-0"
             data-testid="add-transaction-button"
           >
