@@ -48,7 +48,11 @@ export function UnifiedSurvivalHeader({
   const survivalCeilingCents = netLiquidityCents > 0
     ? Math.max(0, Math.min(monthlyOutlook.balanceAtMonthEnd, netLiquidityCents))
     : Math.max(0, monthlyOutlook.balanceAtMonthEnd);
-  const weeklyLimit = survivalCeilingCents / 4;
+
+  // Se estiver em crise/ciclo de dívida, definimos um limite emergencial de sobrevivência de 30% da renda líquida do mês dividida por 4
+  const weeklyLimit = survivalCeilingCents > 0
+    ? (survivalCeilingCents / 4)
+    : Math.round(((monthlyOutlook.scheduledOnly || 300000) * 0.3) / 4);
 
   return (
     <div className={cn(
@@ -188,32 +192,32 @@ export function UnifiedSurvivalHeader({
             <div className="xl:col-span-4 w-full">
                <div className={cn(
                  "bg-white/[0.03] border border-white/5 rounded-[32px] p-7 space-y-6 relative overflow-hidden shadow-inner backdrop-blur-xl",
-                 isCrisisMode && "border-red-500/20"
+                 isCrisisMode ? "border-amber-500/20" : "border-white/5"
                )}>
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-[40px] rounded-full pointer-events-none" />
+                  <div className={cn(
+                    "absolute top-0 right-0 w-32 h-32 blur-[40px] rounded-full pointer-events-none",
+                    isCrisisMode ? "bg-amber-500/5" : "bg-emerald-500/5"
+                  )} />
                   
                   <div className="flex items-center gap-5 relative z-10">
                     <div className={cn(
                       "w-10 h-10 rounded-[14px] flex items-center justify-center border shrink-0",
-                      isCrisisMode ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                      isCrisisMode ? "bg-amber-500/10 border-amber-500/20 text-amber-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                     )}>
                       <ShieldCheck className="w-5 h-5" />
                     </div>
                     <div className="flex flex-col min-w-0">
                       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-1 truncate">
-                        {isCrisisMode ? "Alerta: Ciclo de Dívida" : "Oxigênio Semanal"}
+                        {isCrisisMode ? "Limite Emergencial (Semana)" : "Oxigênio Semanal"}
                       </span>
                       <span 
                         data-testid="survival-ceiling-value"
                         className={cn(
                           "text-3xl font-black tabular-nums tracking-tight leading-none block",
-                          isCrisisMode ? "text-red-400" : "text-emerald-400"
+                          isCrisisMode ? "text-amber-400" : "text-emerald-400"
                         )}
                       >
-                        {isCrisisMode 
-                          ? formatCurrency(Math.abs(monthlyOutlook.balanceAtMonthEnd)) 
-                          : formatCurrency(weeklyLimit)
-                        }
+                        {formatCurrency(weeklyLimit)}
                       </span>
                     </div>
                   </div>
@@ -222,19 +226,19 @@ export function UnifiedSurvivalHeader({
                     <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden p-[2px]">
                       <motion.div 
                         initial={{ width: 0 }}
-                        animate={{ width: `${Math.min(100, Math.max(5, weeklyLimit > 0 ? (weeklySurvival.weeklySpentCents / weeklyLimit) * 100 : (weeklySurvival.weeklySpentCents > 0 ? 100 : 0)))}%` }}
+                        animate={{ width: `${Math.min(100, Math.max(5, weeklyLimit > 0 ? (weeklySurvival.weeklySpentCents / weeklyLimit) * 100 : 0))}%` }}
                         className={cn(
                           "h-full rounded-full transition-all duration-1000",
-                          isCrisisMode ? "bg-red-500" : "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]"
+                          isCrisisMode ? "bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]" : "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]"
                         )} 
                       />
                     </div>
                     <div className="flex justify-between items-center text-[10px] font-black text-white/20 uppercase tracking-widest">
                       <span>Uso da Semana</span>
-                      <span className={cn(isCrisisMode ? "text-red-400" : "text-white/60")}>
+                      <span className={cn(isCrisisMode ? "text-amber-400" : "text-white/60")}>
                         {weeklyLimit > 0 
                           ? `${Math.round((weeklySurvival.weeklySpentCents / weeklyLimit) * 100)}%` 
-                          : weeklySurvival.weeklySpentCents > 0 ? "100%" : "0%"
+                          : "0%"
                         }
                       </span>
                     </div>

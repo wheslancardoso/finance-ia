@@ -5,6 +5,7 @@ export interface Simulation {
   amount_cents: number;
   installments: number;
   description?: string;
+  type?: "EXPENSE" | "INCOME";
 }
 
 export interface MonthlyOutlook {
@@ -397,7 +398,16 @@ export function calculateMonthlyOutlook(params: {
     .reduce((sum, t) => sum + (t.amount_cents || 0), 0);
 
   // Impacto de Simulações
-  const simulationImpact = activeSimulations.reduce((sum, s) => {
+  const simulationExpenseImpact = activeSimulations.reduce((sum, s) => {
+    if (s.type === "INCOME") return sum;
+    if (monthOffset <= s.installments) {
+      return sum + (s.amount_cents / (s.installments || 1));
+    }
+    return sum;
+  }, 0);
+
+  const simulationIncomeImpact = activeSimulations.reduce((sum, s) => {
+    if (s.type !== "INCOME") return sum;
     if (monthOffset <= s.installments) {
       return sum + (s.amount_cents / (s.installments || 1));
     }
@@ -413,11 +423,11 @@ export function calculateMonthlyOutlook(params: {
     t.transaction_type === "INCOME" && isSameMonth(new Date(t.date), new Date())
   );
 
-  let adjustedMonthlyIncome = monthlyIncome;
+  let adjustedMonthlyIncome = monthlyIncome + simulationIncomeImpact;
   if (monthOffset === 0 && hasIncomeTransactionInMonth) {
     adjustedMonthlyIncome = allTransactions
       .filter((t: any) => t.transaction_type === "INCOME" && !t.is_paid && isSameMonth(new Date(t.date), new Date()))
-      .reduce((sum: number, t: any) => sum + (t.amount_cents || 0), 0);
+      .reduce((sum: number, t: any) => sum + (t.amount_cents || 0), 0) + simulationIncomeImpact;
   }
 
   const monthlyExpenses = baseMonthlyExpenses; // Restaurado para corrigir o lint
@@ -440,7 +450,7 @@ export function calculateMonthlyOutlook(params: {
 
   const realOutflow = (monthOffset === 0 ? (scheduledExpensesCents + currentMonthDebt + currentMonthPendingExpenses) : (recurringExpensesCents + installmentDebt)) +
     (monthOffset === 0 ? (budgets.reduce((sum, b) => sum + Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0)), 0)) : (budgets.reduce((sum, b) => sum + (b.amount_cents || 0), 0))) +
-    simulationImpact;
+    simulationExpenseImpact;
 
   // Determinamos a liquidez final projetada (Patrimônio Líquido)
   const finalLiquidity = monthOffset === 0
@@ -486,7 +496,7 @@ export function calculateMonthlyOutlook(params: {
 
   return {
     balanceAtMonthEnd: Number(finalLiquidity) || 0,
-    plannedExpenses: Number(monthlyExpenses + effectiveCardDebt + budgetReserves + simulationImpact) || 0,
+    plannedExpenses: Number(monthlyExpenses + effectiveCardDebt + budgetReserves + simulationExpenseImpact) || 0,
     immediateCardDebt: Number(immediateCardDebt) || 0,
     upcomingCardDebt: Number(upcomingCardDebt) || 0,
     scheduledOnly: Number(monthlyExpenses) || 0,
@@ -563,8 +573,16 @@ export function calculateAdvancedProjection(params: {
       .reduce((sum, g) => sum + (Number(g.monthly_contribution_cents) || 0), 0);
 
     // 5. Impacto das Simulações Ativas
-    const simulations = activeSimulations.reduce((sum, s) => {
-      // Impacto mensal se o mês atual da iteração estiver dentro das parcelas da simulação
+    const simulationExpenses = activeSimulations.reduce((sum, s) => {
+      if (s.type === "INCOME") return sum;
+      if (i <= s.installments) {
+        return sum + (s.amount_cents / (s.installments || 1));
+      }
+      return sum;
+    }, 0);
+
+    const simulationIncomes = activeSimulations.reduce((sum, s) => {
+      if (s.type !== "INCOME") return sum;
       if (i <= s.installments) {
         return sum + (s.amount_cents / (s.installments || 1));
       }
@@ -572,7 +590,7 @@ export function calculateAdvancedProjection(params: {
     }, 0);
 
     // Resultado do mês: o que sobra (surplus) ou falta (deficit)
-    const monthlyResult = income - expenses - installments - budgetReserve - goalContributions - simulations;
+    const monthlyResult = income + simulationIncomes - expenses - installments - budgetReserve - goalContributions - simulationExpenses;
 
     // Acumular no saldo projetado (sem floor em zero)
     projectedBalance += monthlyResult;
