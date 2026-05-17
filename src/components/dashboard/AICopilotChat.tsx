@@ -74,7 +74,7 @@ export function AICopilotChat() {
   return (
     <>
       {/* Balão flutuante minimalista estilo premium */}
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed bottom-24 right-6 md:bottom-28 md:right-8 z-50">
         <motion.button
           onClick={() => setIsOpen(!isOpen)}
           whileHover={{ scale: 1.05 }}
@@ -98,7 +98,7 @@ export function AICopilotChat() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.9 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="fixed bottom-24 right-6 w-[420px] max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100vh-14rem)] z-50 bg-[#0d0d0d]/90 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col"
+            className="fixed bottom-40 right-6 md:bottom-48 md:right-8 w-[420px] max-w-[calc(100vw-2rem)] h-[600px] max-h-[calc(100vh-14rem)] z-50 bg-[#0d0d0d]/90 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col"
           >
             {/* Efeitos de Luz no Fundo */}
             <div className="absolute -top-32 -right-32 w-64 h-64 blur-[100px] bg-violet-600/20 rounded-full pointer-events-none" />
