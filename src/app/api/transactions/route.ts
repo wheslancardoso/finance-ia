@@ -79,6 +79,8 @@ export async function POST(request: NextRequest) {
       installment_group_id,
       is_paid = false,
       source = "MANUAL",
+      is_third_party = false,
+      third_party_name = null,
     } = body;
 
     if (!amount_cents || !transaction_type || !date || !description) {
@@ -106,6 +108,8 @@ export async function POST(request: NextRequest) {
       installment_group_id: installment_group_id || null,
       is_paid: is_paid ?? (isPastMonth ? true : false),
       source,
+      is_third_party: !!is_third_party,
+      third_party_name: third_party_name || null,
       updated_at: new Date().toISOString()
     };
 

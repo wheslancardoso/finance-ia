@@ -71,6 +71,8 @@ export function AddTransactionModal() {
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
   const [editAllInstallments, setEditAllInstallments] = useState(false);
+  const [isThirdParty, setIsThirdParty] = useState(false);
+  const [thirdPartyName, setThirdPartyName] = useState("");
 
   // Fechar dropdowns ao clicar fora
   useEffect(() => {
@@ -127,6 +129,8 @@ export function AddTransactionModal() {
         setType(transactionToEdit.transaction_type || transactionToEdit.type || "EXPENSE");
         setInstallments(1);
         setIsLegacyDebt(transactionToEdit.is_legacy_debt || false);
+        setIsThirdParty(transactionToEdit.is_third_party || false);
+        setThirdPartyName(transactionToEdit.third_party_name || "");
         const dateObj = new Date(transactionToEdit.date);
 
         // Se for uma parcela, sempre editar a série a partir da primeira
@@ -167,6 +171,8 @@ export function AddTransactionModal() {
     const capturedType = type;
     const capturedDescription = description;
     const capturedIsLegacyDebt = isLegacyDebt;
+    const capturedIsThirdParty = isThirdParty;
+    const capturedThirdPartyName = thirdPartyName;
 
     try {
       if (!capturedAccountId || !capturedAmount || !userId) {
@@ -202,6 +208,8 @@ export function AddTransactionModal() {
         is_legacy_debt: capturedIsLegacyDebt,
         is_paid: true,
         source: "MANUAL",
+        is_third_party: capturedIsThirdParty,
+        third_party_name: capturedIsThirdParty ? capturedThirdPartyName : null,
       };
 
       let errorOccurred = false;
@@ -259,7 +267,9 @@ export function AddTransactionModal() {
               account_id: capturedAccountId,
               category_id: capturedCategoryId,
               start_date: finalDateISO,
-              starting_installment: startingInstallment
+              starting_installment: startingInstallment,
+              is_third_party: capturedIsThirdParty,
+              third_party_name: capturedIsThirdParty ? capturedThirdPartyName : null,
             });
           } else {
             // Update only metadata for the series
@@ -290,7 +300,9 @@ export function AddTransactionModal() {
             account_id: capturedAccountId,
             category_id: capturedCategoryId,
             start_date: finalDateISO,
-            starting_installment: startingInstallment
+            starting_installment: startingInstallment,
+            is_third_party: capturedIsThirdParty,
+            third_party_name: capturedIsThirdParty ? capturedThirdPartyName : null,
           });
         } else {
           await upsertTransaction({
@@ -333,6 +345,8 @@ export function AddTransactionModal() {
     setInstallments(1);
     setStartingInstallment(1);
     setIsLegacyDebt(false);
+    setIsThirdParty(false);
+    setThirdPartyName("");
     setTransactionTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
   }
 
@@ -802,6 +816,54 @@ export function AddTransactionModal() {
                       </span>
                     </div>
                   )}
+
+                  {/* Lançamento de Terceiro (Gasto ou Pix a Receber) */}
+                  <div className="space-y-4 pt-2">
+                    <div className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-white">Lançamento de Terceiro</span>
+                        <span className="text-[9px] text-white/40">Dinheiro/Cartão usado por ou para outra pessoa</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsThirdParty(!isThirdParty)}
+                        className={cn(
+                          "w-11 h-6 rounded-full transition-all relative p-1 outline-none",
+                          isThirdParty ? "bg-violet-500" : "bg-white/10"
+                        )}
+                        data-testid="transaction-third-party-toggle"
+                      >
+                        <div
+                          className={cn(
+                            "w-4 h-4 rounded-full bg-white transition-all shadow",
+                            isThirdParty ? "translate-x-5" : "translate-x-0"
+                          )}
+                        />
+                      </button>
+                    </div>
+
+                    {isThirdParty && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        className="space-y-2 pt-1 overflow-hidden"
+                      >
+                        <label className="text-[9px] font-black text-violet-400/60 uppercase tracking-widest px-4">Nome do Contato</label>
+                        <div className="relative flex items-center">
+                          <PencilLine className="absolute left-4 w-4 h-4 text-white/30" />
+                          <input
+                            type="text"
+                            placeholder="Quem deve ou pagou você? (Ex: Thiago, Mãe)"
+                            value={thirdPartyName}
+                            onChange={(e) => setThirdPartyName(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-5 text-sm text-white outline-none focus:border-violet-500/50 font-bold"
+                            data-testid="transaction-third-party-name-input"
+                            required
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
 
                   {/* Dívida Legada - Info Automática */}
                   {isLegacyDebt && (
