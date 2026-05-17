@@ -140,7 +140,19 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
   const simulatedDebtAdjustment = useMemo(() => {
     if (activeSimulations.length === 0) return 0;
 
-    // Despesas simuladas parceladas remanescentes no cartão aumentam o saldo devedor
+    // 1. Receitas simuladas acumuladas que amortizam a dívida
+    const simulatedIncome = activeSimulations
+      .filter(s => s.type === "INCOME")
+      .reduce((sum, s) => {
+        if (s.installments > 1) {
+          const monthly = Math.round(s.amount_cents / s.installments);
+          const activeMonths = Math.min(s.installments, monthOffset + 1);
+          return sum + (monthly * activeMonths);
+        }
+        return sum + s.amount_cents;
+      }, 0);
+
+    // 2. Despesas simuladas parceladas remanescentes no cartão
     const simulatedCreditExpense = activeSimulations
       .filter(s => s.type === "EXPENSE" && s.installments > 1)
       .reduce((sum, s) => {
@@ -149,16 +161,20 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
         return sum + (monthly * remainingInstallments);
       }, 0);
 
-    return simulatedCreditExpense;
+    return simulatedCreditExpense - simulatedIncome;
   }, [activeSimulations, monthOffset]);
 
   const activeDebt = useMemo(() => {
     const baseDebt = monthOffset === 0 ? consolidatedDebt : monthlyOutlook.totalDebt;
     if (activeSimulations.length > 0) {
-      return Math.max(0, baseDebt + simulatedDebtAdjustment);
+      const adjustedDebt = baseDebt + simulatedDebtAdjustment;
+      // Para manter coerência visual absoluta com a tela, a dívida total exibida no topo do HUD
+      // nunca pode ser menor do que o total de saídas previstas e compromissos físicos daquele mês.
+      const monthlyPhysicalCommitments = Math.max(0, monthlyOutlook.plannedExpenses || 0);
+      return Math.max(monthlyPhysicalCommitments, adjustedDebt);
     }
     return baseDebt;
-  }, [monthOffset, consolidatedDebt, monthlyOutlook.totalDebt, activeSimulations, simulatedDebtAdjustment]);
+  }, [monthOffset, consolidatedDebt, monthlyOutlook.totalDebt, activeSimulations, simulatedDebtAdjustment, monthlyOutlook.plannedExpenses]);
 
   const activeAssets = useMemo(() => {
     const baseAssets = monthOffset === 0 ? currentAssets : monthlyOutlook.totalAssets;
