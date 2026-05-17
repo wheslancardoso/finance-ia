@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { Target, Plus, Sparkles, ShieldCheck, Loader2 } from "lucide-react";
+import { Target, Plus, Sparkles, ShieldCheck, Loader2, GripVertical, ListOrdered, Grid3X3 } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 import GlassCard from "@/components/GlassCard";
 import { useGoalModal } from "@/context/GoalModalContext";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import GoalRecommendations from "./GoalRecommendations";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Reorder } from "framer-motion";
 
 interface GoalsManagerProps {
   initialGoals?: any[];
@@ -17,11 +17,37 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
   const { goals: contextGoals, loading, netLiquidityCents, isGamificationEnabled, upsertGoal, refreshData } = useFinancialData();
   const { openModal, openContribution, openDetail } = useGoalModal();
 
+  const [viewMode, setViewMode] = useState<"grid" | "reorder">("grid");
+  const [orderedGoals, setOrderedGoals] = useState<any[]>([]);
   const [iaLoading, setIaLoading] = useState(false);
   const [recommendations, setRecommendations] = useState<any[] | null>(null);
   const [showIAPanel, setShowIAPanel] = useState(false);
 
   const goalsToDisplay = contextGoals.length > 0 ? contextGoals : (initialGoals || []);
+
+  // Sincronizar orderedGoals quando goalsToDisplay mudar
+  React.useEffect(() => {
+    const sorted = [...goalsToDisplay].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+    setOrderedGoals(sorted);
+  }, [goalsToDisplay]);
+
+  const handleReorder = async (newOrder: any[]) => {
+    setOrderedGoals(newOrder);
+    try {
+      // Atualizar a prioridade sequencial de todas as metas
+      const updates = newOrder.map((goal, index) => ({
+        ...goal,
+        priority: index + 1
+      }));
+
+      for (const g of updates) {
+        await upsertGoal(g);
+      }
+      await refreshData();
+    } catch (error) {
+      console.error("Falha ao salvar nova ordenação de metas:", error);
+    }
+  };
 
   const handleOptimizeWithIA = async () => {
     setIaLoading(true);
@@ -93,7 +119,47 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
               <h2 className="text-xl font-bold text-white tracking-tight">Suas Ambições</h2>
               <p className="text-xs text-white/40">Fila soberana de prioridades ativas</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4">
+              {/* Seletor Visual Slide Tabs */}
+              <div className="relative bg-white/5 border border-white/10 rounded-xl p-[3px] flex items-center shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("grid")}
+                  className={cn(
+                    "relative px-3.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors flex items-center gap-1.5 cursor-pointer z-10",
+                    viewMode === "grid" ? "text-black font-black" : "text-white/40 hover:text-white"
+                  )}
+                >
+                  {viewMode === "grid" && (
+                    <motion.div
+                      layoutId="goalsViewActive"
+                      className="absolute inset-0 bg-white rounded-lg -z-10 shadow-lg"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <Grid3X3 className="w-3 h-3" />
+                  <span>Cards</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("reorder")}
+                  className={cn(
+                    "relative px-3.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors flex items-center gap-1.5 cursor-pointer z-10",
+                    viewMode === "reorder" ? "text-black font-black" : "text-white/40 hover:text-white"
+                  )}
+                >
+                  {viewMode === "reorder" && (
+                    <motion.div
+                      layoutId="goalsViewActive"
+                      className="absolute inset-0 bg-white rounded-lg -z-10 shadow-lg"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <ListOrdered className="w-3 h-3" />
+                  <span>Fila Drag</span>
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={handleOptimizeWithIA}
@@ -222,6 +288,121 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
             </button>
           </div>
         </div>
+      ) : viewMode === "reorder" ? (
+        <div className="space-y-6">
+          <Reorder.Group 
+            axis="y" 
+            values={orderedGoals} 
+            onReorder={handleReorder}
+            className="space-y-4 max-w-3xl mx-auto"
+          >
+            {orderedGoals.map((goal, index) => {
+              const percentage = Math.min((goal.current_amount_cents / goal.target_amount_cents) * 100, 100);
+              const remaining = goal.target_amount_cents - goal.current_amount_cents;
+              const isCrisisMode = netLiquidityCents < 0;
+              const isEmergencyGoal = (name: string) => /emerg[êe]ncia|sobreviv[êe]ncia|oxig[êe]nio|reserva/i.test(name);
+              const isLocked = isGamificationEnabled && isCrisisMode && !isEmergencyGoal(goal.name);
+
+              return (
+                <Reorder.Item
+                  key={goal.id}
+                  value={goal}
+                  dragListener={!isLocked}
+                  className={cn(
+                    "relative backdrop-blur-xl bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex items-center justify-between gap-4 group cursor-grab active:cursor-grabbing hover:border-white/10 transition-all select-none",
+                    isLocked && "opacity-50 cursor-not-allowed select-none bg-red-955/5 border-red-500/15"
+                  )}
+                  whileDrag={{ 
+                    scale: 1.02, 
+                    backgroundColor: "rgba(255, 255, 255, 0.05)",
+                    borderColor: goal.color_hex || "#8B5CF6",
+                    boxShadow: "0 20px 40px -15px rgba(0,0,0,0.5)"
+                  }}
+                >
+                  <div className="flex items-center gap-4 min-w-0 flex-1">
+                    {/* Grip Handle */}
+                    {!isLocked ? (
+                      <div className="text-white/20 group-hover:text-white/40 transition-colors p-1 shrink-0">
+                        <GripVertical className="w-4 h-4" />
+                      </div>
+                    ) : (
+                      <div className="w-6 shrink-0" />
+                    )}
+
+                    {/* Priority Pill */}
+                    <div 
+                      className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0"
+                      style={{ 
+                        backgroundColor: isLocked ? "rgba(239, 68, 68, 0.05)" : `${goal.color_hex || "#8B5CF6"}15`,
+                        color: isLocked ? "#ef4444" : (goal.color_hex || "#8B5CF6"),
+                        border: `1px solid ${isLocked ? "#ef444430" : `${goal.color_hex || "#8B5CF6"}30`}` 
+                      }}
+                    >
+                      #{index + 1}
+                    </div>
+
+                    {/* Goal Info */}
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-white text-sm truncate">{goal.name}</h4>
+                        {isLocked && (
+                          <span className="px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 font-extrabold text-[8px] uppercase tracking-wider shrink-0">
+                            Bloqueada
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Compact Progress Bar */}
+                      <div className="flex items-center gap-3">
+                        <div className="h-1.5 w-24 bg-white/5 rounded-full overflow-hidden shrink-0">
+                          <div 
+                            className="h-full rounded-full animate-[shimmer_2s_infinite]"
+                            style={{ 
+                              width: `${percentage}%`, 
+                              backgroundColor: isLocked ? "#ef4444" : (goal.color_hex || "#8B5CF6") 
+                            }}
+                          />
+                        </div>
+                        <span className="text-[10px] font-bold text-white/40">{percentage.toFixed(0)}%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Amount / Deadline */}
+                  <div className="text-right shrink-0 flex items-center gap-6">
+                    <div>
+                      <p className="text-xs font-black text-white tabular-nums">
+                        {formatCurrency(goal.current_amount_cents)}
+                      </p>
+                      <p className="text-[9px] font-bold text-white/20 uppercase tracking-wider">
+                        Alvo {formatCurrency(goal.target_amount_cents)}
+                      </p>
+                    </div>
+                    {goal.deadline && (
+                      <div className="hidden sm:block border-l border-white/5 pl-6 text-left">
+                        <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest">Prazo</p>
+                        <p className="text-[10px] font-bold text-white/60">
+                          {new Date(goal.deadline).toLocaleDateString("pt-BR", { month: 'short', year: '2-digit' })}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </Reorder.Item>
+              );
+            })}
+          </Reorder.Group>
+
+          <div className="max-w-3xl mx-auto pt-4 flex justify-center">
+            <button 
+              onClick={openModal}
+              className="px-6 py-4 border border-dashed border-white/10 hover:border-white/20 bg-white/[0.01] hover:bg-white/[0.03] text-white/40 hover:text-white rounded-2xl flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest transition-all cursor-pointer w-full"
+              data-testid="add-goal-button"
+            >
+              <Plus className="w-4 h-4" />
+              Nova Meta de Poupança
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {goalsToDisplay.map((goal) => {
@@ -236,7 +417,7 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
               <div key={goal.id} className="group relative" data-testid={`goal-card-${goal.id}`}>
                 <GlassCard className={cn(
                   "h-full flex flex-col gap-8 transition-all hover:border-white/20",
-                  isLocked && "opacity-60 cursor-not-allowed select-none bg-red-950/5 border-red-500/20"
+                  isLocked && "opacity-60 cursor-not-allowed select-none bg-red-955/5 border-red-500/15"
                 )}>
                   <div className="flex items-start justify-between">
                     <div 
