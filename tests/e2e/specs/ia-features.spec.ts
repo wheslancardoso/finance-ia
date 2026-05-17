@@ -76,9 +76,12 @@ test.describe('Integração de IA Soberana e Copiloto', () => {
     // Clicar para adicionar transação
     await page.getByTestId('add-transaction-button').click();
 
-    // Inserir texto sutil na descrição
+    // Inserir texto sutil na descrição e preencher o valor
     const descInput = page.getByTestId('transaction-description-input');
     await descInput.fill('Almoço');
+
+    const amountInput = page.getByTestId('transaction-amount-input');
+    await amountInput.fill('45,00');
 
     // O botão de Auto-IA deve aparecer na tela e ser clicado
     const autoIAButton = page.getByTestId('auto-ia-button');
@@ -89,9 +92,8 @@ test.describe('Integração de IA Soberana e Copiloto', () => {
     // A descrição deve continuar sendo "Almoço"
     await expect(descInput).toHaveValue('Almoço');
     
-    // O valor deve continuar vazio
-    const amountInput = page.getByTestId('transaction-amount-input');
-    await expect(amountInput).toHaveValue('');
+    // O valor deve continuar sendo "45,00"
+    await expect(amountInput).toHaveValue('45,00');
 
     // A categoria "Alimentação" deve ter sido selecionada automaticamente
     const categorySpan = page.locator('span.text-white', { hasText: 'Alimentação' });
