@@ -70,11 +70,21 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
           
           const latest = currentMonthMap.get(tx.id);
           if (!latest) return tx; // Vai ser removido no filter abaixo
-          
-          // Verificar se mudou algo (raso)
-          if (JSON.stringify(latest) !== JSON.stringify(tx)) {
+
+          // Merge profundo: monthTransactions do contexto não carrega JOIN com accounts/categories.
+          // Preservamos esses objetos do tx original (que veio de /api/transactions com SELECT completo).
+          // Sem isso, account?.type e account?.closing_day ficam undefined, quebrando o
+          // agrupamento por fatura dos cartões de crédito.
+          const merged = {
+            ...latest,
+            account: (latest.account && latest.account.type) ? latest.account : tx.account,
+            category: latest.category ?? tx.category,
+          };
+
+          if (JSON.stringify({ ...latest, account: undefined, category: undefined }) !==
+              JSON.stringify({ ...tx,     account: undefined, category: undefined })) {
             hasChanges = true;
-            return latest;
+            return merged;
           }
           return tx;
         });
