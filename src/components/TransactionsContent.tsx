@@ -40,10 +40,16 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
 
   const [localTransactions, setLocalTransactions] = useState(initialTransactions);
 
-  // Sincronizar com props iniciais se mudarem
+  // Sincronizar com props iniciais apenas se os dados reais mudarem (ex: Server Actions / router.refresh)
+  // Isso evita o loop de reset infinito que desfazia o sync, mas permite a UI reagir a mutações externas.
   React.useEffect(() => {
     if (initialTransactions) {
-      setLocalTransactions(initialTransactions);
+      setLocalTransactions(prev => {
+        if (!prev || JSON.stringify(prev) !== JSON.stringify(initialTransactions)) {
+          return initialTransactions;
+        }
+        return prev;
+      });
     }
   }, [initialTransactions]);
 
