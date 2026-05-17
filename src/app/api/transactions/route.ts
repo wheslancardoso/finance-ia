@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     const isPastMonth = txDate < currentMonthStart;
 
     const resolvedIsPaid = isCreditCard && transaction_type === 'EXPENSE'
-      ? false
+      ? (is_paid !== undefined && is_paid !== null ? is_paid : isPastMonth)
       : (is_paid ?? (isPastMonth ? true : false));
 
     const txData = {

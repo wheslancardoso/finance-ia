@@ -223,9 +223,30 @@ export function AddTransactionModal() {
       const totalAmountCents = Math.round(parsedAmount * 100);
       const installmentAmountCents = Math.floor(totalAmountCents / capturedInstallments);
 
+      let finalDateISO: string;
+      let isPastMonth = false;
+      try {
+        const dateStr = `${transactionDate}T${transactionTime}:00`;
+        const dateObj = new Date(dateStr);
+        if (isNaN(dateObj.getTime())) throw new Error("Data inválida");
+        finalDateISO = dateObj.toISOString();
+        const now = new Date();
+        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        isPastMonth = dateObj < currentMonthStart;
+      } catch (err) {
+        setStatusModal({
+          isOpen: true,
+          title: "Data Inválida",
+          message: "A data ou hora informada parece estar incorreta.",
+          type: "error"
+        });
+        setLoading(false);
+        return;
+      }
+
       const selectedAccount = accounts.find((a: any) => a.id === capturedAccountId);
       const isCreditCard = selectedAccount?.type === "CREDIT_CARD";
-      const isPaidVal = isCreditCard && capturedType === "EXPENSE" ? false : true;
+      const isPaidVal = isCreditCard && capturedType === "EXPENSE" ? isPastMonth : true;
 
       const basePayload = {
         user_id: userId,
@@ -240,22 +261,6 @@ export function AddTransactionModal() {
       };
 
       let errorOccurred = false;
-      let finalDateISO: string;
-      try {
-        const dateStr = `${transactionDate}T${transactionTime}:00`;
-        const dateObj = new Date(dateStr);
-        if (isNaN(dateObj.getTime())) throw new Error("Data inválida");
-        finalDateISO = dateObj.toISOString();
-      } catch (err) {
-        setStatusModal({
-          isOpen: true,
-          title: "Data Inválida",
-          message: "A data ou hora informada parece estar incorreta.",
-          type: "error"
-        });
-        setLoading(false);
-        return;
-      }
 
       if (transactionToEdit) {
         // --- LOGICA DE SINCRONIZAÇÃO COM METAS (Aportes) ---
