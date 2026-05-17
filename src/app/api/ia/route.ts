@@ -250,7 +250,7 @@ Dada a descrição de uma transação financeira livre do usuário: "${text}"
 E a lista de categorias ativas dele: ${categoriesJson}
 
 Analise a descrição e retorne estritamente um objeto JSON com os seguintes campos (sem nenhum markdown ou comentário extra):
-- "description": Descrição higienizada de forma curta e formal (ex: "supermercado mensal 100" vira "Supermercado Mensal", "uber sabado" vira "Uber (Sábado)").
+- "description": Preserve obrigatoriamente os termos originais e a intenção detalhada informada pelo usuário, apenas capitalizando a primeira letra de cada palavra e limpando qualquer ruído de valores numéricos (R$, reais, brl) ou dados de parcelamento (ex: "Notebook de 4500 em 10x" vira "Notebook", "Exame de vista" vira "Exame de Vista"). NUNCA substitua a descrição por termos genéricos como "Consulta Médica" ou "Gasto Geral" se o usuário especificou o que comprou.
 - "amount_cents": Valor total inferido em centavos de real (ex: R$ 45,50 vira 4550, "100" vira 10000). Retorne null se não for possível inferir nenhum valor numérico.
 - "category_id": O "id" exato da categoria da lista fornecida que melhor se encaixa no tipo de gasto ou receita. Se nenhuma se encaixar perfeitamente, escolha a que tiver o tipo compatível ("INCOME" para receitas, "EXPENSE" para gastos) e que seja mais genérica.
 
