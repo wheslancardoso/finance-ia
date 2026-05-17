@@ -216,9 +216,27 @@ export const financialService = {
       const transactions: Transaction[] = [];
       
       const now = new Date();
+      const startDate = new Date(data.start_date);
+      const startYear = startDate.getFullYear();
+      const startMonth = startDate.getMonth();
+      const startDay = startDate.getDate();
+      const startHours = startDate.getHours();
+      const startMinutes = startDate.getMinutes();
+      const startSeconds = startDate.getSeconds();
+      const startMs = startDate.getMilliseconds();
+
       for (let i = startingInstallment - 1; i < data.installments; i++) {
-        const date = new Date(data.start_date);
-        date.setMonth(date.getMonth() + (i - (startingInstallment - 1)));
+        // Cálculo de mês e ano de destino com clamping de data seguro
+        const targetMonthTotal = startMonth + (i - (startingInstallment - 1));
+        const targetYear = startYear + Math.floor(targetMonthTotal / 12);
+        const targetMonth = targetMonthTotal % 12;
+        
+        // Obter o último dia do mês de destino para evitar overflow de dia do mês
+        const lastDayOfTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+        const finalDay = Math.min(startDay, lastDayOfTargetMonth);
+        
+        // Criar objeto de data final preservando as horas e milissegundos
+        const date = new Date(targetYear, targetMonth, finalDay, startHours, startMinutes, startSeconds, startMs);
         
         const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const isPastMonth = date < currentMonthStart;
@@ -249,7 +267,10 @@ export const financialService = {
         await apiFetch("/api/transactions", {
           method: "POST",
           body: JSON.stringify({ ...tx, installment_group_id: groupId }),
-        }).catch((err) => console.error(`❌ Erro ao salvar parcela ${tx.installment_current}:`, err));
+        }).catch((err) => {
+          console.error(`❌ Erro ao salvar parcela ${tx.installment_current}:`, err);
+          throw err;
+        });
       }
 
       await db.transactions.bulkPut(transactions);
