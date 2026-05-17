@@ -115,6 +115,8 @@ interface FinancialDataContextType {
     category_id?: string | null;
     start_date: string;
     starting_installment?: number;
+    is_third_party?: boolean;
+    third_party_name?: string | null;
   }) => Promise<void>;
   upsertAccount: (data: Partial<Account>) => Promise<void>;
   deleteAccount: (id: string) => Promise<void>;
@@ -528,6 +530,8 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     category_id?: string | null;
     start_date: string;
     starting_installment?: number;
+    is_third_party?: boolean;
+    third_party_name?: string | null;
   }) => {
     if (!userId) return;
     await financialService.createInstallmentSeries({

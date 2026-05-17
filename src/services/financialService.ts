@@ -205,6 +205,8 @@ export const financialService = {
     category_id?: string | null;
     start_date: string;
     starting_installment?: number;
+    is_third_party?: boolean;
+    third_party_name?: string | null;
   }) {
     const startingInstallment = data.starting_installment || 1;
     console.log(`📦 Criando série de parcelamento: ${data.description} (${data.installments}x) iniciando na ${startingInstallment}ª`);
@@ -233,7 +235,9 @@ export const financialService = {
           is_paid: isPastMonth,
           installment_current: i + 1,
           installment_total: data.installments,
-          source: "MANUAL"
+          source: "MANUAL",
+          is_third_party: data.is_third_party,
+          third_party_name: data.third_party_name
         };
 
         transactions.push(tx);

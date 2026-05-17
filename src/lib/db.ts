@@ -100,6 +100,8 @@ export interface Transaction {
   category?: Category;
   account?: Account;
   is_adjustment?: boolean;
+  is_third_party?: boolean;
+  third_party_name?: string | null;
   source_metadata?: {
     recurring_id?: string;
     [key: string]: any;
