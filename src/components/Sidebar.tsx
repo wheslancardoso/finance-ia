@@ -13,7 +13,8 @@ import {
   LogOut,
   User as UserIcon,
   Zap,
-  RefreshCcw
+  RefreshCcw,
+  Users
 } from "lucide-react";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,7 @@ const menuItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Transações", href: "/transactions", icon: ArrowLeftRight },
   { name: "Contas", href: "/accounts", icon: Wallet },
+  { name: "Terceiros", href: "/third-parties", icon: Users },
   { name: "Fluxos", href: "/subscriptions", icon: Zap },
   { name: "Metas", href: "/goals", icon: Target },
   { name: "Relatórios", href: "/reports", icon: PieChart },
