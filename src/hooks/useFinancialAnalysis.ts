@@ -33,7 +33,7 @@ export interface FinancialAnalysis {
   debtExit: DebtExitProjection;
   weeklySurvival: WeeklySurvival;
   goalProjections: GoalProjection[];
-  simulateDetailedImpact: (amountCents: number, installments: number) => SimulationDetailedResult;
+  simulateDetailedImpact: (amountCents: number, installments: number, type?: "EXPENSE" | "INCOME") => SimulationDetailedResult;
 }
 
 /**
@@ -150,14 +150,15 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     });
   }, [monthlyOutlook.balanceAtMonthEnd, activeNetLiquidity, monthTransactions]);
 
-  const simulateDetailedImpactFn = useCallback((amountCents: number, installments: number) => 
+  const simulateDetailedImpactFn = useCallback((amountCents: number, installments: number, type?: "EXPENSE" | "INCOME") => 
     simulateDetailedImpact({
       amountCents,
       installments,
       netLiquidityCents: netLiquidity,
       monthlySurplus: debtExit.monthlySurplus,
       currentExitDate: debtExit.exitDate,
-      currentBalanceCents: currentAssets
+      currentBalanceCents: currentAssets,
+      type
     }), [netLiquidity, debtExit.monthlySurplus, debtExit.exitDate, currentAssets]);
 
   return useMemo(() => ({

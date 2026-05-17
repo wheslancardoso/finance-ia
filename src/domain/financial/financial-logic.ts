@@ -681,7 +681,7 @@ export interface SimulationDetailedResult {
 }
 
 /**
- * Simula o impacto de uma compra (à vista ou parcelada) nas projeções financeiras.
+ * Simula o impacto de uma compra ou receita (à vista ou parcelada) nas projeções financeiras.
  */
 export function simulateDetailedImpact(params: {
   amountCents: number;
@@ -690,16 +690,19 @@ export function simulateDetailedImpact(params: {
   monthlySurplus: number;
   currentExitDate: Date | null;
   currentBalanceCents: number;
+  type?: "EXPENSE" | "INCOME";
 }): SimulationDetailedResult {
-  const { amountCents, installments, netLiquidityCents, monthlySurplus, currentExitDate, currentBalanceCents } = params;
+  const { amountCents, installments, netLiquidityCents, monthlySurplus, currentExitDate, currentBalanceCents, type = "EXPENSE" } = params;
 
+  const isIncome = type === "INCOME";
   const isInstallment = installments > 1;
   const monthlyImpact = isInstallment ? Math.round(amountCents / installments) : amountCents;
 
-  // Novo saldo de liquidez líquida (imediatamente reduz o valor total se for à vista, 
-  // ou reduz gradualmente se for parcelado - mas para fins de "saúde real", consideramos o compromisso total)
-  const newNetLiquidity = netLiquidityCents - amountCents;
-  const newMonthlySurplus = monthlySurplus - (isInstallment ? monthlyImpact : 0);
+  // Novo saldo de liquidez líquida (aumenta se for receita, reduz se for despesa)
+  const newNetLiquidity = isIncome ? netLiquidityCents + amountCents : netLiquidityCents - amountCents;
+  const newMonthlySurplus = isIncome
+    ? monthlySurplus + (isInstallment ? monthlyImpact : 0)
+    : monthlySurplus - (isInstallment ? monthlyImpact : 0);
 
   // Novo cálculo de saída de dívida
   let newExitDate = currentExitDate;
@@ -716,7 +719,14 @@ export function simulateDetailedImpact(params: {
     } else {
       debtExitDelay = monthsToExit;
     }
-  } else if (newMonthlySurplus <= 0 && newNetLiquidity < 0) {
+  } else if (isIncome && newNetLiquidity >= 0) {
+    // Se a receita quitou a dívida total
+    newExitDate = null;
+    if (currentExitDate) {
+      const currentMonths = Math.ceil(Math.abs(netLiquidityCents) / monthlySurplus);
+      debtExitDelay = -currentMonths;
+    }
+  } else if (!isIncome && newMonthlySurplus <= 0 && newNetLiquidity < 0) {
     newExitDate = null;
     debtExitDelay = 999;
   }
@@ -727,32 +737,49 @@ export function simulateDetailedImpact(params: {
 
   const impactOnSurplus = monthlySurplus > 0 ? Math.round((monthlyImpact / monthlySurplus) * 100) : 100;
 
-  if (newNetLiquidity < 0 || newMonthlySurplus < (monthlySurplus * 0.5)) {
-    status = "DANGER";
-    message = isInstallment
-      ? `Atenção: Esta parcela de ${formatCurrency(monthlyImpact)} compromete ${impactOnSurplus}% da sua sobra mensal.`
-      : "Risco Alto: Esta compra zera sua reserva imediata ou aumenta seu ciclo de dívida.";
-  } else if (impactOnSurplus > 20) {
-    status = "WARNING";
-    message = "Moderado: A compra é possível, mas reduz consideravelmente seu fôlego mensal.";
-  } else {
+  if (isIncome) {
     status = "SAFE";
-    message = "Seguro: O impacto é baixo e não compromete seus objetivos principais.";
-  }
+    message = isInstallment
+      ? `Excelente! Esta receita parcelada de ${formatCurrency(monthlyImpact)} aumenta em ${impactOnSurplus}% sua sobra mensal.`
+      : "Excelente! Esta receita extra fortalece sua liquidez imediata e seus objetivos.";
 
-  if (debtExitDelay > 0 && debtExitDelay !== 999) {
-    message += ` Isso atrasará sua saída das dívidas em ${debtExitDelay} ${debtExitDelay === 1 ? 'mês' : 'meses'}.`;
-  } else if (debtExitDelay === 999) {
-    message = "Crítico: Esta compra impede que você saia das dívidas com sua renda atual.";
+    if (newNetLiquidity >= 0 && netLiquidityCents < 0) {
+      message = "Incrível! Esta receita extra é suficiente para quitar todas as suas faturas pendentes e te colocar de volta no azul hoje mesmo! 🚀";
+    } else if (debtExitDelay < 0) {
+      const positiveDelay = Math.abs(debtExitDelay);
+      message += ` Isso acelerará sua saída das dívidas em ${positiveDelay} ${positiveDelay === 1 ? 'mês' : 'meses'}!`;
+    }
+  } else {
+    // Lógica normal de despesa (EXPENSE)
+    if (newNetLiquidity < 0 || newMonthlySurplus < (monthlySurplus * 0.5)) {
+      status = "DANGER";
+      message = isInstallment
+        ? `Atenção: Esta parcela de ${formatCurrency(monthlyImpact)} compromete ${impactOnSurplus}% da sua sobra mensal.`
+        : "Risco Alto: Esta compra zera sua reserva imediata ou aumenta seu ciclo de dívida.";
+    } else if (impactOnSurplus > 20) {
+      status = "WARNING";
+      message = "Moderado: A compra é possível, mas reduz consideravelmente seu fôlego mensal.";
+    } else {
+      status = "SAFE";
+      message = "Seguro: O impacto é baixo e não compromete seus objetivos principais.";
+    }
+
+    if (debtExitDelay > 0 && debtExitDelay !== 999) {
+      message += ` Isso atrasará sua saída das dívidas em ${debtExitDelay} ${debtExitDelay === 1 ? 'mês' : 'meses'}.`;
+    } else if (debtExitDelay === 999) {
+      message = "Crítico: Esta compra impede que você saia das dívidas com sua renda atual.";
+    }
   }
 
   return {
     status,
     message,
     impact_percentage: impactOnSurplus,
-    new_balance_cents: currentBalanceCents - (isInstallment ? monthlyImpact : amountCents),
+    new_balance_cents: isIncome
+      ? currentBalanceCents + (isInstallment ? monthlyImpact : amountCents)
+      : currentBalanceCents - (isInstallment ? monthlyImpact : amountCents),
     new_net_liquidity_cents: newNetLiquidity,
-    debt_exit_delay_months: debtExitDelay === 999 ? 0 : debtExitDelay,
+    debt_exit_delay_months: isIncome ? (debtExitDelay < 0 ? debtExitDelay : 0) : (debtExitDelay === 999 ? 0 : debtExitDelay),
     new_exit_date: newExitDate,
     installment_impact: monthlyImpact
   };

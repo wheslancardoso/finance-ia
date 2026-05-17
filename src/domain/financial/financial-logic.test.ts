@@ -210,6 +210,45 @@ describe('Financial Logic Domain', () => {
       expect(result.status).toBe('DANGER');
       expect(result.impact_percentage).toBe(90);
     });
+
+    it('deve calcular o impacto positivo de uma receita extra', () => {
+      const result = simulateDetailedImpact({
+        amountCents: 50000, // R$ 500
+        installments: 1,
+        netLiquidityCents: 100000,
+        monthlySurplus: 50000,
+        currentExitDate: null,
+        currentBalanceCents: 100000,
+        type: 'INCOME'
+      });
+      expect(result.status).toBe('SAFE');
+      expect(result.new_balance_cents).toBe(150000); // R$ 1.000 + R$ 500 = R$ 1.500
+      expect(result.new_net_liquidity_cents).toBe(150000);
+      expect(result.message).toContain('Excelente!');
+    });
+
+    it('deve simular receita acelerando a saida de dividas', () => {
+      // Cliente endividado em R$ 1.500 (-150000 cents), sobra de R$ 500 (50000 cents)
+      // Tempo original para sair da divida: 1500 / 500 = 3 meses.
+      // Entra uma receita extra a vista de R$ 500 (50000 cents). Nova divida liquida: R$ 1.000.
+      // Novo tempo para sair da divida: 1000 / 500 = 2 meses.
+      // Aceleração: -1 mes!
+      const currentExitDate = new Date();
+      currentExitDate.setMonth(currentExitDate.getMonth() + 3);
+
+      const result = simulateDetailedImpact({
+        amountCents: 50000,
+        installments: 1,
+        netLiquidityCents: -150000,
+        monthlySurplus: 50000,
+        currentExitDate,
+        currentBalanceCents: 50000,
+        type: 'INCOME'
+      });
+
+      expect(result.debt_exit_delay_months).toBe(-1); // Acelera em 1 mes!
+      expect(result.message).toContain('acelerará sua saída das dívidas em 1 mês');
+    });
   });
 
   describe('calculateAdvancedProjection', () => {

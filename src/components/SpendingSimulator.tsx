@@ -1,12 +1,12 @@
 "use client";
 import React, { useState, useMemo } from "react";
-import { Calculator, AlertTriangle, CheckCircle2, XCircle, TrendingDown, PlusCircle } from "lucide-react";
+import { Calculator, AlertTriangle, CheckCircle2, XCircle, TrendingDown, TrendingUp, PlusCircle } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 import { useFinancialData } from "@/context/FinancialDataContext";
 
 interface SpendingSimulatorProps {
-  onSimulate?: (simulation: { amount_cents: number; installments: number } | null) => void;
+  onSimulate?: (simulation: { amount_cents: number; installments: number; type: "EXPENSE" | "INCOME" } | null) => void;
 }
 
 export default function SpendingSimulator({ onSimulate }: SpendingSimulatorProps) {
@@ -14,28 +14,30 @@ export default function SpendingSimulator({ onSimulate }: SpendingSimulatorProps
   const { upsertGoal } = useFinancialData();
   const [amount, setAmount] = useState<string>("");
   const [installments, setInstallments] = useState<number>(1);
+  const [simulationType, setSimulationType] = useState<"EXPENSE" | "INCOME">("EXPENSE");
 
   const result = useMemo(() => {
     const cleanValue = amount.replace(/\./g, "").replace(",", ".");
     const valueCents = Math.round(parseFloat(cleanValue) * 100);
     
     if (isNaN(valueCents) || valueCents <= 0) return null;
-    return simulateDetailedImpact(valueCents, installments);
-  }, [amount, installments, simulateDetailedImpact]);
+    return simulateDetailedImpact(valueCents, installments, simulationType);
+  }, [amount, installments, simulationType, simulateDetailedImpact]);
 
   React.useEffect(() => {
     if (onSimulate) {
       const cleanValue = amount.replace(/\./g, "").replace(",", ".");
       const valueCents = Math.round(parseFloat(cleanValue) * 100);
       if (!isNaN(valueCents) && valueCents > 0) {
-        onSimulate({ amount_cents: valueCents, installments });
+        onSimulate({ amount_cents: valueCents, installments, type: simulationType });
       } else {
         onSimulate(null);
       }
     }
-  }, [amount, installments, onSimulate]);
+  }, [amount, installments, simulationType, onSimulate]);
 
   const getStatusColor = (status: string) => {
+    if (simulationType === "INCOME") return "text-emerald-400";
     switch (status) {
       case "SAFE": return "text-emerald-400";
       case "WARNING": return "text-amber-400";
@@ -45,6 +47,7 @@ export default function SpendingSimulator({ onSimulate }: SpendingSimulatorProps
   };
 
   const getStatusBg = (status: string) => {
+    if (simulationType === "INCOME") return "bg-emerald-400/10 border-emerald-400/20";
     switch (status) {
       case "SAFE": return "bg-emerald-400/10 border-emerald-400/20";
       case "WARNING": return "bg-amber-400/10 border-amber-400/20";
@@ -54,6 +57,7 @@ export default function SpendingSimulator({ onSimulate }: SpendingSimulatorProps
   };
 
   const getStatusIcon = (status: string) => {
+    if (simulationType === "INCOME") return <CheckCircle2 className="w-4 h-4 text-emerald-400" />;
     switch (status) {
       case "SAFE": return <CheckCircle2 className="w-4 h-4 text-emerald-400" />;
       case "WARNING": return <AlertTriangle className="w-4 h-4 text-amber-400" />;
@@ -72,6 +76,40 @@ export default function SpendingSimulator({ onSimulate }: SpendingSimulatorProps
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">Simulador</h3>
           <p className="text-[9px] uppercase tracking-widest text-white/30 font-black">Previsão</p>
         </div>
+      </div>
+
+      {/* Simulation Type Selector Tabs */}
+      <div className="grid grid-cols-2 gap-1 p-1 bg-white/[0.02] border border-white/5 rounded-2xl mb-4 relative z-10">
+        <button
+          onClick={() => {
+            setSimulationType("EXPENSE");
+            setInstallments(1);
+          }}
+          className={cn(
+            "flex items-center justify-center gap-1.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all",
+            simulationType === "EXPENSE"
+              ? "bg-red-500/10 border border-red-500/20 text-red-400 shadow-md"
+              : "text-white/40 hover:text-white/60 hover:bg-white/[0.01]"
+          )}
+        >
+          <TrendingDown className="w-3.5 h-3.5" />
+          Gasto
+        </button>
+        <button
+          onClick={() => {
+            setSimulationType("INCOME");
+            setInstallments(1);
+          }}
+          className={cn(
+            "flex items-center justify-center gap-1.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all",
+            simulationType === "INCOME"
+              ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-md"
+              : "text-white/40 hover:text-white/60 hover:bg-white/[0.01]"
+          )}
+        >
+          <TrendingUp className="w-3.5 h-3.5" />
+          Receita
+        </button>
       </div>
 
       <div className="space-y-4 relative z-10 flex-1">
@@ -116,14 +154,25 @@ export default function SpendingSimulator({ onSimulate }: SpendingSimulatorProps
 
             <div className="grid grid-cols-2 gap-3 pt-2.5 border-t border-white/5">
               <div>
-                <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest mb-0.5">Mensal</p>
+                <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest mb-0.5">
+                  {simulationType === "INCOME" ? "Receita Mensal" : "Mensal"}
+                </p>
                 <p className="text-sm font-black text-white">{formatCurrency(result.installment_impact)}</p>
               </div>
               <div>
-                <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest mb-0.5">Impacto</p>
+                <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest mb-0.5">Fôlego</p>
                 <div className="flex items-center gap-1">
-                  <TrendingDown className="w-3 h-3 text-rose-400" />
-                  <p className="text-sm font-black text-rose-400">{result.impact_percentage}%</p>
+                  {simulationType === "INCOME" ? (
+                    <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
+                  )}
+                  <p className={cn(
+                    "text-sm font-black",
+                    simulationType === "INCOME" ? "text-emerald-400" : "text-rose-400"
+                  )}>
+                    {simulationType === "INCOME" ? "+" : ""}{result.impact_percentage}%
+                  </p>
                 </div>
               </div>
             </div>
@@ -135,10 +184,12 @@ export default function SpendingSimulator({ onSimulate }: SpendingSimulatorProps
                   const cleanValue = amount.replace(/\./g, "").replace(",", ".");
                   const valueCents = Math.round(parseFloat(cleanValue) * 100);
                   await upsertGoal({
-                    name: installments > 1 ? `Parcelamento: ${amount}` : `Compra: ${amount}`,
+                    name: simulationType === "INCOME"
+                      ? (installments > 1 ? `Receita Extra: ${amount} (x${installments})` : `Renda Extra: ${amount}`)
+                      : (installments > 1 ? `Parcelamento: ${amount}` : `Compra: ${amount}`),
                     target_amount_cents: valueCents,
                     current_amount_cents: 0,
-                    monthly_contribution_cents: result.installment_impact,
+                    monthly_contribution_cents: simulationType === "INCOME" ? -result.installment_impact : result.installment_impact,
                     status: 'ACTIVE'
                   });
                   setAmount("");
@@ -161,7 +212,7 @@ export default function SpendingSimulator({ onSimulate }: SpendingSimulatorProps
         ) : (
           <div className="py-6 text-center border border-dashed border-white/5 rounded-xl">
             <p className="text-[9px] text-white/20 uppercase tracking-[0.2em] font-bold">
-              Simular novo gasto
+              {simulationType === "INCOME" ? "Simular nova receita" : "Simular novo gasto"}
             </p>
           </div>
         )}
