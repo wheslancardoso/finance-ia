@@ -388,13 +388,17 @@ export function AddTransactionModal() {
 
   const filteredCategories = (categories || []).filter(c => c.type === type);
 
-  // Sync category when type changes - ONLY if not editing
+  // Sync category when type changes - ONLY if not editing and only if not already of correct type
   useEffect(() => {
     if (!transactionToEdit && (categories || []).length > 0) {
+      const currentCat = (categories || []).find(c => c.id === categoryId);
+      if (currentCat && currentCat.type === type) {
+        return; // Mantém a categoria classificada pela IA ou selecionada
+      }
       const firstOfType = (categories || []).find(c => c.type === type);
       if (firstOfType) setCategoryId(firstOfType.id);
     }
-  }, [type, categories, transactionToEdit]);
+  }, [type, categories, transactionToEdit, categoryId]);
 
   return (
     <>
