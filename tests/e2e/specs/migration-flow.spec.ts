@@ -22,11 +22,7 @@ test.describe('Migration Flow (ADR-004)', () => {
   });
 
   test('deve criar parcelamento começando em uma parcela específica', async ({ page, isMobile }) => {
-    if (isMobile) {
-      test.skip(true, 'Modal de transações testado primariamente no desktop');
-      return;
-    }
-    // Abrir modal de transação
+    // Abrir modal de transação de acordo com o dispositivo
     if (isMobile) {
       await page.getByTestId('mobile-add-button').click({ force: true });
     } else {
