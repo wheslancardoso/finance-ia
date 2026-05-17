@@ -106,7 +106,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
           activeSimulations,
           scheduledIncomeCents: incomeForOutlook,
           scheduledExpensesCents: effectiveScheduledExpenses,
-          allTransactions: monthTransactions
+          allTransactions: monthTransactions,
+          accounts
         });
 
     return {
@@ -118,8 +119,83 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     };
   }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, futureTransactions, goals, activeSimulations, monthTransactions]);
 
+  // Se houver simulações ativas no mês atual, ajustamos o saldo real e a dívida real simulada
+  const simulatedAssetsAdjustment = useMemo(() => {
+    if (activeSimulations.length === 0) return 0;
+
+    const simulatedIncome = activeSimulations
+      .filter(s => s.type === "INCOME")
+      .reduce((sum, s) => {
+        const monthly = s.installments > 1 ? Math.round(s.amount_cents / s.installments) : s.amount_cents;
+        return sum + monthly;
+      }, 0);
+
+    const simulatedDebitExpense = activeSimulations
+      .filter(s => s.type === "EXPENSE" && s.installments === 1)
+      .reduce((sum, s) => sum + s.amount_cents, 0);
+
+    return simulatedIncome - simulatedDebitExpense;
+  }, [activeSimulations]);
+
+  const simulatedDebtAdjustment = useMemo(() => {
+    if (activeSimulations.length === 0) return 0;
+
+    // Despesas simuladas parceladas remanescentes no cartão aumentam o saldo devedor
+    const simulatedCreditExpense = activeSimulations
+      .filter(s => s.type === "EXPENSE" && s.installments > 1)
+      .reduce((sum, s) => {
+        const monthly = Math.round(s.amount_cents / s.installments);
+        const remainingInstallments = Math.max(0, s.installments - monthOffset);
+        return sum + (monthly * remainingInstallments);
+      }, 0);
+
+    return simulatedCreditExpense;
+  }, [activeSimulations, monthOffset]);
+
+  const activeDebt = useMemo(() => {
+    const baseDebt = monthOffset === 0 ? consolidatedDebt : monthlyOutlook.totalDebt;
+    if (activeSimulations.length > 0) {
+      return Math.max(0, baseDebt + simulatedDebtAdjustment);
+    }
+    return baseDebt;
+  }, [monthOffset, consolidatedDebt, monthlyOutlook.totalDebt, activeSimulations, simulatedDebtAdjustment]);
+
+  const activeAssets = useMemo(() => {
+    const baseAssets = monthOffset === 0 ? currentAssets : monthlyOutlook.totalAssets;
+    if (monthOffset === 0 && activeSimulations.length > 0) {
+      return Math.max(0, baseAssets + simulatedAssetsAdjustment);
+    }
+    return baseAssets;
+  }, [monthOffset, currentAssets, monthlyOutlook.totalAssets, activeSimulations, simulatedAssetsAdjustment]);
+
+  const simulatedNetImpact = useMemo(() => {
+    if (activeSimulations.length === 0) return 0;
+    
+    const simulatedIncome = activeSimulations
+      .filter(s => s.type === "INCOME")
+      .reduce((sum, s) => {
+        const monthly = s.installments > 1 ? Math.round(s.amount_cents / s.installments) : s.amount_cents;
+        return sum + monthly;
+      }, 0);
+
+    const simulatedExpense = activeSimulations
+      .filter(s => s.type === "EXPENSE")
+      .reduce((sum, s) => {
+        const monthly = s.installments > 1 ? Math.round(s.amount_cents / s.installments) : s.amount_cents;
+        return sum + monthly;
+      }, 0);
+
+    return simulatedIncome - simulatedExpense;
+  }, [activeSimulations]);
+
   // Sobrescrita para usar a liquidez projetada no retorno
-  const activeNetLiquidity = monthOffset === 0 ? realCycleLiquidity : (monthlyOutlook.projectedNetLiquidity ?? netLiquidity);
+  const activeNetLiquidity = useMemo(() => {
+    const baseLiquidity = monthOffset === 0 ? realCycleLiquidity : (monthlyOutlook.projectedNetLiquidity ?? netLiquidity);
+    if (monthOffset === 0 && activeSimulations.length > 0) {
+      return baseLiquidity + simulatedNetImpact;
+    }
+    return baseLiquidity;
+  }, [monthOffset, realCycleLiquidity, monthlyOutlook.projectedNetLiquidity, netLiquidity, activeSimulations, simulatedNetImpact]);
 
   const debtExit = useMemo(() => {
     return calculateDebtExitProjection({
@@ -163,8 +239,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
 
   return useMemo(() => ({
     netLiquidityCents: activeNetLiquidity,
-    totalConsolidatedDebtCents: monthOffset === 0 ? consolidatedDebt : monthlyOutlook.totalDebt,
-    accumulatedBalanceCents: monthOffset === 0 ? currentAssets : monthlyOutlook.totalAssets,
+    totalConsolidatedDebtCents: activeDebt,
+    accumulatedBalanceCents: activeAssets,
     monthlyOutlook,
     healthScore,
     isSurvivalMode: monthlyOutlook.balanceAtMonthEnd < 0 || activeNetLiquidity < 0,
@@ -173,5 +249,5 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     weeklySurvival,
     goalProjections,
     simulateDetailedImpact: simulateDetailedImpactFn
-  }), [activeNetLiquidity, consolidatedDebt, currentAssets, monthlyOutlook, healthScore, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn, monthOffset]);
+  }), [activeNetLiquidity, activeDebt, activeAssets, monthlyOutlook, healthScore, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn]);
 }

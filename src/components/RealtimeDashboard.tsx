@@ -25,7 +25,7 @@ import { AICopilotChat } from "./dashboard/AICopilotChat";
 // Hooks
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 import { useFinancialData } from "@/context/FinancialDataContext";
-import { getTransactionImpactDate } from "@/domain/financial/financial-logic";
+import { getTransactionImpactDate, isRecurringExpired } from "@/domain/financial/financial-logic";
 
 interface RealtimeDashboardProps {
   initialBalance: number;
@@ -102,8 +102,9 @@ export default function RealtimeDashboard({
     });
     
     // Transações virtuais baseadas em recorrentes
+    const monthKey = format(targetMonth, "yyyy-MM");
     const virtualRecurring = recurringTransactions
-      .filter(r => r.status === 'active')
+      .filter(r => r.status === 'active' && !isRecurringExpired(r.description, monthKey))
       .map(r => ({
         id: `virtual-${r.id}`,
         description: r.description,

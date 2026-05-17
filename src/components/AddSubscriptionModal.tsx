@@ -37,12 +37,21 @@ export function AddSubscriptionModal() {
   const [day, setDay] = useState(new Date().getDate());
   const [type, setType] = useState<"EXPENSE" | "INCOME">("EXPENSE");
   const [isPrimaryIncome, setIsPrimaryIncome] = useState(false);
+  const [endDate, setEndDate] = useState("");
   
   // Pre-preencher se estiver editando
   useEffect(() => {
     if (isOpen) {
       if (editingSubscription) {
-        setDescription(editingSubscription.description || "");
+        let displayDesc = editingSubscription.description || "";
+        const match = displayDesc.match(/\s*\[[Vv]ence:\s*(\d{4}-\d{2})\]/);
+        if (match) {
+          setEndDate(match[1]);
+          displayDesc = displayDesc.replace(match[0], "");
+        } else {
+          setEndDate("");
+        }
+        setDescription(displayDesc);
         setAmount(((editingSubscription.amount_cents || 0) / 100).toString().replace(".", ","));
         setCategoryId(editingSubscription.category_id || "");
         setAccountId(editingSubscription.account_id || "");
@@ -60,6 +69,7 @@ export function AddSubscriptionModal() {
         setDay(new Date().getDate());
         setType("EXPENSE");
         setIsPrimaryIncome(false);
+        setEndDate("");
       }
     }
   }, [editingSubscription, isOpen]); // Removido 'accounts' para evitar resets indesejados durante a digitação
@@ -112,12 +122,17 @@ export function AddSubscriptionModal() {
         ? "fe7555b9-5019-4cad-8d57-b2472d660c0f" // Outros (Gasto)
         : "6e0e37fc-4104-4e2a-929e-170758d76d41"; // Outros (Receita)
 
+      let finalDescription = description.trim();
+      if (endDate) {
+        finalDescription += ` [Vence: ${endDate}]`;
+      }
+
       const payload: any = {
         ...(editingSubscription ? { id: editingSubscription.id } : {}),
         user_id: userId,
         account_id: accountId,
         category_id: categoryId || fallbackCategoryId,
-        description,
+        description: finalDescription,
         amount_cents: amountCents,
         transaction_type: type,
         frequency: "monthly",
@@ -140,6 +155,7 @@ export function AddSubscriptionModal() {
         await refreshData();
         setDescription("");
         setAmount("");
+        setEndDate("");
       } else {
         console.error("Erro ao salvar fluxo:", error);
         setStatusModal({
@@ -292,6 +308,22 @@ export function AddSubscriptionModal() {
                     </div>
                   </div>
                 )}
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-white/20 uppercase tracking-widest px-1">
+                    Válido até (Opcional)
+                  </label>
+                  <input
+                    type="month"
+                    data-testid="subscription-end-date-input"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full bg-[#111111]/50 border border-white/5 rounded-2xl py-4 px-5 text-white outline-none focus:border-violet-500/50 focus:bg-white/5 transition-all font-bold tabular-nums"
+                  />
+                  <p className="text-[9px] text-white/30 px-1 leading-relaxed">
+                    Deixe em branco para fluxo contínuo. Se definido, o gasto ou receita deixará de ser projetado nos meses posteriores ao mês escolhido (útil para faculdade, aluguel temporário, etc).
+                  </p>
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   {/* Categoria Custom Select */}

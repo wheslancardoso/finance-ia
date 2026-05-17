@@ -22,6 +22,7 @@ describe("API Route: /api/ia", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv("GEMINI_API_KEY", ""); // Zera para forçar o fallback determinístico local nos testes convencionais
+    vi.stubEnv("OPENAI_API_KEY", "");
   });
 
   it("deve retornar 400 se a action estiver faltando", async () => {

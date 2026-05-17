@@ -172,7 +172,7 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
               "text-white font-bold text-sm md:text-base tracking-tight truncate transition-all duration-300", 
               tx.is_paid && "line-through text-white/30"
             )}>
-              {tx.description}
+              {tx.description?.replace(/\s*\[[Vv]ence:\s*\d{4}-\d{2}\]/, "")}
             </p>
             
             {/* Chips de Badges Premium */}

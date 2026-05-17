@@ -11,7 +11,8 @@ import {
   calculateRecurringExpenses,
   simulateDetailedImpact,
   calculateAdvancedProjection,
-  calculateAntifragilityTier
+  calculateAntifragilityTier,
+  isRecurringExpired
 } from './financial-logic';
 import { Account, Budget, RecurringTransaction } from '@/lib/db';
 
@@ -104,13 +105,15 @@ describe('Financial Logic Domain', () => {
           transaction_type: 'INCOME', 
           status: 'active', 
           amount_cents: 100000, 
-          next_date: today 
+          next_date: today,
+          description: 'Salário normal'
         } as RecurringTransaction,
         { 
           transaction_type: 'EXPENSE', 
           status: 'active', 
           amount_cents: 50000, 
-          next_date: today 
+          next_date: today,
+          description: 'Faculdade [Vence: 2026-07]'
         } as RecurringTransaction,
       ];
       expect(calculateScheduledIncome(recurring)).toBe(100000);
@@ -119,11 +122,44 @@ describe('Financial Logic Domain', () => {
 
     it('deve calcular totais recorrentes mensais', () => {
       const recurring = [
-        { transaction_type: 'INCOME', status: 'active', amount_cents: 300000 } as RecurringTransaction,
-        { transaction_type: 'EXPENSE', status: 'active', amount_cents: 150000 } as RecurringTransaction,
+        { transaction_type: 'INCOME', status: 'active', amount_cents: 300000, description: 'Salário' } as RecurringTransaction,
+        { transaction_type: 'EXPENSE', status: 'active', amount_cents: 150000, description: 'Mensalidade' } as RecurringTransaction,
       ];
       expect(calculateRecurringIncome(recurring)).toBe(300000);
       expect(calculateRecurringExpenses(recurring)).toBe(150000);
+    });
+
+    it('deve detectar expiração de transações com a tag [Vence: YYYY-MM] corretamente', () => {
+      // Vence em Julho de 2026
+      const desc = "Faculdade [Vence: 2026-07]";
+      
+      // Meses anteriores ou igual ao vencimento não devem expirar
+      expect(isRecurringExpired(desc, "2026-06")).toBe(false);
+      expect(isRecurringExpired(desc, "2026-07")).toBe(false);
+      
+      // Meses posteriores ao vencimento devem expirar
+      expect(isRecurringExpired(desc, "2026-08")).toBe(true);
+      expect(isRecurringExpired(desc, "2027-01")).toBe(true);
+
+      // Transações sem a tag nunca expiram
+      expect(isRecurringExpired("Academia", "2026-08")).toBe(false);
+    });
+
+    it('deve ignorar transações expiradas no cálculo de receitas e despesas recorrentes baseados em data', () => {
+      const recurring = [
+        { 
+          transaction_type: 'EXPENSE', 
+          status: 'active', 
+          amount_cents: 100000, 
+          description: 'Faculdade [Vence: 2026-07]' 
+        } as RecurringTransaction
+      ];
+
+      // Em julho/2026, a faculdade é contada
+      expect(calculateRecurringExpenses(recurring, new Date("2026-07-15"))).toBe(100000);
+
+      // Em agosto/2026, a faculdade é ignorada por estar expirada
+      expect(calculateRecurringExpenses(recurring, new Date("2026-08-15"))).toBe(0);
     });
   });
 
