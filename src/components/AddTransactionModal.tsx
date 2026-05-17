@@ -398,7 +398,7 @@ export function AddTransactionModal() {
       const firstOfType = (categories || []).find(c => c.type === type);
       if (firstOfType) setCategoryId(firstOfType.id);
     }
-  }, [type, categories, transactionToEdit, categoryId]);
+  }, [type, categories, transactionToEdit]);
 
   return (
     <>
