@@ -24,6 +24,7 @@ import { QuickSyncModal } from "./QuickSyncModal";
 // Hooks
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 import { useFinancialData } from "@/context/FinancialDataContext";
+import { getTransactionImpactDate } from "@/domain/financial/financial-logic";
 
 interface RealtimeDashboardProps {
   initialBalance: number;
@@ -93,8 +94,11 @@ export default function RealtimeDashboard({
     if (!isFuture) return [];
     const targetMonth = startOfMonth(targetDate);
     
-    // Transações futuras agendadas
-    const filteredFuture = futureTransactions.filter(t => isSameMonth(new Date(t.date), targetMonth));
+    // Transações futuras agendadas alocadas corretamente na data do vencimento do cartão
+    const filteredFuture = futureTransactions.filter(t => {
+      const impactDate = getTransactionImpactDate(t, liveAccounts);
+      return isSameMonth(impactDate, targetMonth);
+    });
     
     // Transações virtuais baseadas em recorrentes
     const virtualRecurring = recurringTransactions

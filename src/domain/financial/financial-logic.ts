@@ -127,6 +127,35 @@ export function calculateInstallmentDebtForMonth(transactions: Transaction[], ta
 }
 
 /**
+ * Determina a data real de impacto/vencimento financeiro de uma transação.
+ * Para cartões de crédito, projeta para o mês do vencimento da fatura com base no dia de fechamento.
+ * Para outras contas, retorna a data original da transação.
+ */
+export function getTransactionImpactDate(t: Transaction, accounts: Account[]): Date {
+  const tDate = new Date(t.date);
+  const account = (accounts || []).find(a => a.id === t.account_id);
+  if (!account || account.type !== "CREDIT_CARD") {
+    return tDate;
+  }
+
+  const closingDay = account.closing_day || 31;
+  let year = tDate.getUTCFullYear();
+  let month = tDate.getUTCMonth();
+  const day = tDate.getUTCDate();
+
+  // Se a data da compra for maior ou igual ao dia de fechamento do cartão, ela cai no próximo mês
+  if (day >= closingDay) {
+    month++;
+    if (month > 11) {
+      month = 0;
+      year++;
+    }
+  }
+
+  return new Date(year, month, 1);
+}
+
+/**
  * Calcula a Dívida Total Consolidada (Soma de faturas abertas e fechadas de todos os cartões)
  */
 export function calculateTotalConsolidatedDebt(accounts: Account[]): number {
@@ -344,8 +373,8 @@ export function calculateMonthlyOutlook(params: {
   const targetDate = addMonths(now, monthOffset);
   const installmentDebt = futureTransactions
     .filter(t => {
-      const tDate = new Date(t.date);
-      return t.transaction_type === "EXPENSE" && isSameMonth(tDate, targetDate);
+      const impactDate = getTransactionImpactDate(t, accounts);
+      return t.transaction_type === "EXPENSE" && isSameMonth(impactDate, targetDate);
     })
     .reduce((sum, t) => sum + (t.amount_cents || 0), 0);
 
@@ -408,7 +437,8 @@ export function calculateMonthlyOutlook(params: {
       activeSimulations,
       scheduledIncomeCents: (monthOffset === 0 ? adjustedMonthlyIncome : 0),
       scheduledExpensesCents: (monthOffset === 0 ? realOutflow : 0),
-      allTransactions: accounts.flatMap(a => []) // placeholder para types
+      allTransactions: accounts.flatMap(a => []), // placeholder para types
+      accounts
     });
 
   const isCritical = finalLiquidity < 0;
@@ -419,8 +449,8 @@ export function calculateMonthlyOutlook(params: {
     ? calculateTotalConsolidatedDebt(accounts)
     : futureTransactions
       .filter(t => {
-        const tDate = new Date(t.date);
-        return t.transaction_type === "EXPENSE" && (isSameMonth(tDate, targetDate) || isAfter(tDate, targetDate));
+        const impactDate = getTransactionImpactDate(t, accounts);
+        return t.transaction_type === "EXPENSE" && (isSameMonth(impactDate, targetDate) || isAfter(impactDate, targetDate));
       })
       .reduce((sum, t) => sum + (t.amount_cents || 0), 0);
 
@@ -468,6 +498,7 @@ export function calculateAdvancedProjection(params: {
   scheduledIncomeCents?: number;      // Renda que ainda cai no mês atual
   scheduledExpensesCents?: number;    // Despesas agendadas para o mês atual
   allTransactions?: Transaction[];
+  accounts?: Account[];
 }): number {
   const {
     currentNetLiquidity,
@@ -476,7 +507,8 @@ export function calculateAdvancedProjection(params: {
     goals,
     budgets,
     monthOffset,
-    activeSimulations = []
+    activeSimulations = [],
+    accounts = []
   } = params;
 
   // Se o offset é 0, retornamos a liquidez real atual (estado presente)
@@ -501,7 +533,7 @@ export function calculateAdvancedProjection(params: {
 
     // 2. Parcelamentos do Cartão (Transactions futuras)
     const installments = futureTransactions
-      .filter(t => t.transaction_type === "EXPENSE" && isSameMonth(new Date(t.date), targetDate))
+      .filter(t => t.transaction_type === "EXPENSE" && isSameMonth(getTransactionImpactDate(t, accounts), targetDate))
       .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
     // 3. Reservas de Orçamento (Provisão mensal total planejada)
