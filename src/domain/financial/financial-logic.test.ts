@@ -145,7 +145,7 @@ describe('Financial Logic Domain', () => {
     it('deve evitar double-counting de despesas de cartão em currentMonthPendingExpenses', () => {
       const accounts: Account[] = [
         { id: 'checking-1', type: 'CHECKING', balance_cents: 100000 } as any,
-        { id: 'card-1', type: 'CREDIT_CARD', open_invoice_cents: 20000 } as any
+        { id: 'card-1', type: 'CREDIT_CARD', open_invoice_cents: 20000, open_invoice_month: new Date().toISOString().slice(0, 7) } as any
       ];
 
       const allTransactions = [
