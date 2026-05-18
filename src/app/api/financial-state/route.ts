@@ -185,10 +185,12 @@ async function buildFinancialState(userId: string) {
     return d >= firstDayOfMonth && d <= lastDayOfMonth;
   });
 
-  // Transações futuras (parcelas de cartão, agendamentos)
+  // Transações futuras (parcelas de cartão, agendamentos e transações de cartão de crédito não pagas)
   const future_transactions = allTransactions.filter((t: any) => {
     const d = new Date(t.date);
-    return d > lastDayOfMonth;
+    const acc = initialAccountMap.get(t.account_id);
+    const isUnpaidCredit = acc?.type === "CREDIT_CARD" && !t.is_paid;
+    return d > lastDayOfMonth || isUnpaidCredit;
   });
 
   // Estatísticas do mês
