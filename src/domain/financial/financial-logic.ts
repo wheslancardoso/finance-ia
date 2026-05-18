@@ -538,6 +538,8 @@ export function calculateMonthlyOutlook(params: {
         budgets,
         monthOffset,
         activeSimulations,
+        scheduledIncomeCents: adjustedMonthlyIncome,
+        scheduledExpensesCents: realOutflow,
         accounts
       });
 
@@ -601,6 +603,8 @@ export function calculateAdvancedProjection(params: {
     budgets,
     monthOffset,
     activeSimulations = [],
+    scheduledIncomeCents = 0,
+    scheduledExpensesCents = 0,
     accounts = []
   } = params;
 
@@ -619,7 +623,9 @@ export function calculateAdvancedProjection(params: {
   }, 0);
 
   const startBalance = currentAssetsCents !== undefined ? currentAssetsCents : currentNetLiquidity;
-  let projectedBalance = startBalance + simulationIncomesMonth0 - simulationExpensesMonth0;
+  // O saldo de ativos estimado no final do mês atual (mês 0) inclui o saldo inicial de ativos,
+  // somado com as receitas pendentes/previstas e deduzido das despesas/faturas que ainda vencem em Maio (mês 0).
+  let projectedBalance = startBalance + scheduledIncomeCents - scheduledExpensesCents + simulationIncomesMonth0 - simulationExpensesMonth0;
   const now = new Date();
 
   // Iterar mês a mês a partir do próximo mês (i=1) até o offset desejado
