@@ -55,9 +55,13 @@ export function UnifiedSurvivalHeader({
         : Math.max(0, monthlyOutlook.balanceAtMonthEnd));
 
   // Se estiver em crise/ciclo de dívida com ativos físicos zerados, definimos um limite emergencial mínimo baseado no salário livre essencial
-  const weeklyLimit = survivalCeilingCents > 0
+  const baseWeeklyLimit = survivalCeilingCents > 0
     ? (survivalCeilingCents / 4)
     : Math.round(((monthlyOutlook.scheduledOnly || 300000) * 0.3) / 4);
+
+  // Piso de Sobrevivência Inteligente de R$ 150,00 por semana (15000 centavos)
+  // garante que o teto semanal seja viável de se cumprir e evite exibir porcentagens insanas de consumo (como 4930%).
+  const weeklyLimit = Math.max(15000, baseWeeklyLimit);
 
   return (
     <div className={cn(
@@ -240,9 +244,17 @@ export function UnifiedSurvivalHeader({
                     </div>
                     <div className="flex justify-between items-center text-[10px] font-black text-white/20 uppercase tracking-widest">
                       <span>Uso da Semana</span>
-                      <span className={cn(isCrisisMode ? "text-amber-400" : "text-white/60")}>
+                      <span className={cn(
+                        weeklySurvival.weeklySpentCents > weeklyLimit 
+                          ? "text-red-400 font-black animate-pulse" 
+                          : isCrisisMode 
+                            ? "text-amber-400" 
+                            : "text-white/60"
+                      )}>
                         {weeklyLimit > 0 
-                          ? `${Math.round((weeklySurvival.weeklySpentCents / weeklyLimit) * 100)}%` 
+                          ? (weeklySurvival.weeklySpentCents > weeklyLimit 
+                              ? `Excedido (${Math.round((weeklySurvival.weeklySpentCents / weeklyLimit) * 100)}%)`
+                              : `${Math.round((weeklySurvival.weeklySpentCents / weeklyLimit) * 100)}%`)
                           : "0%"
                         }
                       </span>
