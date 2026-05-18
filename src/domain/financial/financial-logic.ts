@@ -540,6 +540,7 @@ export function calculateMonthlyOutlook(params: {
         activeSimulations,
         scheduledIncomeCents: adjustedMonthlyIncome,
         scheduledExpensesCents: realOutflow,
+        allTransactions,
         accounts
       });
 
@@ -605,6 +606,7 @@ export function calculateAdvancedProjection(params: {
     activeSimulations = [],
     scheduledIncomeCents = 0,
     scheduledExpensesCents = 0,
+    allTransactions = [],
     accounts = []
   } = params;
 
@@ -651,8 +653,14 @@ export function calculateAdvancedProjection(params: {
       )
       .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
 
-    // 2. Parcelamentos do Cartão (Transactions futuras)
-    const installments = futureTransactions
+    // 2. Parcelamentos do Cartão (Consolida futureTransactions + allTransactions para enxergar compras do mês de partida pós-fechamento)
+    const consolidatedTx = [
+      ...(futureTransactions || []),
+      ...(allTransactions || [])
+    ];
+    const uniqueTxForProjection = Array.from(new Map(consolidatedTx.map(t => [t.id, t])).values());
+
+    const installments = uniqueTxForProjection
       .filter(t => t.transaction_type === "EXPENSE" && isSameMonth(getTransactionImpactDate(t, accounts), targetDate))
       .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
