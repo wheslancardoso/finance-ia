@@ -28,6 +28,8 @@ export interface FinancialAnalysis {
   accumulatedBalanceCents: number;
   monthlyOutlook: MonthlyOutlook;
   healthScore: number;
+  recurringIncomeCents: number;
+  recurringExpensesCents: number;
   isSurvivalMode: boolean;
   isCrisisMode: boolean;
   debtExit: DebtExitProjection;
@@ -247,11 +249,13 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       projectedNetLiquidity: monthlyOutlook.projectedNetLiquidity || 0
     },
     healthScore,
+    recurringIncomeCents,
+    recurringExpensesCents,
     isSurvivalMode: (monthlyOutlook.balanceAtMonthEnd || 0) < 0 || activeNetLiquidity < 0,
     isCrisisMode: activeNetLiquidity < 0 && (monthlyOutlook.balanceAtMonthEnd || 0) < 0,
     debtExit,
     weeklySurvival,
     goalProjections,
     simulateDetailedImpact: simulateDetailedImpactFn
-  }), [activeNetLiquidity, activeDebt, activeAssets, monthlyOutlook, healthScore, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn]);
+  }), [activeNetLiquidity, activeDebt, activeAssets, monthlyOutlook, healthScore, recurringIncomeCents, recurringExpensesCents, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn]);
 }

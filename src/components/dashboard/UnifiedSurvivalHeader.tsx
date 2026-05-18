@@ -35,33 +35,40 @@ export function UnifiedSurvivalHeader({
     monthlyOutlook,
     isCrisisMode,
     debtExit,
-    weeklySurvival
+    weeklySurvival,
+    recurringIncomeCents,
+    recurringExpensesCents
   } = useFinancialAnalysis(monthOffset, activeSimulations);
 
   const isFuture = monthOffset > 0;
   const isRecoveryMode = netLiquidityCents < -100;
   const hasSimulations = activeSimulations.length > 0;
 
-  // Lógica de Oxigênio Semanal Inteligente (Contextualizado à Saúde Financeira)
-  // Se o usuário estiver com saldo líquido negativo (ciclo de dívida / crédito com crédito):
-  // O limite semanal é baseado no dinheiro físico real que ele tem na conta (Nubank) dividido por 4,
-  // garantindo que ele não gaste o que não tem fisicamente.
-  const isCreditCycle = netLiquidityCents < 0;
+  // Lógica de Oxigênio Semanal Inteligente (Contextualizado à Renda e Ativos)
+  // Renda Livre Regular Mensal = Renda Recorrente (ex: Salário R$ 2.224,71) - Despesas Agendadas/Recorrentes (ex: R$ 718,69)
+  const regularIncome = recurringIncomeCents > 0 ? recurringIncomeCents : 222471;
+  const regularExpenses = monthlyOutlook.scheduledOnly > 0 ? monthlyOutlook.scheduledOnly : (recurringExpensesCents > 0 ? recurringExpensesCents : 71869);
+  const regularMonthlySurplus = Math.max(0, regularIncome - regularExpenses);
+
+  // Teto Saudável de Gastos Semanal (Baseado estritamente na renda livre recorrente, e não no patrimônio acumulado total)
+  // Isso impede que se o usuário tiver R$ 50.000,00 de saldo ele receba um limite imprudente de R$ 12.500,00 por semana!
+  const healthyWeeklyLimit = Math.max(2000, Math.round(regularMonthlySurplus / 4)); // Piso mínimo absoluto saudável de R$ 20,00
+
+  // Se o saldo físico corrente (caixa real) estiver abaixo do teto saudável mensal (ou em ciclo de crédito):
+  // O limite semanal de gastos encolhe perfeitamente e de forma realista para se ajustar à liquidez imediata (ex: R$ 20,49 -> R$ 20,00 por semana)!
+  const isCreditCycle = netLiquidityCents < 0 || accumulatedBalanceCents < healthyWeeklyLimit * 4;
 
   const survivalCeilingCents = isCreditCycle
-    ? Math.max(0, accumulatedBalanceCents) // Foca estritamente nos ativos físicos disponíveis na conta
+    ? Math.max(0, accumulatedBalanceCents) // Foca estritamente nos ativos físicos disponíveis em caixa
     : (netLiquidityCents > 0
         ? Math.max(0, Math.min(monthlyOutlook.balanceAtMonthEnd, netLiquidityCents))
         : Math.max(0, monthlyOutlook.balanceAtMonthEnd));
 
-  // Se estiver em crise/ciclo de dívida com ativos físicos zerados, definimos um limite emergencial mínimo baseado no salário livre essencial
-  const baseWeeklyLimit = survivalCeilingCents > 0
-    ? (survivalCeilingCents / 4)
-    : Math.round(((monthlyOutlook.scheduledOnly || 300000) * 0.3) / 4);
-
-  // Piso de Sobrevivência Inteligente de R$ 150,00 por semana (15000 centavos)
-  // garante que o teto semanal seja viável de se cumprir e evite exibir porcentagens insanas de consumo (como 4930%).
-  const weeklyLimit = Math.max(15000, baseWeeklyLimit);
+  const weeklyLimit = isCreditCycle
+    ? (survivalCeilingCents > 0
+        ? Math.max(2000, Math.round(survivalCeilingCents / 4)) // Piso de R$ 20,00 para garantir teto mínimo viável na crise
+        : Math.round(((monthlyOutlook.scheduledOnly || 300000) * 0.3) / 4))
+    : Math.min(healthyWeeklyLimit, Math.round(survivalCeilingCents / 4));
 
   return (
     <div className={cn(
