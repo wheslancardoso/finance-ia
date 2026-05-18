@@ -42,14 +42,19 @@ export function UnifiedSurvivalHeader({
   const isRecoveryMode = netLiquidityCents < -100;
   const hasSimulations = activeSimulations.length > 0;
 
-  // Lógica do Teto de Sobrevivência (Unificada do HUD)
-  // Limitamos o teto mensal de sobrevivência pela liquidez líquida atual sempre que ela for positiva (maior que 0)
-  // para evitar inflar o teto com receitas futuras em qualquer modo, enquanto mantém os mocks de testes saudáveis (com saldo 0) íntegros.
-  const survivalCeilingCents = netLiquidityCents > 0
-    ? Math.max(0, Math.min(monthlyOutlook.balanceAtMonthEnd, netLiquidityCents))
-    : Math.max(0, monthlyOutlook.balanceAtMonthEnd);
+  // Lógica de Oxigênio Semanal Inteligente (Contextualizado à Saúde Financeira)
+  // Se o usuário estiver com saldo líquido negativo (ciclo de dívida / crédito com crédito):
+  // O limite semanal é baseado no dinheiro físico real que ele tem na conta (Nubank) dividido por 4,
+  // garantindo que ele não gaste o que não tem fisicamente.
+  const isCreditCycle = netLiquidityCents < 0;
 
-  // Se estiver em crise/ciclo de dívida, definimos um limite emergencial de sobrevivência de 30% da renda líquida do mês dividida por 4
+  const survivalCeilingCents = isCreditCycle
+    ? Math.max(0, accumulatedBalanceCents) // Foca estritamente nos ativos físicos disponíveis na conta
+    : (netLiquidityCents > 0
+        ? Math.max(0, Math.min(monthlyOutlook.balanceAtMonthEnd, netLiquidityCents))
+        : Math.max(0, monthlyOutlook.balanceAtMonthEnd));
+
+  // Se estiver em crise/ciclo de dívida com ativos físicos zerados, definimos um limite emergencial mínimo baseado no salário livre essencial
   const weeklyLimit = survivalCeilingCents > 0
     ? (survivalCeilingCents / 4)
     : Math.round(((monthlyOutlook.scheduledOnly || 300000) * 0.3) / 4);
