@@ -154,7 +154,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
 
   const activeDebt = useMemo(() => {
     const baseDebt = monthOffset === 0 ? consolidatedDebt : (monthlyOutlook.totalDebt ?? consolidatedDebt);
-    if (monthOffset === 0 && activeSimulations.length > 0) {
+    if (activeSimulations.length > 0) {
       return Math.max(0, baseDebt + simulatedDebtAdjustment);
     }
     return baseDebt;
