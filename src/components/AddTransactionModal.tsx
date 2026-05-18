@@ -14,7 +14,7 @@ import { type Category, type Account, type Transaction } from "@/lib/db";
 import { StatusModal, type StatusType } from "./StatusModal";
 
 export function AddTransactionModal() {
-  const { isOpen, transactionToEdit, defaultAccountId, closeModal, openAdd } = useTransactionModal();
+  const { isOpen, transactionToEdit, defaultAccountId, prefilledData, closeModal, openAdd } = useTransactionModal();
   if (isOpen) {
     // console.log('🟢 [UI] AddTransactionModal is OPEN');
   }
@@ -156,10 +156,27 @@ export function AddTransactionModal() {
           }
         } else {
           resetForm();
-          if (defaultAccountId) {
-            setAccountId(defaultAccountId);
-          } else if (accounts.length > 0) {
-            setAccountId(accounts[0].id);
+          if (prefilledData) {
+            if (prefilledData.amount) setAmount(prefilledData.amount);
+            if (prefilledData.description) setDescription(prefilledData.description);
+            if (prefilledData.type) setType(prefilledData.type);
+            if (prefilledData.accountId) {
+              setAccountId(prefilledData.accountId);
+            } else if (defaultAccountId) {
+              setAccountId(defaultAccountId);
+            } else if (accounts.length > 0) {
+              setAccountId(accounts[0].id);
+            }
+            if (prefilledData.installments) setInstallments(prefilledData.installments);
+            if (prefilledData.date) {
+              setTransactionDate(prefilledData.date);
+            }
+          } else {
+            if (defaultAccountId) {
+              setAccountId(defaultAccountId);
+            } else if (accounts.length > 0) {
+              setAccountId(accounts[0].id);
+            }
           }
         }
         wasOpenRef.current = true;
@@ -167,7 +184,7 @@ export function AddTransactionModal() {
     } else {
       wasOpenRef.current = false;
     }
-  }, [isOpen, transactionToEdit, defaultAccountId, accounts]);
+  }, [isOpen, transactionToEdit, defaultAccountId, accounts, prefilledData]);
 
   // Preencher a conta padrão reativamente assim que as contas forem carregadas assincronamente (se nenhuma estiver selecionada)
   useEffect(() => {

@@ -212,6 +212,7 @@ export default function RealtimeDashboard({
 
         <SpendingSimulator 
           onSimulate={handleSimulate} 
+          targetDate={targetDate}
         />
       </div>
 
