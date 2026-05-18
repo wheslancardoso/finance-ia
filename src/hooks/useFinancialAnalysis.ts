@@ -224,9 +224,9 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
 
     return calculateWeeklySurvival({
       monthlySurplusCents,
-      currentMonthTransactions: monthTransactions
+      currentMonthTransactions: monthOffset === 0 ? monthTransactions : []
     });
-  }, [monthlyOutlook.balanceAtMonthEnd, activeNetLiquidity, monthTransactions]);
+  }, [monthlyOutlook.balanceAtMonthEnd, activeNetLiquidity, monthTransactions, monthOffset]);
 
   const simulateDetailedImpactFn = useCallback((amountCents: number, installments: number, type?: "EXPENSE" | "INCOME") => 
     simulateDetailedImpact({
