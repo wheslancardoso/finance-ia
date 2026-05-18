@@ -153,16 +153,16 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
   }, [activeSimulations, monthOffset]);
 
   const activeDebt = useMemo(() => {
-    const baseDebt = monthOffset === 0 ? consolidatedDebt : monthlyOutlook.totalDebt;
-    if (activeSimulations.length > 0) {
+    const baseDebt = monthOffset === 0 ? consolidatedDebt : (monthlyOutlook.totalDebt ?? consolidatedDebt);
+    if (monthOffset === 0 && activeSimulations.length > 0) {
       return Math.max(0, baseDebt + simulatedDebtAdjustment);
     }
     return baseDebt;
   }, [monthOffset, consolidatedDebt, monthlyOutlook.totalDebt, activeSimulations, simulatedDebtAdjustment]);
 
   const activeAssets = useMemo(() => {
-    const baseAssets = monthOffset === 0 ? currentAssets : monthlyOutlook.totalAssets;
-    if (activeSimulations.length > 0) {
+    const baseAssets = monthOffset === 0 ? currentAssets : (monthlyOutlook.totalAssets ?? currentAssets);
+    if (monthOffset === 0 && activeSimulations.length > 0) {
       return baseAssets + simulatedAssetsAdjustment;
     }
     return baseAssets;
