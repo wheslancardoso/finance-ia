@@ -12,7 +12,14 @@ interface SpendingSimulatorProps {
 }
 
 export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSimulatorProps) {
-  const { simulateDetailedImpact, analyzeSimulationIA, solveFinancialDilemma, consultJarvisIA } = useFinancialAnalysis();
+  const monthOffset = useMemo(() => {
+    if (!targetDate) return 0;
+    const today = new Date();
+    const months = (targetDate.getFullYear() - today.getFullYear()) * 12 + (targetDate.getMonth() - today.getMonth());
+    return Math.max(0, months);
+  }, [targetDate]);
+
+  const { simulateDetailedImpact, analyzeSimulationIA, solveFinancialDilemma, consultJarvisIA } = useFinancialAnalysis(monthOffset);
   const { upsertGoal, accounts, upsertTransaction, createInstallmentSeries } = useFinancialData();
   const { openAdd } = useTransactionModal();
   const [amount, setAmount] = useState<string>("");
