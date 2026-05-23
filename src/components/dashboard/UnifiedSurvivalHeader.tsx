@@ -56,7 +56,7 @@ export function UnifiedSurvivalHeader({
 
   // Se o saldo físico corrente (caixa real) estiver abaixo do teto saudável mensal (ou em ciclo de crédito):
   // O limite semanal de gastos encolhe perfeitamente e de forma realista para se ajustar à liquidez imediata (ex: R$ 20,49 -> R$ 20,00 por semana)!
-  const isCreditCycle = netLiquidityCents < 0 || accumulatedBalanceCents < healthyWeeklyLimit * 4;
+  const isCreditCycle = netLiquidityCents < 0 || isCrisisMode || isRecoveryMode;
 
   const survivalCeilingCents = isCreditCycle
     ? Math.max(0, accumulatedBalanceCents) // Foca estritamente nos ativos físicos disponíveis em caixa
@@ -199,6 +199,17 @@ export function UnifiedSurvivalHeader({
                         {isCrisisMode ? "Crítico" : "Equilibrado"}
                       </div>
                     </div>
+                    {isRecoveryMode && (
+                      <>
+                        <div className="w-px h-8 bg-white/5" />
+                        <div className="flex flex-col">
+                          <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Foco de Alerta</span>
+                          <div className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full mt-1.5">
+                            <span className="text-[8px] font-black text-red-400 uppercase tracking-widest">Ciclo de Dívida</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

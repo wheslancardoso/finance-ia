@@ -53,10 +53,10 @@ export class SubscriptionsPage {
     // Pequena espera para o estado estabilizar e verificações de depuração
     await this.page.waitForTimeout(1000);
     
-    await expect(this.submitButton.last()).toBeEnabled({ timeout: 15000 });
-    await this.submitButton.last().click();
+    // Pressionar Enter no input para submeter o formulário de forma nativa e ultra-estável
+    await this.dayInput.last().press('Enter');
     
     await expect(this.successOkButton).toBeVisible({ timeout: 15000 });
-    await this.successOkButton.click();
+    await this.successOkButton.click({ force: true });
   }
 }

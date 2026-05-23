@@ -6,6 +6,15 @@ export async function setupFinancialMocks(page: Page, state: any) {
   await page.addInitScript((mockState) => {
     (window as any).__E2E_MOCK_STATE__ = mockState;
     
+    // Limpar chaves locais para evitar vazamento de estado financeiro entre os testes
+    try {
+      window.localStorage.removeItem("vesper_monthly_income");
+      window.localStorage.removeItem("vesper_fixed_expenses");
+      window.localStorage.removeItem("vesper_accumulated_balance");
+      window.localStorage.removeItem("vesper_health_score");
+      window.localStorage.removeItem("vesper_survival_reserve");
+    } catch (e) {}
+    
     // Matar animações e transições para estabilidade total
     const style = document.createElement('style');
     style.innerHTML = `

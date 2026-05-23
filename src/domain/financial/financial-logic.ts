@@ -363,6 +363,7 @@ export function calculateMonthlyOutlook(params: {
   allTransactions?: Transaction[];
   recurringTransactions?: RecurringTransaction[];
   goals?: Goal[];
+  survivalReserveCents?: number;      // Reserva pessoal para o mês
 }): MonthlyOutlook {
   const {
     accounts,
@@ -377,7 +378,8 @@ export function calculateMonthlyOutlook(params: {
     futureTransactions = [],
     recurringTransactions = [],
     goals = [],
-    allTransactions = []
+    allTransactions = [],
+    survivalReserveCents = 0
   } = params;
 
   const now = new Date();
@@ -509,14 +511,58 @@ export function calculateMonthlyOutlook(params: {
   if (monthOffset === 0) {
     projectedTotalDebt = initialDebt;
   } else {
-    let accumulatedPaid = 0;
-    for (let i = 0; i < monthOffset; i++) {
-      const paidInMonth = i === 0
-        ? Math.max(currentMonthDebt, getInstallmentDebtForOffset(0))
-        : getInstallmentDebtForOffset(i);
-      accumulatedPaid += paidInMonth;
+    let currentDebt = initialDebt;
+    let currentBalance = calculateAccumulatedBalance(accounts);
+    
+    // Mês 0 impacto de simulações
+    currentBalance += simulationIncomeImpact - simulationExpenseImpact;
+    
+    for (let i = 1; i <= monthOffset; i++) {
+      const targetMonthKey = format(addMonths(now, i), 'yyyy-MM');
+      
+      const income = recurringTransactions
+        .filter(r => r.transaction_type === "INCOME" && r.status === "active" && !isRecurringExpired(r.description, targetMonthKey))
+        .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
+        
+      const expenses = recurringTransactions
+        .filter(r => r.transaction_type === "EXPENSE" && r.status === "active" && !isRecurringExpired(r.description, targetMonthKey))
+        .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
+        
+      const consolidatedTx = [...(futureTransactions || []), ...(allTransactions || [])];
+      const uniqueTxForProj = Array.from(new Map(consolidatedTx.map(t => [t.id, t])).values());
+      const installments = uniqueTxForProj
+        .filter(t => t.transaction_type === "EXPENSE" && isSameMonth(getTransactionImpactDate(t, accounts), addMonths(now, i)))
+        .reduce((sum, t) => sum + (t.amount_cents || 0), 0);
+        
+      const budgetReserve = budgets.reduce((sum, b) => sum + (b.amount_cents || 0), 0);
+      const goalContributions = goals
+        .filter(g => g.status === "active" || g.status === "ACTIVE")
+        .reduce((sum, g) => sum + (Number(g.monthly_contribution_cents) || 0), 0);
+        
+      const simulationExpenses = activeSimulations.reduce((sum, s) => {
+        if (s.type === "INCOME") return sum;
+        if (i < s.installments) return sum + (s.amount_cents / (s.installments || 1));
+        return sum;
+      }, 0);
+      const simulationIncomes = activeSimulations.reduce((sum, s) => {
+        if (s.type !== "INCOME") return sum;
+        if (i < s.installments) return sum + (s.amount_cents / (s.installments || 1));
+        return sum;
+      }, 0);
+      
+      const monthlyResult = income + simulationIncomes - expenses - installments - budgetReserve - goalContributions - simulationExpenses;
+      currentBalance += monthlyResult;
+      
+      currentDebt = Math.max(0, currentDebt - installments);
+      
+      if (survivalReserveCents > 0 && currentBalance > survivalReserveCents) {
+        const maxSweep = currentBalance - survivalReserveCents;
+        const sweepApplied = Math.min(maxSweep, currentDebt);
+        currentBalance -= sweepApplied;
+        currentDebt -= sweepApplied;
+      }
     }
-    projectedTotalDebt = Math.max(0, initialDebt - accumulatedPaid);
+    projectedTotalDebt = currentDebt;
   }
 
   // Sincronia perfeita com o card de cartões + compromissos agendados (saídas previstas do mês projetado)
@@ -541,7 +587,8 @@ export function calculateMonthlyOutlook(params: {
         scheduledIncomeCents: adjustedMonthlyIncome,
         scheduledExpensesCents: realOutflow,
         allTransactions,
-        accounts
+        accounts,
+        survivalReserveCents
       });
 
   // 3. DETERMINAÇÃO DA LIQUIDEZ FINAL PROJETADA (Patrimônio Líquido)
@@ -594,6 +641,7 @@ export function calculateAdvancedProjection(params: {
   scheduledExpensesCents?: number;    // Despesas agendadas para o mês atual
   allTransactions?: Transaction[];
   accounts?: Account[];
+  survivalReserveCents?: number;      // Reserva pessoal para o mês
 }): number {
   const {
     currentNetLiquidity,
@@ -607,7 +655,8 @@ export function calculateAdvancedProjection(params: {
     scheduledIncomeCents = 0,
     scheduledExpensesCents = 0,
     allTransactions = [],
-    accounts = []
+    accounts = [],
+    survivalReserveCents = 0
   } = params;
 
   // Se o offset é 0, retornamos a liquidez real atual (estado presente)
@@ -627,6 +676,7 @@ export function calculateAdvancedProjection(params: {
   const startBalance = currentAssetsCents !== undefined ? currentAssetsCents : currentNetLiquidity;
   // O saldo inicial de partida parte do saldo atual bruto de ativos (sem deduzir compromissos passados quitados).
   let projectedBalance = startBalance + simulationIncomesMonth0 - simulationExpensesMonth0;
+  let projectedTotalDebt = calculateTotalConsolidatedDebt(accounts);
   const now = new Date();
 
   // Iterar mês a mês a partir do próximo mês (i=1) até o offset desejado
@@ -696,6 +746,17 @@ export function calculateAdvancedProjection(params: {
 
     // Acumular no saldo projetado (sem floor em zero)
     projectedBalance += monthlyResult;
+
+    // Amortizar parcelas de cartão de crédito no passivo projetado
+    projectedTotalDebt = Math.max(0, projectedTotalDebt - installments);
+
+    // Sweep Automático de Dívida se houver reserva configurada e sobra de saldo
+    if (survivalReserveCents > 0 && projectedBalance > survivalReserveCents && projectedTotalDebt > 0) {
+      const maxSweep = projectedBalance - survivalReserveCents;
+      const sweepApplied = Math.min(maxSweep, projectedTotalDebt);
+      projectedBalance -= sweepApplied;
+      projectedTotalDebt -= sweepApplied;
+    }
   }
 
   return projectedBalance;
@@ -798,6 +859,44 @@ export interface SimulationDetailedResult {
   debt_exit_delay_months: number;
   new_exit_date: Date | null;
   installment_impact: number;
+  loan_cet_percentage?: number;
+  loan_monthly_interest_rate?: number;
+  is_debt_swap_advantageous?: boolean;
+  loan_verdict_message?: string;
+  loan_total_interest_cents?: number;
+}
+
+/**
+ * Calcula a taxa de juros implícita mensal de um empréstimo por busca binária.
+ */
+export function calculateImplicitInterestRate(pv: number, pmt: number, n: number): number {
+  if (pv <= 0 || pmt <= 0 || n <= 0) return 0;
+  if (pmt * n <= pv) return 0; // Sem juros
+
+  let low = 0.0;
+  let high = 5.0; // teto de 500% ao mês
+  let rate = 0.0;
+  const tolerance = 0.0001;
+
+  for (let iter = 0; iter < 100; iter++) {
+    rate = (low + high) / 2;
+    if (rate === 0) return 0;
+    
+    // Fórmula de Valor Presente das parcelas: PV_computed = PMT * (1 - (1 + rate)^(-n)) / rate
+    const pvComputed = pmt * (1 - Math.pow(1 + rate, -n)) / rate;
+    
+    if (Math.abs(pvComputed - pv) < tolerance) {
+      break;
+    }
+    
+    if (pvComputed > pv) {
+      low = rate;
+    } else {
+      high = rate;
+    }
+  }
+  
+  return rate;
 }
 
 /**
@@ -811,8 +910,20 @@ export function simulateDetailedImpact(params: {
   currentExitDate: Date | null;
   currentBalanceCents: number;
   type?: "EXPENSE" | "INCOME";
+  loanInstallmentCents?: number;
+  loanInstallmentsCount?: number;
 }): SimulationDetailedResult {
-  const { amountCents, installments, netLiquidityCents, monthlySurplus, currentExitDate, currentBalanceCents, type = "EXPENSE" } = params;
+  const { 
+    amountCents, 
+    installments, 
+    netLiquidityCents, 
+    monthlySurplus, 
+    currentExitDate, 
+    currentBalanceCents, 
+    type = "EXPENSE",
+    loanInstallmentCents = 0,
+    loanInstallmentsCount = 0
+  } = params;
 
   const isIncome = type === "INCOME";
   const isInstallment = installments > 1;
@@ -857,7 +968,46 @@ export function simulateDetailedImpact(params: {
 
   const impactOnSurplus = monthlySurplus > 0 ? Math.round((monthlyImpact / monthlySurplus) * 100) : 100;
 
-  if (isIncome) {
+  // Caso especial: Simulação de Empréstimo (INCOME com custos mensais associados)
+  const isLoanSimulation = isIncome && loanInstallmentCents > 0 && loanInstallmentsCount > 0;
+  
+  let loan_cet_percentage: number | undefined;
+  let loan_monthly_interest_rate: number | undefined;
+  let is_debt_swap_advantageous: boolean | undefined;
+  let loan_verdict_message: string | undefined;
+  let loan_total_interest_cents: number | undefined;
+
+  if (isLoanSimulation) {
+    const monthlyRate = calculateImplicitInterestRate(amountCents, loanInstallmentCents, loanInstallmentsCount);
+    const totalCostCents = loanInstallmentCents * loanInstallmentsCount;
+    loan_total_interest_cents = totalCostCents - amountCents;
+    loan_cet_percentage = Math.round((loan_total_interest_cents / amountCents) * 100);
+    loan_monthly_interest_rate = monthlyRate;
+
+    // Veredito da Troca de Dívida (Debt Swap)
+    // Compara com a taxa de mercado padrão do rotativo de 12% ao mês (0.12)
+    const marketRotaryRate = 0.12;
+    const isRateLowerThanRotary = monthlyRate < marketRotaryRate;
+    
+    // Evita um colapso iminente se a liquidez atual ou projetada for negativa e este empréstimo injetar saldo positivo imediato
+    const avoidsLiquidityCollapse = netLiquidityCents < 0 && newNetLiquidity >= 0;
+
+    if (isRateLowerThanRotary) {
+      is_debt_swap_advantageous = true;
+      status = "SAFE";
+      loan_verdict_message = `Veredito: Compensa! Esta troca de dívida reduz seus juros consolidados. Você substitui encargos rotativos de cartão (~12.00% a.m.) por uma taxa menor de ${(monthlyRate * 100).toFixed(2)}% a.m. no empréstimo, aliviando o caixa imediato e economizando juros.`;
+    } else if (monthlyRate >= marketRotaryRate) {
+      is_debt_swap_advantageous = false;
+      status = "DANGER";
+      loan_verdict_message = `Veredito: Não Compensa! A taxa implícita de ${(monthlyRate * 100).toFixed(2)}% a.m. deste empréstimo é abusiva (CET de ${loan_cet_percentage}%). Rolar a fatura do cartão ou buscar alternativas de juros menores é financeiramente mais seguro do que assumir este passivo pesado.`;
+    } else {
+      is_debt_swap_advantageous = false;
+      status = "WARNING";
+      loan_verdict_message = `Veredito: Risco Moderado. A taxa de ${(monthlyRate * 100).toFixed(2)}% a.m. é competitiva, mas as parcelas de ${formatCurrency(loanInstallmentCents)} comprometerão seu fôlego mensal nos próximos ${loanInstallmentsCount} meses.`;
+    }
+
+    message = loan_verdict_message;
+  } else if (isIncome) {
     status = "SAFE";
     message = isInstallment
       ? `Excelente! Esta receita parcelada de ${formatCurrency(monthlyImpact)} aumenta em ${impactOnSurplus}% sua sobra mensal.`
@@ -901,7 +1051,12 @@ export function simulateDetailedImpact(params: {
     new_net_liquidity_cents: newNetLiquidity,
     debt_exit_delay_months: isIncome ? (debtExitDelay < 0 ? debtExitDelay : 0) : (debtExitDelay === 999 ? 0 : debtExitDelay),
     new_exit_date: newExitDate,
-    installment_impact: monthlyImpact
+    installment_impact: monthlyImpact,
+    loan_cet_percentage,
+    loan_monthly_interest_rate,
+    is_debt_swap_advantageous,
+    loan_verdict_message,
+    loan_total_interest_cents
   };
 }
 

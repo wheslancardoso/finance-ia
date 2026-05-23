@@ -13,19 +13,30 @@ interface SpendingSimulatorProps {
 
 export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSimulatorProps) {
   const { simulateDetailedImpact } = useFinancialAnalysis();
-  const { upsertGoal } = useFinancialData();
+  const { upsertGoal, accounts, upsertTransaction, createInstallmentSeries } = useFinancialData();
   const { openAdd } = useTransactionModal();
   const [amount, setAmount] = useState<string>("");
   const [installments, setInstallments] = useState<number>(1);
   const [simulationType, setSimulationType] = useState<"EXPENSE" | "INCOME">("EXPENSE");
+  const [isLoan, setIsLoan] = useState<boolean>(false);
+  const [loanInstallment, setLoanInstallment] = useState<string>("");
+  const [loanInstallmentsCount, setLoanInstallmentsCount] = useState<number>(3);
 
   const result = useMemo(() => {
     const cleanValue = amount.replace(/\./g, "").replace(",", ".");
     const valueCents = Math.round(parseFloat(cleanValue) * 100);
     
     if (isNaN(valueCents) || valueCents <= 0) return null;
+
+    if (simulationType === "INCOME" && isLoan) {
+      const cleanInstallment = loanInstallment.replace(/\./g, "").replace(",", ".");
+      const installmentCents = Math.round(parseFloat(cleanInstallment) * 100);
+      if (!isNaN(installmentCents) && installmentCents > 0) {
+        return simulateDetailedImpact(valueCents, installments, simulationType, installmentCents, loanInstallmentsCount);
+      }
+    }
     return simulateDetailedImpact(valueCents, installments, simulationType);
-  }, [amount, installments, simulationType, simulateDetailedImpact]);
+  }, [amount, installments, simulationType, simulateDetailedImpact, isLoan, loanInstallment, loanInstallmentsCount]);
 
   React.useEffect(() => {
     if (onSimulate) {
@@ -143,6 +154,55 @@ export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSi
           </div>
         </div>
 
+        {simulationType === "INCOME" && (
+          <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-3.5 space-y-3">
+            <label className="flex items-center gap-2.5 text-[9px] font-black uppercase tracking-wider text-white/40 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isLoan}
+                onChange={(e) => {
+                  setIsLoan(e.target.checked);
+                  if (!e.target.checked) setLoanInstallment("");
+                }}
+                className="w-4 h-4 bg-white/5 border border-white/10 rounded cursor-pointer accent-emerald-500"
+              />
+              Simular como Empréstimo
+            </label>
+
+            {isLoan && (
+              <div className="grid grid-cols-2 gap-3 pt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div className="space-y-1">
+                  <span className="text-[7px] font-black text-white/30 uppercase tracking-widest block">Custo Parcela</span>
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/20 font-bold text-[9px]">R$</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0,00"
+                      value={loanInstallment}
+                      onChange={(e) => setLoanInstallment(e.target.value.replace(/[^0-9,.]/g, ""))}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg py-1.5 pl-7 pr-2 text-xs font-bold text-white placeholder:text-white/10 focus:outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[7px] font-black text-white/30 uppercase tracking-widest block">Nº Parcelas</span>
+                  <select 
+                    value={loanInstallmentsCount}
+                    onChange={(e) => setLoanInstallmentsCount(parseInt(e.target.value))}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs font-bold text-white focus:outline-none appearance-none text-center cursor-pointer cursor-pointer"
+                  >
+                    {[1,2,3,4,5,6,10,12,18,24,36].map(n => (
+                      <option key={n} value={n} className="bg-[#121212]">{n}x</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {result ? (
           <div 
             data-testid="simulator-status-indicator"
@@ -180,7 +240,22 @@ export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSi
               </div>
             </div>
 
-            <div className="space-y-2">
+            {simulationType === "INCOME" && isLoan && result.loan_monthly_interest_rate !== undefined && (
+              <div className="grid grid-cols-2 gap-3 pt-2.5 border-t border-white/5 bg-white/[0.01] rounded-xl p-2 animate-in fade-in duration-200">
+                <div>
+                  <p className="text-[7px] font-black text-white/30 uppercase tracking-widest mb-0.5">Juros Mensais</p>
+                  <p className="text-xs font-black text-emerald-400">{(result.loan_monthly_interest_rate * 100).toFixed(2)}% a.m.</p>
+                </div>
+                <div>
+                  <p className="text-[7px] font-black text-white/30 uppercase tracking-widest mb-0.5">CET Total / Juros</p>
+                  <p className="text-xs font-black text-rose-400">
+                    +{result.loan_cet_percentage}% ({formatCurrency(result.loan_total_interest_cents || 0)})
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2 mt-3">
               <div className="flex gap-2">
                 <button 
                   data-testid="simulator-save-button"
@@ -198,6 +273,8 @@ export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSi
                     });
                     setAmount("");
                     setInstallments(1);
+                    setIsLoan(false);
+                    setLoanInstallment("");
                   }}
                   className="flex-1 py-2 rounded-lg font-black text-[9px] uppercase tracking-widest bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30 transition-all flex items-center justify-center gap-1.5"
                 >
@@ -206,7 +283,12 @@ export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSi
                 </button>
                 
                 <button 
-                  onClick={() => { setAmount(""); setInstallments(1); }}
+                  onClick={() => {
+                    setAmount("");
+                    setInstallments(1);
+                    setIsLoan(false);
+                    setLoanInstallment("");
+                  }}
                   className="px-3 py-2 rounded-lg font-black text-[9px] uppercase tracking-widest bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all flex items-center justify-center"
                 >
                   <XCircle className="w-3 h-3" />
@@ -214,27 +296,59 @@ export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSi
               </div>
 
               <button 
-                onClick={() => {
+                onClick={async () => {
                   const defaultDate = targetDate 
                     ? targetDate.toISOString().split('T')[0] 
                     : new Date().toISOString().split('T')[0];
 
-                  openAdd(null, {
-                    amount: amount,
-                    description: simulationType === "INCOME" 
-                      ? (installments > 1 ? `Receita Extra Projetada (x${installments})` : `Receita Extra Projetada`)
-                      : (installments > 1 ? `Gasto Projetado (x${installments})` : `Gasto Projetado`),
-                    type: simulationType,
-                    date: defaultDate,
-                    installments: installments
-                  });
+                  if (simulationType === "INCOME" && isLoan) {
+                    const cleanValue = amount.replace(/\./g, "").replace(",", ".");
+                    const valueCents = Math.round(parseFloat(cleanValue) * 100);
+                    
+                    // 1. Agendar a receita à vista (Entrada do Empréstimo)
+                    await upsertTransaction({
+                      description: `Empréstimo Caixa (Receita)`,
+                      amount_cents: valueCents,
+                      transaction_type: "INCOME",
+                      date: defaultDate,
+                      is_paid: false
+                    });
+
+                    // 2. Criar série de parcelas do empréstimo (Despesa)
+                    const activeAccount = accounts.find(a => a.type !== "CREDIT_CARD") || accounts[0];
+                    if (activeAccount) {
+                      const cleanInstallment = loanInstallment.replace(/\./g, "").replace(",", ".");
+                      const installmentCents = Math.round(parseFloat(cleanInstallment) * 100);
+                      
+                      await createInstallmentSeries({
+                        description: `Parcela Empréstimo`,
+                        amount_total_cents: installmentCents * loanInstallmentsCount,
+                        installments: loanInstallmentsCount,
+                        account_id: activeAccount.id,
+                        start_date: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 15).toISOString().split('T')[0] // Vence dia 15 do próximo mês
+                      });
+                    }
+                  } else {
+                    openAdd(null, {
+                      amount: amount,
+                      description: simulationType === "INCOME" 
+                        ? (installments > 1 ? `Receita Extra Projetada (x${installments})` : `Receita Extra Projetada`)
+                        : (installments > 1 ? `Gasto Projetado (x${installments})` : `Gasto Projetado`),
+                      type: simulationType,
+                      date: defaultDate,
+                      installments: installments
+                    });
+                  }
+
                   setAmount("");
                   setInstallments(1);
+                  setIsLoan(false);
+                  setLoanInstallment("");
                 }}
                 className="w-full py-2.5 rounded-lg font-black text-[9px] uppercase tracking-widest bg-violet-600/20 border border-violet-500/30 text-violet-400 hover:bg-violet-600/30 transition-all flex items-center justify-center gap-1.5"
               >
                 <PlusCircle className="w-3 h-3 text-violet-400" />
-                Agendar Gasto/Receita
+                {simulationType === "INCOME" && isLoan ? "Agendar Empréstimo Completo" : "Agendar Gasto/Receita"}
               </button>
             </div>
           </div>

@@ -285,6 +285,29 @@ describe('Financial Logic Domain', () => {
       expect(result.debt_exit_delay_months).toBe(-1); // Acelera em 1 mes!
       expect(result.message).toContain('acelerará sua saída das dívidas em 1 mês');
     });
+
+    it('deve calcular taxa de juros implícita, CET e veredito inteligente de empréstimo', () => {
+      const result = simulateDetailedImpact({
+        amountCents: 92000,
+        installments: 1,
+        netLiquidityCents: -50000,
+        monthlySurplus: 20000,
+        currentExitDate: null,
+        currentBalanceCents: 10000,
+        type: 'INCOME',
+        loanInstallmentCents: 36726,
+        loanInstallmentsCount: 3
+      });
+
+      expect(result.loan_cet_percentage).toBeGreaterThan(0);
+      expect(result.loan_monthly_interest_rate).toBeGreaterThan(0);
+      expect(result.loan_verdict_message).toBeDefined();
+      expect(result.loan_total_interest_cents).toBe((36726 * 3) - 92000);
+      expect(result.loan_monthly_interest_rate! * 100).toBeCloseTo(9.59, 1);
+      expect(result.is_debt_swap_advantageous).toBe(true);
+      expect(result.status).toBe('SAFE');
+      expect(result.message).toContain('Compensa!');
+    });
   });
 
   describe('calculateAdvancedProjection', () => {
@@ -318,6 +341,22 @@ describe('Financial Logic Domain', () => {
         monthOffset: 0
       });
       expect(result).toBe(100000);
+    });
+
+    it('deve aplicar sweep automático de dívida na Time Machine se houver reserva configurada', () => {
+      const result = calculateAdvancedProjection({
+        currentNetLiquidity: 50000,
+        currentAssetsCents: 100000,
+        recurringTransactions,
+        futureTransactions: [],
+        goals: [],
+        budgets,
+        monthOffset: 1,
+        accounts: mockAccounts,
+        survivalReserveCents: 100000
+      });
+      
+      expect(result).toBe(200000);
     });
   });
 

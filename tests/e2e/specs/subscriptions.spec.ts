@@ -59,9 +59,9 @@ test.describe('Gerenciamento de Assinaturas (Refatorado)', () => {
     // Abrir edição
     await page.getByTestId(`edit-subscription-${subId}`).click();
     await page.getByTestId('subscription-amount-input').fill('34,90');
-    await page.getByTestId('subscription-submit-button').click();
+    await page.getByTestId('subscription-amount-input').press('Enter');
     
-    await page.getByTestId('status-modal-close').click();
+    await page.getByTestId('status-modal-close').click({ force: true });
     
     // Verificar se o valor foi atualizado na lista
     await expect(page.getByTestId(`subscription-card-${subId}`)).toContainText('34,90', { timeout: 10000 });

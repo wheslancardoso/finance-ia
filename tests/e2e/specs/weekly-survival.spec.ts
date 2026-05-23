@@ -32,10 +32,10 @@ test.describe('Teto de Sobrevivência Semanal', () => {
     
     const ceiling = page.getByTestId('survival-ceiling-value');
     await expect(ceiling).toBeVisible();
-    // No modo saudável/sobrevivência, mostra o limite semanal
-    await expect(ceiling).toContainText(/1\.212,50/);
+    // No modo saudável/sobrevivência com caixa negativo, mostra o teto semanal de oxigênio de caixa inteligente
+    await expect(ceiling).toContainText(/375,00/);
   });
-
+  
   test('deve exibir alerta de ciclo de dívida no modo crise', async ({ page }) => {
      const crisisState = createDashboardState({
       accounts: [{ id: 'acc-1', name: 'Conta', type: 'CHECKING', balance_cents: -100000, user_id: USER_ID }],
@@ -49,9 +49,8 @@ test.describe('Teto de Sobrevivência Semanal', () => {
     await page.goto('/');
     
     await expect(page.getByText(/ciclo de dívida/i)).toBeVisible();
-    // No modo crise, mostra o rombo total (Math.abs(balanceAtMonthEnd))
-    // Saldo -1k + Renda 2k - Despesa 3k = -2k de rombo
+    // No modo crise, o teto exibe o limite semanal de sobrevivência emergencial com piso (R$ 225,00)
     const ceiling = page.getByTestId('survival-ceiling-value');
-    await expect(ceiling).toContainText(/2\.000,00/);
+    await expect(ceiling).toContainText(/225,00/);
   });
 });

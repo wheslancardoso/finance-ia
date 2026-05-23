@@ -82,6 +82,8 @@ interface FinancialDataContextType {
   setMonthlyIncomeCents: (val: number) => void;
   fixedExpensesCents: number;
   setFixedExpensesCents: (val: number) => void;
+  survivalReserveCents: number;
+  setSurvivalReserveCents: (val: number) => void;
   
   extraIncomeCents: number;
   currentMonthExpensesCents: number;
@@ -149,6 +151,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   
   const [monthlyIncomeCents, setMonthlyIncomeCentsState] = useState(0);
   const [fixedExpensesCents, setFixedExpensesCentsState] = useState(0);
+  const [survivalReserveCents, setSurvivalReserveCentsState] = useState(0);
   const [extraIncomeCents, setExtraIncomeCents] = useState(0);
   const [currentMonthExpensesCents, setCurrentMonthExpensesCents] = useState(0);
   const [accumulatedBalanceCents, setAccumulatedBalanceCents] = useState(0);
@@ -208,6 +211,13 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     setFixedExpensesCentsState(val);
     if (typeof window !== "undefined") {
       localStorage.setItem("vesper_fixed_expenses", val.toString());
+    }
+  }, []);
+
+  const setSurvivalReserveCents = useCallback((val: number) => {
+    setSurvivalReserveCentsState(val);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("vesper_survival_reserve", val.toString());
     }
   }, []);
 
@@ -587,6 +597,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         
         const storedAccumulated = localStorage.getItem("vesper_accumulated_balance");
         if (storedAccumulated) setAccumulatedBalanceCents(parseInt(storedAccumulated, 10));
+
+        const storedReserve = localStorage.getItem("vesper_survival_reserve");
+        if (storedReserve) setSurvivalReserveCentsState(parseInt(storedReserve, 10));
       } catch (err) {
         console.error("ERRO AO CARREGAR LOCALSTORAGE:", err);
       }
@@ -652,6 +665,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     categories, accounts, loading, refreshData, lastFetched,
     monthlyIncomeCents, setMonthlyIncomeCents,
     fixedExpensesCents, setFixedExpensesCents,
+    survivalReserveCents, setSurvivalReserveCents,
     extraIncomeCents, currentMonthExpensesCents, accumulatedBalanceCents,
     recurringIncomeCents, recurringExpensesCents,
     goals,
@@ -693,6 +707,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     categories, accounts, loading, refreshData, lastFetched,
     monthlyIncomeCents, setMonthlyIncomeCents,
     fixedExpensesCents, setFixedExpensesCents,
+    survivalReserveCents, setSurvivalReserveCents,
     extraIncomeCents, currentMonthExpensesCents, accumulatedBalanceCents,
     recurringIncomeCents, recurringExpensesCents,
     goals,

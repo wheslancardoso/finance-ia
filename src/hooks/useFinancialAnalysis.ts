@@ -35,7 +35,13 @@ export interface FinancialAnalysis {
   debtExit: DebtExitProjection;
   weeklySurvival: WeeklySurvival;
   goalProjections: GoalProjection[];
-  simulateDetailedImpact: (amountCents: number, installments: number, type?: "EXPENSE" | "INCOME") => SimulationDetailedResult;
+  simulateDetailedImpact: (
+    amountCents: number, 
+    installments: number, 
+    type?: "EXPENSE" | "INCOME",
+    loanInstallmentCents?: number,
+    loanInstallmentsCount?: number
+  ) => SimulationDetailedResult;
 }
 
 /**
@@ -54,7 +60,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     healthScore,
     monthTransactions,
     futureTransactions,
-    recurringTransactions
+    recurringTransactions,
+    survivalReserveCents
   } = useFinancialData();
 
   const netLiquidity = useMemo(() => calculateNetLiquidity(accounts), [accounts]);
@@ -92,7 +99,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       futureTransactions,
       allTransactions: monthTransactions,
       recurringTransactions,
-      goals
+      goals,
+      survivalReserveCents
     });
 
     // Projeção Avançada: Usa a liquidez calculada pelo motor central para manter 100% de consistência
@@ -107,7 +115,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       balanceAtMonthEnd: (monthOffset === 0 ? baseOutlook.balanceAtMonthEnd : projectedNetLiquidity) || 0,
       projectedNetLiquidity: projectedNetLiquidity || 0
     };
-  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, futureTransactions, goals, activeSimulations, monthTransactions]);
+  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, futureTransactions, goals, activeSimulations, monthTransactions, survivalReserveCents]);
 
   // Se houver simulações ativas no mês atual, ajustamos o saldo real e a dívida real simulada
   const simulatedAssetsAdjustment = useMemo(() => {
@@ -228,7 +236,13 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     });
   }, [monthlyOutlook.balanceAtMonthEnd, activeNetLiquidity, monthTransactions, monthOffset]);
 
-  const simulateDetailedImpactFn = useCallback((amountCents: number, installments: number, type?: "EXPENSE" | "INCOME") => 
+  const simulateDetailedImpactFn = useCallback((
+    amountCents: number, 
+    installments: number, 
+    type?: "EXPENSE" | "INCOME",
+    loanInstallmentCents?: number,
+    loanInstallmentsCount?: number
+  ) => 
     simulateDetailedImpact({
       amountCents,
       installments,
@@ -236,7 +250,9 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       monthlySurplus: debtExit.monthlySurplus,
       currentExitDate: debtExit.exitDate,
       currentBalanceCents: currentAssets,
-      type
+      type,
+      loanInstallmentCents,
+      loanInstallmentsCount
     }), [netLiquidity, debtExit.monthlySurplus, debtExit.exitDate, currentAssets]);
 
   return useMemo(() => ({

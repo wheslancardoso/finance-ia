@@ -16,8 +16,15 @@ export default function SurvivalHUD() {
     recurringIncomeCents,
     primaryIncomeCents,
     setMonthlyIncomeCents,
-    isGamificationEnabled
+    isGamificationEnabled,
+    survivalReserveCents,
+    setSurvivalReserveCents
   } = useFinancialData();
+
+  // Estado local para a reserva pessoal formatada
+  const [reserveInput, setReserveInput] = useState(() => 
+    survivalReserveCents > 0 ? (survivalReserveCents / 100).toString() : ""
+  );
 
   const { 
     netLiquidityCents, 
@@ -241,7 +248,7 @@ export default function SurvivalHUD() {
         )}
 
         {/* Right Side: Toggles */}
-        <div className="flex flex-col items-end gap-3 w-full md:w-auto">
+        <div className="flex flex-col items-end gap-2 w-full md:w-auto">
           {/* Toggles */}
           <div className="flex p-1 bg-black/40 border border-white/5 rounded-xl w-full md:w-auto">
             <button
@@ -274,6 +281,38 @@ export default function SurvivalHUD() {
             >
               <Wallet className="w-3.5 h-3.5" /> Mês
             </button>
+          </div>
+
+          {/* Reserva de Sobrevivência Configuração */}
+          <div className="w-full md:w-56 bg-white/[0.02] border border-white/5 rounded-xl p-2 space-y-1 animate-in fade-in duration-200">
+            <div className="flex justify-between items-center px-1">
+              <span className="text-[7px] font-black text-white/30 uppercase tracking-widest block">Reserva Pessoal (Lock)</span>
+              {survivalReserveCents > 0 && (
+                <span className="text-[6px] font-black text-emerald-400 uppercase tracking-widest block bg-emerald-500/10 px-1 py-0.2 rounded border border-emerald-500/20">Sweep Ativo</span>
+              )}
+            </div>
+            
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/20 font-bold text-[9px]">R$</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="0,00"
+                value={reserveInput}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9,.]/g, "");
+                  setReserveInput(val);
+                  const cleanVal = val.replace(/\./g, "").replace(",", ".");
+                  const cents = Math.round(parseFloat(cleanVal) * 100);
+                  if (!isNaN(cents) && cents >= 0) {
+                    setSurvivalReserveCents(cents);
+                  } else if (val === "") {
+                    setSurvivalReserveCents(0);
+                  }
+                }}
+                className="w-full bg-white/5 border border-white/10 rounded-lg py-1 pl-7 pr-2.5 text-xs font-bold text-white placeholder:text-white/10 focus:outline-none transition-all text-right"
+              />
+            </div>
           </div>
         </div>
 

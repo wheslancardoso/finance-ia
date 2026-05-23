@@ -25,12 +25,13 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
   const [showIAPanel, setShowIAPanel] = useState(false);
 
   const goalsToDisplay = contextGoals.length > 0 ? contextGoals : (initialGoals || []);
+  const goalsToDisplayKey = goalsToDisplay.map(g => `${g.id}-${g.priority}`).join(",");
 
   // Sincronizar orderedGoals quando goalsToDisplay mudar
   React.useEffect(() => {
     const sorted = [...goalsToDisplay].sort((a, b) => (a.priority || 999) - (b.priority || 999));
     setOrderedGoals(sorted);
-  }, [goalsToDisplay]);
+  }, [goalsToDisplayKey]);
 
   const handleReorder = async (newOrder: any[]) => {
     setOrderedGoals(newOrder);
