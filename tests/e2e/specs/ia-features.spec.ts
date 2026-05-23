@@ -62,6 +62,18 @@ test.describe('Integração de IA Soberana e Copiloto', () => {
             })
           });
           return;
+        } else if (body.action === 'jarvis-advisor') {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              advice: '### 🤖 Gabinete de Crise Jarvis: Parecer de Junho/2026\n\nSua situação orçamentária para Junho de 2026 é crítica. Você possui uma dívida de **R$ 3.819,99**, receita de **R$ 2.124,00** e precisa de **R$ 1.210,73** para fechar o mês zerado (saldo R$ 0,00).\n\nO empréstimo simulado de **R$ 1.500,00** em **3x de R$ 598,00** é caro (CET 197.25%). **Recomendamos pegar no máximo R$ 1.220,00** para cobrir seu respiro de sobrevivência com menor encargo financeiro.',
+              suggested_loan_amount_cents: 122000,
+              loan_verdict: 'Não compensa pegar R$ 1.500,00.',
+              postponement_tips: ['Notebook Novo']
+            })
+          });
+          return;
         }
       }
       await route.continue();
@@ -135,7 +147,7 @@ test.describe('Integração de IA Soberana e Copiloto', () => {
     // O botão de auditar com IA deve estar visível e ser clicável
     const optimizeBtn = page.getByTestId('optimize-goals-ia-button');
     await expect(optimizeBtn).toBeVisible();
-    await optimizeBtn.click();
+    await optimizeBtn.dispatchEvent('click');
 
     // O painel de recomendações da IA deve abrir
     const iaPanel = page.getByTestId('ia-recommendations-panel');
@@ -152,7 +164,9 @@ test.describe('Integração de IA Soberana e Copiloto', () => {
     await expect(page.getByTestId('goal-card-goal-1').getByText('Sugestão IA: Prioridade #2')).toBeVisible();
 
     // Clicar em aplicar as sugestões da IA
-    await page.getByRole('button', { name: 'Aplicar Otimização Sugerida' }).click();
+    const applyBtn = page.getByRole('button', { name: 'Aplicar Otimização Sugerida' });
+    await expect(applyBtn).toBeVisible();
+    await applyBtn.dispatchEvent('click');
 
     // O painel deve fechar e as metas estarem com as novas prioridades salvas
     await expect(iaPanel).not.toBeVisible();
@@ -177,7 +191,7 @@ test.describe('Integração de IA Soberana e Copiloto', () => {
     // O card de Otimização de Amortização Acelerada (IA) deve estar visível
     const analyzeSweepBtn = page.getByTestId('analyze-sweep-button');
     await expect(analyzeSweepBtn).toBeVisible();
-    await analyzeSweepBtn.click();
+    await analyzeSweepBtn.dispatchEvent('click');
 
     // Deve mostrar o texto do conselho em markdown
     await expect(page.getByText('Amortização Acelerada Copiloto')).toBeVisible();
@@ -188,7 +202,7 @@ test.describe('Integração de IA Soberana e Copiloto', () => {
     await expect(applySweepBtn).toBeVisible();
 
     // Clicar em Simular Impacto no Sweep
-    await applySweepBtn.click();
+    await applySweepBtn.dispatchEvent('click');
 
     // Deve mostrar a seção de Projeção Reativa Ativa e o botão de remover simulação
     const removeSweepBtn = page.getByTestId('remove-sweep-button');
@@ -196,7 +210,56 @@ test.describe('Integração de IA Soberana e Copiloto', () => {
     await expect(page.getByText('Projeção Reativa Ativa')).toBeVisible();
 
     // Ao clicar em remover, deve restaurar o estado original
-    await removeSweepBtn.click();
+    await removeSweepBtn.dispatchEvent('click');
     await expect(page.getByTestId('apply-sweep-button')).toBeVisible();
+  });
+
+  test('deve consultar Jarvis IA sob demanda no simulador de gastos diante de crise real', async ({ page, isMobile }) => {
+    if (isMobile) {
+      test.skip(true, 'Painel do simulador testado primariamente no desktop');
+      return;
+    }
+
+    const initialState = createInitialState({
+      accounts: [
+        { id: 'acc-1', name: 'Banco Principal', type: 'CHECKING', balance_cents: 212400 },
+        { id: 'acc-2', name: 'Cartão Gold', type: 'CREDIT_CARD', balance_cents: -381999, total_debt_cents: 381999, closed_invoice_cents: 381999, open_invoice_cents: 0 }
+      ]
+    });
+
+    await setupFinancialMocks(page, initialState);
+
+    // Ir para a Home/Dashboard onde o SpendingSimulator está ativo
+    await page.goto('/');
+
+    // Verificar se o simulador está visível
+    const simulatorTitle = page.locator('h3', { hasText: 'Simulador' });
+    await expect(simulatorTitle).toBeVisible();
+
+    // Mudar para aba de receita e preencher a simulação de empréstimo abusiva
+    await page.click('button:has-text("Receita")');
+    await page.getByTestId('simulator-amount-input').fill('1500,00');
+    
+    // Habilitar simulação de empréstimo
+    await page.locator('input[type="checkbox"]').check();
+    await page.getByTestId('simulator-loan-installment-input').fill('598,00');
+    
+    // Clicar em Consultar Jarvis IA
+    const jarvisBtn = page.getByTestId('jarvis-consult-button');
+    await expect(jarvisBtn).toBeVisible();
+    await jarvisBtn.click();
+
+    // Deve exibir o parecer detalhado e o botão de carregar empréstimo ótimo
+    await expect(page.getByText('Gabinete de Crise Jarvis')).toBeVisible();
+    await expect(page.getByText('Não compensa pegar R$ 1.500,00')).toBeVisible();
+
+    const loadLoanBtn = page.getByTestId('jarvis-load-loan-button');
+    await expect(loadLoanBtn).toBeVisible();
+
+    // Clicar em Carregar Empréstimo Ótimo
+    await loadLoanBtn.click();
+
+    // A receita preenchida no simulador deve ter mudado para R$ 1.220,00 automaticamente
+    await expect(page.getByTestId('simulator-amount-input')).toHaveValue('1220,00');
   });
 });

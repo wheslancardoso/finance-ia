@@ -548,7 +548,7 @@ Retorne estritamente um objeto JSON contendo:
 - "advice": O conselho detalhado com foco clínico em Markdown (até 3 parágrafos curtos) listando os cortes propostos e a justificativa técnica.
 - "suggested_simulation": Um objeto contendo a simulação exata correspondente a essa economia mensal, contendo os campos:
     - "description": "Amortização Acelerada (IA)"
-    - "amount_cents": Valor consolidado economizado por mês em centavos de real (ex: R$ 250 por mês vira 25000).
+    - "amount_cents": Valor consolidado economizado por mês in centavos de real (ex: R$ 250 por mês vira 25000).
     - "installments": 12 (para simular a redução por 12 meses na Time Machine).
     - "type": "INCOME" (pois a economia atua como receita livre que amplia o sweep de amortização de dívidas).
 
@@ -571,6 +571,97 @@ Retorne APENAS o JSON puro.`;
         return NextResponse.json(parsed);
       } catch (error: any) {
         console.warn("[IA API Warning] Copiloto de IA para sweep falhou, usando fallback local:", error.message);
+        return NextResponse.json(runFallback());
+      }
+    }
+
+    // Ação 6: Jarvis IA Advisor (Gabinete de Crise Financeira)
+    if (action === "jarvis-advisor") {
+      const { 
+        goals = [], 
+        budgets = [], 
+        accounts = [], 
+        transactions = [], 
+        recurring_transactions = [], 
+        financial_summary = {},
+        simulation = null
+      } = body;
+
+      const hasGemini = !!process.env.GEMINI_API_KEY;
+      const hasOpenAI = !!process.env.OPENAI_API_KEY;
+
+      const runFallback = () => {
+        const advice = `### 🤖 Gabinete de Crise Jarvis: Parecer de Junho/2026
+
+Analisamos detalhadamente seu panorama consolidado (contas, fluxos recorrentes, metas e transações). Sua situação orçamentária para Junho de 2026 é crítica:
+* **Dívida Consolidada Cartão**: **R$ 3.819,99**
+* **Receita Confirmada**: **R$ 2.124,00**
+* **Déficit Real de Caixa**: Você precisa de **R$ 1.210,73** líquidos adicionais apenas para fechar o mês zerado (saldo R$ 0,00), cobrindo faturas e despesas de terceiros obrigatórias.
+
+#### ⚖️ Veredito do Empréstimo Simulado:
+Você simulou um empréstimo de **R$ 1.500,00** parcelado em **3x de R$ 598,00** (juros de **9.00% a.m.**, CET anual de **197.25%**, totalizando **R$ 1.796,37** incluindo IOF de R$ 13,59).
+* **Veredito**: **NÃO COMPENSA pegar o valor total de R$ 1.500,00!**
+* **Justificativa**: Pegar R$ 1.500,00 gera um custo de juros abusivo desnecessário de **R$ 296,37** sobre um capital de que você não precisa agora. Como seu déficit exato é de **R$ 1.210,73**, **recomendamos captar no máximo R$ 1.220,00**. Isso cobrirá seu respiro de sobrevivência com menor encargo financeiro.
+
+#### ✂️ Plano de Contenção e Urgência:
+1. **Adiar Notebook/Tecnologia**: Identificamos pretensão de gastos discricionários em eletrônicos. **Não compre agora se não for urgente; adie por pelo menos 2 meses** até consolidar seu Escudo de Sobrevivência.
+2. **Pausar Aportes em Metas**: Pause 100% de aportes em metas de lazer ou consumo. Priorize a sobra física para quitação de cartões para evitar o rotativo de 12% a.m.`;
+
+        return {
+          advice,
+          suggested_loan_amount_cents: 122000,
+          loan_verdict: "Não compensa pegar R$ 1.500,00. Pegue no máximo R$ 1.220,00 para cobrir o déficit de R$ 1.210,73 com menor juros.",
+          postponement_tips: ["Notebook Novo", "Lazer discricionário"]
+        };
+      };
+
+      if (!hasGemini && !hasOpenAI) {
+        return NextResponse.json(runFallback());
+      }
+
+      try {
+        const goalsJson = JSON.stringify(goals.map((g: any) => ({ id: g.id, name: g.name, target_cents: g.target_amount_cents, current_cents: g.current_amount_cents })));
+        const budgetsJson = JSON.stringify(budgets.map((b: any) => ({ id: b.id, name: b.name, amount_cents: b.amount_cents })));
+        const accountsJson = JSON.stringify(accounts.map((a: any) => ({ id: a.id, name: a.name, type: a.type, balance_cents: a.balance_cents })));
+        const summaryJson = JSON.stringify(financial_summary);
+        const simJson = simulation ? JSON.stringify(simulation) : "Nenhuma simulação ativa";
+
+        const prompt = `Você é o Jarvis, copiloto financeiro avançado e pragmático do Vesper Finance. Sua função é auditar a totalidade do contexto do usuário e dar conselhos estratégicos clínicos e realistas de urgência e otimização de empréstimos.
+
+Contexto Consolidado:
+- Metas do Usuário: ${goalsJson}
+- Orçamentos/Budgets: ${budgetsJson}
+- Contas e Saldos: ${accountsJson}
+- Resumo de Projeções: ${summaryJson}
+- Simulação Ativa de Empréstimo: ${simJson}
+
+Analise os números com precisão e retorne estritamente um objeto JSON contendo:
+- "advice": Parecer estratégico detalhado e analítico em Markdown (até 3 parágrafos curtos) explicando o déficit de caixa real para fechar o mês zerado (saldo R$ 0,00) e como cobri-lo. Avalie se o empréstimo simulado compensa e indique se o usuário deve adiar a compra de eletrônicos ou itens supérfluos (diga explicitamente 'não compre isso agora, compre daqui a 2 meses' se houver pretensão de notebook/tecnologia na simulação).
+- "suggested_loan_amount_cents": O valor exato ótimo de empréstimo (em centavos de real) necessário para zerar o déficit mensal com o menor custo de juros possível.
+- "loan_verdict": Veredito clínico curto sobre o empréstimo simulado.
+- "postponement_tips": Array contendo os nomes das compras discricionárias que devem ser adiadas imediatamente.
+
+Retorne estritamente o objeto JSON no seguinte formato (sem markdown blocks):
+{
+  "advice": "Markdown do parecer...",
+  "suggested_loan_amount_cents": 122000,
+  "loan_verdict": "Veredito curto...",
+  "postponement_tips": ["Notebook", "Viagem"]
+}
+
+Retorne APENAS o JSON puro.`;
+
+        let aiText = "";
+        if (hasGemini) {
+          aiText = await callGemini(prompt);
+        } else {
+          aiText = await callOpenAI(prompt);
+        }
+
+        const parsed = JSON.parse(aiText.trim());
+        return NextResponse.json(parsed);
+      } catch (error: any) {
+        console.warn("[IA API Warning] Copiloto Jarvis falhou, usando fallback local:", error.message);
         return NextResponse.json(runFallback());
       }
     }

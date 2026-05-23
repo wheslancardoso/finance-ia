@@ -46,6 +46,7 @@ export interface FinancialAnalysis {
   analyzeSimulationIA: (simulation: any) => Promise<string>;
   solveFinancialDilemma: (dilemmaText: string) => Promise<{ advice: string; simulations: any[] }>;
   optimizeSweepIA: () => Promise<{ advice: string; suggested_simulation: any }>;
+  consultJarvisIA: (simulation?: any) => Promise<{ advice: string; suggested_loan_amount_cents: number; loan_verdict: string; postponement_tips: string[] }>;
 }
 
 /**
@@ -315,6 +316,39 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     return data;
   }, [goals, budgets, activeNetLiquidity, activeDebt, activeAssets, monthlyOutlook]);
 
+  const consultJarvisIA = useCallback(async (simulation?: any) => {
+    const summary = {
+      net_liquidity_cents: activeNetLiquidity,
+      total_consolidated_debt_cents: activeDebt,
+      accumulated_balance_cents: activeAssets,
+      monthly_outlook: {
+        balance_at_month_end: monthlyOutlook.balanceAtMonthEnd,
+        planned_expenses: monthlyOutlook.plannedExpenses,
+        scheduled_only: monthlyOutlook.scheduledOnly,
+        is_crisis_mode: monthlyOutlook.isCrisisMode
+      }
+    };
+    const { data, error } = await financialService.consultJarvisIA({
+      goals,
+      budgets,
+      accounts,
+      transactions: monthTransactions,
+      recurring_transactions: recurringTransactions,
+      summary,
+      simulation
+    });
+
+    if (error || !data) {
+      return {
+        advice: "Falha ao consultar Gabinete de Crise Vesper Jarvis.",
+        suggested_loan_amount_cents: 0,
+        loan_verdict: "Copiloto indisponível.",
+        postponement_tips: []
+      };
+    }
+    return data;
+  }, [goals, budgets, accounts, monthTransactions, recurringTransactions, activeNetLiquidity, activeDebt, activeAssets, monthlyOutlook]);
+
   return useMemo(() => ({
     netLiquidityCents: activeNetLiquidity,
     totalConsolidatedDebtCents: activeDebt,
@@ -335,6 +369,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     simulateDetailedImpact: simulateDetailedImpactFn,
     analyzeSimulationIA,
     solveFinancialDilemma,
-    optimizeSweepIA
-  }), [activeNetLiquidity, activeDebt, activeAssets, monthlyOutlook, healthScore, recurringIncomeCents, recurringExpensesCents, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn, analyzeSimulationIA, solveFinancialDilemma, optimizeSweepIA]);
+    optimizeSweepIA,
+    consultJarvisIA
+  }), [activeNetLiquidity, activeDebt, activeAssets, monthlyOutlook, healthScore, recurringIncomeCents, recurringExpensesCents, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn, analyzeSimulationIA, solveFinancialDilemma, optimizeSweepIA, consultJarvisIA]);
 }

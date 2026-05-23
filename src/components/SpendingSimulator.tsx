@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo } from "react";
-import { Calculator, AlertTriangle, CheckCircle2, XCircle, TrendingDown, TrendingUp, PlusCircle } from "lucide-react";
+import { Calculator, AlertTriangle, CheckCircle2, XCircle, TrendingDown, TrendingUp, PlusCircle, Sparkles } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 import { useFinancialData } from "@/context/FinancialDataContext";
@@ -12,7 +12,7 @@ interface SpendingSimulatorProps {
 }
 
 export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSimulatorProps) {
-  const { simulateDetailedImpact, analyzeSimulationIA, solveFinancialDilemma } = useFinancialAnalysis();
+  const { simulateDetailedImpact, analyzeSimulationIA, solveFinancialDilemma, consultJarvisIA } = useFinancialAnalysis();
   const { upsertGoal, accounts, upsertTransaction, createInstallmentSeries } = useFinancialData();
   const { openAdd } = useTransactionModal();
   const [amount, setAmount] = useState<string>("");
@@ -28,6 +28,9 @@ export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSi
   const [dilemma, setDilemma] = useState<string>("");
   const [dilemmaResult, setDilemmaResult] = useState<{ advice: string; simulations: any[] } | null>(null);
   const [isDilemmaLoading, setIsDilemmaLoading] = useState<boolean>(false);
+
+  const [jarvisResult, setJarvisResult] = useState<{ advice: string; suggested_loan_amount_cents: number; loan_verdict: string; postponement_tips: string[] } | null>(null);
+  const [isJarvisLoading, setIsJarvisLoading] = useState<boolean>(false);
 
   // Helper para renderização nativa de Markdown brutalista premium
   const renderMarkdown = (text: string) => {
@@ -207,6 +210,7 @@ export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSi
                   <div className="relative">
                     <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/20 font-bold text-[9px]">R$</span>
                     <input
+                      data-testid="simulator-loan-installment-input"
                       type="text"
                       inputMode="decimal"
                       placeholder="0,00"
@@ -549,6 +553,116 @@ export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSi
             )}
           </div>
         )}
+
+        {/* Vesper Jarvis: Gabinete de Crise */}
+        <div className="mt-4 pt-4 border-t border-white/5 space-y-3 relative z-10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-violet-400 animate-pulse" />
+              <h4 className="text-[10px] font-black text-white/85 uppercase tracking-widest">Jarvis Console (Gabinete de Crise)</h4>
+            </div>
+            {jarvisResult && (
+              <button 
+                onClick={() => {
+                  setJarvisResult(null);
+                }}
+                className="text-[8px] font-black text-red-400 hover:underline uppercase tracking-wider bg-transparent border-none cursor-pointer"
+              >
+                Fechar
+              </button>
+            )}
+          </div>
+
+          {!jarvisResult && !isJarvisLoading ? (
+            <div className="space-y-2 text-left">
+              <p className="text-[8px] text-white/40 leading-relaxed">
+                Jarvis analisa todo seu caixa (contas, fluxos recorrentes, transações de Junho/2026, metas) e dá um veredito preciso de respiro e valor ótimo de empréstimo.
+              </p>
+              <button
+                onClick={async () => {
+                  setIsJarvisLoading(true);
+                  try {
+                    const cleanValue = amount.replace(/\./g, "").replace(",", ".");
+                    const valueCents = Math.round(parseFloat(cleanValue) * 100);
+                    
+                    let activeSim = null;
+                    if (!isNaN(valueCents) && valueCents > 0) {
+                      const cleanInstallment = loanInstallment.replace(/\./g, "").replace(",", ".");
+                      const installmentCents = Math.round(parseFloat(cleanInstallment) * 100);
+                      activeSim = {
+                        description: simulationType === "INCOME" ? "Simulação Receita" : "Simulação Despesa",
+                        amount_cents: valueCents,
+                        installments,
+                        type: simulationType,
+                        loanInstallmentCents: isLoan ? installmentCents : 0,
+                        loanInstallmentsCount: isLoan ? loanInstallmentsCount : 0
+                      };
+                    }
+                    
+                    const res = await consultJarvisIA(activeSim);
+                    setJarvisResult(res);
+                  } catch (e) {
+                    setJarvisResult({
+                      advice: "### 🤖 Jarvis: Falha no Processamento\n\nNão foi possível auditar o caixa consolidado.",
+                      suggested_loan_amount_cents: 0,
+                      loan_verdict: "Erro de consulta.",
+                      postponement_tips: []
+                    });
+                  } finally {
+                    setIsJarvisLoading(false);
+                  }
+                }}
+                className="w-full py-2 rounded-lg font-black text-[9px] uppercase tracking-widest bg-violet-600/10 border border-violet-500/20 text-violet-400 hover:bg-violet-600/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                data-testid="jarvis-consult-button"
+              >
+                Consultar Jarvis IA
+              </button>
+            </div>
+          ) : isJarvisLoading ? (
+            <div className="py-4 text-center bg-violet-500/5 border border-violet-500/10 rounded-xl animate-pulse">
+              <span className="text-[8px] font-black text-violet-400 uppercase tracking-widest block">Jarvis Auditando Caixa Consolidado...</span>
+            </div>
+          ) : (
+            <div className="bg-black/50 border border-violet-500/20 rounded-xl p-3.5 space-y-3 animate-in fade-in duration-300">
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1 text-left">
+                {renderMarkdown(jarvisResult?.advice || "")}
+              </div>
+
+              {jarvisResult && jarvisResult.loan_verdict && (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-left">
+                  <span className="text-[8px] font-black uppercase tracking-widest text-red-400 block mb-0.5">Veredito do Copiloto</span>
+                  <p className="text-[10px] font-bold text-white leading-relaxed">{jarvisResult.loan_verdict}</p>
+                </div>
+              )}
+
+              {jarvisResult && jarvisResult.suggested_loan_amount_cents > 0 && (
+                <div className="pt-2 border-t border-white/5 space-y-2 text-left">
+                  <div>
+                    <p className="text-[7px] font-black text-violet-400 uppercase tracking-widest font-bold">Valor de Empréstimo Ótimo</p>
+                    <p className="text-xs font-black text-emerald-400">{formatCurrency(jarvisResult.suggested_loan_amount_cents)}</p>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      if (jarvisResult) {
+                        setSimulationType("INCOME");
+                        setAmount((jarvisResult.suggested_loan_amount_cents / 100).toFixed(2).replace(".", ","));
+                        setInstallments(1);
+                        setIsLoan(false);
+                        setJarvisResult(null);
+                      }
+                    }}
+                    className="w-full py-2 rounded-lg font-black text-[9px] uppercase tracking-widest bg-emerald-500 text-black hover:bg-emerald-400 transition-all flex items-center justify-center gap-1.5 cursor-pointer border-none"
+                    data-testid="jarvis-load-loan-button"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5 text-black" />
+                    Carregar Empréstimo Ótimo
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

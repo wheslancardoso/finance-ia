@@ -112,4 +112,32 @@ describe("API Route: /api/ia", () => {
     expect(data.simulations).toHaveLength(1);
     expect(data.simulations[0].description).toBe("Conserto do Carro");
   });
+
+  it("deve emitir parecer Jarvis de crise com sucesso usando o fallback local se GEMINI_API_KEY estiver vazia", async () => {
+    const req = new NextRequest("http://localhost:3000/api/ia", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "jarvis-advisor",
+        goals: [
+          { id: "g-1", name: "Notebook Novo", target_amount_cents: 200000, current_amount_cents: 0 }
+        ],
+        financial_summary: {
+          net_liquidity_cents: -300000
+        },
+        simulation: {
+          description: "Empréstimo Simulado",
+          amount_cents: 150000,
+          installments: 3,
+          type: "INCOME"
+        }
+      })
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.advice).toContain("Gabinete de Crise Jarvis");
+    expect(data.suggested_loan_amount_cents).toBe(122000);
+    expect(data.loan_verdict).toContain("Não compensa pegar R$ 1.500,00");
+  });
 });

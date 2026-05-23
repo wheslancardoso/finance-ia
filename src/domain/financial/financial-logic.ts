@@ -158,9 +158,9 @@ export function getTransactionImpactDate(t: Transaction, accounts: Account[]): D
   }
 
   const closingDay = account.closing_day || 31;
-  let year = tDate.getUTCFullYear();
-  let month = tDate.getUTCMonth();
-  const day = tDate.getUTCDate();
+  let year = tDate.getFullYear();
+  let month = tDate.getMonth();
+  const day = tDate.getDate();
 
   // Se a data da compra for maior ou igual ao dia de fechamento do cartão, ela cai no próximo mês
   if (day >= closingDay) {

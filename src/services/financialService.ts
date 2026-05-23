@@ -914,5 +914,35 @@ export const financialService = {
       console.error("❌ optimizeSweep failed:", error.message);
       return { data: null, error };
     }
+  },
+
+  async consultJarvisIA(params: {
+    goals?: any[];
+    budgets?: any[];
+    accounts?: any[];
+    transactions?: any[];
+    recurring_transactions?: any[];
+    summary?: any;
+    simulation?: any;
+  }) {
+    try {
+      const res = await apiFetch("/api/ia", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "jarvis-advisor",
+          goals: params.goals,
+          budgets: params.budgets,
+          accounts: params.accounts,
+          transactions: params.transactions,
+          recurring_transactions: params.recurring_transactions,
+          financial_summary: params.summary,
+          simulation: params.simulation
+        }),
+      });
+      return { data: res, error: null };
+    } catch (error: any) {
+      console.error("❌ consultJarvisIA failed:", error.message);
+      return { data: null, error };
+    }
   }
 };
