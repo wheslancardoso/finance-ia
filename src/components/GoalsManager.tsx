@@ -12,9 +12,10 @@ import { db } from "@/lib/db";
 
 interface GoalsManagerProps {
   initialGoals?: any[];
+  activeSimulations?: any[];
 }
 
-export function GoalsManager({ initialGoals }: GoalsManagerProps) {
+export function GoalsManager({ initialGoals, activeSimulations = [] }: GoalsManagerProps) {
   const { goals: contextGoals, loading, netLiquidityCents, isGamificationEnabled, upsertGoal, refreshData } = useFinancialData();
   const { openModal, openContribution, openDetail } = useGoalModal();
 
@@ -127,7 +128,7 @@ export function GoalsManager({ initialGoals }: GoalsManagerProps) {
 
   return (
     <div className="space-y-10">
-      <GoalRecommendations />
+      <GoalRecommendations activeSimulations={activeSimulations} />
 
       {goalsToDisplay.length > 0 && (
         <div className="space-y-6">

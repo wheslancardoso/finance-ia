@@ -26,7 +26,7 @@ async function getAuthUser() {
 }
 
 /**
- * Realiza a chamada HTTP nativa à API do Gemini 1.5 Flash
+ * Realiza a chamada HTTP nativa à API do Gemini 2.5 Flash
  */
 async function callGemini(prompt: string): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -34,7 +34,7 @@ async function callGemini(prompt: string): Promise<string> {
     throw new Error("GEMINI_API_KEY não configurada no ambiente.");
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
   
   const response = await fetch(url, {
     method: "POST",
@@ -347,6 +347,231 @@ Retorne APENAS o objeto JSON estrito.`;
           reason: "Fila mantida sob conformidade operacional de fallback."
         }));
         return NextResponse.json({ recommendations });
+      }
+    }
+
+    // Ação 3: Análise Inteligente de Simulação
+    if (action === "analyze-simulation") {
+      const { simulation = {}, financial_summary = {} } = body;
+      const hasGemini = !!process.env.GEMINI_API_KEY;
+      const hasOpenAI = !!process.env.OPENAI_API_KEY;
+
+      const runFallback = () => {
+        const isExpense = simulation.type === "EXPENSE";
+        const isLoan = simulation.loanInstallmentCents && simulation.loanInstallmentCents > 0;
+        let advice = "";
+        
+        if (isLoan) {
+          const rate = simulation.loan_monthly_interest_rate || 0;
+          if (rate >= 12) {
+            advice = `### ⚠️ Alerta de Risco: Juros Abusivos Detectados\n\nEssa simulação de empréstimo possui uma taxa implícita de **${rate.toFixed(2)}% a.m.**, o que é igual ou superior à taxa média do cartão rotativo (~12% a.m.). **Recomendamos fortemente evitar este empréstimo** e buscar alternativas como negociar parcelas diretas ou cortar gastos variáveis em até 15% para proteger seu caixa.`;
+          } else {
+            advice = `### 👍 Empréstimo Aceitável (Debt Swap)\n\nA taxa implícita dessa simulação é de **${rate.toFixed(2)}% a.m.**, o que é mais barato do que entrar no juro rotativo do cartão. O empréstimo ajudará a manter o saldo positivo no curto prazo, mas certifique-se de que a parcela de R$ ${(simulation.loanInstallmentCents / 100).toFixed(2)} não comprometa o sweep mensal para suas metas de longo prazo.`;
+          }
+        } else if (isExpense) {
+          advice = `### 🔍 Análise de Despesa Proposta\n\nA despesa de **R$ ${(simulation.amount_cents / 100).toFixed(2)}** ${simulation.installments > 1 ? `parcelada em ${simulation.installments}x` : 'à vista'} impactará seu saldo mensal acumulado. Certifique-se de que este gasto é essencial neste ciclo de sobrevivência, ou tente adiar a compra para gerar uma amortização sweep extra de cartões.`;
+        } else {
+          advice = `### 🌟 Análise de Receita Simulado\n\nA receita proposta trará um respiro de liquidez imediata no caixa. Aproveite este saldo excedente para direcionar amortizações sweep para as faturas de cartão no final do mês.`;
+        }
+        return { advice };
+      };
+
+      if (!hasGemini && !hasOpenAI) {
+        return NextResponse.json(runFallback());
+      }
+
+      try {
+        const simJson = JSON.stringify(simulation);
+        const summaryJson = JSON.stringify(financial_summary);
+
+        const prompt = `Você é o Copiloto de Inteligência Artificial do Vesper Finance. Sua função é analisar detalhadamente o impacto de uma simulação ativa de despesa, receita ou empréstimo.
+
+Parâmetros da Simulação Ativa: ${simJson}
+Resumo Financeiro Atual do Usuário: ${summaryJson}
+
+Gere um diagnóstico de viabilidade financeira empático, prático e objetivo de até 3 parágrafos curtos no formato Markdown. Explique a causalidade dessa simulação nas projeções da Time Machine do usuário. Destaque em negrito se a taxa de juros do empréstimo compensa contra o rotativo de 12% a.m. do cartão de crédito, o comprometimento de renda e proponha estratégias realistas de contingência se houver perigo.
+
+Retorne estritamente um objeto JSON com o campo "advice" contendo o Markdown puro (sem blocos de código markdown ou json na resposta, apenas o json contendo o campo "advice"):
+{
+  "advice": "Markdown aqui com o diagnóstico..."
+}
+
+Retorne APENAS o JSON puro.`;
+
+        let aiText = "";
+        if (hasGemini) {
+          aiText = await callGemini(prompt);
+        } else {
+          aiText = await callOpenAI(prompt);
+        }
+
+        const parsed = JSON.parse(aiText.trim());
+        return NextResponse.json(parsed);
+      } catch (error: any) {
+        console.warn("[IA API Warning] Copiloto de IA para simulação falhou, usando fallback local:", error.message);
+        return NextResponse.json(runFallback());
+      }
+    }
+
+    // Ação 4: Decodificação Inteligente de Dilemas em Texto Livre
+    if (action === "generate-scenario") {
+      const { text, financial_summary = {} } = body;
+      if (!text) {
+        return NextResponse.json({ error: "Campo text é obrigatório para resolver dilema" }, { status: 400 });
+      }
+
+      const hasGemini = !!process.env.GEMINI_API_KEY;
+      const hasOpenAI = !!process.env.OPENAI_API_KEY;
+
+      const runFallback = () => {
+        const cleanText = text.toLowerCase();
+        let advice = "";
+        const simulations: any[] = [];
+
+        if (cleanText.includes("carro") || cleanText.includes("conserto") || cleanText.includes("quebrou")) {
+          advice = `### 🔧 Dilema do Carro Quebrado\n\nEntendemos que problemas de locomoção são urgências críticas no ciclo de sobrevivência. Propomos simular uma despesa imediata de **R$ 1.500,00** para conserto em parcela única e, se necessário, simular uma receita compensatória para cobrir o rombo temporário no caixa.`;
+          simulations.push({
+            description: "Conserto do Carro",
+            amount_cents: 150000,
+            installments: 1,
+            type: "EXPENSE"
+          });
+        } else if (cleanText.includes("computador") || cleanText.includes("notebook") || cleanText.includes("tv")) {
+          advice = `### 💻 Dilema do Notebook / Tecnologia\n\nAdquirir eletrônicos pode ser essencial se for uma ferramenta de trabalho. Propomos planejar uma compra inteligente parcelada em **10x de R$ 200,00** (total de R$ 2.000,00) no cartão de crédito para suavizar a saída de caixa sem comprometer sua reserva imediata de sobrevivência.`;
+          simulations.push({
+            description: "Notebook Novo",
+            amount_cents: 200000,
+            installments: 10,
+            type: "EXPENSE"
+          });
+        } else {
+          advice = `### 💡 Conselho Geral do Copiloto Vesper\n\nAnalisamos seu dilema. Para ajudar a modelar seu cenário futuro na Time Machine, criamos uma simulação balanceada de contenção de despesas de **R$ 500,00** e uma receita temporária planejada de **R$ 1.000,00** para proteger sua liquidez.`;
+          simulations.push({
+            description: "Ajuda Planejada",
+            amount_cents: 100000,
+            installments: 1,
+            type: "INCOME"
+          });
+        }
+
+        return { advice, simulations };
+      };
+
+      if (!hasGemini && !hasOpenAI) {
+        return NextResponse.json(runFallback());
+      }
+
+      try {
+        const summaryJson = JSON.stringify(financial_summary);
+        const prompt = `Você é o Copiloto de Inteligência Artificial do Vesper Finance. Sua função é interpretar o dilema em texto livre do usuário e modelar as simulações financeiras exatas correspondentes.
+
+Dilema do Usuário: "${text}"
+Resumo Financeiro Atual: ${summaryJson}
+
+Analise a intenção e retorne estritamente um objeto JSON contendo:
+- "advice": Um conselho estratégico acolhedor, prático e sem lições de moral em Markdown (2 parágrafos curtos) explicando como agir diante desse dilema e o impacto projetado.
+- "simulations": Um array contendo até 3 simulações de receita/despesa para o simulador carregar na tela. Cada objeto do array deve ter obrigatoriamente os campos:
+    - "description": Nome amigável higienizado (Ex: "Conserto do Carro").
+    - "amount_cents": Valor total estimado da operação em centavos de real.
+    - "installments": Número de parcelas (1 para à vista).
+    - "type": "INCOME" para receitas/empréstimos e "EXPENSE" para despesas.
+
+Retorne estritamente o objeto JSON (sem blocos de código markdown na resposta, apenas o json cru):
+{
+  "advice": "Markdown do conselho...",
+  "simulations": [
+    { "description": "Descrição", "amount_cents": 100000, "installments": 5, "type": "EXPENSE" }
+  ]
+}
+
+Retorne APENAS o JSON puro.`;
+
+        let aiText = "";
+        if (hasGemini) {
+          aiText = await callGemini(prompt);
+        } else {
+          aiText = await callOpenAI(prompt);
+        }
+
+        const parsed = JSON.parse(aiText.trim());
+        return NextResponse.json(parsed);
+      } catch (error: any) {
+        console.warn("[IA API Warning] Copiloto de IA para dilemas falhou, usando fallback local:", error.message);
+        return NextResponse.json(runFallback());
+      }
+    }
+
+    // Ação 5: Otimização de Amortização Acelerada (Sweep das Metas)
+    if (action === "optimize-sweep") {
+      const { goals = [], budgets = [], financial_summary = {} } = body;
+      const hasGemini = !!process.env.GEMINI_API_KEY;
+      const hasOpenAI = !!process.env.OPENAI_API_KEY;
+
+      const runFallback = () => {
+        const advice = `### ⚡ Otimização de Amortização Acelerada (IA)
+
+Analisamos seus orçamentos e despesas recorrentes ativas. Sugerimos cortes cirúrgicos de baixo impacto em categorias discricionárias para acelerar seu sweep:
+1. **Reduzir Lazer/Assinaturas** em 15% (Economia de **R$ 80,00/mês**)
+2. **Otimizar Alimentação/Delivery** cozinhando mais em casa (Economia de **R$ 120,00/mês**)
+
+Isso libera uma sobra líquida mensal extra de **R$ 200,00** para direcionar inteiramente ao sweep de amortização de suas faturas, reduzindo drasticamente o tempo necessário para conquistar sua alforria financeira e voltar a focar 100% nas suas metas de investimento.`;
+
+        return {
+          advice,
+          suggested_simulation: {
+            description: "Amortização Acelerada (IA)",
+            amount_cents: 20000,
+            installments: 12,
+            type: "INCOME"
+          }
+        };
+      };
+
+      if (!hasGemini && !hasOpenAI) {
+        return NextResponse.json(runFallback());
+      }
+
+      try {
+        const goalsJson = JSON.stringify(goals.map((g: any) => ({ id: g.id, title: g.name || g.title, target_cents: g.target_amount_cents, current_cents: g.current_amount_cents })));
+        const budgetsJson = JSON.stringify(budgets.map((b: any) => ({ id: b.id, name: b.name, amount_cents: b.amount_cents })));
+        const summaryJson = JSON.stringify(financial_summary);
+
+        const prompt = `Você é o Copiloto de Inteligência Artificial do Vesper Finance. Sua função é auditar o orçamento consolidado, metas e sob-salários do usuário, propondo uma otimização de amortização acelerada (Sweep).
+
+Metas do Usuário: ${goalsJson}
+Orçamentos Ativos: ${budgetsJson}
+Resumo Financeiro Atual: ${summaryJson}
+
+Analise os orçamentos e despesas do usuário e proponha cortes cirúrgicos em categorias discricionárias (como lazer, delivery, compras supérfluas) que acumulem uma economia mensal prática. Explique como essa sobra mensal pode ser usada para amortizar faturas do cartão mais rápido.
+
+Retorne estritamente um objeto JSON contendo:
+- "advice": O conselho detalhado com foco clínico em Markdown (até 3 parágrafos curtos) listando os cortes propostos e a justificativa técnica.
+- "suggested_simulation": Um objeto contendo a simulação exata correspondente a essa economia mensal, contendo os campos:
+    - "description": "Amortização Acelerada (IA)"
+    - "amount_cents": Valor consolidado economizado por mês em centavos de real (ex: R$ 250 por mês vira 25000).
+    - "installments": 12 (para simular a redução por 12 meses na Time Machine).
+    - "type": "INCOME" (pois a economia atua como receita livre que amplia o sweep de amortização de dívidas).
+
+Retorne estritamente o objeto JSON no seguinte formato (sem blocos de código markdown ou texto extra):
+{
+  "advice": "Markdown do conselho...",
+  "suggested_simulation": { "description": "Amortização Acelerada (IA)", "amount_cents": 25000, "installments": 12, "type": "INCOME" }
+}
+
+Retorne APENAS o JSON puro.`;
+
+        let aiText = "";
+        if (hasGemini) {
+          aiText = await callGemini(prompt);
+        } else {
+          aiText = await callOpenAI(prompt);
+        }
+
+        const parsed = JSON.parse(aiText.trim());
+        return NextResponse.json(parsed);
+      } catch (error: any) {
+        console.warn("[IA API Warning] Copiloto de IA para sweep falhou, usando fallback local:", error.message);
+        return NextResponse.json(runFallback());
       }
     }
 

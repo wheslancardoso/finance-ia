@@ -12,7 +12,7 @@ interface SpendingSimulatorProps {
 }
 
 export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSimulatorProps) {
-  const { simulateDetailedImpact } = useFinancialAnalysis();
+  const { simulateDetailedImpact, analyzeSimulationIA, solveFinancialDilemma } = useFinancialAnalysis();
   const { upsertGoal, accounts, upsertTransaction, createInstallmentSeries } = useFinancialData();
   const { openAdd } = useTransactionModal();
   const [amount, setAmount] = useState<string>("");
@@ -21,6 +21,37 @@ export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSi
   const [isLoan, setIsLoan] = useState<boolean>(false);
   const [loanInstallment, setLoanInstallment] = useState<string>("");
   const [loanInstallmentsCount, setLoanInstallmentsCount] = useState<number>(3);
+
+  const [aiAdvice, setAiAdvice] = useState<string | null>(null);
+  const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
+  
+  const [dilemma, setDilemma] = useState<string>("");
+  const [dilemmaResult, setDilemmaResult] = useState<{ advice: string; simulations: any[] } | null>(null);
+  const [isDilemmaLoading, setIsDilemmaLoading] = useState<boolean>(false);
+
+  // Helper para renderização nativa de Markdown brutalista premium
+  const renderMarkdown = (text: string) => {
+    return text.split("\n\n").map((para, i) => {
+      const cleanPara = para.trim();
+      if (!cleanPara) return null;
+      
+      if (cleanPara.startsWith("###")) {
+        const title = cleanPara.replace(/^###\s*/, "");
+        return (
+          <h4 key={i} className="text-[10px] font-black uppercase tracking-wider text-violet-400 mt-3 mb-1">
+            {title}
+          </h4>
+        );
+      }
+      
+      const parts = cleanPara.split(/\*\*([^*]+)\*\*/g);
+      return (
+        <p key={i} className="text-[9px] leading-relaxed text-white/60 font-medium">
+          {parts.map((part, idx) => (idx % 2 === 1 ? <strong key={idx} className="font-black text-white">{part}</strong> : part))}
+        </p>
+      );
+    });
+  };
 
   const result = useMemo(() => {
     const cleanValue = amount.replace(/\./g, "").replace(",", ".");
@@ -255,6 +286,61 @@ export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSi
               </div>
             )}
 
+            {/* Vesper Copilot AI Advisor */}
+            <div className="pt-2.5 border-t border-white/5 space-y-2">
+              {!aiAdvice && !isAiLoading ? (
+                <button
+                  onClick={async () => {
+                    if (!result) return;
+                    setIsAiLoading(true);
+                    setAiAdvice(null);
+                    try {
+                      const cleanValue = amount.replace(/\./g, "").replace(",", ".");
+                      const valueCents = Math.round(parseFloat(cleanValue) * 100);
+                      const simulationObj = {
+                        amount_cents: valueCents,
+                        installments,
+                        type: simulationType,
+                        loanInstallmentCents: simulationType === "INCOME" && isLoan ? Math.round(parseFloat(loanInstallment.replace(/\./g, "").replace(",", ".")) * 100) : undefined,
+                        loanInstallmentsCount: simulationType === "INCOME" && isLoan ? loanInstallmentsCount : undefined,
+                        loan_monthly_interest_rate: result.loan_monthly_interest_rate,
+                        loan_cet_percentage: result.loan_cet_percentage,
+                        loan_total_interest_cents: result.loan_total_interest_cents,
+                        status: result.status
+                      };
+                      const advice = await analyzeSimulationIA(simulationObj);
+                      setAiAdvice(advice);
+                    } catch (e) {
+                      setAiAdvice("Falha ao consultar a análise de IA.");
+                    } finally {
+                      setIsAiLoading(false);
+                    }
+                  }}
+                  className="w-full py-2 rounded-lg font-black text-[9px] uppercase tracking-widest bg-violet-600/10 border border-violet-500/20 text-violet-400 hover:bg-violet-600/20 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <Calculator className="w-3.5 h-3.5 text-violet-400" />
+                  Consultar Vesper Copilot (IA)
+                </button>
+              ) : isAiLoading ? (
+                <div className="py-3 text-center bg-violet-500/5 border border-violet-500/10 rounded-xl animate-pulse">
+                  <span className="text-[8px] font-black text-violet-400 uppercase tracking-widest block">Consultando Oráculo...</span>
+                </div>
+              ) : (
+                <div className="bg-black/40 border border-violet-500/10 rounded-xl p-3.5 space-y-2 relative overflow-hidden animate-in fade-in duration-200">
+                  <button 
+                    onClick={() => setAiAdvice(null)}
+                    className="absolute top-2 right-2 text-white/20 hover:text-white transition-colors"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                  </button>
+                  <p className="text-[7px] font-black text-violet-400 uppercase tracking-widest mb-1">Vesper AI Copilot</p>
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    {renderMarkdown(aiAdvice || "")}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-2 mt-3">
               <div className="flex gap-2">
                 <button 
@@ -357,6 +443,110 @@ export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSi
             <p className="text-[9px] text-white/20 uppercase tracking-[0.2em] font-bold">
               {simulationType === "INCOME" ? "Simular nova receita" : "Simular novo gasto"}
             </p>
+          </div>
+        )}
+      </div>
+
+      {/* AI Dilemma Box */}
+      <div className="mt-4 pt-4 border-t border-white/5 relative z-10 space-y-3 shrink-0">
+        <div className="flex items-center justify-between">
+          <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">Consultar Dilema com IA</span>
+          {dilemmaResult && (
+            <button 
+              onClick={() => {
+                setDilemmaResult(null);
+                setDilemma("");
+              }}
+              className="text-[8px] font-black text-red-400 hover:underline uppercase tracking-wider bg-transparent border-none cursor-pointer"
+            >
+              Limpar
+            </button>
+          )}
+        </div>
+
+        {!dilemmaResult && !isDilemmaLoading ? (
+          <div className="space-y-2">
+            <textarea
+              value={dilemma}
+              onChange={(e) => setDilemma(e.target.value)}
+              placeholder="Descreva seu dilema (Ex: Notebook novo em 10x ou consertar o carro à vista?)"
+              className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-[10px] font-bold text-white placeholder:text-white/10 focus:outline-none transition-all resize-none h-16 leading-relaxed"
+            />
+            <button
+              onClick={async () => {
+                if (!dilemma.trim()) return;
+                setIsDilemmaLoading(true);
+                try {
+                  const res = await solveFinancialDilemma(dilemma);
+                  setDilemmaResult(res);
+                } catch (e) {
+                  setDilemmaResult({ advice: "Falha ao resolver dilema.", simulations: [] });
+                } finally {
+                  setIsDilemmaLoading(false);
+                }
+              }}
+              disabled={!dilemma.trim()}
+              className={cn(
+                "w-full py-2 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                dilemma.trim() 
+                  ? "bg-violet-600 text-white hover:bg-violet-500 border border-violet-500/20" 
+                  : "bg-white/5 text-white/20 border border-white/5 cursor-not-allowed"
+              )}
+            >
+              Resolver com Copiloto
+            </button>
+          </div>
+        ) : isDilemmaLoading ? (
+          <div className="py-4 text-center bg-violet-500/5 border border-violet-500/10 rounded-xl animate-pulse">
+            <span className="text-[8px] font-black text-violet-400 uppercase tracking-widest block">Analisando dilema...</span>
+          </div>
+        ) : (
+          <div className="bg-black/50 border border-violet-500/20 rounded-xl p-3.5 space-y-3 animate-in fade-in duration-300">
+            <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+              {renderMarkdown(dilemmaResult?.advice || "")}
+            </div>
+
+            {dilemmaResult?.simulations && dilemmaResult.simulations.length > 0 && (
+              <div className="pt-2 border-t border-white/5 space-y-2">
+                <p className="text-[7px] font-black text-violet-400 uppercase tracking-widest">Simulações Geradas</p>
+                <div className="space-y-1.5">
+                  {dilemmaResult.simulations.map((sim: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between bg-white/[0.02] border border-white/5 rounded-lg p-2 text-[9px]">
+                      <div className="min-w-0 text-left">
+                        <p className="font-bold text-white truncate">{sim.description}</p>
+                        <p className="text-[8px] text-white/30 uppercase font-black">{sim.type === "INCOME" ? "Receita" : "Gasto"} • {sim.installments}x</p>
+                      </div>
+                      <span className={cn("font-black shrink-0 ml-2", sim.type === "INCOME" ? "text-emerald-400" : "text-rose-400")}>
+                        {formatCurrency(sim.amount_cents)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => {
+                    const sim = dilemmaResult.simulations[0];
+                    if (sim) {
+                      setSimulationType(sim.type);
+                      setAmount((sim.amount_cents / 100).toFixed(2).replace(".", ","));
+                      setInstallments(sim.installments || 1);
+                      if (sim.type === "INCOME" && sim.description.toLowerCase().includes("empréstimo")) {
+                        setIsLoan(true);
+                        setLoanInstallment("");
+                      } else {
+                        setIsLoan(false);
+                      }
+                      // Limpar resultado para focar no simulador
+                      setDilemmaResult(null);
+                      setDilemma("");
+                    }
+                  }}
+                  className="w-full py-2 rounded-lg font-black text-[9px] uppercase tracking-widest bg-emerald-500 text-black hover:bg-emerald-400 transition-all flex items-center justify-center gap-1.5 cursor-pointer border-none"
+                >
+                  <PlusCircle className="w-3.5 h-3.5 text-black" />
+                  Carregar no Simulador
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

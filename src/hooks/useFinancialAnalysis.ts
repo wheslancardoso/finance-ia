@@ -1,6 +1,7 @@
 
 import { useMemo, useCallback } from "react";
 import { useFinancialData } from "@/context/FinancialDataContext";
+import { financialService } from "@/services/financialService";
 import { 
   calculateNetLiquidity, 
   calculateMonthlyOutlook, 
@@ -42,6 +43,9 @@ export interface FinancialAnalysis {
     loanInstallmentCents?: number,
     loanInstallmentsCount?: number
   ) => SimulationDetailedResult;
+  analyzeSimulationIA: (simulation: any) => Promise<string>;
+  solveFinancialDilemma: (dilemmaText: string) => Promise<{ advice: string; simulations: any[] }>;
+  optimizeSweepIA: () => Promise<{ advice: string; suggested_simulation: any }>;
 }
 
 /**
@@ -255,6 +259,62 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       loanInstallmentsCount
     }), [netLiquidity, debtExit.monthlySurplus, debtExit.exitDate, currentAssets]);
 
+  const analyzeSimulationIA = useCallback(async (simulation: any) => {
+    const summary = {
+      net_liquidity_cents: activeNetLiquidity,
+      total_consolidated_debt_cents: activeDebt,
+      accumulated_balance_cents: activeAssets,
+      monthly_outlook: {
+        balance_at_month_end: monthlyOutlook.balanceAtMonthEnd,
+        planned_expenses: monthlyOutlook.plannedExpenses,
+        scheduled_only: monthlyOutlook.scheduledOnly,
+        is_crisis_mode: monthlyOutlook.isCrisisMode
+      }
+    };
+    const { data, error } = await financialService.analyzeSimulationIA(simulation, summary);
+    if (error || !data) return "Falha ao consultar a análise do oráculo de IA.";
+    return data;
+  }, [activeNetLiquidity, activeDebt, activeAssets, monthlyOutlook]);
+
+  const solveFinancialDilemma = useCallback(async (dilemmaText: string) => {
+    const summary = {
+      net_liquidity_cents: activeNetLiquidity,
+      total_consolidated_debt_cents: activeDebt,
+      accumulated_balance_cents: activeAssets,
+      monthly_outlook: {
+        balance_at_month_end: monthlyOutlook.balanceAtMonthEnd,
+        planned_expenses: monthlyOutlook.plannedExpenses,
+        scheduled_only: monthlyOutlook.scheduledOnly,
+        is_crisis_mode: monthlyOutlook.isCrisisMode
+      }
+    };
+    const { data, error } = await financialService.solveFinancialDilemma(dilemmaText, summary);
+    if (error || !data) return { advice: "Falha ao obter sugestões do copiloto de IA.", simulations: [] };
+    return data;
+  }, [activeNetLiquidity, activeDebt, activeAssets, monthlyOutlook]);
+
+  const optimizeSweepIA = useCallback(async () => {
+    const summary = {
+      net_liquidity_cents: activeNetLiquidity,
+      total_consolidated_debt_cents: activeDebt,
+      accumulated_balance_cents: activeAssets,
+      monthly_outlook: {
+        balance_at_month_end: monthlyOutlook.balanceAtMonthEnd,
+        planned_expenses: monthlyOutlook.plannedExpenses,
+        scheduled_only: monthlyOutlook.scheduledOnly,
+        is_crisis_mode: monthlyOutlook.isCrisisMode
+      }
+    };
+    const { data, error } = await financialService.optimizeSweep(goals, budgets, summary);
+    if (error || !data) {
+      return {
+        advice: "Falha ao obter recomendações de amortização acelerada por IA.",
+        suggested_simulation: null
+      };
+    }
+    return data;
+  }, [goals, budgets, activeNetLiquidity, activeDebt, activeAssets, monthlyOutlook]);
+
   return useMemo(() => ({
     netLiquidityCents: activeNetLiquidity,
     totalConsolidatedDebtCents: activeDebt,
@@ -272,6 +332,9 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     debtExit,
     weeklySurvival,
     goalProjections,
-    simulateDetailedImpact: simulateDetailedImpactFn
-  }), [activeNetLiquidity, activeDebt, activeAssets, monthlyOutlook, healthScore, recurringIncomeCents, recurringExpensesCents, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn]);
+    simulateDetailedImpact: simulateDetailedImpactFn,
+    analyzeSimulationIA,
+    solveFinancialDilemma,
+    optimizeSweepIA
+  }), [activeNetLiquidity, activeDebt, activeAssets, monthlyOutlook, healthScore, recurringIncomeCents, recurringExpensesCents, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn, analyzeSimulationIA, solveFinancialDilemma, optimizeSweepIA]);
 }

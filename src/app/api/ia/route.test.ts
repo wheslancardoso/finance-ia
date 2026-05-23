@@ -76,4 +76,40 @@ describe("API Route: /api/ia", () => {
     expect(data.recommendations).toHaveLength(2);
     expect(data.recommendations[0].goal_id).toBe("g-2"); // Reserva assume topo
   });
+
+  it("deve analisar uma simulação com sucesso usando o fallback local se GEMINI_API_KEY estiver vazia", async () => {
+    const req = new NextRequest("http://localhost:3000/api/ia", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "analyze-simulation",
+        simulation: {
+          type: "EXPENSE",
+          amount_cents: 20000,
+          installments: 1
+        }
+      })
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.advice).toContain("Análise de Despesa Proposta");
+  });
+
+  it("deve resolver um dilema em texto livre com sucesso usando o fallback local se GEMINI_API_KEY estiver vazia", async () => {
+    const req = new NextRequest("http://localhost:3000/api/ia", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "generate-scenario",
+        text: "meu carro quebrou preciso de conserto"
+      })
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.advice).toContain("Dilema do Carro Quebrado");
+    expect(data.simulations).toHaveLength(1);
+    expect(data.simulations[0].description).toBe("Conserto do Carro");
+  });
 });

@@ -6,8 +6,12 @@ import GlassCard from "./GlassCard";
 import { useGoalModal } from "@/context/GoalModalContext";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 
-export default function GoalRecommendations() {
-  const { goalProjections, debtExit } = useFinancialAnalysis();
+interface GoalRecommendationsProps {
+  activeSimulations?: any[];
+}
+
+export default function GoalRecommendations({ activeSimulations = [] }: GoalRecommendationsProps) {
+  const { goalProjections, debtExit } = useFinancialAnalysis(0, activeSimulations);
   const { openContribution } = useGoalModal();
 
   if (!goalProjections || goalProjections.length === 0) {

@@ -47,6 +47,21 @@ test.describe('Integração de IA Soberana e Copiloto', () => {
             })
           });
           return;
+        } else if (body.action === 'optimize-sweep') {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              advice: '### ⚡ Amortização Acelerada Copiloto\n\nIdentificamos uma oportunidade cirúrgica de economia no seu orçamento. Se você otimizar sua categoria **Lazer** e sua categoria **Alimentação**, você irá liberar **R$ 200,00** extras mensais.',
+              suggested_simulation: {
+                description: 'Amortização Acelerada (IA)',
+                amount_cents: 20000,
+                installments: 12,
+                type: 'INCOME'
+              }
+            })
+          });
+          return;
         }
       }
       await route.continue();
@@ -141,5 +156,47 @@ test.describe('Integração de IA Soberana e Copiloto', () => {
 
     // O painel deve fechar e as metas estarem com as novas prioridades salvas
     await expect(iaPanel).not.toBeVisible();
+  });
+
+  test('deve auditar e simular sweep de amortização acelerada via Copiloto IA', async ({ page }) => {
+    const initialState = createInitialState({
+      accounts: [
+        { id: 'acc-1', name: 'Checking Account', type: 'CHECKING', balance_cents: 500000 },
+        { id: 'acc-2', name: 'Cartão Gold', type: 'CREDIT_CARD', balance_cents: -300000, total_debt_cents: 300000, closed_invoice_cents: 300000, open_invoice_cents: 0 }
+      ],
+      goals: [
+        { id: 'goal-1', name: 'Reserva de Emergência', target_amount_cents: 1000000, current_amount_cents: 100000, priority: 1, color_hex: '#10b981' }
+      ]
+    });
+
+    await setupFinancialMocks(page, initialState);
+
+    // Ir para a página de metas
+    await page.goto('/goals');
+
+    // O card de Otimização de Amortização Acelerada (IA) deve estar visível
+    const analyzeSweepBtn = page.getByTestId('analyze-sweep-button');
+    await expect(analyzeSweepBtn).toBeVisible();
+    await analyzeSweepBtn.click();
+
+    // Deve mostrar o texto do conselho em markdown
+    await expect(page.getByText('Amortização Acelerada Copiloto')).toBeVisible();
+    await expect(page.getByText('Amortização Acelerada (IA)')).toBeVisible();
+
+    // O botão de aplicar a simulação deve aparecer
+    const applySweepBtn = page.getByTestId('apply-sweep-button');
+    await expect(applySweepBtn).toBeVisible();
+
+    // Clicar em Simular Impacto no Sweep
+    await applySweepBtn.click();
+
+    // Deve mostrar a seção de Projeção Reativa Ativa e o botão de remover simulação
+    const removeSweepBtn = page.getByTestId('remove-sweep-button');
+    await expect(removeSweepBtn).toBeVisible();
+    await expect(page.getByText('Projeção Reativa Ativa')).toBeVisible();
+
+    // Ao clicar em remover, deve restaurar o estado original
+    await removeSweepBtn.click();
+    await expect(page.getByTestId('apply-sweep-button')).toBeVisible();
   });
 });

@@ -861,5 +861,58 @@ export const financialService = {
       console.error("❌ skipRecurringOccurrence falhou:", error.message);
       return { data: null, error };
     }
+  },
+
+  // --- IA INTEGRATIONS ---
+  async analyzeSimulationIA(simulation: any, summary: any) {
+    try {
+      const res = await apiFetch("/api/ia", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "analyze-simulation",
+          simulation,
+          financial_summary: summary
+        }),
+      });
+      return { data: res.advice, error: null };
+    } catch (error: any) {
+      console.error("❌ analyzeSimulationIA failed:", error.message);
+      return { data: null, error };
+    }
+  },
+
+  async solveFinancialDilemma(text: string, summary: any) {
+    try {
+      const res = await apiFetch("/api/ia", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "generate-scenario",
+          text,
+          financial_summary: summary
+        }),
+      });
+      return { data: res, error: null };
+    } catch (error: any) {
+      console.error("❌ solveFinancialDilemma failed:", error.message);
+      return { data: null, error };
+    }
+  },
+
+  async optimizeSweep(goals: any[], budgets: any[], summary: any) {
+    try {
+      const res = await apiFetch("/api/ia", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "optimize-sweep",
+          goals,
+          budgets,
+          financial_summary: summary
+        }),
+      });
+      return { data: res, error: null };
+    } catch (error: any) {
+      console.error("❌ optimizeSweep failed:", error.message);
+      return { data: null, error };
+    }
   }
 };
