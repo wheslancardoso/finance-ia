@@ -16,7 +16,9 @@ async function apiFetch(path: string, options?: RequestInit) {
   console.log(`🌐 [API Fetch] ${options?.method || 'GET'} ${path}`);
   
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+  const isIaRoute = path.includes("/api/ia");
+  const timeoutMs = isIaRoute ? 30000 : 10000; // 30s para IA, 10s para outras rotas
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(path, {
