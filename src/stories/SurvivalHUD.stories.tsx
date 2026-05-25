@@ -73,6 +73,8 @@ const baseContext = {
   deleteRecurringTransaction: async () => {},
   isGamificationEnabled: false,
   setGamificationEnabled: () => {},
+  survivalReserveCents: 0,
+  setSurvivalReserveCents: () => {},
 };
 
 export const Healthy: Story = {
