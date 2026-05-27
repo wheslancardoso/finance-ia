@@ -10,9 +10,10 @@ interface MonthNavigatorProps {
   selectedDate: Date;
   onDateChange: (date: Date) => void;
   lastFutureTransactionDate?: string | null;
+  debtExitDate?: Date | null;
 }
 
-export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransactionDate }: MonthNavigatorProps) {
+export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransactionDate, debtExitDate }: MonthNavigatorProps) {
   const today = startOfMonth(new Date());
   const isFuture = selectedDate > today && !isSameMonth(selectedDate, today);
   const isPast = selectedDate < today && !isSameMonth(selectedDate, today);
@@ -25,8 +26,9 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
   const handleNext = () => onDateChange(addMonths(startOfMonth(selectedDate), 1));
   const handleReset = () => onDateChange(today);
   const handleLastDebt = () => {
-    if (lastFutureTransactionDate) {
-      onDateChange(startOfMonth(new Date(lastFutureTransactionDate)));
+    const target = debtExitDate || (lastFutureTransactionDate ? new Date(lastFutureTransactionDate) : null);
+    if (target) {
+      onDateChange(startOfMonth(target));
     }
   };
 
@@ -167,12 +169,12 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
 
 
 
-          {lastFutureTransactionDate && (
+          {(debtExitDate || lastFutureTransactionDate) && (
             <button
               onClick={handleLastDebt}
               className={cn(
                 "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border",
-                isSameMonth(selectedDate, new Date(lastFutureTransactionDate))
+                isSameMonth(selectedDate, debtExitDate || (lastFutureTransactionDate ? new Date(lastFutureTransactionDate) : new Date()))
                   ? "bg-amber-500 border-amber-500 text-black shadow-lg shadow-amber-500/20"
                   : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white"
               )}

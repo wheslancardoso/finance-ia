@@ -208,6 +208,7 @@ export default function RealtimeDashboard({
           selectedDate={targetDate}
           onDateChange={setTargetDate}
           lastFutureTransactionDate={lastFutureTransactionDate}
+          debtExitDate={lastDebtExitDate || (debtExit.exitDate && debtExit.monthsToExit > 0 ? debtExit.exitDate : null)}
         />
 
         <SpendingSimulator 
