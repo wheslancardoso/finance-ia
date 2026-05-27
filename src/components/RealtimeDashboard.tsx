@@ -162,8 +162,8 @@ export default function RealtimeDashboard({
     consolidatedItems.filter((i: any) => i.type === "EXPENSE").reduce((sum: number, i: any) => sum + i.value, 0)
   , [consolidatedItems]);
 
-  const handleSimulate = useCallback((sim: any) => {
-    setActiveSimulations(sim ? [sim] : []);
+  const handleSimulate = useCallback((sims: any[] | null) => {
+    setActiveSimulations(sims || []);
   }, []);
 
   // Calcula a data da última dívida (transação futura mais distante)

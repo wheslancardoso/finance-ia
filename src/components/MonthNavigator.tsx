@@ -151,16 +151,58 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
         </div>
 
         {/* LINHA 3: Botões de atalho */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide shrink-0">
-          {!isAtToday && (
-            <button
-              onClick={handleReset}
-              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest bg-white/5 text-white/40 hover:bg-white/10 hover:text-white border border-white/5 transition-all"
-            >
-              <Clock className="w-3 h-3" />
-              Hoje
-            </button>
-          )}
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide shrink-0 pb-1">
+          <button
+            onClick={handleReset}
+            className={cn(
+              "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border",
+              isAtToday
+                ? "bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-600/20"
+                : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white"
+            )}
+          >
+            <Clock className="w-3 h-3" />
+            Hoje
+          </button>
+
+          <button
+            onClick={() => onDateChange(addMonths(today, 3))}
+            className={cn(
+              "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border",
+              isSameMonth(selectedDate, addMonths(today, 3))
+                ? "bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-600/20"
+                : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white"
+            )}
+          >
+            <Calendar className="w-3 h-3" />
+            +3 Meses
+          </button>
+
+          <button
+            onClick={() => onDateChange(addMonths(today, 6))}
+            className={cn(
+              "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border",
+              isSameMonth(selectedDate, addMonths(today, 6))
+                ? "bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-600/20"
+                : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white"
+            )}
+          >
+            <Calendar className="w-3 h-3" />
+            +6 Meses
+          </button>
+
+          <button
+            onClick={() => onDateChange(addMonths(today, 12))}
+            className={cn(
+              "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border",
+              isSameMonth(selectedDate, addMonths(today, 12))
+                ? "bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-600/20"
+                : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white"
+            )}
+          >
+            <Calendar className="w-3 h-3" />
+            12 Meses
+          </button>
 
           {lastFutureTransactionDate && (
             <button
@@ -168,27 +210,14 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
               className={cn(
                 "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border",
                 isSameMonth(selectedDate, new Date(lastFutureTransactionDate))
-                  ? "bg-amber-500 border-amber-500 text-black"
+                  ? "bg-amber-500 border-amber-500 text-black shadow-lg shadow-amber-500/20"
                   : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white"
               )}
             >
               <Sparkles className="w-3 h-3" />
-              Liquidado
+              Fim Dívidas
             </button>
           )}
-
-          <button
-            onClick={() => onDateChange(addMonths(today, 12))}
-            className={cn(
-              "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border",
-              isSameMonth(selectedDate, addMonths(today, 12))
-                ? "bg-violet-600 border-violet-600 text-white"
-                : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white"
-            )}
-          >
-            <Calendar className="w-3 h-3" />
-            12 Meses
-          </button>
         </div>
 
       </div>
