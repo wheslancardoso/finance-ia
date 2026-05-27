@@ -40,6 +40,69 @@ export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSi
   const [jarvisResult, setJarvisResult] = useState<{ advice: string; suggested_loan_amount_cents: number; loan_verdict: string; postponement_tips: string[] } | null>(null);
   const [isJarvisLoading, setIsJarvisLoading] = useState<boolean>(false);
 
+  const [mounted, setMounted] = useState<boolean>(false);
+
+  // Efeito de inicialização para carregar dados salvos no localStorage (prevenção de Hydration Mismatch)
+  React.useEffect(() => {
+    setMounted(true);
+    
+    try {
+      const savedType = localStorage.getItem("vesper_simulator_type");
+      if (savedType === "EXPENSE" || savedType === "INCOME") {
+        setSimulationType(savedType);
+      }
+      
+      const savedAmount = localStorage.getItem("vesper_simulator_amount");
+      if (savedAmount) setAmount(savedAmount);
+      
+      const savedInstallments = localStorage.getItem("vesper_simulator_installments");
+      if (savedInstallments) {
+        const parsed = parseInt(savedInstallments, 10);
+        if (!isNaN(parsed)) setInstallments(parsed);
+      }
+      
+      const savedIsLoan = localStorage.getItem("vesper_simulator_is_loan");
+      if (savedIsLoan) setIsLoan(savedIsLoan === "true");
+      
+      const savedLoanInstallment = localStorage.getItem("vesper_simulator_loan_installment");
+      if (savedLoanInstallment) setLoanInstallment(savedLoanInstallment);
+      
+      const savedLoanInstallmentsCount = localStorage.getItem("vesper_simulator_loan_installments_count");
+      if (savedLoanInstallmentsCount) {
+        const parsed = parseInt(savedLoanInstallmentsCount, 10);
+        if (!isNaN(parsed)) setLoanInstallmentsCount(parsed);
+      }
+      
+      const savedDilemma = localStorage.getItem("vesper_simulator_dilemma");
+      if (savedDilemma) setDilemma(savedDilemma);
+      
+      const savedSandbox = localStorage.getItem("vesper_simulator_sandbox_simulations");
+      if (savedSandbox) {
+        const parsed = JSON.parse(savedSandbox);
+        if (Array.isArray(parsed)) setSandboxSimulations(parsed);
+      }
+    } catch (e) {
+      console.error("⚠️ Erro ao carregar dados salvos do simulador no localStorage:", e);
+    }
+  }, []);
+
+  // Efeito de persistência de dados
+  React.useEffect(() => {
+    if (!mounted) return;
+    try {
+      localStorage.setItem("vesper_simulator_type", simulationType);
+      localStorage.setItem("vesper_simulator_amount", amount);
+      localStorage.setItem("vesper_simulator_installments", installments.toString());
+      localStorage.setItem("vesper_simulator_is_loan", isLoan ? "true" : "false");
+      localStorage.setItem("vesper_simulator_loan_installment", loanInstallment);
+      localStorage.setItem("vesper_simulator_loan_installments_count", loanInstallmentsCount.toString());
+      localStorage.setItem("vesper_simulator_dilemma", dilemma);
+      localStorage.setItem("vesper_simulator_sandbox_simulations", JSON.stringify(sandboxSimulations));
+    } catch (e) {
+      console.error("⚠️ Erro ao salvar dados do simulador no localStorage:", e);
+    }
+  }, [simulationType, amount, installments, isLoan, loanInstallment, loanInstallmentsCount, dilemma, sandboxSimulations, mounted]);
+
   // Helper para renderização nativa de Markdown brutalista premium
   const renderMarkdown = (text: string) => {
     return text.split("\n\n").map((para, i) => {
