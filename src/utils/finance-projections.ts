@@ -4,7 +4,7 @@ interface RecurringItem {
   id?: string;
   amount_cents: number;
   transaction_type: "INCOME" | "EXPENSE";
-  frequency: "daily" | "weekly" | "monthly" | "yearly" | "once";
+  frequency: "daily" | "weekly" | "biweekly" | "monthly" | "yearly" | "once" | string;
   next_date: string | Date;
   description?: string;
   category?: string;
@@ -111,8 +111,9 @@ export function getProjectedDetails(
     const txDate = new Date(tx.date);
     const isIncome = tx.transaction_type === "INCOME";
     
-    // Se a transação for ANTES ou NO mês alvo, ela afeta o saldo projetado
-    if (isBefore(txDate, targetMonthEnd)) {
+    // Só afeta o saldo projetado se a transação ocorrer no ou antes do dia alvo da projeção (targetDate)
+    const occursUntilTarget = !isAfter(txDate, targetDate);
+    if (occursUntilTarget) {
       if (isIncome) projected += tx.amount_cents;
       else projected -= tx.amount_cents;
     }
@@ -141,9 +142,25 @@ export function getProjectedDetails(
     let occurrenceDate = new Date(item.next_date);
     const effectiveTargetDate = endOfMonth(targetDate);
 
+    // Detectar frequência de metadados se existir
+    let realFrequency = item.frequency;
+    if (item.description) {
+      const match = item.description.match(/\[[Ff]req:\s*(every_\d+_days)\]/);
+      if (match) {
+        realFrequency = match[1];
+      }
+    }
+
+    // Limpar descrição projetada
+    let cleanDesc = item.description || "";
+    const fmatch = cleanDesc.match(/\s*\[[Ff]req:\s*every_\d+_days\]/);
+    if (fmatch) cleanDesc = cleanDesc.replace(fmatch[0], "");
+    const vmatch = cleanDesc.match(/\s*\[[Vv]ence:\s*\d{4}-\d{2}\]/);
+    if (vmatch) cleanDesc = cleanDesc.replace(vmatch[0], "");
+
     while (isBefore(occurrenceDate, effectiveTargetDate) || isSameMonth(occurrenceDate, effectiveTargetDate)) {
       if (isBefore(occurrenceDate, today) && !isSameMonth(occurrenceDate, today)) {
-        const next = advanceDate(occurrenceDate, item.frequency);
+        const next = advanceDate(occurrenceDate, realFrequency);
         if (!next) break;
         occurrenceDate = next;
         continue;
@@ -158,11 +175,17 @@ export function getProjectedDetails(
       const accountType = account?.type;
 
       if (isIncome) {
-        projected += item.amount_cents;
+        const isPastSameMonth = isSameMonth(occurrenceDate, today) && isBefore(occurrenceDate, today);
+        const occursUntilTarget = !isAfter(occurrenceDate, targetDate);
+
+        if (!isPastSameMonth && occursUntilTarget) {
+          projected += item.amount_cents;
+        }
+
         if (isTargetMonth) {
           transactions.push({
-            id: `recurring-${item.id || (item.description || 'item').replace(/\s+/g, '-')}-${occurrenceDate.getTime()}`,
-            description: item.description || item.category || "Receita Fixa",
+            id: `recurring-${item.id || (cleanDesc || 'item').replace(/\s+/g, '-')}-${occurrenceDate.getTime()}`,
+            description: cleanDesc || item.category || "Receita Fixa",
             amount_cents: item.amount_cents,
             transaction_type: "INCOME",
             date: occurrenceDate,
@@ -175,16 +198,17 @@ export function getProjectedDetails(
       } else {
         // Subtrair do saldo se for hoje ou futuro
         const isPastSameMonth = isSameMonth(occurrenceDate, today) && isBefore(occurrenceDate, today);
+        const occursUntilTarget = !isAfter(occurrenceDate, targetDate);
         
-        // Se não for passado (ou seja, hoje ou futuro), subtraímos do saldo projetado
-        if (!isPastSameMonth) {
+        // Se não for passado (ou seja, hoje ou futuro) E ocorrer até a data alvo da projeção, subtraímos do saldo projetado
+        if (!isPastSameMonth && occursUntilTarget) {
           projected -= item.amount_cents;
         }
 
         if (isTargetMonth) {
           transactions.push({
-            id: `recurring-${item.id || (item.description || 'item').replace(/\s+/g, '-')}-${occurrenceDate.getTime()}`,
-            description: item.description || item.category || "Despesa Fixa",
+            id: `recurring-${item.id || (cleanDesc || 'item').replace(/\s+/g, '-')}-${occurrenceDate.getTime()}`,
+            description: cleanDesc || item.category || "Despesa Fixa",
             amount_cents: item.amount_cents,
             transaction_type: "EXPENSE",
             date: occurrenceDate,
@@ -196,8 +220,8 @@ export function getProjectedDetails(
         }
       }
 
-      const nextDate = advanceDate(occurrenceDate, item.frequency);
-      if (!nextDate || item.frequency === "once") break;
+      const nextDate = advanceDate(occurrenceDate, realFrequency);
+      if (!nextDate || realFrequency === "once") break;
       occurrenceDate = nextDate;
     }
   });
@@ -252,9 +276,17 @@ export function calculateProjectedBalance(
 }
 
 function advanceDate(date: Date, frequency: string): Date | null {
+  if (frequency.startsWith("every_") && frequency.endsWith("_days")) {
+    const match = frequency.match(/every_(\d+)_days/);
+    if (match) {
+      const days = parseInt(match[1], 10);
+      return addDays(date, days);
+    }
+  }
   switch (frequency) {
     case "monthly": return addMonths(date, 1);
     case "weekly": return addDays(date, 7);
+    case "biweekly": return addDays(date, 14);
     case "daily": return addDays(date, 1);
     case "yearly": return addMonths(date, 12);
     default: return null;

@@ -60,6 +60,33 @@ function CategoryIcon({ name, fallback }: { name: string | null, fallback: strin
   return <span className="text-xl">{fallback}</span>;
 }
 
+const getSafeLocalDate = (dateStr: string): Date => {
+  if (!dateStr) return new Date();
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const year = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10) - 1;
+    const day = parseInt(match[3], 10);
+    return new Date(year, month, day, 12, 0, 0);
+  }
+  return new Date(dateStr);
+};
+
+const formatFrequency = (freq: string) => {
+  if (!freq) return "Mensal";
+  if (freq.startsWith("every_") && freq.endsWith("_days")) {
+    const match = freq.match(/every_(\d+)_days/);
+    return match ? `A cada ${match[1]} dias` : "Mensal";
+  }
+  switch (freq) {
+    case "monthly": return "Mensal";
+    case "biweekly": return "Quinzenal";
+    case "weekly": return "Semanal";
+    case "yearly": return "Anual";
+    default: return "Mensal";
+  }
+};
+
 interface SubscriptionManagerProps {
   initialSubscriptions?: any[];
 }
@@ -98,9 +125,17 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {subs.map((sub, idx) => {
-          const match = sub.description?.match(/\s*\[[Vv]ence:\s*(\d{4}-\d{2})\]/);
-          const cleanDescription = match ? sub.description.replace(match[0], "") : sub.description;
-          const expiryMonth = match ? match[1] : null;
+          let cleanDescription = sub.description || "";
+          
+          const expiryMatch = cleanDescription.match(/\s*\[[Vv]ence:\s*(\d{4}-\d{2})\]/);
+          if (expiryMatch) cleanDescription = cleanDescription.replace(expiryMatch[0], "");
+          const expiryMonth = expiryMatch ? expiryMatch[1] : null;
+
+          const freqMatch = cleanDescription.match(/\s*\[[Ff]req:\s*(every_\d+_days)\]/);
+          if (freqMatch) cleanDescription = cleanDescription.replace(freqMatch[0], "");
+
+          // Detectar a frequência real baseada no metadado
+          const realFrequency = freqMatch ? freqMatch[1] : (sub.frequency || "monthly");
 
           return (
             <GlassCard 
@@ -127,7 +162,7 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
                   <div>
                     <h4 className="text-white font-bold text-lg leading-tight">{cleanDescription}</h4>
                     <p className="text-[10px] text-white/30 font-bold uppercase tracking-tighter">
-                      {sub.category?.name || "Sem Categoria"} • {sub.transaction_type === 'INCOME' ? 'Receita' : 'Gasto'}
+                      {sub.category?.name || "Sem Categoria"} • {sub.transaction_type === 'INCOME' ? 'Receita' : 'Gasto'} • {formatFrequency(realFrequency)}
                     </p>
                     <div className="flex flex-wrap gap-1.5 mt-1">
                       {sub.is_primary_income && (
@@ -136,11 +171,18 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
                           <span className="text-[8px] font-black uppercase tracking-widest text-emerald-400">Renda Principal</span>
                         </div>
                       )}
+                      {realFrequency && realFrequency !== "monthly" && (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20">
+                          <span className="text-[8px] font-black uppercase tracking-widest text-violet-400">
+                            {formatFrequency(realFrequency)}
+                          </span>
+                        </div>
+                      )}
                       {expiryMonth && (
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20">
                           <Calendar className="w-3 h-3 text-amber-400" />
                           <span className="text-[8px] font-black uppercase tracking-widest text-amber-400">
-                            Vence {new Date(expiryMonth + "-02").toLocaleDateString("pt-BR", { month: 'short', year: 'numeric' })}
+                            Vence {getSafeLocalDate(expiryMonth + "-02").toLocaleDateString("pt-BR", { month: 'short', year: 'numeric' })}
                           </span>
                         </div>
                       )}
@@ -172,7 +214,7 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
                 <div className="flex items-center justify-between p-3 bg-white/2 rounded-2xl border border-white/5">
                   <div className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase">
                     <Calendar className="w-3 h-3" />
-                    Próximo: {format(new Date(sub.next_date), "dd 'de' MMM", { locale: ptBR })}
+                    Próximo: {format(getSafeLocalDate(sub.next_date), "dd 'de' MMM", { locale: ptBR })}
                   </div>
                   <div className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase">
                     <CreditCard className="w-3 h-3" />

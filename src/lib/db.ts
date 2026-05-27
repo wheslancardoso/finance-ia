@@ -46,7 +46,7 @@ export interface RecurringTransaction {
   description: string;
   amount_cents: number;
   transaction_type: "INCOME" | "EXPENSE";
-  frequency: "monthly" | "weekly" | "yearly";
+  frequency: "monthly" | "weekly" | "yearly" | "biweekly" | string;
   next_date: string;
   status: "active" | "paused" | "cancelled";
   category_id?: string;
