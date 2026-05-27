@@ -85,7 +85,9 @@ export async function GET(request: NextRequest) {
         data.user_profile = {
           monthly_income_cents: data.family_group.monthly_income_cents || 0,
           fixed_expenses_cents: data.family_group.fixed_expenses_cents || 0,
-          accumulated_balance_cents: (data.accounts || []).reduce((acc: number, a: any) => acc + (Number(a.balance_cents) || 0), 0),
+          accumulated_balance_cents: (data.accounts || [])
+            .filter((a: any) => a.type !== "CREDIT_CARD")
+            .reduce((acc: number, a: any) => acc + (Number(a.balance_cents) || 0), 0),
           financial_health_score: data.family_group.financial_health_score || 80,
         };
       }
@@ -151,11 +153,13 @@ async function buildFinancialState(userId: string) {
     category_type: t.categories?.type,
   }));
 
-  // Saldo acumulado
-  const accumulated_balance_cents = (accounts || []).reduce(
-    (acc: number, a: any) => acc + (Number(a.balance_cents) || 0),
-    0
-  );
+  // Saldo acumulado (desconsidera contas do tipo CREDIT_CARD)
+  const accumulated_balance_cents = (accounts || [])
+    .filter((a: any) => a.type !== "CREDIT_CARD")
+    .reduce(
+      (acc: number, a: any) => acc + (Number(a.balance_cents) || 0),
+      0
+    );
 
   const initialAccountMap = new Map((accounts || []).map((a: any) => [a.id, a]));
 

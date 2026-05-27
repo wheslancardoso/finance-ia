@@ -136,14 +136,17 @@ export async function setupFinancialMocks(page: Page, state: any) {
         } else {
           const acc = state.accounts.find((a: any) => a.id === payload.account_id);
           if (acc) {
-            if (payload.transaction_type === 'INCOME') {
-              acc.balance_cents = (acc.balance_cents || 0) + amount;
-            } else {
-              acc.balance_cents = (acc.balance_cents || 0) - amount;
-              if (acc.type === 'CREDIT_CARD') {
+            if (acc.type === 'CREDIT_CARD') {
+              if (payload.transaction_type === 'INCOME') {
+                acc.balance_cents = (acc.balance_cents || 0) + amount;
+              } else {
+                acc.balance_cents = (acc.balance_cents || 0) - amount;
                 if (payload.is_adjustment) acc.closed_invoice_cents = (acc.closed_invoice_cents || 0) + amount;
                 else acc.open_invoice_cents = (acc.open_invoice_cents || 0) + amount;
               }
+            } else {
+              // Contas normais (CHECKING, SAVINGS, etc.) têm o saldo atualizado de forma reativa pelo 
+              // frontend chamando /api/accounts. Para evitar double-counting, não alteramos aqui.
             }
           }
         }

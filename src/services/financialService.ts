@@ -72,19 +72,105 @@ export const financialService = {
   // --- TRANSACTIONS ---
   async upsertTransaction(data: any) {
     console.log("🚀 Iniciando upsertTransaction:", data.description, data.amount_cents);
+    
+    const txDate = new Date(data.date || new Date());
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const isPastMonth = txDate < currentMonthStart;
+
+    const payload = {
+      ...data,
+      id: data.id || generateId(),
+      is_paid: data.is_paid ?? (isPastMonth ? true : false),
+      source: data.source ?? "MANUAL",
+    };
+
+    // Calcular e aplicar ajustes de saldo reativos
     try {
-      const txDate = new Date(data.date || new Date());
-      const now = new Date();
-      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const isPastMonth = txDate < currentMonthStart;
+      let oldTx = data.id ? await db.transactions.get(data.id) : null;
+      const isIncome = payload.transaction_type === "INCOME";
+      let balanceAdjustments: { accountId: string; delta: number }[] = [];
 
-      const payload = {
-        ...data,
-        id: data.id || generateId(),
-        is_paid: data.is_paid ?? (isPastMonth ? true : false),
-        source: data.source ?? "MANUAL",
-      };
+      if (!oldTx) {
+        // Transação Nova
+        if (payload.is_paid) {
+          balanceAdjustments.push({
+            accountId: payload.account_id,
+            delta: isIncome ? payload.amount_cents : -payload.amount_cents
+          });
+        }
+      } else {
+        // Edição de Transação Existente
+        const wasPaid = oldTx.is_paid;
+        const isPaid = payload.is_paid;
+        const oldAccountId = oldTx.account_id;
+        const newAccountId = payload.account_id;
+        const oldAmount = oldTx.amount_cents;
+        const newAmount = payload.amount_cents;
+        const wasIncome = oldTx.transaction_type === "INCOME";
+        const isNewIncome = payload.transaction_type === "INCOME";
 
+        if (wasPaid && !isPaid) {
+          // Passou de pago para não pago (estorno)
+          balanceAdjustments.push({
+            accountId: oldAccountId,
+            delta: wasIncome ? -oldAmount : oldAmount
+          });
+        } else if (!wasPaid && isPaid) {
+          // Passou de não pago para pago
+          balanceAdjustments.push({
+            accountId: newAccountId,
+            delta: isNewIncome ? newAmount : -newAmount
+          });
+        } else if (wasPaid && isPaid) {
+          // Permaneceu paga, mas o valor ou a conta podem ter mudado
+          if (oldAccountId !== newAccountId) {
+            // Conta mudou: estorna na antiga, aplica na nova
+            balanceAdjustments.push({
+              accountId: oldAccountId,
+              delta: wasIncome ? -oldAmount : oldAmount
+            });
+            balanceAdjustments.push({
+              accountId: newAccountId,
+              delta: isNewIncome ? newAmount : -newAmount
+            });
+          } else if (oldAmount !== newAmount || wasIncome !== isNewIncome) {
+            // Mesma conta, mas o valor ou tipo mudou
+            const oldDelta = wasIncome ? -oldAmount : oldAmount;
+            const newDelta = isNewIncome ? newAmount : -newAmount;
+            balanceAdjustments.push({
+              accountId: oldAccountId,
+              delta: oldDelta + newDelta
+            });
+          }
+        }
+      }
+
+      for (const adj of balanceAdjustments) {
+        const account = await db.accounts.get(adj.accountId);
+        if (account) {
+          const newBalance = (account.balance_cents || 0) + adj.delta;
+          await apiFetch("/api/accounts", {
+            method: "POST",
+            body: JSON.stringify({ ...account, balance_cents: newBalance }),
+          }).catch(() => {});
+          await db.accounts.update(adj.accountId, { balance_cents: newBalance });
+
+          // Atualizar mock E2E se aplicável
+          if (typeof window !== 'undefined' && (window as any).__E2E_MOCK_STATE__) {
+            const mock = (window as any).__E2E_MOCK_STATE__;
+            if (mock.accounts) {
+              const acc = mock.accounts.find((a: any) => a.id === adj.accountId);
+              if (acc) acc.balance_cents = newBalance;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("⚠️ Falha ao calcular/aplicar ajuste de saldo na transação:", err);
+    }
+
+    try {
       // 1. Persistir no PostgreSQL via API
       const saved = await apiFetch("/api/transactions", {
         method: "POST",
@@ -102,44 +188,49 @@ export const financialService = {
         const index = (mock.transactions || []).findIndex((t: any) => t.id === payload.id);
         if (index >= 0) mock.transactions[index] = { ...mock.transactions[index], ...payload };
         else (mock.transactions = mock.transactions || []).push(payload);
-
-        // Atualizar saldo da conta no mock se for cartão
-        if (mock.accounts) {
-          const acc = mock.accounts.find((a: any) => a.id === payload.account_id);
-          if (acc && acc.type === 'CREDIT_CARD') {
-            const isExpense = payload.transaction_type === 'EXPENSE';
-            const delta = isExpense ? payload.amount_cents : -payload.amount_cents;
-            // Simplificação para E2E: assume que tudo vai pra fatura fechada se estivermos testando migração
-            acc.closed_invoice_cents = (acc.closed_invoice_cents || 0) + delta;
-            acc.balance_cents = (acc.balance_cents || 0) - delta;
-          }
-        }
       }
 
       return { data: saved, error: null };
     } catch (error: any) {
       console.error("❌ upsertTransaction falhou no PostgreSQL:", error.message);
       // Fallback: salvar apenas local
-      const txDate = new Date(data.date || new Date());
-      const now = new Date();
-      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const isPastMonth = txDate < currentMonthStart;
-
-      const payload = {
-        ...data,
-        id: data.id || generateId(),
-        is_paid: data.is_paid ?? (isPastMonth ? true : false),
-        source: data.source ?? "MANUAL",
-        amount: (data.amount_cents || 0) / 100,
+      const payloadFallback = {
+        ...payload,
+        amount: (payload.amount_cents || 0) / 100,
       };
-      await db.transactions.put(payload);
+      await db.transactions.put(payloadFallback);
       console.warn("⚠️ Transação salva apenas localmente (Dexie)");
-      return { data: payload, error };
+      return { data: payloadFallback, error };
     }
   },
 
   async deleteTransaction(id: string) {
     try {
+      const tx = await db.transactions.get(id);
+      if (tx && tx.is_paid) {
+        const isIncome = tx.transaction_type === "INCOME";
+        const account = await db.accounts.get(tx.account_id);
+        if (account) {
+          const delta = isIncome ? -tx.amount_cents : tx.amount_cents;
+          const newBalance = (account.balance_cents || 0) + delta;
+
+          await apiFetch("/api/accounts", {
+            method: "POST",
+            body: JSON.stringify({ ...account, balance_cents: newBalance }),
+          }).catch(() => {});
+          await db.accounts.update(tx.account_id, { balance_cents: newBalance });
+
+          // Atualizar mock E2E se aplicável
+          if (typeof window !== 'undefined' && (window as any).__E2E_MOCK_STATE__) {
+            const mock = (window as any).__E2E_MOCK_STATE__;
+            if (mock.accounts) {
+              const acc = mock.accounts.find((a: any) => a.id === tx.account_id);
+              if (acc) acc.balance_cents = newBalance;
+            }
+          }
+        }
+      }
+
       await apiFetch(`/api/transactions?id=${id}`, { method: "DELETE" });
       await db.transactions.delete(id);
       return { data: true, error: null };
@@ -691,12 +782,45 @@ export const financialService = {
       // Buscar transação local
       const tx = await db.transactions.get(transactionId);
       if (tx) {
-        const updated = { ...tx, is_paid: !currentStatus };
+        if (tx.transaction_type === "TRANSFER") {
+          throw new Error("Não é possível alterar o status de pagamento de uma transferência.");
+        }
+        const nextPaid = !currentStatus;
+        const isIncome = tx.transaction_type === "INCOME";
+
+        // Buscar a conta e recalcular saldo
+        const account = await db.accounts.get(tx.account_id);
+        if (account) {
+          let delta = 0;
+          if (nextPaid) {
+            delta = isIncome ? tx.amount_cents : -tx.amount_cents;
+          } else {
+            delta = isIncome ? -tx.amount_cents : tx.amount_cents;
+          }
+          const newBalance = (account.balance_cents || 0) + delta;
+
+          await apiFetch("/api/accounts", {
+            method: "POST",
+            body: JSON.stringify({ ...account, balance_cents: newBalance }),
+          }).catch(() => {});
+          await db.accounts.update(tx.account_id, { balance_cents: newBalance });
+
+          // Atualizar mock E2E se aplicável
+          if (typeof window !== 'undefined' && (window as any).__E2E_MOCK_STATE__) {
+            const mock = (window as any).__E2E_MOCK_STATE__;
+            if (mock.accounts) {
+              const acc = mock.accounts.find((a: any) => a.id === tx.account_id);
+              if (acc) acc.balance_cents = newBalance;
+            }
+          }
+        }
+
+        const updated = { ...tx, is_paid: nextPaid };
         await apiFetch("/api/transactions", {
           method: "POST",
           body: JSON.stringify(updated),
         }).catch(() => {});
-        await db.transactions.update(transactionId, { is_paid: !currentStatus });
+        await db.transactions.update(transactionId, { is_paid: nextPaid });
       }
       return { data: true, error: null };
     } catch (error) {

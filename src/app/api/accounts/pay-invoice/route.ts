@@ -110,6 +110,28 @@ export async function POST(request: NextRequest) {
 
     // 6. Se não for "Já Paguei", criar transação de débito
     if (!alreadyPaid && paymentAccountId) {
+      // Buscar conta de pagamento para obter saldo atual
+      const { data: payAcc, error: payAccErr } = await supabase
+        .from("accounts")
+        .select("balance_cents")
+        .eq("id", paymentAccountId)
+        .single();
+
+      if (payAccErr || !payAcc) {
+        throw new Error(`Conta de pagamento não encontrada: ${payAccErr?.message || ""}`);
+      }
+
+      // Debitar do saldo
+      const currentBalance = payAcc.balance_cents || 0;
+      const newBalance = currentBalance - amountCents;
+
+      const { error: updateAccErr } = await supabase
+        .from("accounts")
+        .update({ balance_cents: newBalance })
+        .eq("id", paymentAccountId);
+
+      if (updateAccErr) throw updateAccErr;
+
       const monthLabel = format(new Date(closedY, closedM, 1), "MMM/yy", { locale: ptBR });
       const { error: paymentTxError } = await supabase.from("transactions").insert([{
         user_id: creditCardAccount.user_id,

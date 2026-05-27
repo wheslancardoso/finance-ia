@@ -235,7 +235,7 @@ export function TransactionItem({ transaction: tx }: TransactionItemProps) {
           </div>
 
           <div className="flex items-center gap-2 md:gap-3" onClick={(e) => e.stopPropagation()}>
-            {!isIncome && (
+            {!isIncome && tx.transaction_type !== "TRANSFER" && (
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
