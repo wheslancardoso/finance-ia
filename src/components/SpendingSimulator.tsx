@@ -93,7 +93,7 @@ export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSi
             amount_cents: valueCents, 
             installments, 
             type: simulationType, 
-            description: simulationType === "INCOME" ? "Simulação Provisória" : "Simulação Provisória" 
+            description: undefined 
           }
         ]);
       } else {
