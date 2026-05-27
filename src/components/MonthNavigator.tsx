@@ -165,44 +165,7 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
             Hoje
           </button>
 
-          <button
-            onClick={() => onDateChange(addMonths(today, 3))}
-            className={cn(
-              "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border",
-              isSameMonth(selectedDate, addMonths(today, 3))
-                ? "bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-600/20"
-                : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white"
-            )}
-          >
-            <Calendar className="w-3 h-3" />
-            +3 Meses
-          </button>
 
-          <button
-            onClick={() => onDateChange(addMonths(today, 6))}
-            className={cn(
-              "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border",
-              isSameMonth(selectedDate, addMonths(today, 6))
-                ? "bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-600/20"
-                : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white"
-            )}
-          >
-            <Calendar className="w-3 h-3" />
-            +6 Meses
-          </button>
-
-          <button
-            onClick={() => onDateChange(addMonths(today, 12))}
-            className={cn(
-              "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all border",
-              isSameMonth(selectedDate, addMonths(today, 12))
-                ? "bg-violet-600 border-violet-600 text-white shadow-lg shadow-violet-600/20"
-                : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white"
-            )}
-          >
-            <Calendar className="w-3 h-3" />
-            12 Meses
-          </button>
 
           {lastFutureTransactionDate && (
             <button
