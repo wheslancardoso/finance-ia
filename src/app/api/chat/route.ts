@@ -60,7 +60,95 @@ async function callGemini(contents: any[]): Promise<string> {
   }
 
   return text;
-}export async function POST(request: NextRequest) {
+}
+
+// Handler GET: Carrega o histórico e as memórias cognitivas do Supabase
+export async function GET(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
+
+  try {
+    const supabase = await createAdminClient();
+
+    // 1. Buscar histórico de conversas do usuário logado
+    const { data: historyRows, error: historyError } = await supabase
+      .from("chat_memory")
+      .select("message")
+      .eq("session_id", user.id)
+      .order("id", { ascending: true });
+
+    if (historyError) {
+      throw new Error(`Erro ao buscar histórico: ${historyError.message}`);
+    }
+
+    const history = (historyRows || []).map((row: any) => row.message);
+
+    // 2. Buscar memórias de longo prazo (fatos cognitivos)
+    const { data: memoryRows, error: memoryError } = await supabase
+      .from("chat_memory")
+      .select("message")
+      .eq("session_id", `memory_${user.id}`)
+      .limit(1);
+
+    if (memoryError) {
+      throw new Error(`Erro ao buscar memórias cognitivas: ${memoryError.message}`);
+    }
+
+    const memoryFacts = memoryRows && memoryRows.length > 0 ? (memoryRows[0].message.facts || []) : [];
+
+    return NextResponse.json({ history, memoryFacts });
+  } catch (error: any) {
+    console.error("Erro ao obter histórico do chat:", error);
+    return NextResponse.json({ error: error.message || "Erro interno do servidor" }, { status: 500 });
+  }
+}
+
+// Handler DELETE: Limpa o histórico de chat (e opcionalmente as memórias de longo prazo)
+export async function DELETE(request: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const resetAll = searchParams.get("reset_all") === "true";
+
+  try {
+    const supabase = await createAdminClient();
+
+    // 1. Deletar histórico de conversas normais
+    const { error: deleteHistoryError } = await supabase
+      .from("chat_memory")
+      .delete()
+      .eq("session_id", user.id);
+
+    if (deleteHistoryError) {
+      throw new Error(`Erro ao deletar histórico: ${deleteHistoryError.message}`);
+    }
+
+    // 2. Opcional: deletar memórias de longo prazo (fatos consolidados)
+    if (resetAll) {
+      const { error: deleteMemoryError } = await supabase
+        .from("chat_memory")
+        .delete()
+        .eq("session_id", `memory_${user.id}`);
+
+      if (deleteMemoryError) {
+        throw new Error(`Erro ao deletar memórias de longo prazo: ${deleteMemoryError.message}`);
+      }
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("Erro ao resetar histórico do chat:", error);
+    return NextResponse.json({ error: error.message || "Erro interno do servidor" }, { status: 500 });
+  }
+}
+
+// Handler POST: Processa a nova mensagem, grava histórico, atualiza e injeta memórias
+export async function POST(request: NextRequest) {
   const user = await getAuthUser();
   if (!user) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
@@ -68,21 +156,34 @@ async function callGemini(contents: any[]): Promise<string> {
 
   try {
     const body = await request.json();
-    const { message, history = [], monthOffset, monthLabel, projectionSummary } = body;
+    const { message, monthOffset, monthLabel, projectionSummary } = body;
 
     if (!message) {
       return NextResponse.json({ error: "Mensagem é obrigatória" }, { status: 400 });
     }
 
-    // 1. Buscar dados financeiros reais do usuário no Supabase
     const supabase = await createAdminClient();
+
+    // 1. Gravar a nova mensagem do usuário no banco de dados imediatamente
+    const { error: saveUserMsgError } = await supabase
+      .from("chat_memory")
+      .insert({
+        session_id: user.id,
+        message: { role: "user", text: message }
+      });
+
+    if (saveUserMsgError) {
+      console.error("Erro ao salvar mensagem do usuário:", saveUserMsgError.message);
+    }
+
+    // 2. Buscar dados financeiros reais do usuário no Supabase
     const { data: financialData, error: dbError } = await supabase.rpc('get_financial_state_v5', { p_user_id: user.id });
 
     if (dbError) {
       console.error("Erro ao buscar dados para o chatbot:", dbError.message);
     }
 
-    // 2. Formatar resumo do estado financeiro real como contexto de sistema
+    // 3. Formatar resumo do estado financeiro real como contexto de sistema
     let financialContext = "Nenhum dado financeiro disponível.";
     if (financialData) {
       const accountsSummary = (financialData.accounts || []).map((a: any) => 
@@ -139,7 +240,28 @@ VALORES FINANCEIROS CONTEXTUAIS DA TELA DO MÊS DE ${monthLabel || "HOJE"}:
 `;
     }
 
-    // 3. Montar prompt do sistema (System Prompt) com guardrails de empatia e mentoria
+    // 4. Buscar e carregar memórias cognitivas de longo prazo (fatos lembrados)
+    const { data: memoryRows } = await supabase
+      .from("chat_memory")
+      .select("message")
+      .eq("session_id", `memory_${user.id}`)
+      .limit(1);
+
+    let existingFacts: string[] = [];
+    if (memoryRows && memoryRows.length > 0) {
+      existingFacts = memoryRows[0].message.facts || [];
+    }
+
+    let cognitiveMemoryContext = "";
+    if (existingFacts.length > 0) {
+      cognitiveMemoryContext = `
+=== MEMÓRIA COGNITIVA E FATOS DE LONGO PRAZO ===
+Você aprendeu estes fatos importantes sobre a vida financeira, metas, medos e preferências do usuário em conversas anteriores. Utilize-os para demonstrar empatia contínua e hiperpersonalizar seus conselhos:
+${existingFacts.map(fact => `- ${fact}`).join("\n")}
+`;
+    }
+
+    // 5. Montar prompt do sistema (System Prompt) com guardrails de empatia e mentoria
     const systemPrompt = `Você é o Vesper AI Copilot, um mentor financeiro ultra-empático, prático e realista integrado à plataforma de finanças inteligentes Vesper Finance.
 Sua missão é dar suporte a usuários em momentos de alta vulnerabilidade, estresse financeiro e crise (como desemprego, endividamento de cartão de crédito e falta de liquidez).
 
@@ -167,54 +289,127 @@ Suas diretrizes de comportamento e comunicação são:
      }
      </vesper-simulation>
    - IMPORTANTE: NÃO coloque marcadores de bloco de código markdown (como tres crases e a palavra json) dentro do bloco XML de vesper-simulation. Coloque apenas o JSON cru e válido imediatamente.
+7. **Consolidação de Memória de Longo Prazo (Fatos Cognitivos):**
+   - Monitore atentamente a conversa para identificar novos fatos importantes e duradouros sobre a vida e finanças do usuário (exemplos: desemprego, conquistas financeiras, prioridade em economizar para o aluguel, medo de cartão, etc.).
+   - Se identificar qualquer novo fato duradouro, ou se precisar consolidar/atualizar a lista existente de fatos lembrados, você DEVE retornar a lista COMPLETA de fatos atualizados (máximo de 6 fatos concisos, diretos e sem julgamentos) no final de sua resposta dentro de uma tag XML de memória cognitiva:
+     <vesper-cognitive-memory>
+     [
+       "Fato duradouro 1",
+       "Fato duradouro 2"
+     ]
+     </vesper-cognitive-memory>
+   - Não adicione marcadores de código markdown (como crases ou json) dentro da tag de memória. Apenas o array JSON válido contendo strings.
+   - Tente manter a lista de fatos sempre enxuta e focada em dados úteis para orientar o suporte financeiro contínuo do Vesper.
 
 Aqui está o contexto temporal e financeiro ativo:
 ${temporalContext}
 
 Aqui está o contexto real das finanças consolidadas do banco de dados:
 ${financialContext}
+${cognitiveMemoryContext}
 `;
 
-    // 4. Formatar histórico de chat no padrão do Gemini
+    // 6. Buscar o histórico completo atualizado (incluindo a mensagem recém salva do usuário)
+    const { data: dbHistoryRows } = await supabase
+      .from("chat_memory")
+      .select("message")
+      .eq("session_id", user.id)
+      .order("id", { ascending: true });
+
+    const dbHistory = (dbHistoryRows || []).map((row: any) => row.message);
+
+    // 7. Formatar histórico no padrão do Gemini
     const geminiContents = [];
-    
-    // Se houver histórico, formatar adequadamente no padrão do Gemini
-    if (history && history.length > 0) {
-      // Filtrar e reformatar para o Gemini [{ role: "user" | "model", parts: [{ text: string }] }]
-      for (const h of history) {
-        if (h.role && h.text) {
+
+    if (dbHistory.length > 0) {
+      for (let i = 0; i < dbHistory.length; i++) {
+        const msg = dbHistory[i];
+        const role = msg.role === "user" ? "user" : "model";
+        
+        if (i === 0) {
+          // Injetar o systemPrompt rico com dados reais e cognitivos na primeira interação
           geminiContents.push({
-            role: h.role === "user" ? "user" : "model",
-            parts: [{ text: h.text }]
+            role: role,
+            parts: [{ text: `INSTRUÇÕES DE SISTEMA A SEREM SEGUIDAS RIGOROSAMENTE:\n${systemPrompt}\n\nEntendido. Vamos iniciar a conversa.\n\nMensagem do Usuário: ${msg.text}` }]
+          });
+        } else {
+          geminiContents.push({
+            role: role,
+            parts: [{ text: msg.text }]
           });
         }
       }
-    }
-
-    // Injetar o system instruction no último prompt ou no início do chat
-    // Para simplificar e garantir aderência no Gemini, colocamos o systemPrompt como uma instrução inicial
-    // Se o histórico estiver vazio, apenas começamos. Se não, mantemos o fluxo
-    if (geminiContents.length === 0) {
+    } else {
+      // Fallback
       geminiContents.push({
         role: "user",
         parts: [{ text: `${systemPrompt}\n\nMensagem do Usuário: ${message}` }]
       });
-    } else {
-      // Se houver histórico, colocamos o systemPrompt no início e a nova mensagem no final
-      geminiContents.unshift({
-        role: "user",
-        parts: [{ text: `INSTRUÇÕES DE SISTEMA A SEREM SEGUIDAS RIGOROSAMENTE:\n${systemPrompt}\n\nEntendido. Vamos iniciar a conversa.` }]
-      });
-      geminiContents.push({
-        role: "user",
-        parts: [{ text: message }]
-      });
     }
 
-    // Chamar a API do Gemini
-    const reply = await callGemini(geminiContents);
+    // 8. Chamar a API do Gemini
+    const reply = await callGemini(geminiContents.slice(-12)); // manter últimas 12 mensagens para contexto otimizado
     
-    return NextResponse.json({ response: reply });
+    // 9. Processar resposta para extrair fatos de memória cognitiva se existirem
+    let cleanReply = reply;
+    let newFacts: string[] = existingFacts;
+
+    const cognitiveRegex = /<vesper-cognitive-memory>([\s\S]*?)<\/vesper-cognitive-memory>/g;
+    const cognitiveMatch = cognitiveRegex.exec(reply);
+
+    if (cognitiveMatch) {
+      try {
+        const parsedFacts = JSON.parse(cognitiveMatch[1].trim());
+        if (Array.isArray(parsedFacts)) {
+          newFacts = parsedFacts.map(f => String(f).trim()).filter(Boolean);
+
+          // Salvar ou atualizar no Supabase de forma segura
+          const { data: existingMemory } = await supabase
+            .from("chat_memory")
+            .select("id")
+            .eq("session_id", `memory_${user.id}`)
+            .limit(1);
+
+          if (existingMemory && existingMemory.length > 0) {
+            await supabase
+              .from("chat_memory")
+              .update({
+                message: { facts: newFacts, last_updated: new Date().toISOString() }
+              })
+              .eq("id", existingMemory[0].id);
+          } else {
+            await supabase
+              .from("chat_memory")
+              .insert({
+                session_id: `memory_${user.id}`,
+                message: { facts: newFacts, last_updated: new Date().toISOString() }
+              });
+          }
+        }
+        
+        // Remover a tag XML do texto final visível
+        cleanReply = cleanReply.replace(cognitiveMatch[0], "").trim();
+      } catch (err) {
+        console.error("Erro ao processar JSON de memórias cognitivas emitido pelo Gemini:", err);
+      }
+    }
+
+    // 10. Gravar a resposta limpa da IA na tabela de histórico
+    const { error: saveModelMsgError } = await supabase
+      .from("chat_memory")
+      .insert({
+        session_id: user.id,
+        message: { role: "model", text: cleanReply }
+      });
+
+    if (saveModelMsgError) {
+      console.error("Erro ao salvar resposta da IA no histórico:", saveModelMsgError.message);
+    }
+
+    return NextResponse.json({ 
+      response: cleanReply,
+      memoryFacts: newFacts
+    });
 
   } catch (error: any) {
     console.error("Erro no chatbot de IA:", error);

@@ -56,7 +56,10 @@ export default function CopilotChatPanel({
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [memoryFacts, setMemoryFacts] = useState<string[]>([]);
+  const [isMemoryOpen, setIsMemoryOpen] = useState(false);
   
   // Ações de feedback nos cartões de simulação
   const [metaSalvaFeedback, setMetaSalvaFeedback] = useState<Record<string, boolean>>({});
@@ -77,25 +80,37 @@ export default function CopilotChatPanel({
 
   const activeMonthLabel = format(targetDate, "MMMM 'de' yyyy", { locale: ptBR });
 
-  // 1. Evitar Hydration Mismatches carregando histórico após montagem
+  // 1. Carregar histórico e memórias de longo prazo do Supabase na inicialização
   useEffect(() => {
     setMounted(true);
-    const savedHistory = localStorage.getItem("vesper_copilot_chat_history");
-    if (savedHistory) {
+    
+    async function loadChatAndMemory() {
       try {
-        setMessages(JSON.parse(savedHistory));
-      } catch (e) {
-        console.error("Falha ao ler histórico de chat do localStorage:", e);
-      }
-    } else {
-      // Mensagem de boas-vindas padrão se histórico estiver vazio
-      setMessages([
-        {
-          role: "model",
-          text: "Olá! Sou o Vesper AI Copilot, seu mentor de sobrevivência financeira. Entendo perfeitamente que as coisas andam muito difíceis, mas estou aqui com você, sem julgamentos. Olhei os seus dados reais de contas e faturas de cartão.\n\nComo estou integrado ao Modo Projeção, posso simular o impacto de qualquer gasto ou empréstimo diretamente nas contas desse mês ativo na Time Machine. O que você gostaria de analisar hoje?"
+        const res = await fetch("/api/chat");
+        if (res.ok) {
+          const data = await res.json();
+          setMemoryFacts(data.memoryFacts || []);
+          
+          if (data.history && data.history.length > 0) {
+            setMessages(data.history);
+          } else {
+            // Boas-vindas padrão
+            setMessages([
+              {
+                role: "model",
+                text: "Olá! Sou o Vesper AI Copilot, seu mentor de sobrevivência financeira. Entendo perfeitamente que as coisas andam muito difíceis, mas estou aqui com você, sem julgamentos. Olhei os seus dados reais de contas e faturas de cartão.\n\nComo estou integrado ao Modo Projeção, posso simular o impacto de qualquer gasto ou empréstimo diretamente nas contas desse mês ativo na Time Machine. O que você gostaria de analisar hoje?"
+              }
+            ]);
+          }
         }
-      ]);
+      } catch (err) {
+        console.error("Erro ao carregar histórico persistente do Supabase:", err);
+      } finally {
+        setIsInitializing(false);
+      }
     }
+    
+    loadChatAndMemory();
   }, []);
 
   // 2. Scroll automático
@@ -109,22 +124,35 @@ export default function CopilotChatPanel({
     }
   }, [messages, isCopilotOpen, mounted]);
 
-  // Persistir mensagens
+  // Atualizar mensagens localmente
   const saveMessages = (newMessages: Message[]) => {
     setMessages(newMessages);
-    localStorage.setItem("vesper_copilot_chat_history", JSON.stringify(newMessages));
   };
 
-  // Limpar chat
-  const handleClearHistory = () => {
-    const defaultMsg: Message[] = [
-      {
-        role: "model",
-        text: "Olá! Chat reiniciado. Estou pronto para te ajudar com novas simulações e planejamentos financeiros no mês de " + activeMonthLabel + ". O que faremos agora?"
+  // Limpar chat no Supabase (com opção de reset total de memória)
+  const handleClearHistory = async (resetAll = false) => {
+    setIsLoading(true);
+    try {
+      const url = resetAll ? "/api/chat?reset_all=true" : "/api/chat";
+      const res = await fetch(url, { method: "DELETE" });
+      if (res.ok) {
+        const defaultMsg: Message[] = [
+          {
+            role: "model",
+            text: `Olá! Chat reiniciado. Estou pronto para te ajudar com novas simulações e planejamentos financeiros no mês de ${activeMonthLabel}. O que faremos agora?`
+          }
+        ];
+        setMessages(defaultMsg);
+        if (resetAll) {
+          setMemoryFacts([]);
+        }
+        onSimulate(null);
       }
-    ];
-    saveMessages(defaultMsg);
-    onSimulate(null);
+    } catch (e) {
+      console.error("Falha ao limpar histórico no Supabase:", e);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // 3. Parser de Simulações
@@ -161,11 +189,11 @@ export default function CopilotChatPanel({
       setMessage("");
     }
 
+    // Adicionar a mensagem do usuário na tela localmente de imediato
     const updatedHistory = [...messages, { role: "user" as const, text: activeMsg }];
-    saveMessages(updatedHistory);
+    setMessages(updatedHistory);
     setIsLoading(true);
 
-    // Preparar resumo de projeção atual da tela para enriquecer o RAG em tempo real
     const projectionSummary = {
       netLiquidityCents,
       accumulatedBalanceCents,
@@ -180,7 +208,6 @@ export default function CopilotChatPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: activeMsg,
-          history: updatedHistory.slice(-10), // últimas 10 mensagens de contexto
           monthOffset,
           monthLabel: activeMonthLabel,
           projectionSummary
@@ -192,10 +219,14 @@ export default function CopilotChatPanel({
       }
 
       const data = await response.json();
-      const nextHistory = [...updatedHistory, { role: "model" as const, text: data.response }];
-      saveMessages(nextHistory);
+      
+      // Atualizar mensagens e memórias com o retorno limpo da IA
+      setMessages([...updatedHistory, { role: "model" as const, text: data.response }]);
+      if (data.memoryFacts) {
+        setMemoryFacts(data.memoryFacts);
+      }
     } catch (error) {
-      saveMessages([
+      setMessages([
         ...updatedHistory,
         {
           role: "model",
@@ -323,7 +354,7 @@ export default function CopilotChatPanel({
 
         <div className="flex items-center gap-2">
           <button
-            onClick={handleClearHistory}
+            onClick={() => handleClearHistory(false)}
             className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-[8px] font-black uppercase text-white/60 hover:text-white transition-all border border-white/5"
             title="Limpar Histórico"
           >
@@ -354,9 +385,74 @@ export default function CopilotChatPanel({
         </span>
       </div>
 
+      {/* Painel Cognitivo do Jarvis (🧠 Memória de Longo Prazo) */}
+      {memoryFacts.length > 0 && (
+        <div className="relative z-10 px-6 py-2.5 bg-indigo-500/5 border-b border-indigo-500/10 flex flex-col shrink-0">
+          <button 
+            type="button"
+            onClick={() => setIsMemoryOpen(!isMemoryOpen)}
+            className="flex items-center justify-between text-left w-full hover:opacity-80 transition-opacity"
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+              <span className="text-[8px] font-black text-indigo-300 uppercase tracking-widest flex items-center gap-1.5">
+                🧠 Jarvis Lembra de {memoryFacts.length} fatos
+              </span>
+            </div>
+            <span className="text-[7px] font-black text-indigo-400/60 uppercase">
+              {isMemoryOpen ? "Recolher" : "Visualizar"}
+            </span>
+          </button>
+
+          <AnimatePresence>
+            {isMemoryOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden mt-2 border-t border-indigo-500/5 pt-2"
+              >
+                <div className="max-h-24 overflow-y-auto space-y-1 custom-scrollbar pr-1">
+                  {memoryFacts.map((fact, idx) => (
+                    <div key={idx} className="flex items-start gap-1.5 text-[8.5px] font-bold text-white/70 bg-white/[0.01] hover:bg-white/[0.02] border border-white/5 rounded-lg p-1.5 leading-normal">
+                      <span className="text-indigo-400 shrink-0 select-none">•</span>
+                      <span>{fact}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-end pt-1.5 mt-1 border-t border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => handleClearHistory(true)}
+                    className="text-[7px] font-black uppercase text-red-400/60 hover:text-red-400 transition-colors"
+                    title="Apagar permanentemente a memória de longo prazo da IA"
+                  >
+                    Resetar Memória de Longo Prazo
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
       {/* Área de Mensagens */}
       <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar relative z-10">
-        {messages.map((msg, index) => {
+        {isInitializing ? (
+          <div className="space-y-4">
+            {[1, 2].map((i) => (
+              <div key={i} className="flex gap-3 max-w-[80%] animate-pulse">
+                <div className="w-7 h-7 rounded-lg bg-white/5 border border-white/5" />
+                <div className="space-y-2 flex-1">
+                  <div className="h-4 bg-white/5 rounded-[12px] w-3/4" />
+                  <div className="h-3 bg-white/5 rounded-[8px] w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          messages.map((msg, index) => {
           const parsed = parseMessageTextAndSimulations(msg.text);
           return (
             <div key={index} className="space-y-3">
@@ -540,7 +636,7 @@ export default function CopilotChatPanel({
               })}
             </div>
           );
-        })}
+        }))}
 
         {isLoading && (
           <div className="flex gap-3 max-w-[90%]">
