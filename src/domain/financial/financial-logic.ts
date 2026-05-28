@@ -417,13 +417,22 @@ export function calculateMonthlyOutlook(params: {
   const baseMonthlyExpenses = monthOffset === 0 ? Math.max(scheduledExpensesCents, effectiveRecurringExpenses) : effectiveRecurringExpenses;
 
   // No futuro, as reservas são o valor total planejado (pois não há gasto ainda)
-  const budgetReserves = budgets.reduce((sum, b) => {
+  const baseBudgetReserves = budgets.reduce((sum, b) => {
     const reserve = monthOffset === 0
       ? Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0))
       : (b.amount_cents || 0);
     // Se a reserva atual for 0 mas houver um budget definido, mostramos o planejado para manter o card preenchido
     return sum + (reserve || (b.amount_cents || 0));
   }, 0);
+
+  // Aportes em Metas (Compromisso de poupança mensal ativo - suspenso de forma inteligente se o usuário estiver com liquidez líquida real negativa)
+  const goalContributions = (netLiquidityCents < 0)
+    ? 0
+    : goals
+        .filter(g => g.status === "active" || g.status === "ACTIVE")
+        .reduce((sum, g) => sum + (Number(g.monthly_contribution_cents) || 0), 0);
+
+  const budgetReserves = baseBudgetReserves + goalContributions;
 
   // Parcelas de Cartão para o mês específico (Calculado a partir de futureTransactions + allTransactions)
   // Consolidamos todas as transações para garantir que parcelas com data de compra no mês atual 
@@ -450,7 +459,8 @@ export function calculateMonthlyOutlook(params: {
         if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
           return sum + s.customInstallmentCents;
         }
-        return sum + calculateLoanInstallment(s.amount_cents, s.interestRate || 0, s.installments);
+        const rate = (s.interestRate && s.interestRate > 0) ? s.interestRate : 9.53;
+        return sum + calculateLoanInstallment(s.amount_cents, rate, s.installments);
       }
       return sum;
     }
@@ -566,9 +576,11 @@ export function calculateMonthlyOutlook(params: {
         .reduce((sum, t) => sum + (t.amount_cents || 0), 0);
         
       const budgetReserve = budgets.reduce((sum, b) => sum + (b.amount_cents || 0), 0);
-      const goalContributions = goals
-        .filter(g => g.status === "active" || g.status === "ACTIVE")
-        .reduce((sum, g) => sum + (Number(g.monthly_contribution_cents) || 0), 0);
+      const goalContributions = (netLiquidityCents < 0 || currentBalance < 0)
+        ? 0
+        : goals
+            .filter(g => g.status === "active" || g.status === "ACTIVE")
+            .reduce((sum, g) => sum + (Number(g.monthly_contribution_cents) || 0), 0);
         
       const simulationExpenses = activeSimulations.reduce((sum, s) => {
         const startOffset = s.startMonthOffset ?? 0;
@@ -578,7 +590,8 @@ export function calculateMonthlyOutlook(params: {
             if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
               return sum + s.customInstallmentCents;
             }
-            return sum + calculateLoanInstallment(s.amount_cents, s.interestRate || 0, s.installments);
+            const rate = (s.interestRate && s.interestRate > 0) ? s.interestRate : 9.53;
+            return sum + calculateLoanInstallment(s.amount_cents, rate, s.installments);
           }
           return sum;
         }
@@ -789,10 +802,12 @@ export function calculateAdvancedProjection(params: {
     // 3. Reservas de Orçamento (Provisão mensal total planejada)
     const budgetReserve = budgets.reduce((sum, b) => sum + (Number(b.amount_cents) || 0), 0);
 
-    // 4. Aportes em Metas (Compromisso de poupança mensal ativo)
-    const goalContributions = goals
-      .filter(g => g.status === "active" || g.status === "ACTIVE")
-      .reduce((sum, g) => sum + (Number(g.monthly_contribution_cents) || 0), 0);
+    // 4. Aportes em Metas (Compromisso de poupança mensal ativo - suspenso se a liquidez de partida ou o saldo acumulado estiver no vermelho)
+    const goalContributions = (currentNetLiquidity < 0 || projectedBalance < 0)
+      ? 0
+      : goals
+          .filter(g => g.status === "active" || g.status === "ACTIVE")
+          .reduce((sum, g) => sum + (Number(g.monthly_contribution_cents) || 0), 0);
 
     // 5. Impacto das Simulações Ativas
     const simulationExpenses = activeSimulations.reduce((sum, s) => {
@@ -804,7 +819,8 @@ export function calculateAdvancedProjection(params: {
           if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
             return sum + s.customInstallmentCents;
           }
-          return sum + calculateLoanInstallment(s.amount_cents, s.interestRate || 0, s.installments);
+          const rate = (s.interestRate && s.interestRate > 0) ? s.interestRate : 9.53;
+          return sum + calculateLoanInstallment(s.amount_cents, rate, s.installments);
         }
         return sum;
       }

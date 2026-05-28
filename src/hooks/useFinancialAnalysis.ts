@@ -223,7 +223,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
         if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
           return sum + s.customInstallmentCents;
         }
-        return sum + calculateLoanInstallment(s.amount_cents, s.interestRate || 0, s.installments);
+        const rate = (s.interestRate && s.interestRate > 0) ? s.interestRate : 9.53;
+        return sum + calculateLoanInstallment(s.amount_cents, rate, s.installments);
       }
       
       if (s.type === "INCOME") return sum;

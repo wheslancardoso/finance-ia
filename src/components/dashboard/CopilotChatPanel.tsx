@@ -639,8 +639,9 @@ export default function CopilotChatPanel({
                           let installmentCents = Math.round(amountCents / sim.installments);
                           if (sim.customInstallment && sim.customInstallment > 0) {
                             installmentCents = Math.round(sim.customInstallment * 100);
-                          } else if (sim.type === "loan" && sim.interestRate && sim.interestRate > 0) {
-                            const i = sim.interestRate / 100;
+                          } else if (sim.type === "loan") {
+                            const rate = (sim.interestRate && sim.interestRate > 0) ? sim.interestRate : 9.53;
+                            const i = rate / 100;
                             const n = sim.installments;
                             const pmt = amountCents * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
                             installmentCents = Math.round(pmt);

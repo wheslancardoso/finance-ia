@@ -25,7 +25,7 @@ import CopilotChatPanel from "./dashboard/CopilotChatPanel";
 // Hooks
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 import { useFinancialData } from "@/context/FinancialDataContext";
-import { getTransactionImpactDate, isRecurringExpired } from "@/domain/financial/financial-logic";
+import { getTransactionImpactDate, isRecurringExpired, calculateLoanInstallment } from "@/domain/financial/financial-logic";
 
 interface RealtimeDashboardProps {
   initialBalance: number;
@@ -118,15 +118,32 @@ export default function RealtimeDashboard({
     // 3. Adicionar Simulações Ativas
     const simulations = activeSimulations.flatMap((sim, simIdx) => {
       const installments = sim.installments || 1;
-      const monthlyAmount = Math.round(sim.amount_cents / installments);
+      
+      let monthlyAmount = Math.round(sim.amount_cents / installments);
+      if (sim.isLoan || (sim.interestRate && sim.interestRate > 0 && sim.type === "INCOME")) {
+        if (sim.customInstallmentCents !== undefined && sim.customInstallmentCents > 0) {
+          monthlyAmount = sim.customInstallmentCents;
+        } else {
+          const rate = (sim.interestRate && sim.interestRate > 0) ? sim.interestRate : 9.53;
+          monthlyAmount = calculateLoanInstallment(sim.amount_cents, rate, installments);
+        }
+      } else if (sim.customInstallmentCents !== undefined && sim.customInstallmentCents > 0) {
+        monthlyAmount = sim.customInstallmentCents;
+      }
+
       const results = [];
+      const startOffset = sim.startMonthOffset ?? 0;
 
       for (let i = 0; i < installments; i++) {
-        const simDate = addMonths(new Date(), i);
+        const simDate = addMonths(new Date(), startOffset + i);
         if (isSameMonth(simDate, targetDate)) {
+          const cleanDesc = (sim.description || 'Compra').startsWith("Simulado: ")
+            ? (sim.description || 'Compra').replace("Simulado: ", "")
+            : (sim.description || 'Compra');
+
           results.push({
             id: `sim-tx-${simIdx}-${i}`,
-            description: `Simulado: ${sim.description || 'Compra'} (${i + 1}/${installments})`,
+            description: `Simulado: ${cleanDesc} (${i + 1}/${installments})`,
             amount_cents: monthlyAmount,
             transaction_type: "EXPENSE" as const,
             date: simDate.toISOString(),
