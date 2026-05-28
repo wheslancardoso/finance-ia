@@ -18,6 +18,7 @@ import { useFinancialData } from "@/context/FinancialDataContext";
 import { useTransactionModal } from "@/context/TransactionModalContext";
 import { format, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { db } from "@/lib/db";
 
 interface TransactionsContentProps {
   initialTransactions: any[];
@@ -61,34 +62,42 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
   React.useEffect(() => {
     if (monthTransactions && localTransactions && hasFetchedOnce) {
       const currentMonthMap = new Map(monthTransactions.map(t => [t.id, t]));
-      setLocalTransactions(prev => {
-        const prevArray = Array.isArray(prev) ? prev : [];
+      
+      // Consultar transações no Dexie para fazer diffing de deleção
+      db.transactions.toArray().then((allLocalDbTxs) => {
+        const dbTxIds = new Set(allLocalDbTxs.map(t => t.id));
         
-        // 1. Atualizar transações locais com os dados mais recentes vindos do contexto do mês.
-        // A deleção não é feita por diffing aqui, pois monthTransactions omite parcelas de cartão
-        // que fecharam para o mês seguinte. A deleção real já é gerenciada por router.refresh() 
-        // nas ações do sistema, que re-alimenta initialTransactions.
-        let hasChanges = false;
-        const updated = prevArray.map(tx => {
-          const latest = currentMonthMap.get(tx.id);
-          if (!latest) return tx; // Mantém transações de outros meses/faturas intactas
+        setLocalTransactions(prev => {
+          const prevArray = Array.isArray(prev) ? prev : [];
+          
+          // 1. Filtrar as deletadas (que sumiram do Dexie)
+          const filtered = prevArray.filter(tx => dbTxIds.has(tx.id));
+          
+          // 2. Atualizar transações locais com os dados mais recentes vindos do contexto do mês.
+          let hasChanges = filtered.length !== prevArray.length;
+          const updated = filtered.map(tx => {
+            const latest = currentMonthMap.get(tx.id);
+            if (!latest) return tx; // Mantém transações de outros meses/faturas intactas
 
-          // Merge profundo: monthTransactions do contexto não carrega JOIN com accounts/categories.
-          const merged = {
-            ...latest,
-            account: (latest.account && latest.account.type) ? latest.account : tx.account,
-            category: latest.category ?? tx.category,
-          };
+            // Merge profundo: monthTransactions do contexto não carrega JOIN com accounts/categories.
+            const merged = {
+              ...latest,
+              account: (latest.account && latest.account.type) ? latest.account : tx.account,
+              category: latest.category ?? tx.category,
+            };
 
-          if (JSON.stringify({ ...latest, account: undefined, category: undefined }) !==
-              JSON.stringify({ ...tx,     account: undefined, category: undefined })) {
-            hasChanges = true;
-            return merged;
-          }
-          return tx;
+            if (JSON.stringify({ ...latest, account: undefined, category: undefined }) !==
+                JSON.stringify({ ...tx,     account: undefined, category: undefined })) {
+              hasChanges = true;
+              return merged;
+            }
+            return tx;
+          });
+
+          return hasChanges ? updated : prev;
         });
-
-        return hasChanges ? updated : prev;
+      }).catch(err => {
+        console.error("Erro ao ler transações do Dexie para sincronização:", err);
       });
     }
   }, [monthTransactions, hasFetchedOnce]);

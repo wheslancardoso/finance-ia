@@ -426,13 +426,8 @@ export function calculateMonthlyOutlook(params: {
   }, 0);
 
   // Aportes em Metas (Compromisso de poupança mensal ativo - suspenso de forma inteligente se o usuário estiver com liquidez líquida real negativa)
-  const goalContributions = (netLiquidityCents < 0)
-    ? 0
-    : goals
-        .filter(g => g.status === "active" || g.status === "ACTIVE")
-        .reduce((sum, g) => sum + (Number(g.monthly_contribution_cents) || 0), 0);
-
-  const budgetReserves = baseBudgetReserves + goalContributions;
+  let goalContributions = 0;
+  let budgetReserves = baseBudgetReserves;
 
   // Parcelas de Cartão para o mês específico (Calculado a partir de futureTransactions + allTransactions)
   // Consolidamos todas as transações para garantir que parcelas com data de compra no mês atual 
@@ -533,6 +528,24 @@ export function calculateMonthlyOutlook(params: {
     (monthOffset === 0 ? (budgets.reduce((sum, b) => sum + Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0)), 0)) : (budgets.reduce((sum, b) => sum + (b.amount_cents || 0), 0))) +
     simulationExpenseImpact;
 
+  // Aportes em Metas (Compromisso de poupança mensal ativo com priorização inteligente)
+  const finalBalanceBeforeGoals = liquidity + adjustedMonthlyIncome - realOutflow;
+  if (netLiquidityCents >= 0 && finalBalanceBeforeGoals >= 0) {
+    const activeGoals = goals.filter(g => g.status === "active" || g.status === "ACTIVE");
+    const sortedGoals = [...activeGoals].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+    let remainingSurplus = finalBalanceBeforeGoals;
+    for (const g of sortedGoals) {
+      const contribution = Number(g.monthly_contribution_cents) || 0;
+      if (remainingSurplus >= contribution) {
+        goalContributions += contribution;
+        remainingSurplus -= contribution;
+      } else {
+        break;
+      }
+    }
+  }
+  budgetReserves = baseBudgetReserves + goalContributions;
+
   // 1. CÁLCULO DE DÍVIDA TOTAL REMANESCENTE COM AMORTIZAÇÃO (Time Machine)
   // Permite decair a dívida total física consolidada à medida que as faturas mensais são pagas,
   // garantindo no mínimo a fatura do próprio mês (sincronia perfeita).
@@ -576,11 +589,7 @@ export function calculateMonthlyOutlook(params: {
         .reduce((sum, t) => sum + (t.amount_cents || 0), 0);
         
       const budgetReserve = budgets.reduce((sum, b) => sum + (b.amount_cents || 0), 0);
-      const goalContributions = (netLiquidityCents < 0 || currentBalance < 0)
-        ? 0
-        : goals
-            .filter(g => g.status === "active" || g.status === "ACTIVE")
-            .reduce((sum, g) => sum + (Number(g.monthly_contribution_cents) || 0), 0);
+      let goalContributions = 0;
         
       const simulationExpenses = activeSimulations.reduce((sum, s) => {
         const startOffset = s.startMonthOffset ?? 0;
@@ -622,6 +631,22 @@ export function calculateMonthlyOutlook(params: {
         }
         return sum;
       }, 0);
+      
+      const availableSurplus = currentBalance + income + simulationIncomes - expenses - installments - budgetReserve - simulationExpenses;
+      if (netLiquidityCents >= 0 && currentBalance >= 0 && availableSurplus >= 0) {
+        const activeGoals = goals.filter(g => g.status === "active" || g.status === "ACTIVE");
+        const sortedGoals = [...activeGoals].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+        let remainingSurplus = availableSurplus;
+        for (const g of sortedGoals) {
+          const contribution = Number(g.monthly_contribution_cents) || 0;
+          if (remainingSurplus >= contribution) {
+            goalContributions += contribution;
+            remainingSurplus -= contribution;
+          } else {
+            break;
+          }
+        }
+      }
       
       const monthlyResult = income + simulationIncomes - expenses - installments - budgetReserve - goalContributions - simulationExpenses;
       currentBalance += monthlyResult;
@@ -802,12 +827,8 @@ export function calculateAdvancedProjection(params: {
     // 3. Reservas de Orçamento (Provisão mensal total planejada)
     const budgetReserve = budgets.reduce((sum, b) => sum + (Number(b.amount_cents) || 0), 0);
 
-    // 4. Aportes em Metas (Compromisso de poupança mensal ativo - suspenso se a liquidez de partida ou o saldo acumulado estiver no vermelho)
-    const goalContributions = (currentNetLiquidity < 0 || projectedBalance < 0)
-      ? 0
-      : goals
-          .filter(g => g.status === "active" || g.status === "ACTIVE")
-          .reduce((sum, g) => sum + (Number(g.monthly_contribution_cents) || 0), 0);
+    // 4. Aportes em Metas (Compromisso de poupança mensal ativo com priorização inteligente)
+    let goalContributions = 0;
 
     // 5. Impacto das Simulações Ativas
     const simulationExpenses = activeSimulations.reduce((sum, s) => {
@@ -854,6 +875,22 @@ export function calculateAdvancedProjection(params: {
       }
       return sum;
     }, 0);
+
+    const availableSurplus = projectedBalance + income + simulationIncomes - expenses - installments - budgetReserve - simulationExpenses;
+    if (currentNetLiquidity >= 0 && projectedBalance >= 0 && availableSurplus >= 0) {
+      const activeGoals = goals.filter(g => g.status === "active" || g.status === "ACTIVE");
+      const sortedGoals = [...activeGoals].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+      let remainingSurplus = availableSurplus;
+      for (const g of sortedGoals) {
+        const contribution = Number(g.monthly_contribution_cents) || 0;
+        if (remainingSurplus >= contribution) {
+          goalContributions += contribution;
+          remainingSurplus -= contribution;
+        } else {
+          break;
+        }
+      }
+    }
 
     // Resultado do mês: o que sobra (surplus) ou falta (deficit)
     const monthlyResult = income + simulationIncomes - expenses - installments - budgetReserve - goalContributions - simulationExpenses;

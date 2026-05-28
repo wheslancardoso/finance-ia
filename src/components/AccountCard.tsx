@@ -52,6 +52,43 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
   const [showAdjustmentInput, setShowAdjustmentInput] = useState(false);
   const [adjustmentValue, setAdjustmentValue] = useState("");
 
+  const [hasFearWarning, setHasFearWarning] = useState(false);
+
+  React.useEffect(() => {
+    const checkMemories = () => {
+      try {
+        const stored = localStorage.getItem('vesper_jarvis_memories');
+        console.log(`🧠 [E2E AccountCard] Checking memories for ${name}: ${stored}`);
+        if (stored) {
+          const memories: string[] = JSON.parse(stored);
+          const nameLower = name.toLowerCase();
+          const matchesFear = memories.some(m => {
+            const mLower = m.toLowerCase();
+            return mLower.includes(nameLower) && (
+              mLower.includes('teme') || 
+              mLower.includes('medo') || 
+              mLower.includes('estourar') || 
+              mLower.includes('rombo') ||
+              mLower.includes('preocupado')
+            );
+          });
+          setHasFearWarning(matchesFear);
+        } else {
+          setHasFearWarning(false);
+        }
+      } catch (e) {
+        setHasFearWarning(false);
+      }
+    };
+
+    checkMemories();
+
+    window.addEventListener('jarvis-memories-updated', checkMemories);
+    return () => {
+      window.removeEventListener('jarvis-memories-updated', checkMemories);
+    };
+  }, [name]);
+
   // Detectar status da fatura
   const openAmount = liveAccount.open_invoice_cents || 0;
   const closedAmount = liveAccount.closed_invoice_cents || 0;
@@ -122,7 +159,17 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
             )}
           </div>
           <div>
-            <h3 className="text-white font-semibold text-lg leading-none mb-1">{name}</h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-white font-semibold text-lg leading-none">{name}</h3>
+              {hasFearWarning && (
+                <span 
+                  data-testid="jarvis-fear-badge" 
+                  className="px-1.5 py-0.5 rounded-lg bg-red-500/20 border border-red-500/30 text-[8px] font-black uppercase tracking-widest text-red-400 animate-pulse shrink-0"
+                >
+                  Teto Rigoroso
+                </span>
+              )}
+            </div>
             <span className="text-white/40 text-xs uppercase tracking-widest font-medium">
               {type === "CHECKING" ? "Conta Corrente" : 
                type === "SAVINGS" ? "Investimento" : 

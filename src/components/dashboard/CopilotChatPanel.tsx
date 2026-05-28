@@ -111,6 +111,10 @@ export default function CopilotChatPanel({
         if (res.ok) {
           const data = await res.json();
           setMemoryFacts(data.memoryFacts || []);
+          if (typeof window !== "undefined") {
+            localStorage.setItem('vesper_jarvis_memories', JSON.stringify(data.memoryFacts || []));
+            window.dispatchEvent(new CustomEvent('jarvis-memories-updated'));
+          }
           if (data.groupedFacts) {
             setGroupedFacts(data.groupedFacts);
           } else {
@@ -176,6 +180,10 @@ export default function CopilotChatPanel({
         setMessages(defaultMsg);
         if (resetAll) {
           setMemoryFacts([]);
+          if (typeof window !== "undefined") {
+            localStorage.setItem('vesper_jarvis_memories', JSON.stringify([]));
+            window.dispatchEvent(new CustomEvent('jarvis-memories-updated'));
+          }
           setGroupedFacts({ profile: [], goals: [], fears: [], preferences: [] });
         }
         onSimulate(null);
@@ -263,6 +271,10 @@ export default function CopilotChatPanel({
       setMessages([...updatedHistory, { role: "model" as const, text: data.response }]);
       if (data.memoryFacts) {
         setMemoryFacts(data.memoryFacts);
+        if (typeof window !== "undefined") {
+          localStorage.setItem('vesper_jarvis_memories', JSON.stringify(data.memoryFacts || []));
+          window.dispatchEvent(new CustomEvent('jarvis-memories-updated'));
+        }
       }
       if (data.groupedFacts) {
         setGroupedFacts(data.groupedFacts);

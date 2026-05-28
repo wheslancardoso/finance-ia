@@ -237,6 +237,36 @@ export function AddTransactionModal() {
         setLoading(false);
         return;
       }
+      if (parsedAmount <= 0) {
+        setStatusModal({
+          isOpen: true,
+          title: "Valor Inválido",
+          message: "O valor informado deve ser maior que zero.",
+          type: "error"
+        });
+        setLoading(false);
+        return;
+      }
+      if (parsedAmount > 100000000) {
+        setStatusModal({
+          isOpen: true,
+          title: "Valor Exorbitante",
+          message: "O valor informado excede o limite máximo de R$ 100.000.000,00.",
+          type: "error"
+        });
+        setLoading(false);
+        return;
+      }
+      if (capturedInstallments > 99) {
+        setStatusModal({
+          isOpen: true,
+          title: "Parcelas Excedidas",
+          message: "O número máximo de parcelas permitido é 99.",
+          type: "error"
+        });
+        setLoading(false);
+        return;
+      }
       const totalAmountCents = Math.round(parsedAmount * 100);
       const installmentAmountCents = Math.floor(totalAmountCents / capturedInstallments);
 

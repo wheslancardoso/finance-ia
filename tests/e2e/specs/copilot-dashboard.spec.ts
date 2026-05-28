@@ -120,6 +120,11 @@ test.describe('Modo Copiloto de IA (Modo Jarvis) e Simulações no Chat', () => 
 
     // Deve responder com feedback de sucesso ("Agendado!")
     await expect(page.getByRole('button', { name: 'Agendado!' })).toBeVisible();
+
+    // 8. Navegar para transações e certificar o agendamento real das parcelas (Test 4.3)
+    await page.goto('/transactions');
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByText('Notebook de Estudos').first()).toBeVisible({ timeout: 10000 });
   });
 
   test('deve testar a limpeza de histórico normal mantendo a memória cognitiva e resetando-a ao forçar reset_all', async ({ page, isMobile }) => {
@@ -230,5 +235,97 @@ test.describe('Modo Copiloto de IA (Modo Jarvis) e Simulações no Chat', () => 
     expect(payloadEnviado).not.toBeNull();
     expect(payloadEnviado.monthLabel).toContain('junho de 2026');
     expect(payloadEnviado.monthOffset).toBe(1);
+  });
+
+  test('deve lidar com indisponibilidade do Gemini (Offline 503) exibindo erro amigável (Test 4.1)', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'Modo Copiloto lateral em duas colunas é apenas para Desktop');
+    const dashboard = new DashboardPage(page);
+
+    await setupFinancialMocks(page, createDashboardState());
+
+    // Intercepta POST /api/chat para simular 503
+    await page.route(url => url.pathname.endsWith('/api/chat'), async (route) => {
+      const method = route.request().method();
+      if (method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ history: [], memoryFacts: [] })
+        });
+      } else if (method === 'POST') {
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'Gemini service is temporarily unavailable.' })
+        });
+      }
+    });
+
+    await dashboard.goto();
+
+    // Abrir o Copiloto
+    await page.getByTestId('toggle-copilot-button').click();
+
+    // Enviar mensagem
+    const inputChat = page.getByPlaceholder('Peça análises de compras, metas ou crédito...');
+    await inputChat.fill('Olá');
+    await page.keyboard.press('Enter');
+
+    // Chat deve exibir mensagem de erro amigável
+    await expect(page.getByText('tive um pequeno problema ao processar seu pedido')).toBeVisible({ timeout: 15000 });
+  });
+
+  test('deve injetar reativamente memórias de medo do Jarvis no dashboard físico (Test 4.2)', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'Modo Copiloto lateral em duas colunas é apenas para Desktop');
+    const dashboard = new DashboardPage(page);
+
+    const state = createDashboardState({
+      accounts: [
+        { 
+          id: 'acc-credit-nubank', 
+          name: 'Cartão Nubank', 
+          type: 'CREDIT_CARD', 
+          balance_cents: 0,
+          credit_limit_cents: 200000,
+          user_id: USER_ID 
+        }
+      ]
+    });
+
+    await setupFinancialMocks(page, state);
+
+    // Moca a rota GET /api/chat para retornar preocupação do Nubank
+    await page.route(url => url.pathname.endsWith('/api/chat'), async (route) => {
+      const method = route.request().method();
+      if (method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            history: [],
+            memoryFacts: ["Usuário teme estourar cartão Nubank"]
+          })
+        });
+      }
+    });
+
+    // Injetar os fatos diretamente no localStorage antes de ir para o dashboard para garantir a reatividade
+    await page.addInitScript(() => {
+      localStorage.setItem('vesper_jarvis_memories', JSON.stringify(["Usuário teme estourar cartão Nubank"]));
+    });
+
+    await dashboard.goto();
+
+    // Abrir o Copiloto para carregar memórias do chat
+    await page.getByTestId('toggle-copilot-button').click();
+
+    // Navegar para a página de contas onde o AccountCard do Nubank é renderizado
+    await page.goto('/accounts');
+    await page.waitForLoadState('networkidle');
+
+    // O dashboard físico deve reativamente renderizar o badge de teto rigoroso no Nubank
+    const nubankCard = page.getByTestId('account-card-acc-credit-nubank');
+    await expect(nubankCard.getByTestId('jarvis-fear-badge')).toBeVisible({ timeout: 10000 });
+    await expect(nubankCard.getByText('Teto Rigoroso')).toBeVisible();
   });
 });

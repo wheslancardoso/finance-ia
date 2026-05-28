@@ -197,6 +197,7 @@ export const financialService = {
       const payloadFallback = {
         ...payload,
         amount: (payload.amount_cents || 0) / 100,
+        sync_status: "pending",
       };
       await db.transactions.put(payloadFallback);
       console.warn("⚠️ Transação salva apenas localmente (Dexie)");

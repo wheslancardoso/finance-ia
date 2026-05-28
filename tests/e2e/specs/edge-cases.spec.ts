@@ -7,6 +7,7 @@ test.describe('Cenários de Borda e Resiliência (Blindagem)', () => {
   const USER_ID = 'edge-user';
 
   test.beforeEach(async ({ page, context }) => {
+    page.on('console', msg => console.log(`BROWSER [${msg.type()}]: ${msg.text()}`));
     await setupAuthMock(page, { id: USER_ID });
     await context.addCookies([{
       name: 'sb-mock-user-id',
@@ -129,5 +130,137 @@ test.describe('Cenários de Borda e Resiliência (Blindagem)', () => {
     expect(dates[2]).toBe('2026-03-31');
     expect(dates[3]).toBe('2026-04-30');
     expect(dates[4]).toBe('2026-05-31');
+  });
+
+  test('deve lidar com sincronização offline-first de transações manuais via Dexie e Supabase (Test 5.1)', async ({ page }) => {
+    const state = createInitialState({
+      accounts: [
+        { id: 'acc-checking-1', name: 'Conta Principal', type: 'CHECKING', balance_cents: 200000, user_id: USER_ID }
+      ],
+      categories: [
+        { id: 'cat-lazer', name: 'Lazer', type: 'EXPENSE', user_id: USER_ID }
+      ]
+    });
+    await setupFinancialMocks(page, state);
+
+    let shouldFail = true;
+    let syncedTxPayload: any = null;
+
+    // Interceptar a API de transações para falhar enquanto offline e funcionar quando online
+    await page.route(url => url.pathname.endsWith('/api/transactions'), async (route) => {
+      const method = route.request().method();
+      if (shouldFail) {
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'Offline network error' })
+        });
+      } else {
+        if (method === 'POST') {
+          syncedTxPayload = route.request().postDataJSON();
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: 'synced-tx-999',
+            ...route.request().postDataJSON()
+          })
+        });
+      }
+    });
+
+    await page.goto('/transactions');
+
+    const openAddModal = async () => {
+      const desktopBtn = page.getByTestId('add-transaction-button');
+      if (await desktopBtn.isVisible()) {
+        await desktopBtn.click();
+      } else {
+        const mobileBtn = page.getByTestId('mobile-add-button');
+        await mobileBtn.waitFor({ state: 'visible' });
+        await mobileBtn.click();
+      }
+    };
+    await openAddModal();
+    await expect(page.getByTestId('add-transaction-modal')).toBeVisible();
+
+    // Preenche a transação offline
+    await page.getByTestId('transaction-amount-input').fill('350,00');
+    await page.getByTestId('transaction-description-input').fill('Almoço Offline');
+
+    await page.getByTestId('transaction-account-select').click();
+    await page.getByTestId('account-option-acc-checking-1').click();
+
+    await page.getByTestId('transaction-category-select').click();
+    await page.getByText('Lazer').first().click();
+
+    // Salvar
+    await page.getByTestId('transaction-submit-button').click();
+
+    // Esperar o modal fechar (indicando que foi salva localmente)
+    await page.getByTestId('add-transaction-modal').waitFor({ state: 'hidden', timeout: 10000 });
+
+    // Recarregar a página para forçar a re-leitura do Dexie local no modo offline
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
+    // Validar presença local
+    await expect(page.getByText('Almoço Offline').first()).toBeVisible({ timeout: 10000 });
+
+    // Restaurar rede e disparar evento online
+    shouldFail = false;
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('online'));
+    });
+
+    // Validar que a transação foi disparada com sucesso para o banco de dados remoto
+    await expect.poll(() => syncedTxPayload, { timeout: 10000 }).not.toBeNull();
+    expect(syncedTxPayload.description).toBe('Almoço Offline');
+    expect(syncedTxPayload.amount_cents).toBe(35000);
+  });
+
+  test('deve validar e rejeitar inputs extremos ou invalidos no AddTransactionModal (Test 5.2)', async ({ page }) => {
+    const state = createInitialState({
+      accounts: [
+        { id: 'acc-checking-1', name: 'Conta Principal', type: 'CHECKING', balance_cents: 200000, user_id: USER_ID }
+      ],
+      categories: [
+        { id: 'cat-lazer', name: 'Lazer', type: 'EXPENSE', user_id: USER_ID }
+      ]
+    });
+    await setupFinancialMocks(page, state);
+    await page.goto('/transactions');
+
+    const openAddModal = async () => {
+      const desktopBtn = page.getByTestId('add-transaction-button');
+      if (await desktopBtn.isVisible()) {
+        await desktopBtn.click();
+      } else {
+        const mobileBtn = page.getByTestId('mobile-add-button');
+        await mobileBtn.waitFor({ state: 'visible' });
+        await mobileBtn.click();
+      }
+    };
+
+    // Cenário A: Valor negativo
+    await openAddModal();
+    await page.getByTestId('transaction-amount-input').fill('-100');
+    await page.getByTestId('transaction-description-input').fill('Valor Negativo');
+    await page.getByTestId('transaction-submit-button').click();
+    await expect(page.getByText('O valor informado deve ser maior que zero.', { exact: false })).toBeVisible();
+    await page.getByTestId('status-modal-close').click();
+
+    // Cenário B: Caracteres não numéricos
+    await page.getByTestId('transaction-amount-input').fill('abc');
+    await page.getByTestId('transaction-submit-button').click();
+    await expect(page.getByText('O valor informado não é um número válido.', { exact: false })).toBeVisible();
+    await page.getByTestId('status-modal-close').click();
+
+    // Cenário C: Valor exorbitante (Bilhões)
+    await page.getByTestId('transaction-amount-input').fill('99999999999999');
+    await page.getByTestId('transaction-submit-button').click();
+    await expect(page.getByText('O valor informado excede o limite máximo', { exact: false })).toBeVisible();
+    await page.getByTestId('status-modal-close').click();
   });
 });

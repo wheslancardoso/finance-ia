@@ -157,7 +157,25 @@ export async function setupFinancialMocks(page: Page, state: any) {
     } else if (method === 'DELETE') {
       const url = new URL(route.request().url());
       const id = url.searchParams.get('id');
-      if (id) deleteItem(state.transactions, id);
+      console.log(`💸 [MOCK] DELETE Transactions called with ID: ${id}`);
+      if (id) {
+        const cleanId = id.startsWith('eq.') ? id.substring(3) : id;
+        console.log(`cleanId: ${cleanId}`);
+        const tx = state.transactions.find((t: any) => t.id === cleanId);
+        if (tx && tx.account_id) {
+          const acc = state.accounts.find((a: any) => a.id === tx.account_id);
+          if (acc && acc.type === 'CREDIT_CARD') {
+            const amount = Number(tx.amount_cents || 0);
+            if (tx.is_adjustment) {
+              acc.closed_invoice_cents = Math.max(0, (acc.closed_invoice_cents || 0) - amount);
+            } else {
+              acc.open_invoice_cents = Math.max(0, (acc.open_invoice_cents || 0) - amount);
+            }
+          }
+        }
+        deleteItem(state.transactions, cleanId);
+        console.log(`💸 [MOCK] Transaction deleted. Remaining:`, state.transactions.map((t: any) => t.id));
+      }
       await route.fulfill({ status: 200, body: JSON.stringify({ success: true }) });
     }
   });

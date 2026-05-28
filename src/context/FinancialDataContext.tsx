@@ -347,15 +347,29 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         state.budgets ? db.budgets.where('user_id').equals(userId!).delete().then(() => 
           db.budgets.bulkPut(state.budgets.map(b => ({ ...b, user_id: userId! })))
         ) : Promise.resolve(),
-        db.transactions.where('user_id').equals(userId!).delete().then(() => {
+        // Transações: preservar pendentes de sincronização offline antes de apagar
+        (async () => {
+          const pendingTx = await db.transactions
+            .where('user_id').equals(userId!)
+            .filter(t => (t as any).sync_status === 'pending')
+            .toArray();
+
+          await db.transactions.where('user_id').equals(userId!).delete();
+
           const allTx = [
             ...(state.recent_transactions || []), 
             ...(state.month_transactions || []),
             ...(state.future_transactions || [])
           ];
           const uniqueTx = Array.from(new Map(allTx.map(t => [t.id, t])).values());
-          return db.transactions.bulkPut(uniqueTx.map(t => ({ ...t, user_id: userId! })));
-        })
+          await db.transactions.bulkPut(uniqueTx.map(t => ({ ...t, user_id: userId! })));
+
+          // Re-inserir transações pendentes de sincronização que foram salvas offline
+          if (pendingTx.length > 0) {
+            await db.transactions.bulkPut(pendingTx);
+            console.log(`🔄 ${pendingTx.length} transação(ões) offline preservada(s) durante sync.`);
+          }
+        })()
       ]).catch(err => console.error("⚠️ Falha na sincronização Dexie:", err));
 
       setLastFetched(Date.now());
@@ -647,6 +661,51 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
     loadLocalData();
   }, [userId]);
+
+  useEffect(() => {
+    const handleOnline = async () => {
+      console.log("🌐 Conexão restaurada! Sincronizando transações offline...");
+      try {
+        const pendingTx = await db.transactions
+          .filter(t => (t as any).sync_status === 'pending')
+          .toArray();
+
+        if (pendingTx.length > 0) {
+          console.log(`Encontradas ${pendingTx.length} transações pendentes de sincronização.`);
+          for (const tx of pendingTx) {
+            const payload = { ...tx };
+            delete (payload as any).sync_status;
+            
+            const response = await fetch("/api/transactions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(payload),
+            });
+            
+            if (response.ok) {
+              const saved = await response.json();
+              await db.transactions.put({ ...tx, ...saved, sync_status: undefined });
+              console.log(`✅ Transação offline ${tx.id} sincronizada com sucesso!`);
+            }
+          }
+          refreshData();
+        }
+      } catch (err) {
+        console.error("Erro ao sincronizar transações offline:", err);
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener('online', handleOnline);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener('online', handleOnline);
+      }
+    };
+  }, [refreshData]);
 
   useEffect(() => {
     const isE2E = typeof window !== 'undefined' && (window as any).__E2E_MOCK_STATE__;

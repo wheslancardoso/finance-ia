@@ -17,7 +17,8 @@ test.describe('Auditoria de Transações (Refatorado)', () => {
         { 
           id: 't1', 
           description: 'Mercado Central', 
-          amount_cents: -15000, 
+          amount_cents: 15000, 
+          transaction_type: 'EXPENSE',
           date: new Date().toISOString(), 
           category: { name: 'Alimentação', color_hex: '#ef4444' }, 
           account: { name: 'Conta Principal' },
@@ -27,7 +28,8 @@ test.describe('Auditoria de Transações (Refatorado)', () => {
         { 
           id: 't2', 
           description: 'Assinatura Netflix', 
-          amount_cents: -5590, 
+          amount_cents: 5590, 
+          transaction_type: 'EXPENSE',
           date: new Date().toISOString(), 
           category: { name: 'Lazer', color_hex: '#8b5cf6' }, 
           account: { name: 'Conta Principal' },
@@ -38,6 +40,7 @@ test.describe('Auditoria de Transações (Refatorado)', () => {
           id: 't3', 
           description: 'Pix Recebido', 
           amount_cents: 200000, 
+          transaction_type: 'INCOME',
           date: new Date().toISOString(), 
           category: { name: 'Renda', color_hex: '#10b981' }, 
           account: { name: 'Conta Principal' },

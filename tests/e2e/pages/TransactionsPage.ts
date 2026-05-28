@@ -55,6 +55,6 @@ export class TransactionsPage {
     await this.page.getByTestId('transaction-submit-button').click();
     
     // Aguardar modal fechar
-    await expect(this.page.getByTestId('transaction-modal')).not.toBeVisible();
+    await expect(this.page.getByTestId('add-transaction-modal')).not.toBeVisible();
   }
 }
