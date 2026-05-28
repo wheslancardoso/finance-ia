@@ -35,6 +35,7 @@ interface VesperSimulation {
   interestRate?: number;
   description: string;
   impactAnalysis: string;
+  customInstallment?: number;
 }
 
 interface CopilotChatPanelProps {
@@ -313,7 +314,8 @@ export default function CopilotChatPanel({
         interestRate: sim.interestRate || 0,
         type: sim.type === "loan" ? "INCOME" : "EXPENSE",
         isLoan: sim.type === "loan",
-        startMonthOffset: monthOffset
+        startMonthOffset: monthOffset,
+        customInstallmentCents: sim.customInstallment ? Math.round(sim.customInstallment * 100) : undefined
       };
       onSimulate([...activeSimulations, newSim]);
     }
@@ -635,7 +637,9 @@ export default function CopilotChatPanel({
                         {sim.installments > 1 && (() => {
                           const amountCents = sim.amount * 100;
                           let installmentCents = Math.round(amountCents / sim.installments);
-                          if (sim.type === "loan" && sim.interestRate && sim.interestRate > 0) {
+                          if (sim.customInstallment && sim.customInstallment > 0) {
+                            installmentCents = Math.round(sim.customInstallment * 100);
+                          } else if (sim.type === "loan" && sim.interestRate && sim.interestRate > 0) {
                             const i = sim.interestRate / 100;
                             const n = sim.installments;
                             const pmt = amountCents * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);

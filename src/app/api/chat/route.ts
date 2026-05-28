@@ -316,6 +316,7 @@ Suas diretrizes de comportamento e comunicação são:
        "amount": 1200.00, // valor total em reais (float)
        "installments": 6, // quantidade de parcelas (inteiro)
        "interestRate": 0, // taxa de juros mensal para empréstimos, ou 0 para parcelamento sem juros (float %)
+       "customInstallment": 200.00, // OPCIONAL: valor exato da parcela mensal (com juros se aplicável) prometido em texto para sincronia física perfeita (float)
        "description": "Breve descrição do item ou crédito simulação.",
        "impactAnalysis": "Análise concisa de como esse valor impactará as finanças projetadas do mês ativo."
      }

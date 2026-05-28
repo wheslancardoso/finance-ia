@@ -9,6 +9,7 @@ export interface Simulation {
   interestRate?: number;
   isLoan?: boolean;
   startMonthOffset?: number;
+  customInstallmentCents?: number;
 }
 
 export interface MonthlyOutlook {
@@ -447,6 +448,9 @@ export function calculateMonthlyOutlook(params: {
     if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
       if (monthOffset === startOffset) return sum; // Mês da contração apenas recebe o capital, sem parcela devida
       if (monthOffset > startOffset && monthOffset <= startOffset + s.installments) {
+        if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
+          return sum + s.customInstallmentCents;
+        }
         return sum + calculateLoanInstallment(s.amount_cents, s.interestRate || 0, s.installments);
       }
       return sum;
@@ -454,6 +458,9 @@ export function calculateMonthlyOutlook(params: {
     // Despesa parcelada normal
     if (s.type === "INCOME") return sum;
     if (monthOffset >= startOffset && monthOffset < startOffset + s.installments) {
+      if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
+        return sum + s.customInstallmentCents;
+      }
       return sum + (s.amount_cents / (s.installments || 1));
     }
     return sum;
@@ -471,6 +478,9 @@ export function calculateMonthlyOutlook(params: {
     // Receita parcelada normal
     if (s.type !== "INCOME") return sum;
     if (monthOffset >= startOffset && monthOffset < startOffset + s.installments) {
+      if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
+        return sum + s.customInstallmentCents;
+      }
       return sum + (s.amount_cents / (s.installments || 1));
     }
     return sum;
@@ -566,12 +576,18 @@ export function calculateMonthlyOutlook(params: {
         // Caso especial: Simulação de Empréstimo
         if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
           if (i > startOffset && i <= startOffset + s.installments) {
+            if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
+              return sum + s.customInstallmentCents;
+            }
             return sum + calculateLoanInstallment(s.amount_cents, s.interestRate || 0, s.installments);
           }
           return sum;
         }
         if (s.type === "INCOME") return sum;
         if (i >= startOffset && i < startOffset + s.installments) {
+          if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
+            return sum + s.customInstallmentCents;
+          }
           return sum + (s.amount_cents / (s.installments || 1));
         }
         return sum;
@@ -587,6 +603,9 @@ export function calculateMonthlyOutlook(params: {
         }
         if (s.type !== "INCOME") return sum;
         if (i >= startOffset && i < startOffset + s.installments) {
+          if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
+            return sum + s.customInstallmentCents;
+          }
           return sum + (s.amount_cents / (s.installments || 1));
         }
         return sum;
@@ -783,6 +802,9 @@ export function calculateAdvancedProjection(params: {
       if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
         // As parcelas são pagas nos meses de startOffset + 1 a startOffset + n
         if (i > startOffset && i <= startOffset + s.installments) {
+          if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
+            return sum + s.customInstallmentCents;
+          }
           return sum + calculateLoanInstallment(s.amount_cents, s.interestRate || 0, s.installments);
         }
         return sum;
@@ -790,6 +812,9 @@ export function calculateAdvancedProjection(params: {
       if (s.type === "INCOME") return sum;
       // Condição i < s.installments garante a contabilização correta das parcelas seguintes (meses 1, 2, ...) sem double-count
       if (i >= startOffset && i < startOffset + s.installments) {
+        if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
+          return sum + s.customInstallmentCents;
+        }
         return sum + (s.amount_cents / (s.installments || 1));
       }
       return sum;
@@ -807,6 +832,9 @@ export function calculateAdvancedProjection(params: {
       if (s.type !== "INCOME") return sum;
       // Condição i < s.installments garante a contabilização correta das parcelas seguintes (meses 1, 2, ...) sem double-count
       if (i >= startOffset && i < startOffset + s.installments) {
+        if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
+          return sum + s.customInstallmentCents;
+        }
         return sum + (s.amount_cents / (s.installments || 1));
       }
       return sum;
