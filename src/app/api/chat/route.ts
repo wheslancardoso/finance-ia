@@ -61,9 +61,36 @@ export async function GET(request: NextRequest) {
       throw new Error(`Erro ao buscar memórias cognitivas: ${memoryError.message}`);
     }
 
-    const memoryFacts = memoryRows && memoryRows.length > 0 ? (memoryRows[0].message.facts || []) : [];
+    const message = memoryRows && memoryRows.length > 0 ? memoryRows[0].message : null;
+    let memoryFacts: string[] = [];
+    let groupedFacts = {
+      profile: [] as string[],
+      goals: [] as string[],
+      fears: [] as string[],
+      preferences: [] as string[]
+    };
 
-    return NextResponse.json({ history, memoryFacts });
+    if (message) {
+      if (message.profile || message.goals || message.fears || message.preferences) {
+        groupedFacts = {
+          profile: message.profile || [],
+          goals: message.goals || [],
+          fears: message.fears || [],
+          preferences: message.preferences || []
+        };
+        memoryFacts = [
+          ...groupedFacts.profile,
+          ...groupedFacts.goals,
+          ...groupedFacts.fears,
+          ...groupedFacts.preferences
+        ];
+      } else if (message.facts) {
+        memoryFacts = message.facts;
+        groupedFacts.goals = message.facts;
+      }
+    }
+
+    return NextResponse.json({ history, memoryFacts, groupedFacts });
   } catch (error: any) {
     console.error("Erro ao obter histórico do chat:", error);
     return NextResponse.json({ error: error.message || "Erro interno do servidor" }, { status: 500 });
@@ -213,16 +240,51 @@ VALORES FINANCEIROS CONTEXTUAIS DA TELA DO MÊS DE ${monthLabel || "HOJE"}:
       .limit(1);
 
     let existingFacts: string[] = [];
+    let existingGrouped = {
+      profile: [] as string[],
+      goals: [] as string[],
+      fears: [] as string[],
+      preferences: [] as string[]
+    };
+
     if (memoryRows && memoryRows.length > 0) {
-      existingFacts = memoryRows[0].message.facts || [];
+      const message = memoryRows[0].message;
+      if (message.facts) {
+        existingFacts = message.facts;
+        existingGrouped.goals = message.facts;
+      } else {
+        existingGrouped = {
+          profile: message.profile || [],
+          goals: message.goals || [],
+          fears: message.fears || [],
+          preferences: message.preferences || []
+        };
+        existingFacts = [
+          ...existingGrouped.profile,
+          ...existingGrouped.goals,
+          ...existingGrouped.fears,
+          ...existingGrouped.preferences
+        ];
+      }
     }
 
     let cognitiveMemoryContext = "";
     if (existingFacts.length > 0) {
       cognitiveMemoryContext = `
 === MEMÓRIA COGNITIVA E FATOS DE LONGO PRAZO ===
-Você aprendeu estes fatos importantes sobre a vida financeira, metas, medos e preferências do usuário em conversas anteriores. Utilize-os para demonstrar empatia contínua e hiperpersonalizar seus conselhos:
-${existingFacts.map(fact => `- ${fact}`).join("\n")}
+Você aprendeu estes fatos importantes sobre a vida financeira do usuário, agrupados por categorias de caixinhas. Utilize-os para demonstrar empatia contínua, consistência temporal e hiperpersonalizar seus conselhos:
+
+CATEGORIA: PERFIL E RENDA:
+${existingGrouped.profile.length > 0 ? existingGrouped.profile.map(f => `- ${f}`).join("\n") : "- Nenhum fato registrado nesta categoria."}
+
+CATEGORIA: OBJETIVOS E SONHOS:
+${existingGrouped.goals.length > 0 ? existingGrouped.goals.map(f => `- ${f}`).join("\n") : "- Nenhum fato registrado nesta categoria."}
+
+CATEGORIA: PREOCUPAÇÕES E DORES:
+${existingGrouped.fears.length > 0 ? existingGrouped.fears.map(f => `- ${f}`).join("\n") : "- Nenhum fato registrado nesta categoria."}
+
+CATEGORIA: PREFERÊNCIAS DE DECISÃO:
+${existingGrouped.preferences.length > 0 ? existingGrouped.preferences.map(f => `- ${f}`).join("\n") : "- Nenhum fato registrado nesta categoria."}
 `;
     }
 
@@ -237,8 +299,13 @@ Suas diretrizes de comportamento e comunicação são:
    - Se o usuário precisar comprar itens essenciais de higiene/limpeza (como sabão de roupa, amaciante) e estiver sem saldo de conta corrente, ajude-o a planejar o uso seguro do limite de crédito restante.
    - Explique claramente as maracutaias de crédito de forma realista: pagar boleto com cartão de crédito ou fazer Pix Parcelado tem taxas/juros altíssimos (explique isso), mas se for a única opção para ele comprar itens de sobrevivência básica, ajude-o a escolher o menor dos males.
    - Forneça estratégias de rolagem de dívidas saudáveis (ex: priorizar moradia, contas básicas e alimentação sobre o pagamento total de faturas de juros altos caso ele não tenha dinheiro para pagar tudo).
+   - **Explicação Didática de Valores / Projeções:** Se o usuário expressar dúvidas, confusão ou discrepâncias percebidas sobre os valores projetados de fim de mês ou de liquidez, explique didaticamente a matemática de forma clara, reconfortante e contextualizada ao mês ativo de análise na Time Machine. Por exemplo, mostre a ele que a 'Liquidez Projetada ao Fim do Mês' reflete o Saldo de Caixa real inicial (ex: R$ 413,00 hoje) somado à sua renda esperada daquele mês (ex: Salário de R$ 2.124,00 em junho) e subtraindo a fatura de cartão de crédito e todos os compromissos agendados e limites de categorias (budgets) planejados para o período ativo.
+   - **Foco Inteligente no Déficit Mensal (Time Machine Context):** Seja inteligente e enxergue o futuro e o passado de forma integrada. O usuário entende que possui uma 'Dívida Total Consolidada' de longo prazo (ex: R$ 7.047,43 acumulados em parcelamentos nos cartões), mas sabe que ela NÃO vence inteira no mesmo mês. Por isso, NÃO dê recomendações ou puxe orelhas baseando-se estritamente na dívida total. Em vez disso, baseie todo o seu aconselhamento e simulações no **déficit ou gap financeiro real do mês ativo sob análise** (a 'Liquidez Projetada ao Fim do Mês', como o déficit de -R$ 1.232,28 em junho). O seu objetivo é ajudar o usuário a equilibrar o fluxo de caixa daquele mês específico para que ele continue respirando!
+   - **Recomendação Concreta de Crédito/Empréstimo:** Quando o usuário simular empréstimos, sempre dê um veredito prático com números exatos. Não foque em mandar ele pagar a 'Dívida Total' inteira. Em vez disso, mire em cobrir o **déficit específico do mês ativo** (ex: o gap de R$ 1.232,28 em junho). Sugira pegar apenas o valor estritamente necessário para cobrir esse déficit (ex: um empréstimo simulado de cerca de R$ 1.300,00) e recomende uma quantidade de parcelas cuja prestação mensal seja tolerável e caiba com respiro no fluxo de caixa dele nos meses futuros (idealmente de R$ 150,00 a R$ 250,00 por mês, para não comprometer muito o seu salário líquido recorrente de R$ 2.124,00). Diga exatamente o que você faria no lugar dele com números precisos do mês ativo.
 4. **Sem Ilusões:** Mantenha a clareza sobre riscos e custos, mas dê suporte emocional e prático. Mostre que é possível sair dessa situação e que o Vesper está aqui para guiá-lo.
-5. **Tom:** Informal, próximo, profissional, compreensivo e no idioma Português do Brasil (pt-BR).
+5. **Tom e Formatação sem Markdown:** 
+   - Use linguagem informal, próxima, profissional, compreensiva e no idioma Português do Brasil (pt-BR).
+   - **MUITO IMPORTANTE - PROIBIDO MARKDOWN:** NUNCA use formatação markdown de títulos (caractere #, ## ou ###) ou formatação de negrito/itálico (caractere * ou **). Escreva suas respostas apenas em texto puro (plain text), limpo, legível e direto. Para destacar cabeçalhos ou seções, use apenas LETRAS MAIÚSCULAS no início de uma linha nova e parágrafos bem espaçados com quebras de linha duplas, ou marcadores limpos simples como traços (-) e números (1., 2.).
 6. **Simulações de Compra/Crédito Interativas:**
    - Sempre que o usuário expressar interesse em comprar algo, simular uma despesa, planejar um gasto, ou discutir opções de empréstimo ou crédito, você DEVE emitir um bloco XML estruturado contendo a simulação exata em JSON no final de sua resposta.
    - O formato XML obrigatório é:
@@ -254,17 +321,20 @@ Suas diretrizes de comportamento e comunicação são:
      }
      </vesper-simulation>
    - IMPORTANTE: NÃO coloque marcadores de bloco de código markdown (como tres crases e a palavra json) dentro do bloco XML de vesper-simulation. Coloque apenas o JSON cru e válido imediatamente.
-7. **Consolidação de Memória de Longo Prazo (Fatos Cognitivos):**
-   - Monitore atentamente a conversa para identificar novos fatos importantes e duradouros sobre a vida e finanças do usuário (exemplos: desemprego, conquistas financeiras, prioridade em economizar para o aluguel, medo de cartão, etc.).
-   - Se identificar qualquer novo fato duradouro, ou se precisar consolidar/atualizar a lista existente de fatos lembrados, você DEVE retornar a lista COMPLETA de fatos atualizados (máximo de 6 fatos concisos, diretos e sem julgamentos) no final de sua resposta dentro de uma tag XML de memória cognitiva:
+7. **Consolidação de Memória de Longo Prazo (Fatos Cognitivos em Caixinhas):**
+   - Monitore atentamente a conversa para identificar novos fatos importantes e duradouros sobre a vida e finanças do usuário.
+   - Se identificar qualquer novo fato duradouro, ou se precisar consolidar/atualizar a lista existente de fatos lembrados, você DEVE retornar a lista COMPLETA de fatos atualizados agrupada em caixinhas (categorias) no final de sua resposta dentro de uma tag XML de memória cognitiva:
      <vesper-cognitive-memory>
-     [
-       "Fato duradouro 1",
-       "Fato duradouro 2"
-     ]
+     {
+       "profile": ["Salário de R$ 2.124,00 e sem reserva de emergência"],
+       "goals": ["Deseja economizar para notebook de estudos de R$ 1.200"],
+       "fears": ["Preocupado com o rombo de junho de R$ 1.232,28"],
+       "preferences": ["Prefere parcelar empréstimo para manter parcela abaixo de R$ 250"]
+     }
      </vesper-cognitive-memory>
-   - Não adicione marcadores de código markdown (como crases ou json) dentro da tag de memória. Apenas o array JSON válido contendo strings.
-   - Tente manter a lista de fatos sempre enxuta e focada em dados úteis para orientar o suporte financeiro contínuo do Vesper.
+   - As categorias válidas de caixinhas são: "profile" (Perfil & Renda), "goals" (Objetivos & Sonhos), "fears" (Preocupações & Dores) e "preferences" (Preferências de Decisão).
+   - Não adicione marcadores de código markdown (como crases ou json) dentro da tag de memória. Apenas o JSON válido.
+   - Tente manter a lista de fatos sempre enxuta, com no máximo de 2 a 3 fatos curtos e diretos por caixinha, focando em dados úteis para orientar o suporte financeiro contínuo do Vesper.
 
 Aqui está o contexto temporal e financeiro ativo:
 ${temporalContext}
@@ -295,16 +365,56 @@ ${cognitiveMemoryContext}
     // 9. Processar resposta para extrair fatos de memória cognitiva se existirem
     let cleanReply = reply;
     let newFacts: string[] = existingFacts;
+    let newGroupedFacts = {
+      profile: existingGrouped.profile,
+      goals: existingGrouped.goals,
+      fears: existingGrouped.fears,
+      preferences: existingGrouped.preferences
+    };
 
     const cognitiveRegex = /<vesper-cognitive-memory>([\s\S]*?)<\/vesper-cognitive-memory>/g;
     const cognitiveMatch = cognitiveRegex.exec(reply);
 
     if (cognitiveMatch) {
       try {
-        const parsedFacts = JSON.parse(cognitiveMatch[1].trim());
-        if (Array.isArray(parsedFacts)) {
-          newFacts = parsedFacts.map(f => String(f).trim()).filter(Boolean);
+        const parsed = JSON.parse(cognitiveMatch[1].trim());
+        let updatedMemoryPayload: any = {};
 
+        if (Array.isArray(parsed)) {
+          const flatFacts = parsed.map(f => String(f).trim()).filter(Boolean);
+          newFacts = flatFacts;
+          newGroupedFacts = {
+            profile: [],
+            goals: flatFacts,
+            fears: [],
+            preferences: []
+          };
+          updatedMemoryPayload = {
+            profile: [],
+            goals: flatFacts,
+            fears: [],
+            preferences: [],
+            last_updated: new Date().toISOString()
+          };
+        } else if (parsed && typeof parsed === "object") {
+          const profile = Array.isArray(parsed.profile) ? parsed.profile.map((f: any) => String(f).trim()).filter(Boolean) : [];
+          const goals = Array.isArray(parsed.goals) ? parsed.goals.map((f: any) => String(f).trim()).filter(Boolean) : [];
+          const fears = Array.isArray(parsed.fears) ? parsed.fears.map((f: any) => String(f).trim()).filter(Boolean) : [];
+          const preferences = Array.isArray(parsed.preferences) ? parsed.preferences.map((f: any) => String(f).trim()).filter(Boolean) : [];
+
+          newGroupedFacts = { profile, goals, fears, preferences };
+          newFacts = [...profile, ...goals, ...fears, ...preferences];
+
+          updatedMemoryPayload = {
+            profile,
+            goals,
+            fears,
+            preferences,
+            last_updated: new Date().toISOString()
+          };
+        }
+
+        if (newFacts.length > 0) {
           // Salvar ou atualizar no Supabase de forma segura
           const { data: existingMemory } = await supabase
             .from("chat_memory")
@@ -316,7 +426,7 @@ ${cognitiveMemoryContext}
             await supabase
               .from("chat_memory")
               .update({
-                message: { facts: newFacts, last_updated: new Date().toISOString() }
+                message: updatedMemoryPayload
               })
               .eq("id", existingMemory[0].id);
           } else {
@@ -324,7 +434,7 @@ ${cognitiveMemoryContext}
               .from("chat_memory")
               .insert({
                 session_id: `memory_${user.id}`,
-                message: { facts: newFacts, last_updated: new Date().toISOString() }
+                message: updatedMemoryPayload
               });
           }
         }
@@ -332,7 +442,7 @@ ${cognitiveMemoryContext}
         // Remover a tag XML do texto final visível
         cleanReply = cleanReply.replace(cognitiveMatch[0], "").trim();
       } catch (err) {
-        console.error("Erro ao processar JSON de memórias cognitivas emitido pelo Gemini:", err);
+        console.error("Erro ao processar JSON de memórias cognitivas:", err);
       }
     }
 
@@ -350,7 +460,8 @@ ${cognitiveMemoryContext}
 
     return NextResponse.json({ 
       response: cleanReply,
-      memoryFacts: newFacts
+      memoryFacts: newFacts,
+      groupedFacts: newGroupedFacts
     });
 
   } catch (error: any) {

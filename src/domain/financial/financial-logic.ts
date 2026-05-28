@@ -6,6 +6,8 @@ export interface Simulation {
   installments: number;
   description?: string;
   type?: "EXPENSE" | "INCOME";
+  interestRate?: number;
+  isLoan?: boolean;
 }
 
 export interface MonthlyOutlook {
@@ -439,6 +441,15 @@ export function calculateMonthlyOutlook(params: {
 
   // Impacto de Simulações
   const simulationExpenseImpact = activeSimulations.reduce((sum, s) => {
+    // Caso especial: Simulação de Empréstimo
+    if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
+      if (monthOffset === 0) return sum; // Mês 0 apenas recebe o capital, sem parcela devida
+      if (monthOffset <= s.installments) {
+        return sum + calculateLoanInstallment(s.amount_cents, s.interestRate || 0, s.installments);
+      }
+      return sum;
+    }
+    // Despesa parcelada normal
     if (s.type === "INCOME") return sum;
     if (monthOffset <= s.installments) {
       return sum + (s.amount_cents / (s.installments || 1));
@@ -447,6 +458,14 @@ export function calculateMonthlyOutlook(params: {
   }, 0);
 
   const simulationIncomeImpact = activeSimulations.reduce((sum, s) => {
+    // Caso especial: Simulação de Empréstimo
+    if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
+      if (monthOffset === 0) {
+        return sum + s.amount_cents; // Injeção total do capital no Mês 0
+      }
+      return sum;
+    }
+    // Receita parcelada normal
     if (s.type !== "INCOME") return sum;
     if (monthOffset <= s.installments) {
       return sum + (s.amount_cents / (s.installments || 1));
@@ -867,7 +886,20 @@ export interface SimulationDetailedResult {
 }
 
 /**
- * Calcula a taxa de juros implícita mensal de um empréstimo por busca binária.
+ * Calcula o valor da parcela mensal com base na tabela PRICE (juros compostos).
+ */
+export function calculateLoanInstallment(amountCents: number, interestRate: number, installments: number): number {
+  if (installments <= 1) return amountCents;
+  if (interestRate <= 0) return Math.round(amountCents / installments);
+  const i = interestRate / 100;
+  const n = installments;
+  // Fórmula Price: PMT = PV * (i * (1 + i)^n) / ((1 + i)^n - 1)
+  const pmt = amountCents * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
+  return Math.round(pmt);
+}
+
+/**
+ * Rentabilidade implícita mensal de um empréstimo por busca binária.
  */
 export function calculateImplicitInterestRate(pv: number, pmt: number, n: number): number {
   if (pv <= 0 || pmt <= 0 || n <= 0) return 0;

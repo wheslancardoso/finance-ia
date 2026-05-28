@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useFinancialData } from "@/context/FinancialDataContext";
+import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -59,6 +60,17 @@ export default function CopilotChatPanel({
   const [isInitializing, setIsInitializing] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [memoryFacts, setMemoryFacts] = useState<string[]>([]);
+  const [groupedFacts, setGroupedFacts] = useState<{
+    profile: string[];
+    goals: string[];
+    fears: string[];
+    preferences: string[];
+  }>({
+    profile: [],
+    goals: [],
+    fears: [],
+    preferences: []
+  });
   const [isMemoryOpen, setIsMemoryOpen] = useState(false);
   
   // Ações de feedback nos cartões de simulação
@@ -78,6 +90,14 @@ export default function CopilotChatPanel({
     scheduledExpensesCents 
   } = useFinancialData();
 
+  const {
+    netLiquidityCents: activeNetLiquidityCents,
+    accumulatedBalanceCents: activeAccumulatedBalanceCents,
+    totalConsolidatedDebtCents: activeConsolidatedDebtCents,
+    monthlyOutlook: activeMonthlyOutlook,
+    isCrisisMode: activeIsCrisisMode
+  } = useFinancialAnalysis(monthOffset, activeSimulations);
+
   const activeMonthLabel = format(targetDate, "MMMM 'de' yyyy", { locale: ptBR });
 
   // 1. Carregar histórico e memórias de longo prazo do Supabase na inicialização
@@ -90,6 +110,16 @@ export default function CopilotChatPanel({
         if (res.ok) {
           const data = await res.json();
           setMemoryFacts(data.memoryFacts || []);
+          if (data.groupedFacts) {
+            setGroupedFacts(data.groupedFacts);
+          } else {
+            setGroupedFacts({
+              profile: [],
+              goals: data.memoryFacts || [],
+              fears: [],
+              preferences: []
+            });
+          }
           
           if (data.history && data.history.length > 0) {
             setMessages(data.history);
@@ -145,6 +175,7 @@ export default function CopilotChatPanel({
         setMessages(defaultMsg);
         if (resetAll) {
           setMemoryFacts([]);
+          setGroupedFacts({ profile: [], goals: [], fears: [], preferences: [] });
         }
         onSimulate(null);
       }
@@ -173,8 +204,15 @@ export default function CopilotChatPanel({
       }
     }
 
+    // Limpar formatações de markdown (# e *) para exibição limpa em plain text
+    const plainText = cleanText
+      .replace(/\*\*/g, "") // remove negritos **
+      .replace(/\*/g, "")   // remove itálicos *
+      .replace(/#+\s/g, "") // remove marcadores de título #, ##, ###
+      .trim();
+
     return {
-      text: cleanText.trim(),
+      text: plainText,
       simulations
     };
   };
@@ -195,11 +233,11 @@ export default function CopilotChatPanel({
     setIsLoading(true);
 
     const projectionSummary = {
-      netLiquidityCents,
-      accumulatedBalanceCents,
-      weeklyLimitCents: Math.max(2000, Math.round(accumulatedBalanceCents / 4)),
-      plannedExpensesCents: scheduledExpensesCents,
-      isCrisis: netLiquidityCents < 0
+      netLiquidityCents: activeNetLiquidityCents,
+      accumulatedBalanceCents: activeAccumulatedBalanceCents,
+      weeklyLimitCents: Math.max(2000, Math.round(activeAccumulatedBalanceCents / 4)),
+      plannedExpensesCents: activeMonthlyOutlook.plannedExpenses,
+      isCrisis: activeIsCrisisMode
     };
 
     try {
@@ -224,6 +262,16 @@ export default function CopilotChatPanel({
       setMessages([...updatedHistory, { role: "model" as const, text: data.response }]);
       if (data.memoryFacts) {
         setMemoryFacts(data.memoryFacts);
+      }
+      if (data.groupedFacts) {
+        setGroupedFacts(data.groupedFacts);
+      } else if (data.memoryFacts) {
+        setGroupedFacts({
+          profile: [],
+          goals: data.memoryFacts,
+          fears: [],
+          preferences: []
+        });
       }
     } catch (error) {
       setMessages([
@@ -263,7 +311,8 @@ export default function CopilotChatPanel({
         amount_cents: Math.round(sim.amount * 100),
         installments: sim.installments,
         interestRate: sim.interestRate || 0,
-        type: sim.type === "loan" ? "INCOME" : "EXPENSE"
+        type: sim.type === "loan" ? "INCOME" : "EXPENSE",
+        isLoan: sim.type === "loan"
       };
       onSimulate([...activeSimulations, newSim]);
     }
@@ -413,15 +462,72 @@ export default function CopilotChatPanel({
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden mt-2 border-t border-indigo-500/5 pt-2"
               >
-                <div className="max-h-24 overflow-y-auto space-y-1 custom-scrollbar pr-1">
-                  {memoryFacts.map((fact, idx) => (
-                    <div key={idx} className="flex items-start gap-1.5 text-[8.5px] font-bold text-white/70 bg-white/[0.01] hover:bg-white/[0.02] border border-white/5 rounded-lg p-1.5 leading-normal">
-                      <span className="text-indigo-400 shrink-0 select-none">•</span>
-                      <span>{fact}</span>
+                <div className="max-h-60 overflow-y-auto space-y-3 custom-scrollbar pr-1">
+                  {/* Categoria 1: Perfil */}
+                  {groupedFacts.profile && groupedFacts.profile.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-[7.5px] font-black uppercase text-indigo-400/80 tracking-widest block">
+                        💼 Perfil & Renda
+                      </span>
+                      <div className="space-y-1">
+                        {groupedFacts.profile.map((fact, idx) => (
+                          <div key={idx} className="text-[8.5px] font-bold text-white/70 bg-indigo-500/5 border border-indigo-500/10 rounded-lg p-1.5 leading-normal">
+                            {fact}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
+                  )}
+
+                  {/* Categoria 2: Objetivos */}
+                  {groupedFacts.goals && groupedFacts.goals.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-[7.5px] font-black uppercase text-emerald-400/80 tracking-widest block">
+                        🎯 Objetivos & Sonhos
+                      </span>
+                      <div className="space-y-1">
+                        {groupedFacts.goals.map((fact, idx) => (
+                          <div key={idx} className="text-[8.5px] font-bold text-white/70 bg-emerald-500/5 border border-emerald-500/10 rounded-lg p-1.5 leading-normal">
+                            {fact}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Categoria 3: Preocupações */}
+                  {groupedFacts.fears && groupedFacts.fears.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-[7.5px] font-black uppercase text-rose-400/80 tracking-widest block">
+                        🛑 Preocupações & Dores
+                      </span>
+                      <div className="space-y-1">
+                        {groupedFacts.fears.map((fact, idx) => (
+                          <div key={idx} className="text-[8.5px] font-bold text-white/70 bg-rose-500/5 border border-rose-500/10 rounded-lg p-1.5 leading-normal">
+                            {fact}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Categoria 4: Preferências */}
+                  {groupedFacts.preferences && groupedFacts.preferences.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-[7.5px] font-black uppercase text-amber-400/80 tracking-widest block">
+                        🛠️ Preferências de Decisão
+                      </span>
+                      <div className="space-y-1">
+                        {groupedFacts.preferences.map((fact, idx) => (
+                          <div key={idx} className="text-[8.5px] font-bold text-white/70 bg-amber-500/5 border border-amber-500/10 rounded-lg p-1.5 leading-normal">
+                            {fact}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center justify-end pt-1.5 mt-1 border-t border-white/5">
+                <div className="flex items-center justify-end pt-2 mt-2 border-t border-white/5">
                   <button
                     type="button"
                     onClick={() => handleClearHistory(true)}
@@ -525,11 +631,21 @@ export default function CopilotChatPanel({
                         <span className="text-xl font-black text-emerald-400">
                           {formatCurrency(sim.amount * 100)}
                         </span>
-                        {sim.installments > 1 && (
-                          <span className="text-[10px] text-white/50">
-                            (ou {sim.installments}x de {formatCurrency(Math.round((sim.amount * 100) / sim.installments))})
-                          </span>
-                        )}
+                        {sim.installments > 1 && (() => {
+                          const amountCents = sim.amount * 100;
+                          let installmentCents = Math.round(amountCents / sim.installments);
+                          if (sim.type === "loan" && sim.interestRate && sim.interestRate > 0) {
+                            const i = sim.interestRate / 100;
+                            const n = sim.installments;
+                            const pmt = amountCents * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
+                            installmentCents = Math.round(pmt);
+                          }
+                          return (
+                            <span className="text-[10px] text-white/50">
+                              (ou {sim.installments}x de {formatCurrency(installmentCents)})
+                            </span>
+                          );
+                        })()}
                       </div>
                       {sim.interestRate && sim.interestRate > 0 ? (
                         <p className="text-[9px] text-red-400 font-bold mt-1">
@@ -559,11 +675,18 @@ export default function CopilotChatPanel({
                         onChange={(e) => setSelectedAccounts(prev => ({ ...prev, [simKey]: e.target.value }))}
                         className="bg-black/40 border border-white/5 text-white/80 rounded-xl px-3 py-2 text-[10px] focus:outline-none focus:border-violet-500/50"
                       >
-                        {accounts.map(acc => (
-                          <option key={acc.id} value={acc.id}>
-                            {acc.name} (Saldo: {formatCurrency(acc.balance_cents)})
-                          </option>
-                        ))}
+                        {accounts.map(acc => {
+                          const isCard = acc.type === "CREDIT_CARD";
+                          const label = isCard ? "Fatura" : "Saldo";
+                          const amount = isCard 
+                            ? (Number(acc.closed_invoice_cents) || 0) + (Number(acc.open_invoice_cents) || 0)
+                            : acc.balance_cents;
+                          return (
+                            <option key={acc.id} value={acc.id}>
+                              {acc.name} ({label}: {formatCurrency(amount)})
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
 

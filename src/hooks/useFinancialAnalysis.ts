@@ -8,6 +8,7 @@ import {
   calculateTotalConsolidatedDebt,
   calculateAccumulatedBalance,
   calculateRealCycleLiquidity,
+  calculateLoanInstallment,
   type MonthlyOutlook,
   calculateDebtExitProjection,
   type DebtExitProjection,
@@ -129,6 +130,9 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     const simulatedIncome = activeSimulations
       .filter(s => s.type === "INCOME")
       .reduce((sum, s) => {
+        if (s.isLoan || (s.interestRate && s.interestRate > 0)) {
+          return sum + s.amount_cents; // Injeção total do capital no Mês 0
+        }
         const monthly = s.installments > 1 ? Math.round(s.amount_cents / s.installments) : s.amount_cents;
         return sum + monthly;
       }, 0);
@@ -189,6 +193,9 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     const simulatedIncome = activeSimulations
       .filter(s => s.type === "INCOME")
       .reduce((sum, s) => {
+        if (s.isLoan || (s.interestRate && s.interestRate > 0)) {
+          return sum + s.amount_cents; // Injeção total do capital no Mês 0
+        }
         const monthly = s.installments > 1 ? Math.round(s.amount_cents / s.installments) : s.amount_cents;
         return sum + monthly;
       }, 0);
