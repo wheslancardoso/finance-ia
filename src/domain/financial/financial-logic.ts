@@ -683,11 +683,19 @@ export function calculateAdvancedProjection(params: {
 
   // Adiciona o impacto de simulações do mês atual (mês 0) no saldo de partida da projeção acumulada
   const simulationExpensesMonth0 = activeSimulations.reduce((sum, s) => {
+    // Caso especial: Simulação de Empréstimo
+    if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
+      return sum; // Mês 0 de empréstimo não tem despesa/parcela
+    }
     if (s.type === "INCOME") return sum;
     return sum + (s.amount_cents / (s.installments || 1));
   }, 0);
 
   const simulationIncomesMonth0 = activeSimulations.reduce((sum, s) => {
+    // Caso especial: Simulação de Empréstimo
+    if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
+      return sum + s.amount_cents; // Injeção total de capital do empréstimo no Mês 0
+    }
     if (s.type !== "INCOME") return sum;
     return sum + (s.amount_cents / (s.installments || 1));
   }, 0);
@@ -743,6 +751,14 @@ export function calculateAdvancedProjection(params: {
 
     // 5. Impacto das Simulações Ativas
     const simulationExpenses = activeSimulations.reduce((sum, s) => {
+      // Caso especial: Simulação de Empréstimo
+      if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
+        // As parcelas são pagas nos meses de 1 a n
+        if (i <= s.installments) {
+          return sum + calculateLoanInstallment(s.amount_cents, s.interestRate || 0, s.installments);
+        }
+        return sum;
+      }
       if (s.type === "INCOME") return sum;
       // Condição i < s.installments garante a contabilização correta das parcelas seguintes (meses 1, 2, ...) sem double-count
       if (i < s.installments) {
@@ -752,6 +768,10 @@ export function calculateAdvancedProjection(params: {
     }, 0);
 
     const simulationIncomes = activeSimulations.reduce((sum, s) => {
+      // Caso especial: Simulação de Empréstimo
+      if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
+        return sum; // Nenhuma renda de empréstimo nos meses 1 a n
+      }
       if (s.type !== "INCOME") return sum;
       // Condição i < s.installments garante a contabilização correta das parcelas seguintes (meses 1, 2, ...) sem double-count
       if (i < s.installments) {
