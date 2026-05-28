@@ -26,7 +26,7 @@ async function getAuthUser() {
   }
 }
 
-async function callGemini(contents: any[]): Promise<string> {
+async function callGemini(contents: any[], systemInstructionText?: string): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY não configurada no ambiente.");
@@ -34,18 +34,26 @@ async function callGemini(contents: any[]): Promise<string> {
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
   
+  const requestBody: any = {
+    contents,
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 1000
+    }
+  };
+
+  if (systemInstructionText) {
+    requestBody.systemInstruction = {
+      parts: [{ text: systemInstructionText }]
+    };
+  }
+
   const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      contents,
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 1000
-      }
-    })
+    body: JSON.stringify(requestBody)
   });
 
   if (!response.ok) {
@@ -318,37 +326,24 @@ ${cognitiveMemoryContext}
 
     const dbHistory = (dbHistoryRows || []).map((row: any) => row.message);
 
-    // 7. Formatar histórico no padrão do Gemini
-    const geminiContents = [];
+    // 7. Formatar histórico no padrão do Gemini (com alternância estrita e iniciando por "user")
+    const rawContents = dbHistory.map((msg: any) => ({
+      role: msg.role === "user" ? "user" : "model",
+      parts: [{ text: msg.text }]
+    }));
 
-    if (dbHistory.length > 0) {
-      for (let i = 0; i < dbHistory.length; i++) {
-        const msg = dbHistory[i];
-        const role = msg.role === "user" ? "user" : "model";
-        
-        if (i === 0) {
-          // Injetar o systemPrompt rico com dados reais e cognitivos na primeira interação
-          geminiContents.push({
-            role: role,
-            parts: [{ text: `INSTRUÇÕES DE SISTEMA A SEREM SEGUIDAS RIGOROSAMENTE:\n${systemPrompt}\n\nEntendido. Vamos iniciar a conversa.\n\nMensagem do Usuário: ${msg.text}` }]
-          });
-        } else {
-          geminiContents.push({
-            role: role,
-            parts: [{ text: msg.text }]
-          });
-        }
-      }
-    } else {
-      // Fallback
-      geminiContents.push({
-        role: "user",
-        parts: [{ text: `${systemPrompt}\n\nMensagem do Usuário: ${message}` }]
-      });
+    // Manter as últimas 11 mensagens do histórico para contexto otimizado
+    // Usar número ímpar (11) ajuda a manter a última mensagem (user) e a primeira (user) alternadas,
+    // mas fazemos um filtro estrito para garantir que comece com "user"
+    let slicedContents = rawContents.slice(-11);
+
+    // Garantir alternância estrita do primeiro elemento ser do papel "user"
+    if (slicedContents.length > 0 && slicedContents[0].role === "model") {
+      slicedContents = slicedContents.slice(1);
     }
 
-    // 8. Chamar a API do Gemini
-    const reply = await callGemini(geminiContents.slice(-12)); // manter últimas 12 mensagens para contexto otimizado
+    // 8. Chamar a API do Gemini injetando o systemPrompt nativamente como systemInstruction
+    const reply = await callGemini(slicedContents, systemPrompt);
     
     // 9. Processar resposta para extrair fatos de memória cognitiva se existirem
     let cleanReply = reply;
