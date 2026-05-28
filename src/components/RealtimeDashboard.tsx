@@ -20,7 +20,7 @@ import { ProjectedTimeline } from "./ProjectedTimeline";
 import { MonthlyConsolidatedExcel } from "./dashboard/MonthlyConsolidatedExcel";
 import { SpendingCapacity } from "./SpendingCapacity";
 import { QuickSyncModal } from "./QuickSyncModal";
-import { AICopilotChat } from "./dashboard/AICopilotChat";
+import CopilotChatPanel from "./dashboard/CopilotChatPanel";
 
 // Hooks
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
@@ -45,6 +45,7 @@ export default function RealtimeDashboard({
   const [selectedAccount] = useState<any>(null);
   const [activeSimulations, setActiveSimulations] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"timeline" | "summary">("summary");
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   
   const { 
     accounts: liveAccounts, 
@@ -182,125 +183,156 @@ export default function RealtimeDashboard({
   }, [lastDebtExitDate, debtExit.exitDate]);
 
   return (
-    <div className="space-y-3 md:space-y-6 pb-20 max-w-[1600px] mx-auto px-0 md:px-8">
-      
-      {/* ROW 1 — Header Principal, full width */}
-      <UnifiedSurvivalHeader 
-        monthOffset={monthOffset} 
-        targetDate={targetDate}
-        activeSimulations={activeSimulations}
-        onJumpToDebtExit={jumpToDebtExit}
-        debtExitDate={lastDebtExitDate || debtExit.exitDate}
-      />
-
-      {/* ROW 2 — Três cards compactos em linha */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-stretch">
-        <BillCommitmentCard 
-          immediateCardDebt={monthlyOutlook.immediateCardDebt}
-          upcomingCardDebt={monthlyOutlook.upcomingCardDebt}
-          scheduledExpenses={monthlyOutlook.scheduledOnly}
-          budgetReserves={monthlyOutlook.budgetReserves}
-          totalPlanned={monthlyOutlook.plannedExpenses}
-          isCrisis={isCrisisMode}
-        />
+    <div className="relative flex flex-col xl:flex-row items-stretch min-h-screen bg-transparent overflow-hidden">
+      {/* Lado Esquerdo: Área do Dashboard com Encolhimento Suave */}
+      <div className={cn(
+        "flex-1 space-y-3 md:space-y-6 pb-20 mx-auto transition-all duration-500",
+        isCopilotOpen 
+          ? "w-full xl:max-w-none xl:mr-[32%] border-r border-white/5 px-2 md:px-4" 
+          : "w-full max-w-[1600px] px-0 md:px-8"
+      )}>
         
-        <MonthNavigator 
-          selectedDate={targetDate}
-          onDateChange={setTargetDate}
-          lastFutureTransactionDate={lastFutureTransactionDate}
-          debtExitDate={lastDebtExitDate || (debtExit.exitDate && debtExit.monthsToExit > 0 ? debtExit.exitDate : null)}
-        />
-
-        <SpendingSimulator 
-          onSimulate={handleSimulate} 
+        {/* ROW 1 — Header Principal, full width */}
+        <UnifiedSurvivalHeader 
+          monthOffset={monthOffset} 
           targetDate={targetDate}
+          activeSimulations={activeSimulations}
+          onJumpToDebtExit={jumpToDebtExit}
+          debtExitDate={lastDebtExitDate || debtExit.exitDate}
+          isCopilotOpen={isCopilotOpen}
+          onToggleCopilot={() => setIsCopilotOpen(!isCopilotOpen)}
         />
-      </div>
 
-      {/* ROW 3 — Timeline/Resumo full width */}
-      <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] overflow-hidden shadow-2xl flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b border-white/5 shrink-0">
-          <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
-            <button 
-              onClick={() => setActiveTab("summary")}
-              className={cn(
-                "flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                activeTab === "summary" ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20" : "text-white/40 hover:text-white/60"
-              )}
-            >
-              <Calculator className="w-3 h-3" />
-              Resumo Consolidado
-            </button>
-            <button 
-              onClick={() => setActiveTab("timeline")}
-              aria-label="Timeline"
-              className={cn(
-                "flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                activeTab === "timeline" ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20" : "text-white/40 hover:text-white/60"
-              )}
-            >
-              <History className="w-3 h-3" />
-              Linha do Tempo
-            </button>
-          </div>
-          <div className="hidden sm:block">
-            <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">
-              {isFuture ? "Projeção de Fluxo" : "Movimentações Reais"}
-            </p>
-          </div>
-        </div>
-
-        <div className="max-h-[400px] overflow-y-auto p-4 custom-scrollbar">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-            >
-              {activeTab === "summary" ? (
-                <MonthlyConsolidatedExcel 
-                  income={totalIncome}
-                  expenses={totalExpenses}
-                  balance={totalIncome - totalExpenses}
-                  items={consolidatedItems}
-                  monthName={format(targetDate, "MMMM 'de' yyyy", { locale: ptBR })}
-                />
-              ) : (
-                isFuture ? (
-                  <ProjectedTimeline transactions={projectionTransactions as any} />
-                ) : (
-                  <TransactionTimeline transactions={displayTransactions} />
-                )
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </div>
-
-      {/* ROW 4 — Budget grid, full width */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        {(displayBudgets || []).map((budget, i) => (
-          <SpendingCapacity 
-            key={budget.id ? budget.id : `budget-grid-${i}`}
-            category={budget.category_id || 'Geral'}
-            spent={budget.spent_cents || 0}
-            limit={budget.amount_cents}
+        {/* ROW 2 — Três cards compactos em linha (Responsividade sob Modo Copiloto) */}
+        <div className={cn(
+          "grid gap-4 md:gap-6 items-stretch",
+          isCopilotOpen 
+            ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-3" 
+            : "grid-cols-1 md:grid-cols-3"
+        )}>
+          <BillCommitmentCard 
+            immediateCardDebt={monthlyOutlook.immediateCardDebt}
+            upcomingCardDebt={monthlyOutlook.upcomingCardDebt}
+            scheduledExpenses={monthlyOutlook.scheduledOnly}
+            budgetReserves={monthlyOutlook.budgetReserves}
+            totalPlanned={monthlyOutlook.plannedExpenses}
+            isCrisis={isCrisisMode}
           />
-        ))}
+          
+          <MonthNavigator 
+            selectedDate={targetDate}
+            onDateChange={setTargetDate}
+            lastFutureTransactionDate={lastFutureTransactionDate}
+            debtExitDate={lastDebtExitDate || (debtExit.exitDate && debtExit.monthsToExit > 0 ? debtExit.exitDate : null)}
+          />
+
+          <SpendingSimulator 
+            onSimulate={handleSimulate} 
+            targetDate={targetDate}
+          />
+        </div>
+
+        {/* ROW 3 — Timeline/Resumo full width */}
+        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] overflow-hidden shadow-2xl flex flex-col">
+          <div className="flex items-center justify-between p-4 border-b border-white/5 shrink-0">
+            <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
+              <button 
+                onClick={() => setActiveTab("summary")}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                  activeTab === "summary" ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20" : "text-white/40 hover:text-white/60"
+                )}
+              >
+                <Calculator className="w-3 h-3" />
+                Resumo Consolidado
+              </button>
+              <button 
+                onClick={() => setActiveTab("timeline")}
+                aria-label="Timeline"
+                className={cn(
+                  "flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                  activeTab === "timeline" ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20" : "text-white/40 hover:text-white/60"
+                )}
+              >
+                <History className="w-3 h-3" />
+                Linha do Tempo
+              </button>
+            </div>
+            <div className="hidden sm:block">
+              <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">
+                {isFuture ? "Projeção de Fluxo" : "Movimentações Reais"}
+              </p>
+            </div>
+          </div>
+
+          <div className="max-h-[400px] overflow-y-auto p-4 custom-scrollbar">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                {activeTab === "summary" ? (
+                  <MonthlyConsolidatedExcel 
+                    income={totalIncome}
+                    expenses={totalExpenses}
+                    balance={totalIncome - totalExpenses}
+                    items={consolidatedItems}
+                    monthName={format(targetDate, "MMMM 'de' yyyy", { locale: ptBR })}
+                  />
+                ) : (
+                  isFuture ? (
+                    <ProjectedTimeline transactions={projectionTransactions as any} />
+                  ) : (
+                    <TransactionTimeline transactions={displayTransactions} />
+                  )
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* ROW 4 — Budget grid, full width (Responsividade sob Modo Copiloto) */}
+        <div className={cn(
+          "grid gap-4 md:gap-6",
+          isCopilotOpen 
+            ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-3" 
+            : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+        )}>
+          {(displayBudgets || []).map((budget, i) => (
+            <SpendingCapacity 
+              key={budget.id ? budget.id : `budget-grid-${i}`}
+              category={budget.category_id || 'Geral'}
+              spent={budget.spent_cents || 0}
+              limit={budget.amount_cents}
+            />
+          ))}
+        </div>
+
+        {selectedAccount && (
+          <QuickSyncModal 
+            isOpen={syncModalOpen}
+            onClose={() => setSyncModalOpen(false)}
+            account={selectedAccount}
+          />
+        )}
       </div>
 
-      {selectedAccount && (
-        <QuickSyncModal 
-          isOpen={syncModalOpen}
-          onClose={() => setSyncModalOpen(false)}
-          account={selectedAccount}
-        />
+      {/* Lado Direito: Painel do Copilot Fixo e Independente */}
+      {isCopilotOpen && (
+        <div className="fixed top-0 right-0 bottom-0 z-40 w-full xl:w-[32%] xl:min-w-[420px] h-screen border-l border-white/5 transition-all duration-500 bg-transparent">
+          <CopilotChatPanel 
+            isCopilotOpen={isCopilotOpen}
+            onToggleCopilot={() => setIsCopilotOpen(false)}
+            monthOffset={monthOffset}
+            targetDate={targetDate}
+            onSimulate={handleSimulate}
+            activeSimulations={activeSimulations}
+          />
+        </div>
       )}
-
-      {/* Vesper AI Copilot Chatbot */}
-      <AICopilotChat />
     </div>
   );
 }

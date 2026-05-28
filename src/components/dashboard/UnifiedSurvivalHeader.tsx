@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Wallet, Plus, ShieldCheck, Zap } from "lucide-react";
+import { Wallet, Plus, ShieldCheck, Zap, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, formatCurrency } from "@/lib/utils";
 import { format, startOfMonth } from "date-fns";
@@ -17,6 +17,8 @@ interface UnifiedSurvivalHeaderProps {
   onJumpToDebtExit?: () => void;
   debtExitDate?: Date | null;
   variant?: 'full' | 'compact';
+  isCopilotOpen?: boolean;
+  onToggleCopilot?: () => void;
 }
 
 export function UnifiedSurvivalHeader({
@@ -25,7 +27,9 @@ export function UnifiedSurvivalHeader({
   activeSimulations = [],
   onJumpToDebtExit,
   debtExitDate,
-  variant = 'full'
+  variant = 'full',
+  isCopilotOpen = false,
+  onToggleCopilot
 }: UnifiedSurvivalHeaderProps) {
   const { openAdd } = useTransactionModal();
   const {
@@ -106,6 +110,22 @@ export function UnifiedSurvivalHeader({
           </div>
 
           <div className="flex items-center gap-3 hidden md:flex">
+            {onToggleCopilot && (
+              <button
+                onClick={onToggleCopilot}
+                data-testid="toggle-copilot-button"
+                className={cn(
+                  "relative flex items-center gap-2 px-5 py-2.5 rounded-[16px] font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 border",
+                  isCopilotOpen 
+                    ? "bg-violet-600 border-violet-500 text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]" 
+                    : "bg-white/5 border-white/10 text-violet-400 hover:bg-violet-500/10 hover:border-violet-500/20"
+                )}
+              >
+                <Sparkles className={cn("w-4 h-4", isCopilotOpen && "animate-pulse")} />
+                <span>Modo Copiloto</span>
+              </button>
+            )}
+
             {!isFuture && (
               <button 
                 onClick={() => openAdd()}

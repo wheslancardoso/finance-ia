@@ -60,9 +60,7 @@ async function callGemini(contents: any[]): Promise<string> {
   }
 
   return text;
-}
-
-export async function POST(request: NextRequest) {
+}export async function POST(request: NextRequest) {
   const user = await getAuthUser();
   if (!user) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
@@ -70,7 +68,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { message, history = [] } = body;
+    const { message, history = [], monthOffset, monthLabel, projectionSummary } = body;
 
     if (!message) {
       return NextResponse.json({ error: "Mensagem é obrigatória" }, { status: 400 });
@@ -119,6 +117,28 @@ ${recurringSummary}
 `;
     }
 
+    // Contexto Temporal opcional passado pelo frontend (Time Machine)
+    let temporalContext = "";
+    if (monthLabel) {
+      temporalContext = `
+=== CONTEXTO TEMPORAL (TIME MACHINE) ===
+O usuário está visualizando a projeção futura na máquina do tempo!
+Mês Ativo de Análise: ${monthLabel}
+Meses de deslocamento no futuro: ${monthOffset ?? 0}
+`;
+    }
+
+    if (projectionSummary) {
+      temporalContext += `
+VALORES FINANCEIROS CONTEXTUAIS DA TELA DO MÊS DE ${monthLabel || "HOJE"}:
+- Liquidez Projetada ao Fim do Mês: R$ ${(projectionSummary.netLiquidityCents / 100).toFixed(2)}
+- Saldo Bancário Real Disponível (Caixa): R$ ${(projectionSummary.accumulatedBalanceCents / 100).toFixed(2)}
+- Limite de Oxigênio Semanal Saudável: R$ ${(projectionSummary.weeklyLimitCents / 100).toFixed(2)}
+- Total de Compromissos/Despesas Agendadas do Mês: R$ ${(projectionSummary.plannedExpensesCents / 100).toFixed(2)}
+- Situação do Caixa: ${projectionSummary.isCrisis ? "Alerta de Crise Ativo (Saldo negativo ou estressado)" : "Saldo Equilibrado ou sob Controle"}
+`;
+    }
+
     // 3. Montar prompt do sistema (System Prompt) com guardrails de empatia e mentoria
     const systemPrompt = `Você é o Vesper AI Copilot, um mentor financeiro ultra-empático, prático e realista integrado à plataforma de finanças inteligentes Vesper Finance.
 Sua missão é dar suporte a usuários em momentos de alta vulnerabilidade, estresse financeiro e crise (como desemprego, endividamento de cartão de crédito e falta de liquidez).
@@ -132,19 +152,64 @@ Suas diretrizes de comportamento e comunicação são:
    - Forneça estratégias de rolagem de dívidas saudáveis (ex: priorizar moradia, contas básicas e alimentação sobre o pagamento total de faturas de juros altos caso ele não tenha dinheiro para pagar tudo).
 4. **Sem Ilusões:** Mantenha a clareza sobre riscos e custos, mas dê suporte emocional e prático. Mostre que é possível sair dessa situação e que o Vesper está aqui para guiá-lo.
 5. **Tom:** Informal, próximo, profissional, compreensivo e no idioma Português do Brasil (pt-BR).
+6. **Simulações de Compra/Crédito Interativas:**
+   - Sempre que o usuário expressar interesse em comprar algo, simular uma despesa, planejar um gasto, ou discutir opções de empréstimo ou crédito, você DEVE emitir um bloco XML estruturado contendo a simulação exata em JSON no final de sua resposta.
+   - O formato XML obrigatório é:
+     <vesper-simulation>
+     {
+       "type": "expense", // "expense" para gastos comuns, "loan" para empréstimos/crédito
+       "title": "Nome curto da simulação",
+       "amount": 1200.00, // valor total em reais (float)
+       "installments": 6, // quantidade de parcelas (inteiro)
+       "interestRate": 0, // taxa de juros mensal para empréstimos, ou 0 para parcelamento sem juros (float %)
+       "description": "Breve descrição do item ou crédito simulação.",
+       "impactAnalysis": "Análise concisa de como esse valor impactará as finanças projetadas do mês ativo."
+     }
+     </vesper-simulation>
+   - IMPORTANTE: NÃO coloque marcadores de bloco de código markdown (como tres crases e a palavra json) dentro do bloco XML de vesper-simulation. Coloque apenas o JSON cru e válido imediatamente.
 
-Aqui está o contexto real das finanças dele:
+Aqui está o contexto temporal e financeiro ativo:
+${temporalContext}
+
+Aqui está o contexto real das finanças consolidadas do banco de dados:
 ${financialContext}
 `;
 
     // 4. Formatar histórico de chat no padrão do Gemini
     const geminiContents = [];
     
-    // Injetar o system instruction no primeiro prompt do chat para o Gemini 2.5
-    geminiContents.push({
-      role: "user",
-      parts: [{ text: `${systemPrompt}\n\nMensagem do Usuário: ${message}` }]
-    });
+    // Se houver histórico, formatar adequadamente no padrão do Gemini
+    if (history && history.length > 0) {
+      // Filtrar e reformatar para o Gemini [{ role: "user" | "model", parts: [{ text: string }] }]
+      for (const h of history) {
+        if (h.role && h.text) {
+          geminiContents.push({
+            role: h.role === "user" ? "user" : "model",
+            parts: [{ text: h.text }]
+          });
+        }
+      }
+    }
+
+    // Injetar o system instruction no último prompt ou no início do chat
+    // Para simplificar e garantir aderência no Gemini, colocamos o systemPrompt como uma instrução inicial
+    // Se o histórico estiver vazio, apenas começamos. Se não, mantemos o fluxo
+    if (geminiContents.length === 0) {
+      geminiContents.push({
+        role: "user",
+        parts: [{ text: `${systemPrompt}\n\nMensagem do Usuário: ${message}` }]
+      });
+    } else {
+      // Se houver histórico, colocamos o systemPrompt no início e a nova mensagem no final
+      geminiContents.unshift({
+        role: "user",
+        parts: [{ text: `INSTRUÇÕES DE SISTEMA A SEREM SEGUIDAS RIGOROSAMENTE:\n${systemPrompt}\n\nEntendido. Vamos iniciar a conversa.` }]
+      });
+      geminiContents.push({
+        role: "user",
+        parts: [{ text: message }]
+      });
+    }
 
     // Chamar a API do Gemini
     const reply = await callGemini(geminiContents);
