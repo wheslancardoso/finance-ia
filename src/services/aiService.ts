@@ -72,7 +72,7 @@ export const aiService = {
         model: modelName,
         messages: formattedMessages,
         temperature: 0.7,
-        max_tokens: 1000
+        max_completion_tokens: 1000
       })
     });
 
