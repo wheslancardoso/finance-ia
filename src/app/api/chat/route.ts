@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createAdminClient } from "@/utils/supabase/server";
+import { aiService } from "@/services/aiService";
 
 export const dynamic = 'force-dynamic';
 
@@ -24,50 +25,6 @@ async function getAuthUser() {
   } catch {
     return null;
   }
-}
-
-async function callGemini(contents: any[], systemInstructionText?: string): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY não configurada no ambiente.");
-  }
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-  
-  const requestBody: any = {
-    contents,
-    generationConfig: {
-      temperature: 0.7,
-      maxOutputTokens: 1000
-    }
-  };
-
-  if (systemInstructionText) {
-    requestBody.systemInstruction = {
-      parts: [{ text: systemInstructionText }]
-    };
-  }
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(requestBody)
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Erro na API do Gemini: ${response.status} - ${errText}`);
-  }
-
-  const resJson = await response.json();
-  const text = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    throw new Error("Resposta inválida ou vazia do Gemini.");
-  }
-
-  return text;
 }
 
 // Handler GET: Carrega o histórico e as memórias cognitivas do Supabase
@@ -326,24 +283,14 @@ ${cognitiveMemoryContext}
 
     const dbHistory = (dbHistoryRows || []).map((row: any) => row.message);
 
-    // 7. Formatar histórico no padrão do Gemini (com alternância estrita e iniciando por "user")
-    const rawContents = dbHistory.map((msg: any) => ({
-      role: msg.role === "user" ? "user" : "model",
-      parts: [{ text: msg.text }]
+    // 7. Mapear o histórico do banco de dados (incluindo a mensagem recém-salva do usuário) para a assinatura unificada
+    const chatMessages = dbHistory.map((msg: any) => ({
+      role: (msg.role === "user" ? "user" : "assistant") as "user" | "assistant",
+      content: msg.text
     }));
 
-    // Manter as últimas 11 mensagens do histórico para contexto otimizado
-    // Usar número ímpar (11) ajuda a manter a última mensagem (user) e a primeira (user) alternadas,
-    // mas fazemos um filtro estrito para garantir que comece com "user"
-    let slicedContents = rawContents.slice(-11);
-
-    // Garantir alternância estrita do primeiro elemento ser do papel "user"
-    if (slicedContents.length > 0 && slicedContents[0].role === "model") {
-      slicedContents = slicedContents.slice(1);
-    }
-
-    // 8. Chamar a API do Gemini injetando o systemPrompt nativamente como systemInstruction
-    const reply = await callGemini(slicedContents, systemPrompt);
+    // 8. Chamar o serviço de IA modular (que seleciona e trata o provedor disponível de forma transparente)
+    const reply = await aiService.getResponse(chatMessages, systemPrompt);
     
     // 9. Processar resposta para extrair fatos de memória cognitiva se existirem
     let cleanReply = reply;
