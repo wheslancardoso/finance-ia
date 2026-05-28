@@ -281,4 +281,208 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
     await expect(page.locator('span:has-text("R$ 3.869,99")').first()).toBeVisible();
     await expect(page.locator('span').filter({ hasText: /^Simulado$/ })).not.toBeVisible();
   });
+
+  test('deve suspender aportes de metas ativas reativamente sob crise de caixa e reativá-las dinamicamente ao reabastecer o saldo', async ({ page }) => {
+    const dashboard = new DashboardPage(page);
+
+    // Estado inicial com liquidez negativa (Nubank tem R$ 100,00 de caixa, compromisso de R$ 1.500,00)
+    // Contribuição de metas ativas é R$ 150,00
+    const crisisState = createDashboardState({
+      accounts: [
+        {
+          id: 'acc-checking',
+          name: 'Nubank',
+          type: 'CHECKING',
+          balance_cents: 10000, // R$ 100,00
+          credit_limit_cents: 0,
+          user_id: USER_ID
+        }
+      ],
+      recurring_transactions: [
+        {
+          id: 'rt-rent',
+          description: 'Aluguel',
+          transaction_type: 'EXPENSE',
+          amount_cents: 150000, // R$ 1.500,00
+          status: 'active',
+          next_date: '2026-06-10',
+          user_id: USER_ID
+        }
+      ],
+      goals: [
+        {
+          id: 'goal-emergency',
+          name: 'Reserva Emergência',
+          target_amount_cents: 1000000,
+          current_amount_cents: 50000,
+          priority: 1,
+          color_hex: '#10b981',
+          status: 'active',
+          monthly_contribution_cents: 15000 // R$ 150,00/mês
+        }
+      ]
+    });
+
+    await setupFinancialMocks(page, crisisState);
+    await dashboard.goto();
+
+    // Navegar para Junho/2026
+    const nextMonthBtn = page.getByRole('button', { name: 'Próximo Mês' });
+    await expect(nextMonthBtn).toBeVisible();
+    await nextMonthBtn.click();
+
+    // Sob crise de caixa, a linha "Reservas" deve exibir R$ 0,00 devido à suspensão inteligente
+    await expect(page.locator('span:has-text("Reservas")').first()).toBeVisible();
+    // O valor do item Reservas no card de saídas previstas deve ser R$ 0,00
+    await expect(page.locator('span:has-text("R$ 0,00")').first()).toBeVisible();
+    // O total de compromissos deve ser R$ 1.500,00 (apenas o aluguel)
+    await expect(page.locator('span:has-text("R$ 1.500,00")').first()).toBeVisible();
+
+    // Agora reabastecemos o saldo do usuário para ter liquidez positiva
+    const healthyState = createDashboardState({
+      accounts: [
+        {
+          id: 'acc-checking',
+          name: 'Nubank',
+          type: 'CHECKING',
+          balance_cents: 300000, // Aumenta para R$ 3.000,00
+          credit_limit_cents: 0,
+          user_id: USER_ID
+        }
+      ],
+      recurring_transactions: [
+        {
+          id: 'rt-rent',
+          description: 'Aluguel',
+          transaction_type: 'EXPENSE',
+          amount_cents: 150000,
+          status: 'active',
+          next_date: '2026-06-10',
+          user_id: USER_ID
+        }
+      ],
+      goals: [
+        {
+          id: 'goal-emergency',
+          name: 'Reserva Emergência',
+          target_amount_cents: 1000000,
+          current_amount_cents: 50000,
+          priority: 1,
+          color_hex: '#10b981',
+          status: 'active',
+          monthly_contribution_cents: 15000
+        }
+      ]
+    });
+
+    // Mocar novamente com estado saudável e atualizar a página
+    await setupFinancialMocks(page, healthyState);
+    await page.reload();
+
+    // Navegar novamente para Junho/2026 após reload
+    await expect(page.getByRole('button', { name: 'Próximo Mês' })).toBeVisible();
+    await page.getByRole('button', { name: 'Próximo Mês' }).click();
+
+    // Sob situação saudável (saldo inicial de R$ 3.000,00), a meta ativa deve ser cobrada
+    // A linha "Reservas" deve exibir R$ 150,00
+    await expect(page.locator('span:has-text("R$ 150,00")').first()).toBeVisible();
+    // O total deve atualizar para R$ 1.650,00 (R$ 1.500,00 + R$ 150,00)
+    await expect(page.locator('span:has-text("R$ 1.650,00")').first()).toBeVisible();
+  });
+
+  test('deve simular cenário de rotativo do cartão via Copiloto e validar o impacto orçamentário no dashboard', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'Modo Copiloto lateral em duas colunas é apenas para Desktop');
+    const dashboard = new DashboardPage(page);
+
+    const customState = createDashboardState({
+      accounts: [
+        {
+          id: 'acc-checking',
+          name: 'Nubank',
+          type: 'CHECKING',
+          balance_cents: 10000, // R$ 100,00 de caixa
+          credit_limit_cents: 0,
+          user_id: USER_ID
+        },
+        {
+          id: 'acc-credit-nubank',
+          name: 'Cartão Nubank',
+          type: 'CREDIT_CARD',
+          balance_cents: 0,
+          credit_limit_cents: 200000,
+          closed_invoice_cents: 150000, // Fatura de R$ 1.500,00
+          closed_invoice_month: '2026-06',
+          closing_day: 4,
+          due_day: 11,
+          user_id: USER_ID
+        }
+      ],
+      transactions: [
+        {
+          id: 't-card-nubank',
+          description: 'Fatura Nubank',
+          transaction_type: 'EXPENSE',
+          amount_cents: 150000,
+          date: '2026-05-15T12:00:00Z',
+          account_id: 'acc-credit-nubank',
+          is_paid: false,
+          user_id: USER_ID
+        }
+      ]
+    });
+
+    await setupFinancialMocks(page, customState);
+
+    // Mocar rota do Copilot (API Chat) para retornar o cenário do rotativo
+    await page.route(url => url.pathname.endsWith('/api/chat'), async (route) => {
+      const method = route.request().method();
+      if (method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ history: [], memoryFacts: [] })
+        });
+      } else if (method === 'POST') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            response: "Entendi. Se você pagar apenas o mínimo da fatura (rotativo), você pagará o mínimo de R$ 225,00 e o restante (R$ 1.275,00) será financiado com juros de 14% a.m., gerando um encargo de R$ 178,50 de juros no mês seguinte.\n\n<vesper-simulation>\n{\n  \"type\": \"expense\",\n  \"title\": \"Juros Rotativo Nubank\",\n  \"amount\": 178.50,\n  \"installments\": 1,\n  \"interestRate\": 0,\n  \"description\": \"Juros decorrentes do financiamento do saldo devedor da fatura no rotativo.\",\n  \"impactAnalysis\": \"Adiciona uma saída extra de R$ 178,50 no mês seguinte.\"\n}\n</vesper-simulation>",
+            memoryFacts: ["Usuário optou por simular rotativo do cartão Nubank"]
+          })
+        });
+      }
+    });
+
+    await dashboard.goto();
+
+    // 1. Ir para Junho/2026
+    const nextMonthBtn = page.getByRole('button', { name: 'Próximo Mês' });
+    await expect(nextMonthBtn).toBeVisible();
+    await nextMonthBtn.click();
+
+    // 2. Abrir Copiloto e enviar mensagem
+    await page.getByTestId('toggle-copilot-button').click();
+    const chatInput = page.getByPlaceholder('Peça análises de compras, metas ou crédito...');
+    await chatInput.fill('Qual o impacto de entrar no rotativo do cartão Nubank?');
+    await page.keyboard.press('Enter');
+
+    // 3. Validar card de simulação interativa de rotativo
+    await expect(page.getByRole('heading', { name: 'Juros Rotativo Nubank' })).toBeVisible({ timeout: 15000 });
+
+    // 4. Ativar "Simular Caixa"
+    const simularBtn = page.getByRole('button', { name: 'Simular Caixa' });
+    await expect(simularBtn).toBeVisible();
+    await simularBtn.click();
+
+    // 5. Validar impacto no dashboard físico
+    // O item "Simulado" no card de Compromissos deve exibir R$ 178,50
+    await expect(page.getByText('Simulado', { exact: true }).first()).toBeVisible();
+    await expect(page.locator('span:has-text("R$ 178,50")').first()).toBeVisible();
+
+    // O "Total" do card de Compromissos deve subir correspondendo ao valor simulado de R$ 178,50
+    // O total inicial era R$ 3.500,00 (incluindo despesas recorrentes padrão). Agora deve ser R$ 3.678,50
+    await expect(page.locator('span:has-text("R$ 3.678,50")').first()).toBeVisible();
+  });
 });
+
