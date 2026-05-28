@@ -118,7 +118,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       ...baseOutlook,
       // O saldo final para cálculo de teto (ceiling) deve ser o projetado (baseOutlook) no mês atual
       // e o acumulado (projectedNetLiquidity) nos meses futuros.
-      balanceAtMonthEnd: (monthOffset === 0 ? baseOutlook.balanceAtMonthEnd : projectedNetLiquidity) || 0,
+      balanceAtMonthEnd: (monthOffset === 0 ? baseOutlook.balanceAtMonthEnd : baseOutlook.totalAssets) || 0,
       projectedNetLiquidity: projectedNetLiquidity || 0
     };
   }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, futureTransactions, goals, activeSimulations, monthTransactions, survivalReserveCents]);
