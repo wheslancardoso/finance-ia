@@ -130,8 +130,10 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     const simulatedIncome = activeSimulations
       .filter(s => s.type === "INCOME")
       .reduce((sum, s) => {
+        const startOffset = s.startMonthOffset ?? 0;
+        if (monthOffset !== startOffset) return sum; // Só afeta ativos no mês de início
         if (s.isLoan || (s.interestRate && s.interestRate > 0)) {
-          return sum + s.amount_cents; // Injeção total do capital no Mês 0
+          return sum + s.amount_cents; // Injeção total do capital no mês de contração
         }
         const monthly = s.installments > 1 ? Math.round(s.amount_cents / s.installments) : s.amount_cents;
         return sum + monthly;
@@ -139,10 +141,14 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
 
     const simulatedDebitExpense = activeSimulations
       .filter(s => s.type === "EXPENSE" && s.installments === 1)
-      .reduce((sum, s) => sum + s.amount_cents, 0);
+      .reduce((sum, s) => {
+        const startOffset = s.startMonthOffset ?? 0;
+        if (monthOffset !== startOffset) return sum; // Só afeta ativos no mês de início
+        return sum + s.amount_cents;
+      }, 0);
 
     return simulatedIncome - simulatedDebitExpense;
-  }, [activeSimulations]);
+  }, [activeSimulations, monthOffset]);
 
   const simulatedDebtAdjustment = useMemo(() => {
     if (activeSimulations.length === 0) return 0;
@@ -151,20 +157,25 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     const simulatedIncome = activeSimulations
       .filter(s => s.type === "INCOME")
       .reduce((sum, s) => {
+        const startOffset = s.startMonthOffset ?? 0;
         if (s.installments > 1) {
           const monthly = Math.round(s.amount_cents / s.installments);
-          const activeMonths = Math.min(s.installments, monthOffset + 1);
+          const activeMonths = Math.min(s.installments, Math.max(0, monthOffset - startOffset + 1));
           return sum + (monthly * activeMonths);
         }
-        return sum + s.amount_cents;
+        if (monthOffset >= startOffset) {
+          return sum + s.amount_cents;
+        }
+        return sum;
       }, 0);
 
     // 2. Despesas simuladas parceladas remanescentes no cartão
     const simulatedCreditExpense = activeSimulations
       .filter(s => s.type === "EXPENSE" && s.installments > 1)
       .reduce((sum, s) => {
+        const startOffset = s.startMonthOffset ?? 0;
         const monthly = Math.round(s.amount_cents / s.installments);
-        const remainingInstallments = Math.max(0, s.installments - monthOffset);
+        const remainingInstallments = Math.max(0, s.installments - Math.max(0, monthOffset - startOffset));
         return sum + (monthly * remainingInstallments);
       }, 0);
 
@@ -181,7 +192,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
 
   const activeAssets = useMemo(() => {
     const baseAssets = monthOffset === 0 ? currentAssets : (monthlyOutlook.totalAssets ?? currentAssets);
-    if (monthOffset === 0 && activeSimulations.length > 0) {
+    const hasSimulationsInOffset = activeSimulations.some(s => (s.startMonthOffset ?? 0) === monthOffset);
+    if (monthOffset === 0 && hasSimulationsInOffset) {
       return baseAssets + simulatedAssetsAdjustment;
     }
     return baseAssets;
@@ -193,8 +205,10 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     const simulatedIncome = activeSimulations
       .filter(s => s.type === "INCOME")
       .reduce((sum, s) => {
+        const startOffset = s.startMonthOffset ?? 0;
+        if (monthOffset !== startOffset) return sum; // Só afeta se for o mês da simulação
         if (s.isLoan || (s.interestRate && s.interestRate > 0)) {
-          return sum + s.amount_cents; // Injeção total do capital no Mês 0
+          return sum + s.amount_cents; // Injeção total do capital no Mês de início
         }
         const monthly = s.installments > 1 ? Math.round(s.amount_cents / s.installments) : s.amount_cents;
         return sum + monthly;
@@ -203,12 +217,14 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     const simulatedExpense = activeSimulations
       .filter(s => s.type === "EXPENSE")
       .reduce((sum, s) => {
+        const startOffset = s.startMonthOffset ?? 0;
+        if (monthOffset < startOffset || monthOffset >= startOffset + s.installments) return sum;
         const monthly = s.installments > 1 ? Math.round(s.amount_cents / s.installments) : s.amount_cents;
         return sum + monthly;
       }, 0);
 
     return simulatedIncome - simulatedExpense;
-  }, [activeSimulations]);
+  }, [activeSimulations, monthOffset]);
 
   // Sobrescrita para usar a liquidez projetada no retorno
   const activeNetLiquidity = useMemo(() => {

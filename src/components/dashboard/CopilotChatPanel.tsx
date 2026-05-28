@@ -312,7 +312,8 @@ export default function CopilotChatPanel({
         installments: sim.installments,
         interestRate: sim.interestRate || 0,
         type: sim.type === "loan" ? "INCOME" : "EXPENSE",
-        isLoan: sim.type === "loan"
+        isLoan: sim.type === "loan",
+        startMonthOffset: monthOffset
       };
       onSimulate([...activeSimulations, newSim]);
     }

@@ -8,6 +8,7 @@ export interface Simulation {
   type?: "EXPENSE" | "INCOME";
   interestRate?: number;
   isLoan?: boolean;
+  startMonthOffset?: number;
 }
 
 export interface MonthlyOutlook {
@@ -441,33 +442,35 @@ export function calculateMonthlyOutlook(params: {
 
   // Impacto de Simulações
   const simulationExpenseImpact = activeSimulations.reduce((sum, s) => {
+    const startOffset = s.startMonthOffset ?? 0;
     // Caso especial: Simulação de Empréstimo
     if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-      if (monthOffset === 0) return sum; // Mês 0 apenas recebe o capital, sem parcela devida
-      if (monthOffset <= s.installments) {
+      if (monthOffset === startOffset) return sum; // Mês da contração apenas recebe o capital, sem parcela devida
+      if (monthOffset > startOffset && monthOffset <= startOffset + s.installments) {
         return sum + calculateLoanInstallment(s.amount_cents, s.interestRate || 0, s.installments);
       }
       return sum;
     }
     // Despesa parcelada normal
     if (s.type === "INCOME") return sum;
-    if (monthOffset <= s.installments) {
+    if (monthOffset >= startOffset && monthOffset < startOffset + s.installments) {
       return sum + (s.amount_cents / (s.installments || 1));
     }
     return sum;
   }, 0);
 
   const simulationIncomeImpact = activeSimulations.reduce((sum, s) => {
+    const startOffset = s.startMonthOffset ?? 0;
     // Caso especial: Simulação de Empréstimo
     if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-      if (monthOffset === 0) {
-        return sum + s.amount_cents; // Injeção total do capital no Mês 0
+      if (monthOffset === startOffset) {
+        return sum + s.amount_cents; // Injeção total do capital no Mês de início
       }
       return sum;
     }
     // Receita parcelada normal
     if (s.type !== "INCOME") return sum;
-    if (monthOffset <= s.installments) {
+    if (monthOffset >= startOffset && monthOffset < startOffset + s.installments) {
       return sum + (s.amount_cents / (s.installments || 1));
     }
     return sum;
@@ -559,13 +562,33 @@ export function calculateMonthlyOutlook(params: {
         .reduce((sum, g) => sum + (Number(g.monthly_contribution_cents) || 0), 0);
         
       const simulationExpenses = activeSimulations.reduce((sum, s) => {
+        const startOffset = s.startMonthOffset ?? 0;
+        // Caso especial: Simulação de Empréstimo
+        if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
+          if (i > startOffset && i <= startOffset + s.installments) {
+            return sum + calculateLoanInstallment(s.amount_cents, s.interestRate || 0, s.installments);
+          }
+          return sum;
+        }
         if (s.type === "INCOME") return sum;
-        if (i < s.installments) return sum + (s.amount_cents / (s.installments || 1));
+        if (i >= startOffset && i < startOffset + s.installments) {
+          return sum + (s.amount_cents / (s.installments || 1));
+        }
         return sum;
       }, 0);
       const simulationIncomes = activeSimulations.reduce((sum, s) => {
+        const startOffset = s.startMonthOffset ?? 0;
+        // Caso especial: Simulação de Empréstimo
+        if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
+          if (i === startOffset) {
+            return sum + s.amount_cents; // Injeção de capital no mês de início
+          }
+          return sum;
+        }
         if (s.type !== "INCOME") return sum;
-        if (i < s.installments) return sum + (s.amount_cents / (s.installments || 1));
+        if (i >= startOffset && i < startOffset + s.installments) {
+          return sum + (s.amount_cents / (s.installments || 1));
+        }
         return sum;
       }, 0);
       
@@ -683,6 +706,8 @@ export function calculateAdvancedProjection(params: {
 
   // Adiciona o impacto de simulações do mês atual (mês 0) no saldo de partida da projeção acumulada
   const simulationExpensesMonth0 = activeSimulations.reduce((sum, s) => {
+    const startOffset = s.startMonthOffset ?? 0;
+    if (startOffset > 0) return sum; // Se começa no futuro, não afeta o mês 0
     // Caso especial: Simulação de Empréstimo
     if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
       return sum; // Mês 0 de empréstimo não tem despesa/parcela
@@ -692,6 +717,8 @@ export function calculateAdvancedProjection(params: {
   }, 0);
 
   const simulationIncomesMonth0 = activeSimulations.reduce((sum, s) => {
+    const startOffset = s.startMonthOffset ?? 0;
+    if (startOffset > 0) return sum; // Se começa no futuro, não afeta o mês 0
     // Caso especial: Simulação de Empréstimo
     if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
       return sum + s.amount_cents; // Injeção total de capital do empréstimo no Mês 0
@@ -751,30 +778,35 @@ export function calculateAdvancedProjection(params: {
 
     // 5. Impacto das Simulações Ativas
     const simulationExpenses = activeSimulations.reduce((sum, s) => {
+      const startOffset = s.startMonthOffset ?? 0;
       // Caso especial: Simulação de Empréstimo
       if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-        // As parcelas são pagas nos meses de 1 a n
-        if (i <= s.installments) {
+        // As parcelas são pagas nos meses de startOffset + 1 a startOffset + n
+        if (i > startOffset && i <= startOffset + s.installments) {
           return sum + calculateLoanInstallment(s.amount_cents, s.interestRate || 0, s.installments);
         }
         return sum;
       }
       if (s.type === "INCOME") return sum;
       // Condição i < s.installments garante a contabilização correta das parcelas seguintes (meses 1, 2, ...) sem double-count
-      if (i < s.installments) {
+      if (i >= startOffset && i < startOffset + s.installments) {
         return sum + (s.amount_cents / (s.installments || 1));
       }
       return sum;
     }, 0);
 
     const simulationIncomes = activeSimulations.reduce((sum, s) => {
+      const startOffset = s.startMonthOffset ?? 0;
       // Caso especial: Simulação de Empréstimo
       if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-        return sum; // Nenhuma renda de empréstimo nos meses 1 a n
+        if (i === startOffset) {
+          return sum + s.amount_cents; // Injeção total de capital do empréstimo no mês de contração
+        }
+        return sum; // Nenhuma renda de empréstimo nos outros meses
       }
       if (s.type !== "INCOME") return sum;
       // Condição i < s.installments garante a contabilização correta das parcelas seguintes (meses 1, 2, ...) sem double-count
-      if (i < s.installments) {
+      if (i >= startOffset && i < startOffset + s.installments) {
         return sum + (s.amount_cents / (s.installments || 1));
       }
       return sum;
