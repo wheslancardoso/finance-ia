@@ -214,14 +214,26 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
         return sum + monthly;
       }, 0);
 
-    const simulatedExpense = activeSimulations
-      .filter(s => s.type === "EXPENSE")
-      .reduce((sum, s) => {
-        const startOffset = s.startMonthOffset ?? 0;
-        if (monthOffset < startOffset || monthOffset >= startOffset + s.installments) return sum;
-        const monthly = s.installments > 1 ? Math.round(s.amount_cents / s.installments) : s.amount_cents;
-        return sum + monthly;
-      }, 0);
+    const simulatedExpense = activeSimulations.reduce((sum, s) => {
+      const startOffset = s.startMonthOffset ?? 0;
+      if (monthOffset < startOffset || monthOffset >= startOffset + s.installments) return sum;
+      
+      // Caso especial: Simulação de Empréstimo
+      if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
+        if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
+          return sum + s.customInstallmentCents;
+        }
+        return sum + calculateLoanInstallment(s.amount_cents, s.interestRate || 0, s.installments);
+      }
+      
+      if (s.type === "INCOME") return sum;
+      
+      if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
+        return sum + s.customInstallmentCents;
+      }
+      const monthly = s.installments > 1 ? Math.round(s.amount_cents / s.installments) : s.amount_cents;
+      return sum + monthly;
+    }, 0);
 
     return simulatedIncome - simulatedExpense;
   }, [activeSimulations, monthOffset]);

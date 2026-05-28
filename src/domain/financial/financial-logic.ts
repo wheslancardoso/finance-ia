@@ -446,8 +446,7 @@ export function calculateMonthlyOutlook(params: {
     const startOffset = s.startMonthOffset ?? 0;
     // Caso especial: Simulação de Empréstimo
     if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-      if (monthOffset === startOffset) return sum; // Mês da contração apenas recebe o capital, sem parcela devida
-      if (monthOffset > startOffset && monthOffset <= startOffset + s.installments) {
+      if (monthOffset >= startOffset && monthOffset < startOffset + s.installments) {
         if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
           return sum + s.customInstallmentCents;
         }
@@ -575,7 +574,7 @@ export function calculateMonthlyOutlook(params: {
         const startOffset = s.startMonthOffset ?? 0;
         // Caso especial: Simulação de Empréstimo
         if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-          if (i > startOffset && i <= startOffset + s.installments) {
+          if (i >= startOffset && i < startOffset + s.installments) {
             if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
               return sum + s.customInstallmentCents;
             }
@@ -800,8 +799,8 @@ export function calculateAdvancedProjection(params: {
       const startOffset = s.startMonthOffset ?? 0;
       // Caso especial: Simulação de Empréstimo
       if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-        // As parcelas são pagas nos meses de startOffset + 1 a startOffset + n
-        if (i > startOffset && i <= startOffset + s.installments) {
+        // As parcelas são pagas nos meses de startOffset a startOffset + n - 1
+        if (i >= startOffset && i < startOffset + s.installments) {
           if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
             return sum + s.customInstallmentCents;
           }
