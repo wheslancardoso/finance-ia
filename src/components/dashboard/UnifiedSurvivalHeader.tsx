@@ -48,31 +48,8 @@ export function UnifiedSurvivalHeader({
   const isRecoveryMode = netLiquidityCents < -100;
   const hasSimulations = activeSimulations.length > 0;
 
-  // Lógica de Oxigênio Semanal Inteligente (Contextualizado à Renda e Ativos)
-  // Renda Livre Regular Mensal = Renda Recorrente (ex: Salário R$ 2.224,71) - Despesas Agendadas/Recorrentes (ex: R$ 718,69)
-  const regularIncome = recurringIncomeCents > 0 ? recurringIncomeCents : 222471;
-  const regularExpenses = monthlyOutlook.scheduledOnly > 0 ? monthlyOutlook.scheduledOnly : (recurringExpensesCents > 0 ? recurringExpensesCents : 71869);
-  const regularMonthlySurplus = Math.max(0, regularIncome - regularExpenses);
-
-  // Teto Saudável de Gastos Semanal (Baseado estritamente na renda livre recorrente, e não no patrimônio acumulado total)
-  // Isso impede que se o usuário tiver R$ 50.000,00 de saldo ele receba um limite imprudente de R$ 12.500,00 por semana!
-  const healthyWeeklyLimit = Math.max(2000, Math.round(regularMonthlySurplus / 4)); // Piso mínimo absoluto saudável de R$ 20,00
-
-  // Se o saldo físico corrente (caixa real) estiver abaixo do teto saudável mensal (ou em ciclo de crédito):
-  // O limite semanal de gastos encolhe perfeitamente e de forma realista para se ajustar à liquidez imediata (ex: R$ 20,49 -> R$ 20,00 por semana)!
-  const isCreditCycle = netLiquidityCents < 0 || isCrisisMode || isRecoveryMode;
-
-  const survivalCeilingCents = isCreditCycle
-    ? Math.max(0, accumulatedBalanceCents) // Foca estritamente nos ativos físicos disponíveis em caixa
-    : (netLiquidityCents > 0
-        ? Math.max(0, Math.min(monthlyOutlook.balanceAtMonthEnd, netLiquidityCents))
-        : Math.max(0, monthlyOutlook.balanceAtMonthEnd));
-
-  const weeklyLimit = isCreditCycle
-    ? (survivalCeilingCents > 0
-        ? Math.max(2000, Math.round(survivalCeilingCents / 4)) // Piso de R$ 20,00 para garantir teto mínimo viável na crise
-        : Math.round(((monthlyOutlook.scheduledOnly || 300000) * 0.3) / 4))
-    : Math.min(healthyWeeklyLimit, Math.round(survivalCeilingCents / 4));
+  // Limite semanal de gastos unificado e contextualizado vindo da inteligência do domínio
+  const weeklyLimit = weeklySurvival.weeklyLimitCents;
 
   return (
     <div className={cn(
@@ -157,7 +134,12 @@ export function UnifiedSurvivalHeader({
                   isCrisisMode ? "text-red-400" : "text-white"
                 )}
               >
-                {isCrisisMode ? "Ajuste Necessário" : formatCurrency(netLiquidityCents)}
+                <span className="block">{formatCurrency(netLiquidityCents)}</span>
+                {isCrisisMode && (
+                  <span className="block text-[8px] uppercase tracking-widest text-red-500 font-bold mt-1">
+                    Ajuste Necessário
+                  </span>
+                )}
               </h2>
             </div>
             <div className="text-right flex flex-col items-end">
@@ -191,12 +173,17 @@ export function UnifiedSurvivalHeader({
                       isCrisisMode ? "text-red-400" : isRecoveryMode ? "text-white" : hasSimulations ? "text-violet-400" : isFuture ? "text-white/90" : "text-white"
                     )}
                   >
-                    {isCrisisMode 
-                      ? "Ajuste Necessário" 
-                      : isRecoveryMode 
-                        ? (debtExit.exitDate ? format(debtExit.exitDate, "MMM'/'yy", { locale: ptBR }) : "---")
-                        : formatCurrency(netLiquidityCents)
-                    }
+                    <span className="block">{formatCurrency(netLiquidityCents)}</span>
+                    {isCrisisMode && (
+                      <span className="block text-xs uppercase tracking-widest text-red-500 font-bold mt-2">
+                        Ajuste Necessário
+                      </span>
+                    )}
+                    {isRecoveryMode && !isCrisisMode && debtExit.exitDate && (
+                      <span className="block text-xs uppercase tracking-widest text-amber-500 font-bold mt-2">
+                        Recuperação em {format(debtExit.exitDate, "MMM'/'yy", { locale: ptBR })}
+                      </span>
+                    )}
                   </h1>
                   
                   <div className="flex flex-wrap items-center gap-6 mt-6">
