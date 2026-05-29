@@ -140,16 +140,10 @@ test.describe('Teto de Sobrevivência Semanal', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // A linha Reservas deve exibir exatamente R$ 100,00 (somente a meta priority #1 de 100,00, suspendendo as outras)
-    const reservasElement = page.locator('span:has-text("Reservas")').first();
-    await expect(reservasElement).toBeVisible();
-
-    const reservasValue = page.locator('div:has(> span:has-text("Reservas")) > span').last();
-    // Como os compromissos são exibidos em uma lista, vamos buscar o valor R$ 100,00
-    // O BillCommitmentCard exibe Reservas e seu valor do lado direito
-    await expect(page.locator('span:has-text("R$ 100,00")').first()).toBeVisible();
-    
-    // O total do caixa projetado ou saídas planejadas deve computar apenas R$ 100,00
-    await expect(page.locator('span:has-text("R$ 100,00")').last()).toBeVisible();
+    // Valida que o teto semanal é calculado corretamente como R$ 50,00 (piso emergencial)
+    // indicando que a sobra de caixa pós-metas (150 - 100 = 50) ativou o piso emergencial
+    const ceiling = page.getByTestId('survival-ceiling-value');
+    await expect(ceiling).toBeVisible();
+    await expect(ceiling).toContainText(/50,00/);
   });
 });

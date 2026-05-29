@@ -248,9 +248,8 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
     await nextMonthBtn.click();
 
     // Confirmar que estamos em Junho/2026 e que os compromissos base somam R$ 3.869,99
-    // O card de Compromissos exibe o Total
-    const totalCompromissos = page.locator('span:has-text("R$ 3.869,99")').first();
-    await expect(totalCompromissos).toBeVisible();
+    // As despesas projetadas na planilha devem somar R$ 3.869,99
+    await expect(page.getByText(/R\$\s?3\.869,99/).first()).toBeVisible();
 
     // 2. Abrir Copiloto e enviar pergunta
     await page.getByTestId('toggle-copilot-button').click();
@@ -269,17 +268,17 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
     await simularBtn.click();
 
     // 5. Validar impacto no dashboard físico
-    // O item "Simulado" no card de Compromissos deve exibir R$ 230,00
-    await expect(page.getByText('Simulado', { exact: true }).first()).toBeVisible();
+    // O item "Simulado" na planilha deve exibir R$ 230,00
+    await expect(page.getByText(/Simulado:/).first()).toBeVisible();
     await expect(page.locator('span:has-text("R$ 230,00")').first()).toBeVisible();
 
-    // O "Total" do card de Compromissos deve saltar para R$ 4.099,99 (R$ 3.869,99 + R$ 230,00)
+    // O "Total" na planilha de despesas deve saltar para R$ 4.099,99 (R$ 3.869,99 + R$ 230,00)
     await expect(page.locator('span:has-text("R$ 4.099,99")').first()).toBeVisible();
 
     // 6. Desativar simulação e verificar retorno
     await page.getByRole('button', { name: 'Simulado' }).click();
     await expect(page.locator('span:has-text("R$ 3.869,99")').first()).toBeVisible();
-    await expect(page.locator('span').filter({ hasText: /^Simulado$/ })).not.toBeVisible();
+    await expect(page.locator('span').filter({ hasText: /Simulado:/ })).not.toBeVisible();
   });
 
   test('deve suspender aportes de metas ativas reativamente sob crise de caixa e reativá-las dinamicamente ao reabastecer o saldo', async ({ page }) => {
@@ -331,12 +330,10 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
     await expect(nextMonthBtn).toBeVisible();
     await nextMonthBtn.click();
 
-    // Sob crise de caixa, a linha "Reservas" deve exibir R$ 0,00 devido à suspensão inteligente
-    await expect(page.locator('span:has-text("Reservas")').first()).toBeVisible();
-    // O valor do item Reservas no card de saídas previstas deve ser R$ 0,00
-    await expect(page.locator('span:has-text("R$ 0,00")').first()).toBeVisible();
-    // O total de compromissos deve ser R$ 1.500,00 (apenas o aluguel)
-    await expect(page.locator('span:has-text("R$ 1.500,00")').first()).toBeVisible();
+    // Sob crise de caixa, a meta de R$ 150,00 deve ser suspensa.
+    // O saldo projetado final deve refletir apenas Nubank (100) - Aluguel (1.500) = R$ -1.400,00
+    const balanceVal = page.getByTestId('net-liquidity-value');
+    await expect(balanceVal).toContainText(/-R\$\s?1\.400,00/);
 
     // Agora reabastecemos o saldo do usuário para ter liquidez positiva
     const healthyState = createDashboardState({
@@ -383,11 +380,10 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
     await expect(page.getByRole('button', { name: 'Próximo Mês' })).toBeVisible();
     await page.getByRole('button', { name: 'Próximo Mês' }).click();
 
-    // Sob situação saudável (saldo inicial de R$ 3.000,00), a meta ativa deve ser cobrada
-    // A linha "Reservas" deve exibir R$ 150,00
-    await expect(page.locator('span:has-text("R$ 150,00")').first()).toBeVisible();
-    // O total deve atualizar para R$ 1.650,00 (R$ 1.500,00 + R$ 150,00)
-    await expect(page.locator('span:has-text("R$ 1.650,00")').first()).toBeVisible();
+    // Sob situação saudável (saldo inicial de R$ 3.000,00), a meta ativa deve ser cobrada (150,00)
+    // O saldo projetado final deve refletir Nubank (3.000) - Aluguel (1.500) - Meta (150) = R$ 1.350,00
+    const balanceVal2 = page.getByTestId('net-liquidity-value');
+    await expect(balanceVal2).toContainText(/R\$\s?1\.350,00/);
   });
 
   test('deve simular cenário de rotativo do cartão via Copiloto e validar o impacto orçamentário no dashboard', async ({ page, isMobile }) => {
@@ -476,13 +472,13 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
     await simularBtn.click();
 
     // 5. Validar impacto no dashboard físico
-    // O item "Simulado" no card de Compromissos deve exibir R$ 178,50
-    await expect(page.getByText('Simulado', { exact: true }).first()).toBeVisible();
-    await expect(page.locator('span:has-text("R$ 178,50")').first()).toBeVisible();
+    // O item "Simulado" na planilha deve exibir R$ 178,50
+    await expect(page.getByText(/Simulado:/).first()).toBeVisible();
+    await expect(page.getByText(/R\$\s?178,50/).first()).toBeVisible();
 
-    // O "Total" do card de Compromissos deve subir correspondendo ao valor simulado de R$ 178,50
-    // O total inicial era R$ 3.500,00 (incluindo despesas recorrentes padrão). Agora deve ser R$ 3.678,50
-    await expect(page.locator('span:has-text("R$ 3.678,50")').first()).toBeVisible();
+    // O "Total" na planilha de despesas deve subir correspondendo ao valor simulado de R$ 178,50
+    // O total inicial era R$ 3.500,00. Agora deve ser R$ 3.678,50
+    await expect(page.getByText(/R\$\s?3\.678,50/).first()).toBeVisible();
   });
 });
 

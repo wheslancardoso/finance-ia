@@ -35,8 +35,7 @@ export function UnifiedSurvivalHeader({
   const { openAdd } = useTransactionModal();
   const { accounts, recurringExpensesCents: contextRecurringExpenses } = useFinancialData();
   const {
-    checkingBalanceCents,
-    netLiquidityCents,
+    accumulatedBalanceCents,
     creditCardUsedCents,
     weeklySurvival,
     recurringExpensesCents
@@ -45,9 +44,8 @@ export function UnifiedSurvivalHeader({
   const isFuture = monthOffset > 0;
   const hasSimulations = activeSimulations.length > 0;
   
-  // No futuro ou com simulações ativas, exibimos o saldo projetado acumulado (netLiquidityCents).
-  // No presente sem simulações, exibimos o saldo real em conta corrente (checkingBalanceCents).
-  const displayBalanceCents = (isFuture || hasSimulations) ? netLiquidityCents : checkingBalanceCents;
+  // Sempre exibimos o somatório do saldo das contas correntes (presente ou projetado futuro)
+  const displayBalanceCents = accumulatedBalanceCents;
   const isNegativeBalance = displayBalanceCents < 0;
 
   // Limite semanal vindo da inteligência do domínio
@@ -178,24 +176,6 @@ export function UnifiedSurvivalHeader({
                   </h1>
                   
                   <div className="flex flex-wrap items-center gap-6 mt-6">
-                    {/* Detalhamento por conta corrente */}
-                    {checkingAccounts.length > 0 && checkingAccounts.map((account) => (
-                      <div key={account.id} className="flex flex-col">
-                        <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">{account.name}</span>
-                        <span className={cn(
-                          "text-sm font-black tabular-nums",
-                          (Number(account.balance_cents) || 0) < 0 ? "text-red-400/80" : "text-emerald-400"
-                        )}>
-                          {formatCurrency(Number(account.balance_cents) || 0)}
-                        </span>
-                      </div>
-                    ))}
-                    
-                    {/* Separador */}
-                    {checkingAccounts.length > 0 && (fixedExpensesTotal > 0 || creditCardUsedCents > 0) && (
-                      <div className="w-px h-8 bg-white/5" />
-                    )}
-
                     {/* Contas a pagar (despesas fixas do mês) */}
                     {fixedExpensesTotal > 0 && (
                       <div className="flex flex-col">
@@ -207,7 +187,7 @@ export function UnifiedSurvivalHeader({
                     {/* Cartões usados */}
                     {creditCardUsedCents > 0 && (
                       <>
-                        <div className="w-px h-8 bg-white/5" />
+                        {fixedExpensesTotal > 0 && <div className="w-px h-8 bg-white/5" />}
                         <div className="flex flex-col">
                           <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Cartões Usados</span>
                           <span className="text-sm font-black text-red-400/80 tabular-nums">{formatCurrency(creditCardUsedCents)}</span>

@@ -9,6 +9,7 @@ import { useAccountModal } from "@/context/AccountModalContext";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { ActionMenu } from "./ActionMenu";
 import { PayInvoiceModal } from "./PayInvoiceModal";
+import { InvoiceTransactionsModal } from "./InvoiceTransactionsModal";
 import { ConfirmModal } from "./ConfirmModal";
 import { StatusModal } from "./StatusModal";
 import { format, subMonths, startOfMonth } from "date-fns";
@@ -40,6 +41,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
   const [payModalOpen, setPayModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [markPaidModalOpen, setMarkPaidModalOpen] = useState(false);
+  const [invoiceDetailsOpen, setInvoiceDetailsOpen] = useState(false);
   const [statusModal, setStatusModal] = useState<{ isOpen: boolean; message: string; title: string; type: "success" | "error" }>({
     isOpen: false,
     message: "",
@@ -92,7 +94,23 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
   // Detectar status da fatura
   const openAmount = liveAccount.open_invoice_cents || 0;
   const closedAmount = liveAccount.closed_invoice_cents || 0;
-  
+  const showClosed = isCreditCard && closedAmount > 0;
+  const invoiceAmount = showClosed ? closedAmount : openAmount;
+  const invoiceId = showClosed ? liveAccount.closed_invoice_id : liveAccount.open_invoice_id;
+  const invoiceMonthRaw = showClosed
+    ? (liveAccount.closed_invoice_month || "")
+    : (liveAccount.open_invoice_month || "");
+
+  let invoiceMonth = "---";
+  if (invoiceMonthRaw) {
+    try {
+      const [y, m] = invoiceMonthRaw.split("-");
+      invoiceMonth = format(new Date(parseInt(y), parseInt(m) - 1, 1), "MMM", { locale: ptBR });
+    } catch (e) {
+      invoiceMonth = invoiceMonthRaw;
+    }
+  }
+
   // Se houver fatura fechada não paga, damos prioridade a ela na visualização principal
   // se a aberta ainda estiver pequena ou se o usuário estiver no período de fechamento.
   const hasClosedInvoice = isCreditCard && closedAmount > 0;
@@ -187,25 +205,6 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
 
       <div className="space-y-4">
         {isCreditCard ? (() => {
-          // Mostramos a fatura FECHADA se houver valor, senão a ABERTA.
-          const showClosed = closedAmount > 0;
-          const invoiceAmount = showClosed ? closedAmount : openAmount;
-          const invoiceMonthRaw = showClosed
-            ? (liveAccount.closed_invoice_month || "")
-            : (liveAccount.open_invoice_month || "");
-          
-          // Formata o mês (YYYY-MM para MMM)
-          let invoiceMonth = "---";
-          if (invoiceMonthRaw) {
-            try {
-              const [y, m] = invoiceMonthRaw.split("-");
-              // O reference_month já é o mês da fatura, não precisamos adicionar 1
-              invoiceMonth = format(new Date(parseInt(y), parseInt(m) - 1, 1), "MMM", { locale: ptBR });
-            } catch (e) {
-              invoiceMonth = invoiceMonthRaw;
-            }
-          }
-          
           return (
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -264,23 +263,43 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
                   </button>
                 </div>
               ) : (
-                <div className="flex items-baseline gap-3">
-                  <h2 data-testid="invoice-amount" className="text-3xl font-bold tracking-tight tabular-nums text-amber-500">
+                <div className="flex items-baseline gap-3 flex-wrap">
+                  <h2 
+                    data-testid="invoice-amount" 
+                    onClick={() => invoiceId && setInvoiceDetailsOpen(true)}
+                    className={cn(
+                      "text-3xl font-bold tracking-tight tabular-nums text-amber-500",
+                      invoiceId && "cursor-pointer hover:text-amber-400 transition-colors"
+                    )}
+                    title={invoiceId ? "Clique para ver as compras desta fatura" : undefined}
+                  >
                     {formatCurrency(invoiceAmount)}
                   </h2>
                   
-                  {isCreditCard && (
-                    <button 
-                      onClick={() => {
-                        setAdjustmentValue((invoiceAmount / 100).toString());
-                        setShowAdjustmentInput(true);
-                      }}
-                      data-testid="adjust-invoice-button"
-                      className="text-[9px] font-bold text-violet-400/60 uppercase tracking-widest hover:text-violet-400 transition-colors border-b border-violet-400/20"
-                    >
-                      {invoiceAmount === 0 ? "Informar Saldo" : "Reajustar"}
-                    </button>
-                  )}
+                  <div className="flex gap-2 items-center">
+                    {invoiceId && (
+                      <button
+                        onClick={() => setInvoiceDetailsOpen(true)}
+                        className="text-[9px] font-bold text-white/40 uppercase tracking-widest hover:text-white/60 transition-colors border-b border-white/10"
+                        title="Ver compras desta fatura"
+                      >
+                        Ver Detalhes
+                      </button>
+                    )}
+
+                    {isCreditCard && (
+                      <button 
+                        onClick={() => {
+                          setAdjustmentValue((invoiceAmount / 100).toString());
+                          setShowAdjustmentInput(true);
+                        }}
+                        data-testid="adjust-invoice-button"
+                        className="text-[9px] font-bold text-violet-400/60 uppercase tracking-widest hover:text-violet-400 transition-colors border-b border-violet-400/20"
+                      >
+                        {invoiceAmount === 0 ? "Informar Saldo" : "Reajustar"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -430,6 +449,18 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
             isOpen={payModalOpen}
             onClose={() => setPayModalOpen(false)}
             creditCardAccount={liveAccount}
+          />,
+          document.body
+        )}
+
+        {isCreditCard && invoiceDetailsOpen && createPortal(
+          <InvoiceTransactionsModal
+            isOpen={invoiceDetailsOpen}
+            onClose={() => setInvoiceDetailsOpen(false)}
+            invoiceId={invoiceId}
+            accountName={name}
+            invoiceMonth={invoiceMonth}
+            invoiceAmountCents={invoiceAmount}
           />,
           document.body
         )}

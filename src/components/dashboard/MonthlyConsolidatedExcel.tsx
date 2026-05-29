@@ -10,6 +10,7 @@ interface MonthlyConsolidatedExcelProps {
   income: number;
   expenses: number;
   balance: number;
+  startingBalance: number;
   items: Array<{
     name: string;
     value: number;
@@ -26,6 +27,7 @@ export function MonthlyConsolidatedExcel({
   income, 
   expenses, 
   balance, 
+  startingBalance,
   items,
   monthName
 }: MonthlyConsolidatedExcelProps) {
@@ -113,17 +115,21 @@ export function MonthlyConsolidatedExcel({
       )}>
         <div className="space-y-3">
           <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-white/30">
-            <span>Salário Recebido</span>
-            <span className="text-emerald-400">{formatCurrency(income)}</span>
+            <span>Saldo Inicial (Partida)</span>
+            <span className="text-white/80 tabular-nums">{formatCurrency(startingBalance)}</span>
           </div>
           <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-white/30">
-            <span>Total Gasto</span>
-            <span className="text-white/60">{formatCurrency(expenses)}</span>
+            <span>(+) Recebido</span>
+            <span className="text-emerald-400 tabular-nums">+{formatCurrency(income)}</span>
+          </div>
+          <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-white/30">
+            <span>(-) Gasto</span>
+            <span className="text-red-400/80 tabular-nums">-{formatCurrency(expenses)}</span>
           </div>
           <div className="h-px bg-white/5 w-full" />
           <div className="flex justify-between items-end pt-1">
             <div className="flex flex-col">
-              <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Saldo Atual</span>
+              <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Saldo Final Projetado</span>
               <span className="text-[8px] font-bold text-white/20 uppercase tracking-tighter">{monthName}</span>
             </div>
             <span className={cn(

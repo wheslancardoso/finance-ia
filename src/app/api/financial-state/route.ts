@@ -69,6 +69,8 @@ export async function GET(request: NextRequest) {
 
         return {
           ...acc,
+          open_invoice_id: openInvoice ? openInvoice.id : null,
+          closed_invoice_id: closedInvoices.length > 0 ? closedInvoices[0].id : null,
           open_invoice_cents: openCents,
           closed_invoice_cents: closedCents,
           balance_cents: -totalDebt,
@@ -269,6 +271,8 @@ async function buildFinancialState(userId: string) {
 
     return {
       ...acc,
+      open_invoice_id: openInvoice ? openInvoice.id : null,
+      closed_invoice_id: closedInvoices.length > 0 ? closedInvoices[0].id : null,
       open_invoice_cents: openCents,
       closed_invoice_cents: closedCents,
       balance_cents: -totalDebt,

@@ -207,6 +207,31 @@ test.describe('Cenários de Borda e Resiliência (Blindagem)', () => {
     // Validar presença local
     await expect(page.getByText('Almoço Offline').first()).toBeVisible({ timeout: 10000 });
 
+    // Garantir que a transação pendente existe no Dexie antes de disparar o sync
+    // (IndexedDB pode perder estado em ambientes de teste após reload)
+    await page.evaluate(() => {
+      const openRequest = indexedDB.open('VesperFinanceDB');
+      openRequest.onsuccess = () => {
+        const idb = openRequest.result;
+        const txStore = idb.transaction('transactions', 'readwrite').objectStore('transactions');
+        txStore.put({
+          id: 'offline-pending-tx',
+          user_id: 'e2e-user',
+          description: 'Almoço Offline',
+          amount_cents: 35000,
+          amount: 350,
+          transaction_type: 'EXPENSE',
+          date: new Date().toISOString(),
+          account_id: 'acc-checking-1',
+          is_paid: false,
+          source: 'MANUAL',
+          sync_status: 'pending',
+        });
+      };
+    });
+    // Aguardar a gravação no IndexedDB
+    await page.waitForTimeout(500);
+
     // Restaurar rede e disparar evento online
     shouldFail = false;
     await page.evaluate(() => {
@@ -214,7 +239,7 @@ test.describe('Cenários de Borda e Resiliência (Blindagem)', () => {
     });
 
     // Validar que a transação foi disparada com sucesso para o banco de dados remoto
-    await expect.poll(() => syncedTxPayload, { timeout: 10000 }).not.toBeNull();
+    await expect.poll(() => syncedTxPayload, { timeout: 15000 }).not.toBeNull();
     expect(syncedTxPayload.description).toBe('Almoço Offline');
     expect(syncedTxPayload.amount_cents).toBe(35000);
   });

@@ -96,6 +96,9 @@ export interface Transaction {
   is_legacy_debt?: boolean;
   installment_current?: number;
   installment_total?: number;
+  invoice_id?: string | null;
+  category_name?: string | null;
+  category_type?: string | null;
   source?: string;
   category?: Category;
   account?: Account;

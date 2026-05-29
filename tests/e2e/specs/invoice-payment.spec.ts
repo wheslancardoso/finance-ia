@@ -94,9 +94,9 @@ test.describe('Pagamento de Faturas (Refatorado)', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // O total inicial em Cartões no card de Compromissos deve incluir o gasto do cartão:
+    // O total inicial em Cartões Usados no cabeçalho deve incluir o gasto do cartão:
     // closed_invoice_cents (120.000) + tx-card-spent-2.3 (30.000) = R$ 1.500,00
-    await expect(page.getByText('Cartões', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Cartões Usados', { exact: false }).first()).toBeVisible();
     await expect(page.locator('span:has-text("R$ 1.500,00")').first()).toBeVisible();
 
     // 2. Navegar para a página de transações e estornar (excluir) a transação de R$ 300,00
@@ -127,7 +127,7 @@ test.describe('Pagamento de Faturas (Refatorado)', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('Cartões', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Cartões Usados', { exact: false }).first()).toBeVisible();
     await expect(page.locator('span:has-text("R$ 1.200,00")').first()).toBeVisible();
   });
 });

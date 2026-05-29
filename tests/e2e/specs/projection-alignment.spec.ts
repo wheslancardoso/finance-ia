@@ -164,7 +164,7 @@ test.describe('Projection Alignment (Time Machine)', () => {
     await expect(page.locator('span:has-text("R$ 800,00")').first()).toBeVisible();
 
     // Saldo inicial = 1.000 + 3.000 (injeção empréstimo) - 800 (parcelas) = R$ 3.200,00
-    const netLiquidityText = await page.getByTestId('net-liquidity-value').textContent();
-    expect(netLiquidityText).toContain('3.200,00');
+    // O Saldo Final Projetado na planilha consolidada deve exibir R$ 3.200,00
+    await expect(page.getByText(/R\$\s?3\.200,00/).first()).toBeVisible();
   });
 });

@@ -28,6 +28,7 @@ export interface FinancialAnalysis {
   netLiquidityCents: number;
   totalConsolidatedDebtCents: number;
   accumulatedBalanceCents: number;
+  startingBalanceCents: number;
   checkingBalanceCents: number;
   creditCardUsedCents: number;
   monthlyOutlook: MonthlyOutlook;
@@ -283,6 +284,34 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       }, 0);
   }, [accounts]);
 
+  const startingBalanceCents = useMemo(() => {
+    if (monthOffset === 0) {
+      return currentAssets;
+    }
+    
+    const effectiveScheduledIncome = scheduledIncomeCents || recurringIncomeCents;
+    const effectiveScheduledExpenses = scheduledExpensesCents || recurringExpensesCents;
+    
+    const prevOutlook = calculateMonthlyOutlook({
+      accounts,
+      scheduledIncomeCents: effectiveScheduledIncome,
+      scheduledExpensesCents: effectiveScheduledExpenses,
+      recurringIncomeCents,
+      recurringExpensesCents,
+      budgets,
+      netLiquidityCents: netLiquidity,
+      monthOffset: monthOffset - 1,
+      activeSimulations,
+      futureTransactions,
+      allTransactions: monthTransactions,
+      recurringTransactions,
+      goals,
+      survivalReserveCents
+    });
+    
+    return prevOutlook.totalAssets || 0;
+  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, activeSimulations, futureTransactions, monthTransactions, recurringTransactions, goals, survivalReserveCents, currentAssets]);
+
   const weeklySurvival = useMemo(() => {
     // Margem livre real = Renda recorrente - Despesas fixas recorrentes
     const regularIncome = recurringIncomeCents > 0 ? recurringIncomeCents : 0;
@@ -447,6 +476,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     netLiquidityCents: activeNetLiquidity,
     totalConsolidatedDebtCents: activeDebt,
     accumulatedBalanceCents: activeAssets,
+    startingBalanceCents: startingBalanceCents,
     checkingBalanceCents: checkingBalance,
     creditCardUsedCents: creditCardUsed,
     monthlyOutlook: {
