@@ -36,10 +36,9 @@ test.describe('Teto de Sobrevivência Semanal', () => {
     
     const ceiling = page.getByTestId('survival-ceiling-value');
     await expect(ceiling).toBeVisible();
-    // Nova fórmula: (10000 - 5000 = 5000) / Semanas restantes.
-    // Como a data é dinâmica e pode variar, o teto ficará entre R$50,00 e R$500,00 limitados pelo Math.max/min.
-    // Com 5k de sobra e 4 semanas seria 1.250, mas limitamos ao teto máximo de 500,00.
-    await expect(ceiling).toContainText(/500,00/);
+    // Nova fórmula: (10000 - 5000 = 5000) / 4 semanas (data fixada em 7/maio: 25 dias restantes).
+    // Teto semanal = 5000 / 4 = R$ 1.250,00
+    await expect(ceiling).toContainText(/1\.250,00/);
   });
   
   test('deve exibir alerta de ciclo de dívida no modo crise', async ({ page }) => {
@@ -79,11 +78,11 @@ test.describe('Teto de Sobrevivência Semanal', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // Com renda e despesas recorrentes saudáveis configuradas, a margem livre mensal é alta.
-    // O teto semanal vai estourar o cap máximo de 500,00.
+    // Com renda 30k e despesas 10k, a margem livre é 20k.
+    // Teto semanal = 20k / 4 semanas = R$ 5.000,00
     const ceiling = page.getByTestId('survival-ceiling-value');
     await expect(ceiling).toBeVisible();
-    await expect(ceiling).toContainText(/500,00/);
+    await expect(ceiling).toContainText(/5\.000,00/);
 
     // Inserir despesa manual severa de R$ 5.200,00 para empurrar o caixa para o negativo e forçar a crise de caixa
     const desktopBtn = page.getByTestId('add-transaction-button');
@@ -116,9 +115,8 @@ test.describe('Teto de Sobrevivência Semanal', () => {
     await expect(page.getByTestId('add-transaction-modal')).not.toBeVisible({ timeout: 10000 });
 
     // Como a margem livre principal é renda - fixas (e o gasto inserido é variável),
-    // a margem não se altera, mas o cálculo de *gasto da semana* sim. 
-    // O teto em si (500,00) continua o mesmo.
-    await expect(ceiling).toContainText(/500,00/, { timeout: 10000 });
+    // a margem não se altera, o teto semanal continua R$ 5.000,00.
+    await expect(ceiling).toContainText(/5\.000,00/, { timeout: 10000 });
   });
 
   test('deve aplicar priorização inteligente suspendendo metas menos prioritárias sob aperto parcial de caixa (Test 3.3)', async ({ page }) => {

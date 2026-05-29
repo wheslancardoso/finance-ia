@@ -29,10 +29,10 @@ test.describe('Dashboard e Projeções (Refatorado)', () => {
     // O sistema não antecipa mais os 5k de renda que ainda não caíram no saldo.
     await dashboard.expectLiquidity(/R\$\s?0,00/);
     
-    // O Teto semanal, no entanto, continua sendo baseado na SOBRA PROJETADA do fim do mês
-    // Sobra Projetada (3k). Meses futuros mostram checkingBalanceCents mockado, que no base setup é 0.
-    // Teto semanal = 3k / 4 semanas = 750 (limitado a 500 pelo teto máximo)
-    await expect(page.getByTestId('survival-ceiling-value')).toContainText(/500.*00/, { timeout: 15000 });
+    // O Teto semanal é baseado na SOBRA PROJETADA do fim do mês
+    // Sobra = 5k (renda) - 2k (despesa) = 3k. Data fixada em 7/maio: 25 dias restantes = 4 semanas.
+    // Teto semanal = 3k / 4 semanas = R$ 750,00
+    await expect(page.getByTestId('survival-ceiling-value')).toContainText(/750,00/, { timeout: 15000 });
   });
 
   test('deve entrar em MODO CRISE quando a liquidez é negativa', async ({ page }) => {
@@ -64,8 +64,8 @@ test.describe('Dashboard e Projeções (Refatorado)', () => {
     await setupFinancialMocks(page, createDashboardState());
     await dashboard.goto();
     
-    // Teto semanal inicial: 500 (limitado pelo teto máximo de 500)
-    await expect(page.getByTestId('survival-ceiling-value')).toContainText(/500.*00/, { timeout: 15000 });
+    // Teto semanal inicial: 3k sobra / 4 semanas = R$ 750,00
+    await expect(page.getByTestId('survival-ceiling-value')).toContainText(/750,00/, { timeout: 15000 });
 
     await subs.goto();
     await subs.addSubscription('Gasto Gigante', '2000,00', '28');

@@ -38,7 +38,8 @@ export function UnifiedSurvivalHeader({
     accumulatedBalanceCents,
     creditCardUsedCents,
     weeklySurvival,
-    recurringExpensesCents
+    recurringExpensesCents,
+    monthlyOutlook
   } = useFinancialAnalysis(monthOffset, activeSimulations);
 
   const isFuture = monthOffset > 0;
@@ -54,8 +55,10 @@ export function UnifiedSurvivalHeader({
   // Listar contas correntes para exibição detalhada
   const checkingAccounts = accounts.filter(a => a.type !== "CREDIT_CARD");
 
-  // Total de contas fixas a pagar no mês (despesas recorrentes)
-  const fixedExpensesTotal = recurringExpensesCents > 0 ? recurringExpensesCents : contextRecurringExpenses;
+  // Total de contas fixas a pagar no mês — projetado para meses futuros
+  const fixedExpensesTotal = (isFuture || hasSimulations)
+    ? (monthlyOutlook.scheduledOnly + monthlyOutlook.immediateCardDebt)
+    : (recurringExpensesCents > 0 ? recurringExpensesCents : contextRecurringExpenses);
 
   return (
     <div className={cn(

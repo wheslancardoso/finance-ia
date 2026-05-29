@@ -274,15 +274,20 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       .reduce((sum, a) => sum + (Number(a.balance_cents) || 0), 0);
   }, [accounts]);
 
-  // Total gasto nos cartões de crédito (saldo negativo dos cartões)
+  // Total gasto nos cartões de crédito — projetado para meses futuros
   const creditCardUsed = useMemo(() => {
+    if (monthOffset > 0) {
+      // Em meses futuros, usar a dívida projetada pelo motor de projeção
+      return monthlyOutlook.totalDebt ?? 0;
+    }
+    // Mês atual: somatório real dos saldos negativos dos cartões
     return accounts
       .filter(a => a.type === "CREDIT_CARD")
       .reduce((sum, a) => {
         const balance = Number(a.balance_cents) || 0;
         return sum + (balance < 0 ? Math.abs(balance) : 0);
       }, 0);
-  }, [accounts]);
+  }, [accounts, monthOffset, monthlyOutlook.totalDebt]);
 
   const startingBalanceCents = useMemo(() => {
     if (monthOffset === 0) {
@@ -321,30 +326,43 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     // Ajustar margem livre mensal e saldo de contas com base no impacto de simulações ativas
     let effectiveCheckingBalance = checkingBalance;
     if (activeSimulations.length > 0) {
-      // Se o impacto simulado for negativo (gasto extra), deduzimos da margem livre e do saldo
       const monthlySimulatedExpense = simulatedNetImpact < 0 ? Math.abs(simulatedNetImpact) : 0;
       freeMarginMonthly = Math.max(0, freeMarginMonthly - monthlySimulatedExpense);
       effectiveCheckingBalance = Math.max(0, effectiveCheckingBalance - monthlySimulatedExpense);
     }
 
-    // Calcular semanas restantes no mês (mínimo 1 para evitar divisão por zero)
-    const now = new Date();
-    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const daysRemaining = Math.max(1, lastDayOfMonth - now.getDate() + 1);
-    const weeksRemaining = Math.max(1, Math.ceil(daysRemaining / 7));
-
-    // Teto semanal = margem livre mensal / semanas restantes no mês
-    // Se não houver renda cadastrada, usar saldo em conta / semanas restantes
-    let weeklyLimitCents = 0;
-    if (freeMarginMonthly > 0) {
-      weeklyLimitCents = Math.round(freeMarginMonthly / weeksRemaining);
-    } else if (effectiveCheckingBalance > 0) {
-      weeklyLimitCents = Math.round(effectiveCheckingBalance / weeksRemaining);
+    // Para meses futuros, usar o saldo projetado em vez do saldo atual
+    if (monthOffset > 0) {
+      effectiveCheckingBalance = monthlyOutlook.totalAssets ?? 0;
     }
 
-    // Piso realista: R$ 50/semana (5000 centavos) — abaixo disso é irrealista
-    // Teto máximo: R$ 500/semana (50000 centavos) — para não dar falsa sensação de abundância
-    weeklyLimitCents = Math.max(5000, Math.min(50000, weeklyLimitCents));
+    // Semanas no mês — para meses futuros, usar o mês inteiro (4-5 semanas)
+    const now = new Date();
+    let weeksInPeriod: number;
+    if (monthOffset > 0) {
+      // Mês futuro: distribuir pelo mês inteiro
+      const targetDate = new Date(now.getFullYear(), now.getMonth() + monthOffset + 1, 0);
+      const daysInMonth = targetDate.getDate();
+      weeksInPeriod = Math.max(1, Math.ceil(daysInMonth / 7));
+    } else {
+      // Mês atual: semanas restantes
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const daysRemaining = Math.max(1, lastDayOfMonth - now.getDate() + 1);
+      weeksInPeriod = Math.max(1, Math.ceil(daysRemaining / 7));
+    }
+
+    // Teto semanal = margem livre mensal / semanas do período
+    // Se não houver renda cadastrada, usar saldo em conta / semanas do período
+    let weeklyLimitCents = 0;
+    if (freeMarginMonthly > 0) {
+      weeklyLimitCents = Math.round(freeMarginMonthly / weeksInPeriod);
+    } else if (effectiveCheckingBalance > 0) {
+      weeklyLimitCents = Math.round(effectiveCheckingBalance / weeksInPeriod);
+    }
+
+    // Piso realista: R$ 50/semana (5000 centavos)
+    // Sem teto artificial — o valor real deve refletir a situação financeira
+    weeklyLimitCents = Math.max(5000, weeklyLimitCents);
 
     // Calcular consumo semanal baseado em transações reais de despesas variáveis
     const result = calculateWeeklySurvival({
@@ -362,7 +380,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
           ? "WARNING" as const
           : "NORMAL" as const
     };
-  }, [accounts, checkingBalance, recurringIncomeCents, recurringExpensesCents, monthTransactions, monthOffset, activeSimulations, simulatedNetImpact]);
+  }, [accounts, checkingBalance, recurringIncomeCents, recurringExpensesCents, monthTransactions, monthOffset, activeSimulations, simulatedNetImpact, monthlyOutlook.totalAssets]);
 
   const simulateDetailedImpactFn = useCallback((
     amountCents: number, 
