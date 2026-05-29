@@ -1,0 +1,113 @@
+
+Running 26 tests using 1 worker
+
+BROWSER [info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+BROWSER [log]: [HMR] connected
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=e2e-user
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=dashboard-user
+👤 [MOCK] Profiles Requested for dashboard-user
+  ✓   1 [chromium] › tests/e2e/specs/dashboard.spec.ts:17:7 › Dashboard e Projeções (Refatorado) › deve exibir métricas de saúde financeira corretamente no modo saudável (769ms)
+BROWSER [info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+BROWSER [log]: [HMR] connected
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=e2e-user
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=dashboard-user
+👤 [MOCK] Profiles Requested for dashboard-user
+  ✘   2 [chromium] › tests/e2e/specs/dashboard.spec.ts:33:7 › Dashboard e Projeções (Refatorado) › deve entrar em MODO CRISE quando a liquidez é negativa (15.3s)
+BROWSER [info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+BROWSER [log]: [HMR] connected
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=e2e-user
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=dashboard-user
+👤 [MOCK] Profiles Requested for dashboard-user
+BROWSER [info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+BROWSER [log]: [HMR] connected
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=e2e-user
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=dashboard-user
+👤 [MOCK] Profiles Requested for dashboard-user
+🧪 [E2E Debug] descriptionInput count: 1, amountInput count: 1
+BROWSER [log]: 🔁 Iniciando upsertRecurringTransaction: Gasto Gigante
+BROWSER [log]: 🌐 [API Fetch] POST /api/recurring-transactions
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=dashboard-user
+BROWSER [info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+BROWSER [log]: [HMR] connected
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=e2e-user
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=dashboard-user
+👤 [MOCK] Profiles Requested for dashboard-user
+  ✘   3 [chromium] › tests/e2e/specs/dashboard.spec.ts:56:7 › Dashboard e Projeções (Refatorado) › deve refletir mudanças de assinaturas no saldo projetado (8.1s)
+
+
+  1) [chromium] › tests/e2e/specs/dashboard.spec.ts:33:7 › Dashboard e Projeções (Refatorado) › deve entrar em MODO CRISE quando a liquidez é negativa 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoContainText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: getByTestId('net-liquidity-value')
+    Expected pattern: [32m/R\$\s?-5.000,00/[39m
+    Received string:  [31m"-R$ 5.000,00"[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - Expect "toContainText" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('net-liquidity-value')[22m
+    [2m    9 × locator resolved to <h1 data-testid="net-liquidity-value" class="text-[clamp(2rem,6vw,4.5rem)] py-2 font-black tracking-tighter tabular-nums leading-none drop-shadow-2xl sm:whitespace-normal text-red-400">-R$ 5.000,00</h1>[22m
+    [2m      - unexpected value "-R$ 5.000,00"[22m
+
+
+    Call Log:
+    - Timeout 15000ms exceeded while waiting on the predicate
+
+      51 |       await expect(netLiquidityValue).toContainText(/R\$\s?-5.000,00/);
+      52 |       await expect(netLiquidityValue).toHaveClass(/text-red-400/);
+    > 53 |     }).toPass({ timeout: 15000 });
+         |        ^
+      54 |   });
+      55 |
+      56 |   test('deve refletir mudanças de assinaturas no saldo projetado', async ({ page }) => {
+        at /home/lan/finance-ia/tests/e2e/specs/dashboard.spec.ts:53:8
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/dashboard-Dashboard-e-Proj-279bb-uando-a-liquidez-é-negativa-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/dashboard-Dashboard-e-Proj-279bb-uando-a-liquidez-é-negativa-chromium/error-context.md
+
+  2) [chromium] › tests/e2e/specs/dashboard.spec.ts:56:7 › Dashboard e Projeções (Refatorado) › deve refletir mudanças de assinaturas no saldo projetado 
+
+    Test was interrupted.
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoContainText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: getByTestId('survival-ceiling-value')
+    Expected pattern: [32m/250,00/[39m
+    Received string:  [31m"R$ 500,00"[39m
+
+    Call log:
+    [2m  - Expect "toContainText" with timeout 15000ms[22m
+    [2m  - waiting for getByTestId('survival-ceiling-value')[22m
+    [2m    2 × locator resolved to <span data-testid="survival-ceiling-value" class="text-3xl font-black tabular-nums tracking-tight leading-none block text-emerald-400">R$ 50,00</span>[22m
+    [2m      - unexpected value "R$ 50,00"[22m
+    [2m    7 × locator resolved to <span data-testid="survival-ceiling-value" class="text-3xl font-black tabular-nums tracking-tight leading-none block text-emerald-400">R$ 500,00</span>[22m
+    [2m      - unexpected value "R$ 500,00"[22m
+
+
+      71 |     // Sobra inicial 3k - 2k novo = 1k sobra. 1k / 4 semanas = 250
+      72 |     const finalCeiling = page.getByTestId('survival-ceiling-value');
+    > 73 |     await expect(finalCeiling).toContainText(/250,00/, { timeout: 15000 });
+         |                                ^
+      74 |   });
+      75 | });
+      76 |
+        at /home/lan/finance-ia/tests/e2e/specs/dashboard.spec.ts:73:32
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/dashboard-Dashboard-e-Proj-f98fc-inaturas-no-saldo-projetado-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/dashboard-Dashboard-e-Proj-f98fc-inaturas-no-saldo-projetado-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/e2e/specs/dashboard.spec.ts:33:7 › Dashboard e Projeções (Refatorado) › deve entrar em MODO CRISE quando a liquidez é negativa 
+  1 interrupted
+    [chromium] › tests/e2e/specs/dashboard.spec.ts:56:7 › Dashboard e Projeções (Refatorado) › deve refletir mudanças de assinaturas no saldo projetado 
+  23 did not run
+  1 passed (25.1s)
+
+[36m  Serving HTML report at http://localhost:38910. Press Ctrl+C to quit.[39m

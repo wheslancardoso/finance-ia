@@ -1327,3 +1327,215 @@ export function calculateAntifragilityTier(netLiquidityCents: number, fixedExpen
 
 import { ptBR } from "date-fns/locale";
 
+
+export interface CashFlowStatementItem {
+  id: string;
+  name: string;
+  value: number;
+  type: "INCOME" | "EXPENSE";
+  category: string;
+  isInstallment: boolean;
+  isBudget: boolean;
+  isGoal: boolean;
+}
+
+export interface CashFlowStatement {
+  monthOffset: number;
+  startingBalanceCents: number; // Saldo Inicial (com impactos de ajustes absorvidos)
+  organicIncomesCents: number;
+  organicExpensesCents: number;
+  projectedEndBalanceCents: number; // startingBalance + incomes - expenses
+  items: CashFlowStatementItem[];
+}
+
+export function isAdjustmentTransaction(t: any): boolean {
+  if (!t) return false;
+  return t.is_adjustment === true || t.source === "ADJUSTMENT" || t.source === "MIGRATION";
+}
+
+export function isCreditCardPurchase(t: any, accounts: Account[]): boolean {
+  if (!t || !t.account_id) return false;
+  const account = accounts.find((a: any) => a.id === t.account_id);
+  return account?.type === "CREDIT_CARD";
+}
+
+export function isOrganicTransaction(t: any, accounts: Account[]): boolean {
+  if (isAdjustmentTransaction(t)) return false;
+  if (isCreditCardPurchase(t, accounts)) return false;
+  return true;
+}
+
+export function generateCashFlowStatement(params: {
+  monthOffset: number;
+  currentAssetsCents: number; 
+  accounts: Account[];
+  liveMonthTransactions: Transaction[]; 
+  futureTransactions: Transaction[];
+  recurringTransactions: RecurringTransaction[];
+  activeSimulations: Simulation[];
+  targetDate: Date;
+  liveAllTransactions: Transaction[];
+}): CashFlowStatement {
+  const { monthOffset, currentAssetsCents, accounts, liveMonthTransactions, futureTransactions, recurringTransactions, activeSimulations, targetDate, liveAllTransactions } = params;
+  const targetMonthStr = format(targetDate, "yyyy-MM");
+  const targetMonth = startOfMonth(targetDate);
+
+  let startingBalanceCents = 0;
+  if (monthOffset === 0) {
+    // Reconstrução Imutável do Saldo Inicial do mês atual
+    const organicPaidIncomes = liveMonthTransactions
+      .filter(t => t.transaction_type === "INCOME" && t.is_paid && isOrganicTransaction(t, accounts))
+      .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+      
+    const organicPaidExpenses = liveMonthTransactions
+      .filter(t => t.transaction_type === "EXPENSE" && t.is_paid && isOrganicTransaction(t, accounts))
+      .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+    startingBalanceCents = currentAssetsCents - organicPaidIncomes + organicPaidExpenses;
+  } else {
+    // Para meses futuros, o saldo inicial precisa vir do motor principal de projeção externa (passado no hook)
+    // Então temporariamente colocaremos 0, e quem chama injeta o saldo do MonthlyOutlook do mês anterior
+    // Na verdade, o ideal é não calcular recursivamente aqui por performance, então o hook passará o `previousProjectedBalance` ou a gente usa o `calculateMonthlyOutlook`.
+    // Por hora, startingBalanceCents será substituído depois por quem chamou se monthOffset > 0.
+  }
+
+  // Montar base de transações orgânicas projetadas
+  const isFuture = monthOffset > 0;
+  let rawTransactionsToUse: Transaction[] = [];
+
+  if (!isFuture) {
+    rawTransactionsToUse = [...liveMonthTransactions];
+  } else {
+    // Transações futuras orgânicas
+    const filteredFuture = futureTransactions.filter(t => {
+      const impactDate = getTransactionImpactDate(t, accounts);
+      return isSameMonth(impactDate, targetMonth);
+    });
+    
+    // Transações virtuais recorrentes
+    const virtualRecurring = recurringTransactions
+      .filter(r => r.status === 'active' && !isRecurringExpired(r.description, targetMonthStr))
+      .map(r => ({
+        id: `virtual-${r.id}`,
+        description: r.description,
+        amount_cents: r.amount_cents,
+        transaction_type: r.transaction_type,
+        date: targetMonth.toISOString(),
+        category: r.category_id,
+        is_paid: false
+      } as unknown as Transaction));
+      
+    rawTransactionsToUse = [...filteredFuture, ...virtualRecurring];
+  }
+
+  // Filtrar apenas orgânicas (ignorar cartões e ajustes)
+  const organicTransactions = rawTransactionsToUse.filter(t => isOrganicTransaction(t, accounts));
+  
+  const baseItems: CashFlowStatementItem[] = organicTransactions.map((t: any) => ({
+    id: t.id || Math.random().toString(),
+    name: t.description,
+    value: Number(t.amount_cents) || 0,
+    type: t.transaction_type as "INCOME" | "EXPENSE",
+    category: typeof t.category === 'object' ? t.category?.name : (t.category || "Geral"),
+    isInstallment: (t as any).installment_total > 1,
+    isBudget: (t as any).isBudget || false,
+    isGoal: (t as any).isGoal || false
+  }));
+
+  // Simulações (apenas afetam fluxo de caixa orgânico, ignoramos customização excessiva aqui ou mapamos de acordo)
+  // No mês atual as simulações não estavam em liveMonthTransactions
+  const simItems: CashFlowStatementItem[] = [];
+  activeSimulations.forEach((s, idx) => {
+     const startOffset = s.startMonthOffset ?? 0;
+     const installments = s.installments || 1;
+     const isLoan = s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME");
+     
+     if (isLoan) {
+        if (monthOffset === startOffset) {
+           simItems.push({
+             id: `sim-loan-${idx}`,
+             name: s.description || "Empréstimo",
+             value: s.amount_cents,
+             type: "INCOME",
+             category: "Simulação",
+             isInstallment: false,
+             isBudget: false,
+             isGoal: false
+           });
+        }
+        if (monthOffset >= startOffset && monthOffset < startOffset + installments) {
+           const monthlyValue = s.customInstallmentCents || Math.round((s.amount_cents * (1 + ((s.interestRate||9.53)/100))) / installments); // Simplificado
+           simItems.push({
+             id: `sim-loan-parcel-${idx}`,
+             name: `Parcela: ${s.description || "Empréstimo"}`,
+             value: monthlyValue,
+             type: "EXPENSE",
+             category: "Simulação",
+             isInstallment: true,
+             isBudget: false,
+             isGoal: false
+           });
+        }
+     } else {
+        if (monthOffset >= startOffset && monthOffset < startOffset + installments) {
+           const monthlyValue = s.customInstallmentCents || Math.round(s.amount_cents / installments);
+           simItems.push({
+             id: `sim-${idx}`,
+             name: s.description || "Simulação",
+             value: monthlyValue,
+             type: s.type || "EXPENSE",
+             category: "Simulação",
+             isInstallment: installments > 1,
+             isBudget: false,
+             isGoal: false
+           });
+        }
+     }
+  });
+
+  const allItems = [...baseItems, ...simItems];
+
+  // Adicionar faturas consolidadas de Cartão de Crédito
+  const creditCards = accounts.filter(a => a.type === "CREDIT_CARD");
+  for (const cc of creditCards) {
+    let billAmount = 0;
+    if (monthOffset === 0) {
+      if (cc.closed_invoice_month === targetMonthStr) billAmount += Number(cc.closed_invoice_cents) || 0;
+      if (cc.open_invoice_month === targetMonthStr) billAmount += Number(cc.open_invoice_cents) || 0;
+      
+      const hasPaidBill = allItems.some(i => i.type === "EXPENSE" && i.name.toLowerCase().includes(cc.name.toLowerCase()) && i.name.toLowerCase().includes("fatura"));
+      if (hasPaidBill) billAmount = 0; // Evitar duplicidade do pagamento da fatura
+    } else {
+      const consolidatedTx = [...futureTransactions, ...liveAllTransactions];
+      const uniqueTx = Array.from(new Map(consolidatedTx.map(t => [t.id, t])).values());
+      billAmount = uniqueTx.filter(t => t.account_id === cc.id && t.transaction_type === "EXPENSE" && isSameMonth(getTransactionImpactDate(t, accounts), targetMonth))
+        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+    }
+
+    if (billAmount > 0) {
+      allItems.push({
+        id: `bill-${cc.id}`,
+        name: `Fatura ${cc.name} (${targetMonthStr})`,
+        value: billAmount,
+        type: "EXPENSE",
+        category: "Cartão de Crédito",
+        isInstallment: false,
+        isBudget: false,
+        isGoal: false
+      });
+    }
+  }
+
+  const organicIncomesCents = allItems.filter(i => i.type === "INCOME").reduce((sum, i) => sum + i.value, 0);
+  const organicExpensesCents = allItems.filter(i => i.type === "EXPENSE").reduce((sum, i) => sum + i.value, 0);
+  const projectedEndBalanceCents = startingBalanceCents + organicIncomesCents - organicExpensesCents;
+
+  return {
+    monthOffset,
+    startingBalanceCents,
+    organicIncomesCents,
+    organicExpensesCents,
+    projectedEndBalanceCents,
+    items: allItems
+  };
+}

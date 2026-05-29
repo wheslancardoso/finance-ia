@@ -172,7 +172,8 @@ describe('Financial Logic Domain', () => {
         recurringIncomeCents: 500000,
         recurringExpensesCents: 200000,
         budgets: [{ amount_cents: 10000, category_id: '1' } as any],
-        netLiquidityCents: 100000
+        netLiquidityCents: 100000,
+        monthOffset: 0
       });
       expect(result.balanceAtMonthEnd).toBeGreaterThan(100000);
       expect(result.isHealthy).toBe(true);
@@ -194,12 +195,13 @@ describe('Financial Logic Domain', () => {
       const result = calculateMonthlyOutlook({
         accounts,
         scheduledIncomeCents: 0,
-        scheduledExpensesCents: 0,
+        scheduledExpensesCents: 5000,
         recurringIncomeCents: 0,
         recurringExpensesCents: 0,
         budgets: [],
         netLiquidityCents: 80000,
-        allTransactions
+        allTransactions,
+        monthOffset: 0
       });
 
       // Saldo projetado no final do mês = Saldo Checking (100000) - Fatura do Cartão (20000) - Despesa Pendente da Checking (5000)
@@ -405,31 +407,33 @@ describe('Financial Logic Domain', () => {
       // Sobra mensal = 5000 - 3000 - 500 = 1500
       // 3 meses = 4500
       const result = calculateAdvancedProjection({
-        currentNetLiquidity: 100000,
+        liquidityHealthGuard: 100000,
+        currentAssetsCents: 100000,
         recurringTransactions,
         futureTransactions: [],
         goals: [],
         budgets,
         monthOffset: 3
       });
-      expect(result).toBe(100000 + (150000 * 3));
+      expect(result.projectedBalance).toBe(100000 + (150000 * 3));
     });
 
     it('deve retornar saldo atual se offset for 0', () => {
       const result = calculateAdvancedProjection({
-        currentNetLiquidity: 100000,
+        liquidityHealthGuard: 100000,
+        currentAssetsCents: 100000,
         recurringTransactions,
         futureTransactions: [],
         goals: [],
         budgets,
         monthOffset: 0
       });
-      expect(result).toBe(100000);
+      expect(result.projectedBalance).toBe(100000);
     });
 
     it('deve aplicar sweep automático de dívida na Time Machine se houver reserva configurada', () => {
       const result = calculateAdvancedProjection({
-        currentNetLiquidity: 50000,
+        liquidityHealthGuard: 50000,
         currentAssetsCents: 100000,
         recurringTransactions,
         futureTransactions: [],
@@ -440,7 +444,7 @@ describe('Financial Logic Domain', () => {
         survivalReserveCents: 100000
       });
       
-      expect(result).toBe(200000);
+      expect(result.projectedBalance).toBe(200000);
     });
 
     it('deve propagar impacto de simulação à vista do mês 0 nos meses futuros', () => {

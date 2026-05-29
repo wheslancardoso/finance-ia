@@ -10,6 +10,7 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
   test.beforeEach(async ({ page }) => {
     // Capturar logs do console do navegador
     page.on('console', msg => console.log(`BROWSER [${msg.type()}]: ${msg.text()}`));
+    await page.clock.install({ time: new Date('2026-05-15T10:00:00Z') });
     await setupAuthMock(page, { id: USER_ID });
     
     // Fixar o relógio em 7 de Maio de 2026 de forma determinística

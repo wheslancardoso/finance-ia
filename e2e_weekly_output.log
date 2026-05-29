@@ -1,0 +1,150 @@
+
+Running 8 tests using 1 worker
+
+👤 [MOCK] Profiles Requested for weekly-user
+  ✓  1 [chromium] › tests/e2e/specs/weekly-survival.spec.ts:14:7 › Teto de Sobrevivência Semanal › deve exibir o teto de sobrevivência semanal apenas quando em modo crise ou sobrevivência (912ms)
+👤 [MOCK] Profiles Requested for weekly-user
+  ✘  2 [chromium] › tests/e2e/specs/weekly-survival.spec.ts:41:7 › Teto de Sobrevivência Semanal › deve exibir alerta de ciclo de dívida no modo crise (5.4s)
+👤 [MOCK] Profiles Requested for weekly-user
+💸 [MOCK] Transaction POST: Gasto Severo Inesperado
+  ✘  3 [chromium] › tests/e2e/specs/weekly-survival.spec.ts:61:7 › Teto de Sobrevivência Semanal › deve recalcular teto de oxigênio para o limite emergencial sob despesa severa (Test 3.2) (14.5s)
+👤 [MOCK] Profiles Requested for weekly-user
+  ✓  4 [chromium] › tests/e2e/specs/weekly-survival.spec.ts:117:7 › Teto de Sobrevivência Semanal › deve aplicar priorização inteligente suspendendo metas menos prioritárias sob aperto parcial de caixa (Test 3.3) (1.1s)
+  ✓  5 [mobile-chrome] › tests/e2e/specs/weekly-survival.spec.ts:14:7 › Teto de Sobrevivência Semanal › deve exibir o teto de sobrevivência semanal apenas quando em modo crise ou sobrevivência (1.8s)
+👤 [MOCK] Profiles Requested for weekly-user
+  ✘  6 [mobile-chrome] › tests/e2e/specs/weekly-survival.spec.ts:41:7 › Teto de Sobrevivência Semanal › deve exibir alerta de ciclo de dívida no modo crise (5.7s)
+👤 [MOCK] Profiles Requested for weekly-user
+💸 [MOCK] Transaction POST: Gasto Severo Inesperado
+  ✘  7 [mobile-chrome] › tests/e2e/specs/weekly-survival.spec.ts:61:7 › Teto de Sobrevivência Semanal › deve recalcular teto de oxigênio para o limite emergencial sob despesa severa (Test 3.2) (14.2s)
+👤 [MOCK] Profiles Requested for weekly-user
+  ✓  8 [mobile-chrome] › tests/e2e/specs/weekly-survival.spec.ts:117:7 › Teto de Sobrevivência Semanal › deve aplicar priorização inteligente suspendendo metas menos prioritárias sob aperto parcial de caixa (Test 3.3) (1.7s)
+
+
+  1) [chromium] › tests/e2e/specs/weekly-survival.spec.ts:41:7 › Teto de Sobrevivência Semanal › deve exibir alerta de ciclo de dívida no modo crise 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByText(/ciclo de dívida/i)
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByText(/ciclo de dívida/i)[22m
+
+
+      51 |     await page.goto('/');
+      52 |     
+    > 53 |     await expect(page.getByText(/ciclo de dívida/i)).toBeVisible();
+         |                                                      ^
+      54 |     // No modo crise, a margem de Renda 2000 - Despesa 3000 = 0.
+      55 |     // O fallback usa o saldo de caixa, que é negativo (-1000). Então o limite calculado é 0.
+      56 |     // O piso absoluto do sistema entra em ação: R$ 50,00.
+        at /home/lan/finance-ia/tests/e2e/specs/weekly-survival.spec.ts:53:54
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/weekly-survival-Teto-de-So-f0a07-clo-de-dívida-no-modo-crise-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/weekly-survival-Teto-de-So-f0a07-clo-de-dívida-no-modo-crise-chromium/error-context.md
+
+  2) [chromium] › tests/e2e/specs/weekly-survival.spec.ts:61:7 › Teto de Sobrevivência Semanal › deve recalcular teto de oxigênio para o limite emergencial sob despesa severa (Test 3.2) 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoContainText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: getByTestId('survival-ceiling-value')
+    Expected pattern: [32m/500,00/[39m
+    Received string:  [31m"R$ 50,00"[39m
+    Timeout: 10000ms
+
+    Call log:
+    [2m  - Expect "toContainText" with timeout 10000ms[22m
+    [2m  - waiting for getByTestId('survival-ceiling-value')[22m
+    [2m    14 × locator resolved to <span data-testid="survival-ceiling-value" class="text-3xl font-black tabular-nums tracking-tight leading-none block text-emerald-400">R$ 50,00</span>[22m
+    [2m       - unexpected value "R$ 50,00"[22m
+
+
+      112 |     // a margem não se altera, mas o cálculo de *gasto da semana* sim. 
+      113 |     // O teto em si (500,00) continua o mesmo.
+    > 114 |     await expect(ceiling).toContainText(/500,00/, { timeout: 10000 });
+          |                           ^
+      115 |   });
+      116 |
+      117 |   test('deve aplicar priorização inteligente suspendendo metas menos prioritárias sob aperto parcial de caixa (Test 3.3)', async ({ page }) => {
+        at /home/lan/finance-ia/tests/e2e/specs/weekly-survival.spec.ts:114:27
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/weekly-survival-Teto-de-So-94b08-ob-despesa-severa-Test-3-2--chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/weekly-survival-Teto-de-So-94b08-ob-despesa-severa-Test-3-2--chromium/error-context.md
+
+  3) [mobile-chrome] › tests/e2e/specs/weekly-survival.spec.ts:41:7 › Teto de Sobrevivência Semanal › deve exibir alerta de ciclo de dívida no modo crise 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByText(/ciclo de dívida/i)
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByText(/ciclo de dívida/i)[22m
+
+
+      51 |     await page.goto('/');
+      52 |     
+    > 53 |     // No modo crise, a margem de Renda 2000 - Despesa 3000 = 0.
+         |                                                      ^
+      54 |     // O fallback usa o saldo de caixa, que é negativo (-1000). Então o limite calculado é 0.
+      55 |     // O piso absoluto do sistema entra em ação: R$ 50,00.
+      56 |     const ceiling = page.getByTestId('survival-ceiling-value');
+        at /home/lan/finance-ia/tests/e2e/specs/weekly-survival.spec.ts:53:54
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/weekly-survival-Teto-de-So-f0a07-clo-de-dívida-no-modo-crise-mobile-chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/weekly-survival-Teto-de-So-f0a07-clo-de-dívida-no-modo-crise-mobile-chrome/error-context.md
+
+  4) [mobile-chrome] › tests/e2e/specs/weekly-survival.spec.ts:61:7 › Teto de Sobrevivência Semanal › deve recalcular teto de oxigênio para o limite emergencial sob despesa severa (Test 3.2) 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoContainText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: getByTestId('survival-ceiling-value')
+    Expected pattern: [32m/500,00/[39m
+    Received string:  [31m"R$ 50,00"[39m
+    Timeout: 10000ms
+
+    Call log:
+    [2m  - Expect "toContainText" with timeout 10000ms[22m
+    [2m  - waiting for getByTestId('survival-ceiling-value')[22m
+    [2m    14 × locator resolved to <span data-testid="survival-ceiling-value" class="text-3xl font-black tabular-nums tracking-tight leading-none block text-emerald-400">R$ 50,00</span>[22m
+    [2m       - unexpected value "R$ 50,00"[22m
+
+
+      112 |     // O teto em si (500,00) continua o mesmo.
+      113 |     await expect(ceiling).toContainText(/500,00/, { timeout: 10000 });
+    > 114 |   });
+          |      ^
+      115 |
+      116 |   test('deve aplicar priorização inteligente suspendendo metas menos prioritárias sob aperto parcial de caixa (Test 3.3)', async ({ page }) => {
+      117 |     // Sobra do mês é exatamente R$ 150,00 (saldo de caixa)
+        at /home/lan/finance-ia/tests/e2e/specs/weekly-survival.spec.ts:114:27
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/weekly-survival-Teto-de-So-94b08-ob-despesa-severa-Test-3-2--mobile-chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/weekly-survival-Teto-de-So-94b08-ob-despesa-severa-Test-3-2--mobile-chrome/error-context.md
+
+  4 failed
+    [chromium] › tests/e2e/specs/weekly-survival.spec.ts:41:7 › Teto de Sobrevivência Semanal › deve exibir alerta de ciclo de dívida no modo crise 
+    [chromium] › tests/e2e/specs/weekly-survival.spec.ts:61:7 › Teto de Sobrevivência Semanal › deve recalcular teto de oxigênio para o limite emergencial sob despesa severa (Test 3.2) 
+    [mobile-chrome] › tests/e2e/specs/weekly-survival.spec.ts:41:7 › Teto de Sobrevivência Semanal › deve exibir alerta de ciclo de dívida no modo crise 
+    [mobile-chrome] › tests/e2e/specs/weekly-survival.spec.ts:61:7 › Teto de Sobrevivência Semanal › deve recalcular teto de oxigênio para o limite emergencial sob despesa severa (Test 3.2) 
+  4 passed (48.0s)
+
+[36m  Serving HTML report at http://localhost:39010. Press Ctrl+C to quit.[39m

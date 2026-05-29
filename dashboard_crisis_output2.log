@@ -1,0 +1,22 @@
+
+Running 2 tests using 1 worker
+
+BROWSER [info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+BROWSER [log]: [HMR] connected
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=e2e-user
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=dashboard-user
+👤 [MOCK] Profiles Requested for dashboard-user
+  ✓  1 [chromium] › tests/e2e/specs/dashboard.spec.ts:33:7 › Dashboard e Projeções (Refatorado) › deve entrar em MODO CRISE quando a liquidez é negativa (788ms)
+BROWSER [info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+BROWSER [log]: [HMR] connected
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=e2e-user
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=dashboard-user
+👤 [MOCK] Profiles Requested for dashboard-user
+  ✓  2 [mobile-chrome] › tests/e2e/specs/dashboard.spec.ts:33:7 › Dashboard e Projeções (Refatorado) › deve entrar em MODO CRISE quando a liquidez é negativa (1.9s)
+
+  2 passed (3.6s)
+
+To open last HTML report run:
+[36m[39m
+[36m  npx playwright show-report[39m
+[36m[39m

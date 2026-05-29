@@ -236,7 +236,8 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
                     disabled={isMigrationLoading}
                     onClick={async () => {
                       if (clickPendingRef.current) return;
-                      const cents = Math.round(parseFloat(migrationValue.replace(",", ".")) * 100);
+                      const cleanValue = migrationValue.replace(/\./g, "").replace(",", ".");
+                      const cents = Math.round(parseFloat(cleanValue) * 100);
                       if (isNaN(cents)) return;
                       
                       clickPendingRef.current = true;
@@ -334,7 +335,8 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
                       disabled={isMigrationLoading}
                       onClick={async () => {
                         if (clickPendingRef.current) return;
-                        const targetCents = Math.round(parseFloat(adjustmentValue.replace(",", ".")) * 100);
+                        const cleanValue = adjustmentValue.replace(/\./g, "").replace(",", ".");
+                        const targetCents = Math.round(parseFloat(cleanValue) * 100);
                         if (isNaN(targetCents)) return;
                         
                         clickPendingRef.current = true;

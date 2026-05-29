@@ -1,0 +1,59 @@
+[2m[WebServer] [22m[33m[1m⚠[22m[39m The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+
+Running 10 tests using 1 worker
+
+BROWSER [info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+BROWSER [log]: [HMR] connected
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=e2e-user
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=copilot-user
+👤 [MOCK] Profiles Requested for copilot-user
+BROWSER [log]: 🌐 [API Fetch] POST /api/goals
+BROWSER [log]: ✅ Meta salva no PostgreSQL e Dexie: 9edcb663-27ad-4fac-a4ca-38ec56e69b83
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=copilot-user
+BROWSER [log]: 📦 Criando série de parcelamento: Notebook de Estudos (4x) iniciando na 1ª
+BROWSER [log]: ⏳ Enviando 4 parcelas para o servidor...
+BROWSER [log]: 🌐 [API Fetch] POST /api/transactions
+💸 [MOCK] Transaction POST: Notebook de Estudos
+BROWSER [log]: 🌐 [API Fetch] POST /api/transactions
+💸 [MOCK] Transaction POST: Notebook de Estudos
+BROWSER [log]: 🌐 [API Fetch] POST /api/transactions
+💸 [MOCK] Transaction POST: Notebook de Estudos
+BROWSER [log]: 🌐 [API Fetch] POST /api/transactions
+💸 [MOCK] Transaction POST: Notebook de Estudos
+BROWSER [log]: ✅ Todas as parcelas foram processadas.
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=copilot-user
+BROWSER [log]: [Fast Refresh] rebuilding
+BROWSER [info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+BROWSER [log]: [HMR] connected
+  ✘   1 [chromium] › tests/e2e/specs/copilot-dashboard.spec.ts:20:7 › Modo Copiloto de IA (Modo Jarvis) e Simulações no Chat › deve abrir o painel lateral do Copiloto, carregar histórico/memórias do banco, enviar pergunta, obter resposta e simular gasto (2.0s)
+
+
+  1) [chromium] › tests/e2e/specs/copilot-dashboard.spec.ts:20:7 › Modo Copiloto de IA (Modo Jarvis) e Simulações no Chat › deve abrir o painel lateral do Copiloto, carregar histórico/memórias do banco, enviar pergunta, obter resposta e simular gasto 
+
+    Test was interrupted.
+
+    Error: page.waitForLoadState: Test ended.
+
+      150 |     // 8. Navegar para transações e certificar o agendamento real das parcelas (Test 4.3)
+      151 |     await page.goto('/transactions');
+    > 152 |     await page.waitForLoadState('networkidle');
+          |                ^
+      153 |     await expect(page.getByText('Notebook de Estudos').first()).toBeVisible({ timeout: 10000 });
+      154 |   });
+      155 |
+        at /home/lan/finance-ia/tests/e2e/specs/copilot-dashboard.spec.ts:152:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/copilot-dashboard-Modo-Cop-ee751-er-resposta-e-simular-gasto-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/copilot-dashboard-Modo-Cop-ee751-er-resposta-e-simular-gasto-chromium/error-context.md
+
+  1 interrupted
+    [chromium] › tests/e2e/specs/copilot-dashboard.spec.ts:20:7 › Modo Copiloto de IA (Modo Jarvis) e Simulações no Chat › deve abrir o painel lateral do Copiloto, carregar histórico/memórias do banco, enviar pergunta, obter resposta e simular gasto 
+  9 did not run
+
+To open last HTML report run:
+[36m[39m
+[36m  npx playwright show-report[39m
+[36m[39m

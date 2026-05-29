@@ -44,7 +44,7 @@ export function MonthlyConsolidatedExcel({
         <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <Briefcase className="w-3 h-3 text-emerald-400/60" />
-            <span className="text-[9px] font-black text-emerald-400/40 uppercase tracking-widest">Recebido</span>
+            <span className="text-[9px] font-black text-emerald-400/40 uppercase tracking-widest">Entradas Projetadas</span>
           </div>
           <p className="text-lg font-black text-emerald-400 tabular-nums">
             {formatCurrency(income)}
@@ -53,7 +53,7 @@ export function MonthlyConsolidatedExcel({
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <ArrowDownRight className="w-3 h-3 text-white/20" />
-            <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Gasto</span>
+            <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Saídas Projetadas</span>
           </div>
           <p className="text-lg font-black text-white/90 tabular-nums">
             {formatCurrency(expenses)}
@@ -144,15 +144,15 @@ export function MonthlyConsolidatedExcel({
       )}>
         <div className="space-y-3">
           <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-white/30">
-            <span>Saldo Inicial (Partida)</span>
+            <span>Saldo Inicial (Com Ajustes)</span>
             <span className="text-white/80 tabular-nums">{formatCurrency(startingBalance)}</span>
           </div>
           <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-white/30">
-            <span>(+) Recebido</span>
+            <span>(+) Entradas Projetadas</span>
             <span className="text-emerald-400 tabular-nums">+{formatCurrency(income)}</span>
           </div>
           <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-white/30">
-            <span>(-) Gasto</span>
+            <span>(-) Saídas Projetadas</span>
             <span className="text-red-400/80 tabular-nums">-{formatCurrency(expenses)}</span>
           </div>
           <div className="h-px bg-white/5 w-full" />

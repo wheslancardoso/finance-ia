@@ -2,6 +2,7 @@
 import { useMemo, useCallback } from "react";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { financialService } from "@/services/financialService";
+import { addMonths } from "date-fns";
 import { 
   calculateNetLiquidity, 
   calculateMonthlyOutlook, 
@@ -19,10 +20,13 @@ import {
   simulateDetailedImpact,
   type SimulationDetailedResult,
   calculateAdvancedProjection,
-  type Simulation
+  type Simulation,
+  generateCashFlowStatement,
+  type CashFlowStatement,
+  calculateSimulationImpactForMonth
 } from "@/domain/financial/financial-logic";
 
-export type { SimulationDetailedResult, MonthlyOutlook, DebtExitProjection, GoalProjection };
+export type { SimulationDetailedResult, MonthlyOutlook, DebtExitProjection, GoalProjection, CashFlowStatement };
 
 export interface FinancialAnalysis {
   netLiquidityCents: number;
@@ -40,6 +44,7 @@ export interface FinancialAnalysis {
   debtExit: DebtExitProjection;
   weeklySurvival: WeeklySurvival;
   goalProjections: GoalProjection[];
+  cashFlowStatement: CashFlowStatement;
   simulateDetailedImpact: (
     amountCents: number, 
     installments: number, 
@@ -71,7 +76,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     futureTransactions,
     recurringTransactions,
     survivalReserveCents,
-    weeklyLimitOverrideCents
+    weeklyLimitOverrideCents,
+    allTransactions
   } = useFinancialData();
 
   const netLiquidity = useMemo(() => calculateNetLiquidity(accounts), [accounts]);
@@ -84,6 +90,49 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       accounts,
       currentMonthTransactions: monthTransactions
     }), [accounts, monthTransactions]);
+
+  const cashFlowStatement = useMemo(() => {
+    let prevMonthAssets = currentAssets;
+    if (monthOffset > 0) {
+      const confirmedIncomeThisMonth = (monthTransactions || [])
+        .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
+        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+      const effectiveScheduledIncome = scheduledIncomeCents || recurringIncomeCents;
+      const effectiveScheduledExpenses = scheduledExpensesCents || recurringExpensesCents;
+      const incomeForOutlook = confirmedIncomeThisMonth > 0 ? 0 : effectiveScheduledIncome;
+
+      const prevOutlook = calculateMonthlyOutlook({
+        accounts,
+        scheduledIncomeCents: incomeForOutlook,
+        scheduledExpensesCents: effectiveScheduledExpenses,
+        recurringIncomeCents,
+        recurringExpensesCents,
+        budgets,
+        netLiquidityCents: netLiquidity,
+        monthOffset: monthOffset - 1,
+        activeSimulations,
+        futureTransactions,
+        allTransactions,
+        recurringTransactions,
+        goals,
+        survivalReserveCents
+      });
+      prevMonthAssets = prevOutlook.totalAssets;
+    }
+
+    return generateCashFlowStatement({
+      monthOffset,
+      currentAssetsCents: currentAssets,
+      accounts,
+      liveMonthTransactions: monthTransactions,
+      futureTransactions,
+      recurringTransactions,
+      activeSimulations,
+      targetDate: addMonths(new Date(), monthOffset),
+      liveAllTransactions: allTransactions,
+      previousMonthProjectedAssetsCents: prevMonthAssets
+    });
+  }, [monthOffset, currentAssets, accounts, monthTransactions, futureTransactions, recurringTransactions, activeSimulations, allTransactions, scheduledIncomeCents, recurringIncomeCents, scheduledExpensesCents, recurringExpensesCents, budgets, netLiquidity, goals, survivalReserveCents]);
 
   const monthlyOutlook = useMemo(() => {
     // Se já há renda confirmada no mês (is_paid: true), não projetar renda agendada para evitar double-count
@@ -124,133 +173,50 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     };
   }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, futureTransactions, goals, activeSimulations, monthTransactions, survivalReserveCents]);
 
-  // Se houver simulações ativas no mês atual, ajustamos o saldo real e a dívida real simulada
-  const simulatedAssetsAdjustment = useMemo(() => {
-    if (activeSimulations.length === 0) return 0;
+  // --- CÁLCULO UNIFICADO DE IMPACTO DE SIMULAÇÕES (Etapa 2) ---
+  const { incomeImpact: simIncome, expenseImpact: simExpense } = useMemo(() => 
+    calculateSimulationImpactForMonth(activeSimulations, monthOffset), 
+  [activeSimulations, monthOffset]);
 
-    const simulatedIncome = activeSimulations
-      .filter(s => s.type === "INCOME")
-      .reduce((sum, s) => {
-        const startOffset = s.startMonthOffset ?? 0;
-        if (monthOffset !== startOffset) return sum; // Só afeta ativos no mês de início
-        if (s.isLoan || (s.interestRate && s.interestRate > 0)) {
-          return sum + s.amount_cents; // Injeção total do capital no mês de contração
-        }
-        const monthly = s.installments > 1 ? Math.round(s.amount_cents / s.installments) : s.amount_cents;
-        return sum + monthly;
-      }, 0);
-
-    const simulatedDebitExpense = activeSimulations
-      .filter(s => s.type === "EXPENSE" && s.installments === 1)
-      .reduce((sum, s) => {
-        const startOffset = s.startMonthOffset ?? 0;
-        if (monthOffset !== startOffset) return sum; // Só afeta ativos no mês de início
-        return sum + s.amount_cents;
-      }, 0);
-
-    return simulatedIncome - simulatedDebitExpense;
-  }, [activeSimulations, monthOffset]);
-
-  const simulatedDebtAdjustment = useMemo(() => {
-    if (activeSimulations.length === 0) return 0;
-
-    // 1. Receitas simuladas acumuladas que amortizam a dívida
-    const simulatedIncome = activeSimulations
-      .filter(s => s.type === "INCOME")
-      .reduce((sum, s) => {
-        const startOffset = s.startMonthOffset ?? 0;
-        if (s.installments > 1) {
-          const monthly = Math.round(s.amount_cents / s.installments);
-          const activeMonths = Math.min(s.installments, Math.max(0, monthOffset - startOffset + 1));
-          return sum + (monthly * activeMonths);
-        }
-        if (monthOffset >= startOffset) {
-          return sum + s.amount_cents;
-        }
-        return sum;
-      }, 0);
-
-    // 2. Despesas simuladas parceladas remanescentes no cartão
-    const simulatedCreditExpense = activeSimulations
-      .filter(s => s.type === "EXPENSE" && s.installments > 1)
-      .reduce((sum, s) => {
-        const startOffset = s.startMonthOffset ?? 0;
-        const monthly = Math.round(s.amount_cents / s.installments);
-        const remainingInstallments = Math.max(0, s.installments - Math.max(0, monthOffset - startOffset));
-        return sum + (monthly * remainingInstallments);
-      }, 0);
-
-    return simulatedCreditExpense - simulatedIncome;
-  }, [activeSimulations, monthOffset]);
+  const simulatedNetImpact = simIncome - simExpense;
 
   const activeDebt = useMemo(() => {
     const baseDebt = monthOffset === 0 ? consolidatedDebt : (monthlyOutlook.totalDebt ?? consolidatedDebt);
-    if (activeSimulations.length > 0) {
-      return Math.max(0, baseDebt + simulatedDebtAdjustment);
+    if (activeSimulations.length > 0 && monthOffset === 0) {
+      // Se for empréstimo (income com juros) e iniciou hoje, NÃO aumenta dívida imediata de cartão, 
+      // mas aumenta a dívida global (simulada). Como o sistema atual atrela debt a cartão, 
+      // para empréstimos vamos manter simples e só ajustar liquidez líquida, 
+      // a menos que seja uma despesa a prazo simulada.
+      const simCreditExpense = activeSimulations
+        .filter(s => s.type === "EXPENSE" && s.installments > 1 && (s.startMonthOffset ?? 0) === 0)
+        .reduce((sum, s) => sum + s.amount_cents, 0); // Toda a dívida assumida hoje
+      return baseDebt + simCreditExpense;
     }
     return baseDebt;
-  }, [monthOffset, consolidatedDebt, monthlyOutlook.totalDebt, activeSimulations, simulatedDebtAdjustment]);
+  }, [monthOffset, consolidatedDebt, monthlyOutlook.totalDebt, activeSimulations]);
 
   const activeAssets = useMemo(() => {
     const baseAssets = monthOffset === 0 ? currentAssets : (monthlyOutlook.totalAssets ?? currentAssets);
-    const hasSimulationsInOffset = activeSimulations.some(s => (s.startMonthOffset ?? 0) === monthOffset);
-    if (monthOffset === 0 && hasSimulationsInOffset) {
-      return baseAssets + simulatedAssetsAdjustment;
+    if (monthOffset === 0 && activeSimulations.length > 0) {
+      // Impacto no caixa hoje (ex: recebe o principal do empréstimo hoje, ou paga entrada hoje)
+      const cashIn = activeSimulations.filter(s => s.type === "INCOME" && (s.startMonthOffset ?? 0) === 0).reduce((sum, s) => sum + s.amount_cents, 0);
+      const cashOut = activeSimulations.filter(s => s.type === "EXPENSE" && s.installments === 1 && (s.startMonthOffset ?? 0) === 0).reduce((sum, s) => sum + s.amount_cents, 0);
+      return baseAssets + cashIn - cashOut;
     }
     return baseAssets;
-  }, [monthOffset, currentAssets, monthlyOutlook.totalAssets, activeSimulations, simulatedAssetsAdjustment]);
+  }, [monthOffset, currentAssets, monthlyOutlook.totalAssets, activeSimulations]);
 
-  const simulatedNetImpact = useMemo(() => {
-    if (activeSimulations.length === 0) return 0;
-    
-    const simulatedIncome = activeSimulations
-      .filter(s => s.type === "INCOME")
-      .reduce((sum, s) => {
-        const startOffset = s.startMonthOffset ?? 0;
-        if (monthOffset !== startOffset) return sum; // Só afeta se for o mês da simulação
-        if (s.isLoan || (s.interestRate && s.interestRate > 0)) {
-          return sum + s.amount_cents; // Injeção total do capital no Mês de início
-        }
-        const monthly = s.installments > 1 ? Math.round(s.amount_cents / s.installments) : s.amount_cents;
-        return sum + monthly;
-      }, 0);
-
-    const simulatedExpense = activeSimulations.reduce((sum, s) => {
-      const startOffset = s.startMonthOffset ?? 0;
-      
-      // Caso especial: Simulação de Empréstimo (parcelas começam no mês seguinte)
-      if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-        if (monthOffset >= startOffset + 1 && monthOffset < startOffset + 1 + s.installments) {
-          if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
-            return sum + s.customInstallmentCents;
-          }
-          const rate = (s.interestRate && s.interestRate > 0) ? s.interestRate : 9.53;
-          return sum + calculateLoanInstallment(s.amount_cents, rate, s.installments);
-        }
-        return sum;
-      }
-      
-      if (monthOffset < startOffset || monthOffset >= startOffset + s.installments) return sum;
-      if (s.type === "INCOME") return sum;
-      
-      if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
-        return sum + s.customInstallmentCents;
-      }
-      const monthly = s.installments > 1 ? Math.round(s.amount_cents / s.installments) : s.amount_cents;
-      return sum + monthly;
-    }, 0);
-
-    return simulatedIncome - simulatedExpense;
-  }, [activeSimulations, monthOffset]);
-
-  // Sobrescrita para usar a liquidez projetada no retorno
   const activeNetLiquidity = useMemo(() => {
+    // Para meses futuros, o baseLiquidity já inclui a simulação via calculateMonthlyOutlook -> calculateAdvancedProjection
     const baseLiquidity = monthOffset === 0 ? realCycleLiquidity : (monthlyOutlook.projectedNetLiquidity ?? netLiquidity);
     if (monthOffset === 0 && activeSimulations.length > 0) {
-      return baseLiquidity + simulatedNetImpact;
+      // No mês 0, o impacto na liquidez engloba tudo: cash in - dívida contraída (ou cash out)
+      const cashIn = activeSimulations.filter(s => s.type === "INCOME" && (s.startMonthOffset ?? 0) === 0).reduce((sum, s) => sum + s.amount_cents, 0);
+      const debtOrCashOut = activeSimulations.filter(s => s.type === "EXPENSE" && (s.startMonthOffset ?? 0) === 0).reduce((sum, s) => sum + s.amount_cents, 0);
+      return baseLiquidity + cashIn - debtOrCashOut;
     }
     return baseLiquidity;
-  }, [monthOffset, realCycleLiquidity, monthlyOutlook.projectedNetLiquidity, netLiquidity, activeSimulations, simulatedNetImpact]);
+  }, [monthOffset, realCycleLiquidity, monthlyOutlook.projectedNetLiquidity, netLiquidity, activeSimulations]);
 
   const debtExit = useMemo(() => {
     return calculateDebtExitProjection({
@@ -373,46 +339,24 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       // Se houver um limite semanal personalizado definido pelo usuário nas configurações
       weeklyLimitCents = weeklyLimitOverrideCents;
     } else {
-      // Oráculo Dinâmico Automático
-      // 1. Fator Metas: Deduzir aportes necessários das metas ativas para protegê-las
-      const activeGoalsContribution = (goals || [])
-        .filter(g => g.status === "active" || g.status === undefined)
-        .reduce((sum, g) => sum + (g.monthly_contribution_cents || 0), 0);
-      
-      const netFreeMarginMonthly = Math.max(0, freeMarginMonthly - activeGoalsContribution);
-
-      // Calcular limite base
-      let baseLimitCents = 0;
-      if (netFreeMarginMonthly > 0) {
-        baseLimitCents = Math.round(netFreeMarginMonthly / weeksInPeriod);
+      // Teto semanal = margem livre mensal / semanas do período
+      // Se não houver renda cadastrada, usar saldo em conta / semanas do período
+      if (freeMarginMonthly > 0) {
+        weeklyLimitCents = Math.round(freeMarginMonthly / weeksInPeriod);
       } else if (effectiveCheckingBalance > 0) {
-        baseLimitCents = Math.round(effectiveCheckingBalance / weeksInPeriod);
-      }
-
-      // 2. Redutor de Abundância Progressiva: Acima de R$ 300,00, apenas 30% do excedente entra no teto
-      if (baseLimitCents > 30000) {
-        weeklyLimitCents = 30000 + Math.round((baseLimitCents - 30000) * 0.30);
-      } else {
-        weeklyLimitCents = baseLimitCents;
-      }
-
-      // 3. Corte Emergencial de Crise: Se em crise ou sobrevivência, cortar 50%
-      if (isCrisisMode || isSurvivalMode) {
-        weeklyLimitCents = Math.round(weeklyLimitCents * 0.5);
-        // Piso de subsistência rígido na crise
-        if (weeklyLimitCents < 8000) {
-          weeklyLimitCents = 5000; // R$ 50,00
-        }
+        weeklyLimitCents = Math.round(effectiveCheckingBalance / weeksInPeriod);
       }
     }
-
-    // Piso absoluto geral de sobrevivência
     weeklyLimitCents = Math.max(5000, weeklyLimitCents);
 
     // Calcular consumo semanal baseado em transações reais de despesas variáveis
     const result = calculateWeeklySurvival({
-      monthlySurplusCents: 0,
-      currentMonthTransactions: monthOffset === 0 ? monthTransactions : []
+      recurringIncomeCents: regularIncome,
+      recurringExpensesCents: regularExpenses,
+      monthOffset,
+      targetAssetsCents: monthlyOutlook.totalAssets,
+      currentMonthTransactions: monthOffset === 0 ? monthTransactions : [],
+      activeSimulations
     });
 
     return {
@@ -547,6 +491,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       balanceAtMonthEnd: monthlyOutlook.balanceAtMonthEnd || 0,
       projectedNetLiquidity: monthlyOutlook.projectedNetLiquidity || 0
     },
+    cashFlowStatement,
     healthScore,
     recurringIncomeCents,
     recurringExpensesCents,
@@ -560,5 +505,5 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     solveFinancialDilemma,
     optimizeSweepIA,
     consultJarvisIA
-  }), [activeNetLiquidity, activeDebt, activeAssets, checkingBalance, creditCardUsed, monthlyOutlook, healthScore, recurringIncomeCents, recurringExpensesCents, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn, analyzeSimulationIA, solveFinancialDilemma, optimizeSweepIA, consultJarvisIA]);
+  }), [activeNetLiquidity, activeDebt, activeAssets, checkingBalance, creditCardUsed, monthlyOutlook, cashFlowStatement, healthScore, recurringIncomeCents, recurringExpensesCents, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn, analyzeSimulationIA, solveFinancialDilemma, optimizeSweepIA, consultJarvisIA]);
 }

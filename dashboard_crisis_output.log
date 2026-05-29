@@ -1,0 +1,57 @@
+
+Running 2 tests using 1 worker
+
+BROWSER [info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+BROWSER [log]: [HMR] connected
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=e2e-user
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=dashboard-user
+👤 [MOCK] Profiles Requested for dashboard-user
+  ✘  1 [chromium] › tests/e2e/specs/dashboard.spec.ts:33:7 › Dashboard e Projeções (Refatorado) › deve entrar em MODO CRISE quando a liquidez é negativa (15.4s)
+BROWSER [info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+BROWSER [log]: [HMR] connected
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=e2e-user
+BROWSER [log]: 🌐 [API Fetch] GET /api/financial-state?user_id=dashboard-user
+👤 [MOCK] Profiles Requested for dashboard-user
+  ✘  2 [mobile-chrome] › tests/e2e/specs/dashboard.spec.ts:33:7 › Dashboard e Projeções (Refatorado) › deve entrar em MODO CRISE quando a liquidez é negativa (10.2s)
+
+
+  1) [chromium] › tests/e2e/specs/dashboard.spec.ts:33:7 › Dashboard e Projeções (Refatorado) › deve entrar em MODO CRISE quando a liquidez é negativa 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoContainText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: getByTestId('net-liquidity-value')
+    Expected pattern: [32m/-5\.000,00/[39m
+    Received string:  [31m"-R$ 5.000,00"[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - Expect "toContainText" with timeout 5000ms[22m
+    [2m  - waiting for getByTestId('net-liquidity-value')[22m
+    [2m    9 × locator resolved to <h1 data-testid="net-liquidity-value" class="text-[clamp(2rem,6vw,4.5rem)] py-2 font-black tracking-tighter tabular-nums leading-none drop-shadow-2xl sm:whitespace-normal text-red-400">-R$ 5.000,00</h1>[22m
+    [2m      - unexpected value "-R$ 5.000,00"[22m
+
+
+    Call Log:
+    - Timeout 15000ms exceeded while waiting on the predicate
+
+      50 |       const netLiquidityValue = page.getByTestId('net-liquidity-value');
+      51 |       await expect(netLiquidityValue).toContainText(/-5\.000,00/);
+    > 52 |     }).toPass({ timeout: 15000 });
+         |        ^
+      53 |   });
+      54 |
+      55 |   test('deve refletir mudanças de assinaturas no saldo projetado', async ({ page }) => {
+        at /home/lan/finance-ia/tests/e2e/specs/dashboard.spec.ts:52:8
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/dashboard-Dashboard-e-Proj-279bb-uando-a-liquidez-é-negativa-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/dashboard-Dashboard-e-Proj-279bb-uando-a-liquidez-é-negativa-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/e2e/specs/dashboard.spec.ts:33:7 › Dashboard e Projeções (Refatorado) › deve entrar em MODO CRISE quando a liquidez é negativa 
+  1 interrupted
+    [mobile-chrome] › tests/e2e/specs/dashboard.spec.ts:33:7 › Dashboard e Projeções (Refatorado) › deve entrar em MODO CRISE quando a liquidez é negativa 
+
+[36m  Serving HTML report at http://localhost:39250. Press Ctrl+C to quit.[39m

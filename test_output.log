@@ -1,0 +1,48 @@
+
+Running 2 tests using 1 worker
+
+👤 [MOCK] Profiles Requested for weekly-user
+💸 [MOCK] Transaction POST: Gasto Severo Inesperado
+  ✘  1 [chromium] › tests/e2e/specs/weekly-survival.spec.ts:60:7 › Teto de Sobrevivência Semanal › deve recalcular teto de oxigênio para o limite emergencial sob despesa severa (Test 3.2) (7.6s)
+
+
+  1) [chromium] › tests/e2e/specs/weekly-survival.spec.ts:60:7 › Teto de Sobrevivência Semanal › deve recalcular teto de oxigênio para o limite emergencial sob despesa severa (Test 3.2) 
+
+    Test was interrupted.
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoContainText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: getByTestId('survival-ceiling-value')
+    Expected pattern: [32m/500,00/[39m
+    Received string:  [31m"R$ 50,00"[39m
+
+    Call log:
+    [2m  - Expect "toContainText" with timeout 10000ms[22m
+    [2m  - waiting for getByTestId('survival-ceiling-value')[22m
+    [2m    7 × locator resolved to <span data-testid="survival-ceiling-value" class="text-3xl font-black tabular-nums tracking-tight leading-none block text-emerald-400">R$ 50,00</span>[22m
+    [2m      - unexpected value "R$ 50,00"[22m
+
+
+      112 |     // a margem não se altera, mas o cálculo de *gasto da semana* sim. 
+      113 |     // O teto em si (500,00) continua o mesmo.
+    > 114 |     await expect(ceiling).toContainText(/500,00/, { timeout: 10000 });
+          |                           ^
+      115 |   });
+      116 |
+      117 |   test('deve aplicar priorização inteligente suspendendo metas menos prioritárias sob aperto parcial de caixa (Test 3.3)', async ({ page }) => {
+        at /home/lan/finance-ia/tests/e2e/specs/weekly-survival.spec.ts:114:27
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/weekly-survival-Teto-de-So-94b08-ob-despesa-severa-Test-3-2--chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/weekly-survival-Teto-de-So-94b08-ob-despesa-severa-Test-3-2--chromium/error-context.md
+
+  1 interrupted
+    [chromium] › tests/e2e/specs/weekly-survival.spec.ts:60:7 › Teto de Sobrevivência Semanal › deve recalcular teto de oxigênio para o limite emergencial sob despesa severa (Test 3.2) 
+  1 did not run
+
+To open last HTML report run:
+[36m[39m
+[36m  npx playwright show-report[39m
+[36m[39m

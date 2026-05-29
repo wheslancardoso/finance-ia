@@ -1,0 +1,137 @@
+[2m[WebServer] [22m[33m[1m⚠[22m[39m The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+
+Running 6 tests using 1 worker
+
+👤 [MOCK] Profiles Requested for e2e-user
+  ✓  1 [chromium] › tests/e2e/specs/projection-alignment.spec.ts:33:7 › Projection Alignment (Time Machine) › deve refletir impacto de simulação em meses futuros (1.6s)
+[2m[WebServer] [22m[36m[browser][39m [31mUncaught Error: Hydration failed because the server rendered text didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:
+[2m[WebServer] [22m
+[2m[WebServer] [22m- A server/client branch `if (typeof window !== 'undefined')`.
+[2m[WebServer] [22m- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+[2m[WebServer] [22m- Date formatting in a user's locale which doesn't match the server.
+[2m[WebServer] [22m- External changing data without sending a snapshot of it along with the HTML.
+[2m[WebServer] [22m- Invalid HTML tag nesting.
+[2m[WebServer] [22m
+[2m[WebServer] [22mIt can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+[2m[WebServer] [22m
+[2m[WebServer] [22mhttps://react.dev/link/hydration-mismatch
+[2m[WebServer] [22m
+[2m[WebServer] [22m  ...
+[2m[WebServer] [22m    <RedirectErrorBoundary router={{...}}>
+[2m[WebServer] [22m      <InnerLayoutRouter url="/" tree={[...]} params={{}} cacheNode={{rsc:{...}, ...}} segmentPath={[...]} ...>
+[2m[WebServer] [22m        <SegmentViewNode type="page" pagePath="page.tsx">
+[2m[WebServer] [22m          <SegmentTrieNode>
+[2m[WebServer] [22m          <Home>
+[2m[WebServer] [22m            <div className="px-4 pb-4 ...">
+[2m[WebServer] [22m              <RealtimeDashboard initialBalance={0} initialTransactions={[...]} initialBudgets={[...]} ...>
+[2m[WebServer] [22m                <div className="relative f...">
+[2m[WebServer] [22m                  <div className="flex-1 spa...">
+[2m[WebServer] [22m                    <UnifiedSurvivalHeader>
+[2m[WebServer] [22m                    <div className="grid gap-4...">
+[2m[WebServer] [22m                      <BillCommitmentCard>
+[2m[WebServer] [22m                      <MonthNavigator selectedDate={Date} onDateChange={function bound dispatchSetState} ...>
+[2m[WebServer] [22m                        <div className="bg-white/5...">
+[2m[WebServer] [22m                          <div>
+[2m[WebServer] [22m                          <div className="relative z...">
+[2m[WebServer] [22m                            <div>
+[2m[WebServer] [22m                            <div className="flex items...">
+[2m[WebServer] [22m                              <div className="text-cente...">
+[2m[WebServer] [22m                                <p className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1">
+[2m[WebServer] [22m+                                 jan
+[2m[WebServer] [22m-                                 abr
+[2m[WebServer] [22m                                ...
+[2m[WebServer] [22m                              ...
+[2m[WebServer] [22m                            ...
+[2m[WebServer] [22m                      ...
+[2m[WebServer] [22m                    ...
+[2m[WebServer] [22m                  ...
+[2m[WebServer] [22m        ...
+[2m[WebServer] [22m      ...
+[2m[WebServer] [22m[39m
+[2m[WebServer] [22m[31m    at <unknown> (https://react.dev/link/hydration-mismatch)
+[2m[WebServer] [22m    at p (<anonymous>)
+[2m[WebServer] [22m    at MonthNavigator (src/components/MonthNavigator.tsx:109:13)
+[2m[WebServer] [22m    at RealtimeDashboard (src/components/RealtimeDashboard.tsx:239:11)
+[2m[WebServer] [22m    at Home (src/app/page.tsx:7:7)[39m
+[2m[WebServer] [22m  107 |           {/* Mês anterior */}
+[2m[WebServer] [22m  108 |           <div className="text-center opacity-30">
+[2m[WebServer] [22m> 109 |             <p className="text-[9px] font-black uppercase tracking-widest text-white/40 m...
+[2m[WebServer] [22m      |             ^
+[2m[WebServer] [22m  110 |               {format(subMonths(startOfMonth(selectedDate), 1), "MMM", { locale: ptBR })}
+[2m[WebServer] [22m  111 |             </p>
+[2m[WebServer] [22m  112 |             <p className="text-lg font-black text-white/30">
+👤 [MOCK] Profiles Requested for e2e-user
+👤 [MOCK] Profiles Requested for e2e-user
+  ✓  2 [chromium] › tests/e2e/specs/projection-alignment.spec.ts:63:7 › Projection Alignment (Time Machine) › deve projetar transações recorrentes na virada de ano e em fevereiro de ano bissexto sem transbordo de dia (1.7s)
+👤 [MOCK] Profiles Requested for e2e-user
+  ✓  3 [chromium] › tests/e2e/specs/projection-alignment.spec.ts:111:7 › Projection Alignment (Time Machine) › deve consolidar e exibir coexistência de múltiplas simulações ativas de naturezas distintas (2.0s)
+👤 [MOCK] Profiles Requested for e2e-user
+  ✓  4 [mobile-chrome] › tests/e2e/specs/projection-alignment.spec.ts:33:7 › Projection Alignment (Time Machine) › deve refletir impacto de simulação em meses futuros (1.7s)
+[2m[WebServer] [22m[36m[browser][39m [31mUncaught Error: Hydration failed because the server rendered text didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:
+[2m[WebServer] [22m
+[2m[WebServer] [22m- A server/client branch `if (typeof window !== 'undefined')`.
+[2m[WebServer] [22m- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+[2m[WebServer] [22m- Date formatting in a user's locale which doesn't match the server.
+[2m[WebServer] [22m- External changing data without sending a snapshot of it along with the HTML.
+[2m[WebServer] [22m- Invalid HTML tag nesting.
+[2m[WebServer] [22m
+[2m[WebServer] [22mIt can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+[2m[WebServer] [22m
+[2m[WebServer] [22mhttps://react.dev/link/hydration-mismatch
+[2m[WebServer] [22m
+[2m[WebServer] [22m  ...
+[2m[WebServer] [22m    <RedirectErrorBoundary router={{...}}>
+[2m[WebServer] [22m      <InnerLayoutRouter url="/" tree={[...]} params={{}} cacheNode={{rsc:{...}, ...}} segmentPath={[...]} ...>
+[2m[WebServer] [22m        <SegmentViewNode type="page" pagePath="page.tsx">
+[2m[WebServer] [22m          <SegmentTrieNode>
+[2m[WebServer] [22m          <Home>
+[2m[WebServer] [22m            <div className="px-4 pb-4 ...">
+[2m[WebServer] [22m              <RealtimeDashboard initialBalance={0} initialTransactions={[...]} initialBudgets={[...]} ...>
+[2m[WebServer] [22m                <div className="relative f...">
+[2m[WebServer] [22m                  <div className="flex-1 spa...">
+[2m[WebServer] [22m                    <UnifiedSurvivalHeader>
+[2m[WebServer] [22m                    <div className="grid gap-4...">
+[2m[WebServer] [22m                      <BillCommitmentCard>
+[2m[WebServer] [22m                      <MonthNavigator selectedDate={Date} onDateChange={function bound dispatchSetState} ...>
+[2m[WebServer] [22m                        <div className="bg-white/5...">
+[2m[WebServer] [22m                          <div>
+[2m[WebServer] [22m                          <div className="relative z...">
+[2m[WebServer] [22m                            <div>
+[2m[WebServer] [22m                            <div className="flex items...">
+[2m[WebServer] [22m                              <div className="text-cente...">
+[2m[WebServer] [22m                                <p className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-1">
+[2m[WebServer] [22m+                                 jan
+[2m[WebServer] [22m-                                 abr
+[2m[WebServer] [22m                                ...
+[2m[WebServer] [22m                              ...
+[2m[WebServer] [22m                            ...
+[2m[WebServer] [22m                      ...
+[2m[WebServer] [22m                    ...
+[2m[WebServer] [22m                  ...
+[2m[WebServer] [22m        ...
+[2m[WebServer] [22m      ...
+[2m[WebServer] [22m[39m
+[2m[WebServer] [22m[31m    at <unknown> (https://react.dev/link/hydration-mismatch)
+[2m[WebServer] [22m    at p (<anonymous>)
+[2m[WebServer] [22m    at MonthNavigator (src/components/MonthNavigator.tsx:109:13)
+[2m[WebServer] [22m    at RealtimeDashboard (src/components/RealtimeDashboard.tsx:239:11)
+[2m[WebServer] [22m    at Home (src/app/page.tsx:7:7)[39m
+[2m[WebServer] [22m  107 |           {/* Mês anterior */}
+[2m[WebServer] [22m  108 |           <div className="text-center opacity-30">
+[2m[WebServer] [22m> 109 |             <p className="text-[9px] font-black uppercase tracking-widest text-white/40 m...
+[2m[WebServer] [22m      |             ^
+[2m[WebServer] [22m  110 |               {format(subMonths(startOfMonth(selectedDate), 1), "MMM", { locale: ptBR })}
+[2m[WebServer] [22m  111 |             </p>
+[2m[WebServer] [22m  112 |             <p className="text-lg font-black text-white/30">
+👤 [MOCK] Profiles Requested for e2e-user
+👤 [MOCK] Profiles Requested for e2e-user
+  ✓  5 [mobile-chrome] › tests/e2e/specs/projection-alignment.spec.ts:63:7 › Projection Alignment (Time Machine) › deve projetar transações recorrentes na virada de ano e em fevereiro de ano bissexto sem transbordo de dia (2.0s)
+  -  6 [mobile-chrome] › tests/e2e/specs/projection-alignment.spec.ts:111:7 › Projection Alignment (Time Machine) › deve consolidar e exibir coexistência de múltiplas simulações ativas de naturezas distintas
+
+  1 skipped
+  5 passed (11.5s)
+
+To open last HTML report run:
+[36m[39m
+[36m  npx playwright show-report[39m
+[36m[39m
