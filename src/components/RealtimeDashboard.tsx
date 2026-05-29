@@ -345,7 +345,7 @@ export default function RealtimeDashboard({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: "100%", opacity: 0.5 }}
             transition={{ type: "spring", damping: 26, stiffness: 220 }}
-            className="fixed xl:relative top-0 right-0 bottom-0 z-40 w-full md:w-[420px] xl:w-[420px] 2xl:w-[480px] h-screen xl:h-auto border-l border-white/5 bg-transparent flex-shrink-0"
+            className="fixed xl:sticky top-0 right-0 bottom-0 z-40 w-full md:w-[420px] xl:w-[420px] 2xl:w-[480px] h-screen border-l border-white/5 bg-transparent flex-shrink-0"
           >
             <CopilotChatPanel 
               isCopilotOpen={isCopilotOpen}
