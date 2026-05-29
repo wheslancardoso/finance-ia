@@ -203,10 +203,10 @@ export default function RealtimeDashboard({
     <div className="relative flex flex-col xl:flex-row items-stretch min-h-screen bg-transparent overflow-hidden">
       {/* Lado Esquerdo: Área do Dashboard com Encolhimento Suave */}
       <div className={cn(
-        "flex-1 space-y-3 md:space-y-6 pb-20 mx-auto transition-all duration-500",
+        "flex-1 space-y-3 md:space-y-6 pb-20 mx-auto transition-all duration-500 w-full px-2 md:px-4",
         isCopilotOpen 
-          ? "w-full xl:max-w-none xl:mr-[32%] border-r border-white/5 px-2 md:px-4" 
-          : "w-full max-w-[1600px] px-0 md:px-8"
+          ? "xl:max-w-none border-r border-white/5" 
+          : "max-w-[1600px] xl:px-8"
       )}>
         
         {/* ROW 1 — Header Principal, full width */}
@@ -337,19 +337,27 @@ export default function RealtimeDashboard({
         )}
       </div>
 
-      {/* Lado Direito: Painel do Copilot Fixo e Independente */}
-      {isCopilotOpen && (
-        <div className="fixed top-0 right-0 bottom-0 z-40 w-full xl:w-[32%] xl:min-w-[420px] h-screen border-l border-white/5 transition-all duration-500 bg-transparent">
-          <CopilotChatPanel 
-            isCopilotOpen={isCopilotOpen}
-            onToggleCopilot={() => setIsCopilotOpen(false)}
-            monthOffset={monthOffset}
-            targetDate={targetDate}
-            onSimulate={handleSimulate}
-            activeSimulations={activeSimulations}
-          />
-        </div>
-      )}
+      {/* Lado Direito: Painel do Copilot Fixo e Independente com Gaveta Deslizante Premium */}
+      <AnimatePresence>
+        {isCopilotOpen && (
+          <motion.div
+            initial={{ x: "100%", opacity: 0.5 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: "100%", opacity: 0.5 }}
+            transition={{ type: "spring", damping: 26, stiffness: 220 }}
+            className="fixed xl:relative top-0 right-0 bottom-0 z-40 w-full md:w-[420px] xl:w-[420px] 2xl:w-[480px] h-screen xl:h-auto border-l border-white/5 bg-transparent flex-shrink-0"
+          >
+            <CopilotChatPanel 
+              isCopilotOpen={isCopilotOpen}
+              onToggleCopilot={() => setIsCopilotOpen(false)}
+              monthOffset={monthOffset}
+              targetDate={targetDate}
+              onSimulate={handleSimulate}
+              activeSimulations={activeSimulations}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

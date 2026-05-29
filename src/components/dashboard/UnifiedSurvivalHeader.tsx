@@ -109,20 +109,20 @@ export function UnifiedSurvivalHeader({
             </div>
           </div>
 
-          <div className="flex items-center gap-3 hidden md:flex">
+          <div className="flex items-center gap-2 shrink-0">
             {onToggleCopilot && (
               <button
                 onClick={onToggleCopilot}
                 data-testid="toggle-copilot-button"
                 className={cn(
-                  "relative flex items-center gap-2 px-5 py-2.5 rounded-[16px] font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 border",
+                  "relative flex items-center justify-center gap-2 px-3 py-2 md:px-5 md:py-2.5 rounded-[16px] font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 border",
                   isCopilotOpen 
                     ? "bg-violet-600 border-violet-500 text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]" 
                     : "bg-white/5 border-white/10 text-violet-400 hover:bg-violet-500/10 hover:border-violet-500/20"
                 )}
               >
                 <Sparkles className={cn("w-4 h-4", isCopilotOpen && "animate-pulse")} />
-                <span>Modo Copiloto</span>
+                <span className="hidden sm:inline">Modo Copiloto</span>
               </button>
             )}
 
@@ -130,7 +130,7 @@ export function UnifiedSurvivalHeader({
               <button 
                 onClick={() => openAdd()}
                 data-testid="add-transaction-button"
-                className="group relative flex items-center gap-2.5 bg-white text-black hover:bg-violet-50 px-5 py-2.5 rounded-[16px] font-black text-[10px] transition-all active:scale-95 shadow-2xl overflow-hidden shrink-0"
+                className="group relative flex items-center justify-center gap-2 bg-white text-black hover:bg-violet-50 px-3 py-2 md:px-5 md:py-2.5 rounded-[16px] font-black text-[10px] transition-all active:scale-95 shadow-2xl overflow-hidden shrink-0"
               >
                 <Plus className="w-4 h-4" />
                 <span className="tracking-widest uppercase hidden sm:inline">Nova Transação</span>

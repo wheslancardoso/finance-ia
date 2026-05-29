@@ -708,55 +708,57 @@ export default function CopilotChatPanel({
                       </select>
                     </div>
 
-                    {/* Botões de Ação Interativos */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 border-t border-white/5 pt-3">
-                      {/* Simular no Caixa */}
-                      <button
-                        onClick={() => handleActionSimulate(sim, index)}
-                        className={cn(
-                          "py-2 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border active:scale-95",
-                          isSimulated
-                            ? "bg-violet-600 border-violet-500 text-white shadow-lg shadow-violet-600/20"
-                            : "bg-white/5 border-white/5 text-violet-300 hover:bg-violet-500/10"
-                        )}
-                      >
-                        <TrendingUp className="w-3 h-3" />
-                        {isSimulated ? "Simulado" : "Simular Caixa"}
-                      </button>
+                    {/* Botões de Ação Interativos de Alta Responsividade */}
+                    <div className="flex flex-col gap-2 border-t border-white/5 pt-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Simular no Caixa */}
+                        <button
+                          onClick={() => handleActionSimulate(sim, index)}
+                          className={cn(
+                            "py-2 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border active:scale-95",
+                            isSimulated
+                              ? "bg-violet-600 border-violet-500 text-white shadow-lg shadow-violet-600/20"
+                              : "bg-white/5 border-white/5 text-violet-300 hover:bg-violet-500/10"
+                          )}
+                        >
+                          <TrendingUp className="w-3 h-3" />
+                          {isSimulated ? "Simulado" : "Simular Caixa"}
+                        </button>
 
-                      {/* Salvar como Meta */}
-                      <button
-                        onClick={() => handleActionSaveAsGoal(sim, index)}
-                        disabled={hasSavedGoal}
-                        className={cn(
-                          "py-2 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border active:scale-95 disabled:pointer-events-none",
-                          hasSavedGoal
-                            ? "bg-emerald-600/20 border-emerald-500/20 text-emerald-400"
-                            : "bg-white/5 border-white/5 text-emerald-300 hover:bg-emerald-500/10"
-                        )}
-                      >
-                        {hasSavedGoal ? (
-                          <>
-                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                            Salvo!
-                          </>
-                        ) : (
-                          <>
-                            <Target className="w-3 h-3" />
-                            Criar Meta
-                          </>
-                        )}
-                      </button>
+                        {/* Salvar como Meta */}
+                        <button
+                          onClick={() => handleActionSaveAsGoal(sim, index)}
+                          disabled={hasSavedGoal}
+                          className={cn(
+                            "py-2 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border active:scale-95 disabled:pointer-events-none",
+                            hasSavedGoal
+                              ? "bg-emerald-600/20 border-emerald-500/20 text-emerald-400"
+                              : "bg-white/5 border-white/5 text-emerald-300 hover:bg-emerald-500/10"
+                          )}
+                        >
+                          {hasSavedGoal ? (
+                            <>
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              Salvo!
+                            </>
+                          ) : (
+                            <>
+                              <Target className="w-3 h-3" />
+                              Criar Meta
+                            </>
+                          )}
+                        </button>
+                      </div>
 
-                      {/* Agendar Lançamento */}
+                      {/* Agendar Lançamento (Ação Primária Proeminente) */}
                       <button
                         onClick={() => handleActionSchedule(sim, index)}
                         disabled={hasScheduled}
                         className={cn(
-                          "py-2 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border active:scale-95 disabled:pointer-events-none",
+                          "py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 border active:scale-95 disabled:pointer-events-none w-full",
                           hasScheduled
                             ? "bg-blue-600/20 border-blue-500/20 text-blue-400"
-                            : "bg-white/5 border-white/5 text-blue-300 hover:bg-blue-500/10"
+                            : "bg-violet-600 border-violet-500 text-white hover:bg-violet-500 shadow-lg shadow-violet-600/20"
                         )}
                       >
                         {hasScheduled ? (
@@ -767,7 +769,7 @@ export default function CopilotChatPanel({
                         ) : (
                           <>
                             <Calendar className="w-3 h-3" />
-                            Confirmar
+                            Agendar Lançamento (Confirmar)
                           </>
                         )}
                       </button>
