@@ -127,7 +127,7 @@ test.describe('Projection Alignment (Time Machine)', () => {
     await page.getByTestId('toggle-copilot-button').click();
 
     // Mocar a resposta da API do Copilot para simular duas coisas
-    await page.route(url => url.pathname.endsWith('/api/chat'), async (route) => {
+    await page.route(/\/api\/chat/, async (route) => {
       const method = route.request().method();
       if (method === 'POST') {
         await route.fulfill({

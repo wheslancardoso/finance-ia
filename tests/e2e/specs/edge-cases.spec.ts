@@ -147,7 +147,7 @@ test.describe('Cenários de Borda e Resiliência (Blindagem)', () => {
     let syncedTxPayload: any = null;
 
     // Interceptar a API de transações para falhar enquanto offline e funcionar quando online
-    await page.route(url => url.pathname.endsWith('/api/transactions'), async (route) => {
+    await page.route(/\/api\/transactions/, async (route) => {
       const method = route.request().method();
       if (shouldFail) {
         await route.fulfill({
@@ -203,7 +203,6 @@ test.describe('Cenários de Borda e Resiliência (Blindagem)', () => {
 
     // Recarregar a página para forçar a re-leitura do Dexie local no modo offline
     await page.reload();
-    await page.waitForLoadState('networkidle');
 
     // Validar presença local
     await expect(page.getByText('Almoço Offline').first()).toBeVisible({ timeout: 10000 });

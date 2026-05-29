@@ -7,7 +7,7 @@ import { useAccountModal } from "@/context/AccountModalContext";
 import { db } from "@/lib/db";
 
 export default function TransactionsPage() {
-  const { accounts, loading: contextLoading } = useFinancialData();
+  const { accounts, lastFetched } = useFinancialData();
   const { userId } = useAccountModal();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -80,9 +80,9 @@ export default function TransactionsPage() {
       }
     }
     fetchTransactions();
-  }, [userId]);
+  }, [userId, lastFetched]);
 
-  if ((loading || contextLoading) && transactions.length === 0) {
+  if ((loading || !lastFetched) && transactions.length === 0) {
     return (
       <div className="p-4 md:p-12 max-w-7xl mx-auto w-full flex items-center justify-center min-h-[400px]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>

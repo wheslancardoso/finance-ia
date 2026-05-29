@@ -33,7 +33,7 @@ test.describe('Modo Copiloto de IA (Modo Jarvis) e Simulações no Chat', () => 
     await setupFinancialMocks(page, customState);
 
     // Mocar a resposta da API de forma robusta interceptando pelo pathname
-    await page.route(url => url.pathname.endsWith('/api/chat'), async (route) => {
+    await page.route(/\/api\/chat/, async (route) => {
       const method = route.request().method();
       
       if (method === 'GET') {
@@ -135,7 +135,7 @@ test.describe('Modo Copiloto de IA (Modo Jarvis) e Simulações no Chat', () => 
 
     let deleteRequestedUrl = '';
 
-    await page.route(url => url.pathname.endsWith('/api/chat'), async (route) => {
+    await page.route(/\/api\/chat/, async (route) => {
       const method = route.request().method();
       if (method === 'GET') {
         await route.fulfill({
@@ -194,7 +194,7 @@ test.describe('Modo Copiloto de IA (Modo Jarvis) e Simulações no Chat', () => 
 
     let payloadEnviado: any = null;
 
-    await page.route(url => url.pathname.endsWith('/api/chat'), async (route) => {
+    await page.route(/\/api\/chat/, async (route) => {
       const method = route.request().method();
       if (method === 'GET') {
         await route.fulfill({
@@ -244,7 +244,7 @@ test.describe('Modo Copiloto de IA (Modo Jarvis) e Simulações no Chat', () => 
     await setupFinancialMocks(page, createDashboardState());
 
     // Intercepta POST /api/chat para simular 503
-    await page.route(url => url.pathname.endsWith('/api/chat'), async (route) => {
+    await page.route(/\/api\/chat/, async (route) => {
       const method = route.request().method();
       if (method === 'GET') {
         await route.fulfill({
@@ -295,7 +295,7 @@ test.describe('Modo Copiloto de IA (Modo Jarvis) e Simulações no Chat', () => 
     await setupFinancialMocks(page, state);
 
     // Moca a rota GET /api/chat para retornar preocupação do Nubank
-    await page.route(url => url.pathname.endsWith('/api/chat'), async (route) => {
+    await page.route(/\/api\/chat/, async (route) => {
       const method = route.request().method();
       if (method === 'GET') {
         await route.fulfill({

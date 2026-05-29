@@ -220,7 +220,7 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
     await setupFinancialMocks(page, customState);
 
     // Mocar rota do Copilot (API Chat) para retornar os cenários de sobrevivência
-    await page.route(url => url.pathname.endsWith('/api/chat'), async (route) => {
+    await page.route(/\/api\/chat/, async (route) => {
       const method = route.request().method();
       if (method === 'GET') {
         await route.fulfill({
@@ -434,7 +434,7 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
     await setupFinancialMocks(page, customState);
 
     // Mocar rota do Copilot (API Chat) para retornar o cenário do rotativo
-    await page.route(url => url.pathname.endsWith('/api/chat'), async (route) => {
+    await page.route(/\/api\/chat/, async (route) => {
       const method = route.request().method();
       if (method === 'GET') {
         await route.fulfill({
