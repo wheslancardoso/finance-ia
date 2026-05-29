@@ -76,7 +76,7 @@ export function UnifiedSurvivalHeader({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] truncate">
+                <p suppressHydrationWarning className="text-[10px] font-black text-white/30 uppercase tracking-[0.3em] truncate">
                   {variant === 'full' ? `Time Machine: ${format(targetDate, "MMMM", { locale: ptBR })}` : "Visão Consolidada"}
                 </p>
               </div>
