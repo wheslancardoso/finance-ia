@@ -1,13 +1,14 @@
 "use client";
 
 import React from "react";
-import { Wallet, Plus, ShieldCheck, Zap, Sparkles } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Wallet, Plus, ShieldCheck, Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
 import { cn, formatCurrency } from "@/lib/utils";
-import { format, startOfMonth } from "date-fns";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useTransactionModal } from "@/context/TransactionModalContext";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
+import { useFinancialData } from "@/context/FinancialDataContext";
 import { Simulation } from "@/domain/financial/financial-logic";
 
 interface UnifiedSurvivalHeaderProps {
@@ -32,24 +33,31 @@ export function UnifiedSurvivalHeader({
   onToggleCopilot
 }: UnifiedSurvivalHeaderProps) {
   const { openAdd } = useTransactionModal();
+  const { accounts, recurringExpensesCents: contextRecurringExpenses } = useFinancialData();
   const {
+    checkingBalanceCents,
     netLiquidityCents,
-    accumulatedBalanceCents,
-    totalConsolidatedDebtCents,
-    monthlyOutlook,
-    isCrisisMode,
-    debtExit,
+    creditCardUsedCents,
     weeklySurvival,
-    recurringIncomeCents,
     recurringExpensesCents
   } = useFinancialAnalysis(monthOffset, activeSimulations);
 
   const isFuture = monthOffset > 0;
-  const isRecoveryMode = netLiquidityCents < -100;
   const hasSimulations = activeSimulations.length > 0;
+  
+  // No futuro ou com simulações ativas, exibimos o saldo projetado acumulado (netLiquidityCents).
+  // No presente sem simulações, exibimos o saldo real em conta corrente (checkingBalanceCents).
+  const displayBalanceCents = (isFuture || hasSimulations) ? netLiquidityCents : checkingBalanceCents;
+  const isNegativeBalance = displayBalanceCents < 0;
 
-  // Limite semanal de gastos unificado e contextualizado vindo da inteligência do domínio
+  // Limite semanal vindo da inteligência do domínio
   const weeklyLimit = weeklySurvival.weeklyLimitCents;
+
+  // Listar contas correntes para exibição detalhada
+  const checkingAccounts = accounts.filter(a => a.type !== "CREDIT_CARD");
+
+  // Total de contas fixas a pagar no mês (despesas recorrentes)
+  const fixedExpensesTotal = recurringExpensesCents > 0 ? recurringExpensesCents : contextRecurringExpenses;
 
   return (
     <div className={cn(
@@ -59,7 +67,7 @@ export function UnifiedSurvivalHeader({
       {/* Premium Background Effects */}
       <div className={cn(
         "absolute -top-32 -left-32 w-[600px] h-[600px] blur-[160px] rounded-full transition-all duration-1000 opacity-20 pointer-events-none",
-        isCrisisMode ? "bg-red-600" : isRecoveryMode ? "bg-amber-600" : "bg-violet-600"
+        isNegativeBalance ? "bg-red-600" : "bg-violet-600"
       )} />
 
       <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/[0.02] blur-[100px] rounded-full -mr-32 -mt-32 pointer-events-none" />
@@ -70,7 +78,7 @@ export function UnifiedSurvivalHeader({
           <div className="flex items-center gap-5">
             <div className={cn(
               "w-12 h-12 rounded-[20px] flex items-center justify-center border transition-all duration-700 shadow-2xl shrink-0",
-              isCrisisMode ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-white/5 border-white/10 text-white/60"
+              isNegativeBalance ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-white/5 border-white/10 text-white/60"
             )}>
               <Wallet className="w-6 h-6" />
             </div>
@@ -81,7 +89,7 @@ export function UnifiedSurvivalHeader({
                 </p>
               </div>
               <p className="text-xs font-bold text-white/20 mt-0.5">
-                {variant === 'full' ? "Projeção acumulada de liquidez" : "Saldo disponível para o ciclo"}
+                {variant === 'full' ? "Visão financeira do mês" : "Saldo disponível para o ciclo"}
               </p>
             </div>
           </div>
@@ -113,12 +121,6 @@ export function UnifiedSurvivalHeader({
                 <span className="tracking-widest uppercase hidden sm:inline">Nova Transação</span>
               </button>
             )}
-            
-            {variant === 'compact' && isCrisisMode && (
-              <div className="bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg">
-                <p className="text-[8px] font-black text-red-400 uppercase tracking-widest">Alerta de Crise</p>
-              </div>
-            )}
           </div>
         </div>
 
@@ -126,26 +128,25 @@ export function UnifiedSurvivalHeader({
         {variant === 'compact' && (
           <div className="flex items-center justify-between mt-2">
             <div className="flex flex-col">
-              <span className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-1">Liquidez do Ciclo</span>
+              <span className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-1">
+                {(isFuture || hasSimulations) ? "Saldo Projetado" : "Saldo em Conta"}
+              </span>
               <h2 
                 data-testid="net-liquidity-value"
                 className={cn(
                   "text-2xl font-black tabular-nums tracking-tight",
-                  isCrisisMode ? "text-red-400" : "text-white"
+                  isNegativeBalance ? "text-red-400" : "text-white"
                 )}
               >
-                <span className="block">{formatCurrency(netLiquidityCents)}</span>
-                {isCrisisMode && (
-                  <span className="block text-[8px] uppercase tracking-widest text-red-500 font-bold mt-1">
-                    Ajuste Necessário
-                  </span>
-                )}
+                {formatCurrency(displayBalanceCents)}
               </h2>
             </div>
-            <div className="text-right flex flex-col items-end">
-              <span className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-1">Saldo Real</span>
-              <span className="text-sm font-black text-emerald-400 tabular-nums">{formatCurrency(accumulatedBalanceCents)}</span>
-            </div>
+            {creditCardUsedCents > 0 && (
+              <div className="text-right flex flex-col items-end">
+                <span className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-1">Cartões Usados</span>
+                <span className="text-sm font-black text-red-400/80 tabular-nums">{formatCurrency(creditCardUsedCents)}</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -157,9 +158,9 @@ export function UnifiedSurvivalHeader({
                 <div className="space-y-1">
                   <span className={cn(
                     "text-[10px] font-black uppercase tracking-[0.4em] block",
-                    isCrisisMode ? "text-red-400/60" : isRecoveryMode ? "text-amber-400/60" : "text-white/30"
+                    isNegativeBalance ? "text-red-400/60" : "text-white/30"
                   )}>
-                    {isCrisisMode ? "Alerta de Crise" : isRecoveryMode ? "Liquidez Zero em" : "Liquidez ao Fim do Mês"}
+                    {(isFuture || hasSimulations) ? "Saldo Projetado" : "Saldo em Conta"}
                     {hasSimulations && (
                       <span className="ml-2 text-[8px] font-black bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full vertical-middle uppercase tracking-widest">
                         Impacto Simulado Ativo
@@ -170,50 +171,46 @@ export function UnifiedSurvivalHeader({
                     data-testid="net-liquidity-value"
                     className={cn(
                       "text-[clamp(2rem,6vw,4.5rem)] py-2 font-black tracking-tighter tabular-nums leading-none drop-shadow-2xl sm:whitespace-normal",
-                      isCrisisMode ? "text-red-400" : isRecoveryMode ? "text-white" : hasSimulations ? "text-violet-400" : isFuture ? "text-white/90" : "text-white"
+                      isNegativeBalance ? "text-red-400" : hasSimulations ? "text-violet-400" : isFuture ? "text-white/90" : "text-white"
                     )}
                   >
-                    <span className="block">{formatCurrency(netLiquidityCents)}</span>
-                    {isCrisisMode && (
-                      <span className="block text-xs uppercase tracking-widest text-red-500 font-bold mt-2">
-                        Ajuste Necessário
-                      </span>
-                    )}
-                    {isRecoveryMode && !isCrisisMode && debtExit.exitDate && (
-                      <span className="block text-xs uppercase tracking-widest text-amber-500 font-bold mt-2">
-                        Recuperação em {format(debtExit.exitDate, "MMM'/'yy", { locale: ptBR })}
-                      </span>
-                    )}
+                    {formatCurrency(displayBalanceCents)}
                   </h1>
                   
                   <div className="flex flex-wrap items-center gap-6 mt-6">
-                    <div className="flex flex-col">
-                      <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Saldo Bancário Real</span>
-                      <span className="text-sm font-black text-emerald-400 tabular-nums">{formatCurrency(accumulatedBalanceCents)}</span>
-                    </div>
-                    <div className="w-px h-8 bg-white/5" />
-                    <div className="flex flex-col">
-                      <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Dívida Total</span>
-                      <span className="text-sm font-black text-red-400/80 tabular-nums">{formatCurrency(totalConsolidatedDebtCents)}</span>
-                    </div>
-                    <div className="w-px h-8 bg-white/5" />
-                    <div className="flex flex-col">
-                      <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Status do Mês</span>
-                      <div className={cn(
-                        "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border mt-1.5",
-                        isCrisisMode ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                      )}>
-                        {isCrisisMode ? "Crítico" : "Equilibrado"}
+                    {/* Detalhamento por conta corrente */}
+                    {checkingAccounts.length > 0 && checkingAccounts.map((account) => (
+                      <div key={account.id} className="flex flex-col">
+                        <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">{account.name}</span>
+                        <span className={cn(
+                          "text-sm font-black tabular-nums",
+                          (Number(account.balance_cents) || 0) < 0 ? "text-red-400/80" : "text-emerald-400"
+                        )}>
+                          {formatCurrency(Number(account.balance_cents) || 0)}
+                        </span>
                       </div>
-                    </div>
-                    {isRecoveryMode && (
+                    ))}
+                    
+                    {/* Separador */}
+                    {checkingAccounts.length > 0 && (fixedExpensesTotal > 0 || creditCardUsedCents > 0) && (
+                      <div className="w-px h-8 bg-white/5" />
+                    )}
+
+                    {/* Contas a pagar (despesas fixas do mês) */}
+                    {fixedExpensesTotal > 0 && (
+                      <div className="flex flex-col">
+                        <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Contas a Pagar</span>
+                        <span className="text-sm font-black text-amber-400/80 tabular-nums">{formatCurrency(fixedExpensesTotal)}</span>
+                      </div>
+                    )}
+                    
+                    {/* Cartões usados */}
+                    {creditCardUsedCents > 0 && (
                       <>
                         <div className="w-px h-8 bg-white/5" />
                         <div className="flex flex-col">
-                          <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Foco de Alerta</span>
-                          <div className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full mt-1.5">
-                            <span className="text-[8px] font-black text-red-400 uppercase tracking-widest">Ciclo de Dívida</span>
-                          </div>
+                          <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Cartões Usados</span>
+                          <span className="text-sm font-black text-red-400/80 tabular-nums">{formatCurrency(creditCardUsedCents)}</span>
                         </div>
                       </>
                     )}
@@ -225,31 +222,22 @@ export function UnifiedSurvivalHeader({
             {/* [Bloco Teto Semanal] */}
             <div className="xl:col-span-4 w-full">
                <div className={cn(
-                 "bg-white/[0.03] border border-white/5 rounded-[32px] p-7 space-y-6 relative overflow-hidden shadow-inner backdrop-blur-xl",
-                 isCrisisMode ? "border-amber-500/20" : "border-white/5"
+                 "bg-white/[0.03] border rounded-[32px] p-7 space-y-6 relative overflow-hidden shadow-inner backdrop-blur-xl",
+                 "border-white/5"
                )}>
-                  <div className={cn(
-                    "absolute top-0 right-0 w-32 h-32 blur-[40px] rounded-full pointer-events-none",
-                    isCrisisMode ? "bg-amber-500/5" : "bg-emerald-500/5"
-                  )} />
+                  <div className="absolute top-0 right-0 w-32 h-32 blur-[40px] rounded-full pointer-events-none bg-emerald-500/5" />
                   
                   <div className="flex items-center gap-5 relative z-10">
-                    <div className={cn(
-                      "w-10 h-10 rounded-[14px] flex items-center justify-center border shrink-0",
-                      isCrisisMode ? "bg-amber-500/10 border-amber-500/20 text-amber-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                    )}>
+                    <div className="w-10 h-10 rounded-[14px] flex items-center justify-center border shrink-0 bg-emerald-500/10 border-emerald-500/20 text-emerald-400">
                       <ShieldCheck className="w-5 h-5" />
                     </div>
                     <div className="flex flex-col min-w-0">
                       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-1 truncate">
-                        {isCrisisMode ? "Limite Emergencial (Semana)" : "Oxigênio Semanal"}
+                        Teto Semanal
                       </span>
                       <span 
                         data-testid="survival-ceiling-value"
-                        className={cn(
-                          "text-3xl font-black tabular-nums tracking-tight leading-none block",
-                          isCrisisMode ? "text-amber-400" : "text-emerald-400"
-                        )}
+                        className="text-3xl font-black tabular-nums tracking-tight leading-none block text-emerald-400"
                       >
                         {formatCurrency(weeklyLimit)}
                       </span>
@@ -261,10 +249,7 @@ export function UnifiedSurvivalHeader({
                       <motion.div 
                         initial={{ width: 0 }}
                         animate={{ width: `${Math.min(100, Math.max(5, weeklyLimit > 0 ? (weeklySurvival.weeklySpentCents / weeklyLimit) * 100 : 0))}%` }}
-                        className={cn(
-                          "h-full rounded-full transition-all duration-1000",
-                          isCrisisMode ? "bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]" : "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]"
-                        )} 
+                        className="h-full rounded-full transition-all duration-1000 bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]"
                       />
                     </div>
                     <div className="flex justify-between items-center text-[10px] font-black text-white/20 uppercase tracking-widest">
@@ -272,9 +257,7 @@ export function UnifiedSurvivalHeader({
                       <span className={cn(
                         weeklySurvival.weeklySpentCents > weeklyLimit 
                           ? "text-red-400 font-black animate-pulse" 
-                          : isCrisisMode 
-                            ? "text-amber-400" 
-                            : "text-white/60"
+                          : "text-white/60"
                       )}>
                         {weeklyLimit > 0 
                           ? (weeklySurvival.weeklySpentCents > weeklyLimit 

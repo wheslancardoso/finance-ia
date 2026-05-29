@@ -83,6 +83,7 @@ export default function CopilotChatPanel({
   
   const { 
     accounts, 
+    goals,
     upsertGoal, 
     upsertTransaction, 
     createInstallmentSeries, 
@@ -612,7 +613,9 @@ export default function CopilotChatPanel({
                 const isSimulated = activeSimulations.some(
                   (s) => s.description === `Simulado: ${sim.title}`
                 );
-                const hasSavedGoal = metaSalvaFeedback[simKey];
+                const hasSavedGoal = metaSalvaFeedback[simKey] || (goals || []).some(
+                  (g) => g.name === `Meta: ${sim.title}`
+                );
                 const hasScheduled = agendaFeedback[simKey];
                 const currentAccountId = selectedAccounts[simKey] || (accounts.length > 0 ? accounts[0].id : "");
 

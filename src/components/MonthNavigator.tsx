@@ -14,7 +14,12 @@ interface MonthNavigatorProps {
 }
 
 export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransactionDate, debtExitDate }: MonthNavigatorProps) {
-  const today = startOfMonth(new Date());
+  const [today, setToday] = React.useState<Date>(selectedDate);
+  
+  React.useEffect(() => {
+    setToday(startOfMonth(new Date()));
+  }, []);
+
   const isFuture = selectedDate > today && !isSameMonth(selectedDate, today);
   const isPast = selectedDate < today && !isSameMonth(selectedDate, today);
   
@@ -35,11 +40,11 @@ export function MonthNavigator({ selectedDate, onDateChange, lastFutureTransacti
   const isAtToday = isSameMonth(selectedDate, today);
 
   const monthOffset = React.useMemo(() => {
-    const todayMo = startOfMonth(new Date());
+    const todayMo = startOfMonth(today);
     const targetMo = startOfMonth(selectedDate);
     const months = (targetMo.getFullYear() - todayMo.getFullYear()) * 12 + (targetMo.getMonth() - todayMo.getMonth());
     return Math.max(0, months);
-  }, [selectedDate]);
+  }, [selectedDate, today]);
 
   return (
     <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] p-5 shadow-2xl relative overflow-hidden h-full flex flex-col">
