@@ -70,7 +70,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     monthTransactions,
     futureTransactions,
     recurringTransactions,
-    survivalReserveCents
+    survivalReserveCents,
+    weeklyLimitOverrideCents
   } = useFinancialData();
 
   const netLiquidity = useMemo(() => calculateNetLiquidity(accounts), [accounts]);
@@ -317,6 +318,9 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     return prevOutlook.totalAssets || 0;
   }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, activeSimulations, futureTransactions, monthTransactions, recurringTransactions, goals, survivalReserveCents, currentAssets]);
 
+  const isSurvivalMode = useMemo(() => (monthlyOutlook.balanceAtMonthEnd || 0) < 0 || activeNetLiquidity < 0, [monthlyOutlook.balanceAtMonthEnd, activeNetLiquidity]);
+  const isCrisisMode = useMemo(() => activeNetLiquidity < 0 && (monthlyOutlook.balanceAtMonthEnd || 0) < 0, [activeNetLiquidity, monthlyOutlook.balanceAtMonthEnd]);
+
   const weeklySurvival = useMemo(() => {
     // Margem livre real = Renda recorrente - Despesas fixas recorrentes
     const regularIncome = recurringIncomeCents > 0 ? recurringIncomeCents : 0;
@@ -351,17 +355,46 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       weeksInPeriod = Math.max(1, Math.ceil(daysRemaining / 7));
     }
 
-    // Teto semanal = margem livre mensal / semanas do período
-    // Se não houver renda cadastrada, usar saldo em conta / semanas do período
     let weeklyLimitCents = 0;
-    if (freeMarginMonthly > 0) {
-      weeklyLimitCents = Math.round(freeMarginMonthly / weeksInPeriod);
-    } else if (effectiveCheckingBalance > 0) {
-      weeklyLimitCents = Math.round(effectiveCheckingBalance / weeksInPeriod);
+
+    if (weeklyLimitOverrideCents > 0) {
+      // Se houver um limite semanal personalizado definido pelo usuário nas configurações
+      weeklyLimitCents = weeklyLimitOverrideCents;
+    } else {
+      // Oráculo Dinâmico Automático
+      // 1. Fator Metas: Deduzir aportes necessários das metas ativas para protegê-las
+      const activeGoalsContribution = (goals || [])
+        .filter(g => g.status === "active" || g.status === undefined)
+        .reduce((sum, g) => sum + (g.monthly_contribution_cents || 0), 0);
+      
+      const netFreeMarginMonthly = Math.max(0, freeMarginMonthly - activeGoalsContribution);
+
+      // Calcular limite base
+      let baseLimitCents = 0;
+      if (netFreeMarginMonthly > 0) {
+        baseLimitCents = Math.round(netFreeMarginMonthly / weeksInPeriod);
+      } else if (effectiveCheckingBalance > 0) {
+        baseLimitCents = Math.round(effectiveCheckingBalance / weeksInPeriod);
+      }
+
+      // 2. Redutor de Abundância Progressiva: Acima de R$ 300,00, apenas 30% do excedente entra no teto
+      if (baseLimitCents > 30000) {
+        weeklyLimitCents = 30000 + Math.round((baseLimitCents - 30000) * 0.30);
+      } else {
+        weeklyLimitCents = baseLimitCents;
+      }
+
+      // 3. Corte Emergencial de Crise: Se em crise ou sobrevivência, cortar 50%
+      if (isCrisisMode || isSurvivalMode) {
+        weeklyLimitCents = Math.round(weeklyLimitCents * 0.5);
+        // Piso de subsistência rígido na crise
+        if (weeklyLimitCents < 8000) {
+          weeklyLimitCents = 5000; // R$ 50,00
+        }
+      }
     }
 
-    // Piso realista: R$ 50/semana (5000 centavos)
-    // Sem teto artificial — o valor real deve refletir a situação financeira
+    // Piso absoluto geral de sobrevivência
     weeklyLimitCents = Math.max(5000, weeklyLimitCents);
 
     // Calcular consumo semanal baseado em transações reais de despesas variáveis
@@ -380,7 +413,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
           ? "WARNING" as const
           : "NORMAL" as const
     };
-  }, [accounts, checkingBalance, recurringIncomeCents, recurringExpensesCents, monthTransactions, monthOffset, activeSimulations, simulatedNetImpact, monthlyOutlook.totalAssets]);
+  }, [accounts, checkingBalance, recurringIncomeCents, recurringExpensesCents, monthTransactions, monthOffset, activeSimulations, simulatedNetImpact, monthlyOutlook.totalAssets, weeklyLimitOverrideCents, goals, isCrisisMode, isSurvivalMode]);
 
   const simulateDetailedImpactFn = useCallback((
     amountCents: number, 
@@ -505,8 +538,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     healthScore,
     recurringIncomeCents,
     recurringExpensesCents,
-    isSurvivalMode: (monthlyOutlook.balanceAtMonthEnd || 0) < 0 || activeNetLiquidity < 0,
-    isCrisisMode: activeNetLiquidity < 0 && (monthlyOutlook.balanceAtMonthEnd || 0) < 0,
+    isSurvivalMode,
+    isCrisisMode,
     debtExit,
     weeklySurvival,
     goalProjections,

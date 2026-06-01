@@ -9,7 +9,15 @@ import { Save, User, Wallet, Calculator, CheckCircle2, Sparkles } from "lucide-r
 import { cn } from "@/lib/utils";
 
 export function UserProfileSettings() {
-  const { monthlyIncomeCents, fixedExpensesCents, refreshData, isGamificationEnabled, setGamificationEnabled } = useFinancialData();
+  const { 
+    monthlyIncomeCents, 
+    fixedExpensesCents, 
+    refreshData, 
+    isGamificationEnabled, 
+    setGamificationEnabled,
+    weeklyLimitOverrideCents,
+    setWeeklyLimitOverrideCents
+  } = useFinancialData();
   const { userId } = useAccountModal();
   
   const formatValue = (cents: number) => {
@@ -19,6 +27,7 @@ export function UserProfileSettings() {
 
   const [income, setIncome] = useState(formatValue(monthlyIncomeCents));
   const [expenses, setExpenses] = useState(formatValue(fixedExpensesCents));
+  const [weeklyOverride, setWeeklyOverride] = useState(formatValue(weeklyLimitOverrideCents));
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -26,14 +35,16 @@ export function UserProfileSettings() {
   React.useEffect(() => {
     setIncome(formatValue(monthlyIncomeCents));
     setExpenses(formatValue(fixedExpensesCents));
-  }, [monthlyIncomeCents, fixedExpensesCents]);
+    setWeeklyOverride(formatValue(weeklyLimitOverrideCents));
+  }, [monthlyIncomeCents, fixedExpensesCents, weeklyLimitOverrideCents]);
 
   const handleSave = async () => {
     if (!userId) return;
     setLoading(true);
     
-    const incomeCents = Math.round(parseFloat(income.replace(",", ".")) * 100);
-    const expensesCents = Math.round(parseFloat(expenses.replace(",", ".")) * 100);
+    const incomeCents = Math.round(parseFloat(income.replace(/\./g, "").replace(",", ".")) * 100);
+    const expensesCents = Math.round(parseFloat(expenses.replace(/\./g, "").replace(",", ".")) * 100);
+    const weeklyOverrideCents = weeklyOverride === "" ? 0 : Math.round(parseFloat(weeklyOverride.replace(/\./g, "").replace(",", ".")) * 100);
 
     const { error } = await financialService.upsertUserProfile({
       id: userId,
@@ -42,6 +53,11 @@ export function UserProfileSettings() {
     });
 
     if (!error) {
+      if (!isNaN(weeklyOverrideCents)) {
+        setWeeklyLimitOverrideCents(weeklyOverrideCents);
+      } else {
+        setWeeklyLimitOverrideCents(0);
+      }
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
       refreshData(); // Não aguardar o refresh para mostrar sucesso
@@ -81,6 +97,24 @@ export function UserProfileSettings() {
             />
           </div>
         </div>
+      </div>
+
+      <div className="space-y-2 mt-4">
+        <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-1">Teto Semanal Personalizado</label>
+        <div className="relative group">
+          <Calculator className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 group-focus-within:text-violet-400 transition-colors" />
+          <input
+            type="text"
+            value={weeklyOverride}
+            onChange={(e) => setWeeklyOverride(e.target.value.replace(/[^0-9,.]/g, ""))}
+            data-testid="profile-weekly-override-input"
+            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white outline-none focus:border-violet-500/50 focus:bg-white/10 transition-all font-medium"
+            placeholder="0,00"
+          />
+        </div>
+        <p className="text-[8px] text-white/30 ml-2 font-medium">
+          Deixe zerado ou vazio para usar o Oráculo de Sobrevivência Dinâmico automático.
+        </p>
       </div>
 
       <div className="h-px bg-white/10 my-6" />

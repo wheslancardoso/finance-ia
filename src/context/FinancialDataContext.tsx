@@ -84,6 +84,8 @@ interface FinancialDataContextType {
   setFixedExpensesCents: (val: number) => void;
   survivalReserveCents: number;
   setSurvivalReserveCents: (val: number) => void;
+  weeklyLimitOverrideCents: number;
+  setWeeklyLimitOverrideCents: (val: number) => void;
   
   extraIncomeCents: number;
   currentMonthExpensesCents: number;
@@ -152,6 +154,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const [monthlyIncomeCents, setMonthlyIncomeCentsState] = useState(0);
   const [fixedExpensesCents, setFixedExpensesCentsState] = useState(0);
   const [survivalReserveCents, setSurvivalReserveCentsState] = useState(0);
+  const [weeklyLimitOverrideCents, setWeeklyLimitOverrideCentsState] = useState(0);
   const [extraIncomeCents, setExtraIncomeCents] = useState(0);
   const [currentMonthExpensesCents, setCurrentMonthExpensesCents] = useState(0);
   const [accumulatedBalanceCents, setAccumulatedBalanceCents] = useState(0);
@@ -218,6 +221,13 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     setSurvivalReserveCentsState(val);
     if (typeof window !== "undefined") {
       localStorage.setItem("vesper_survival_reserve", val.toString());
+    }
+  }, []);
+
+  const setWeeklyLimitOverrideCents = useCallback((val: number) => {
+    setWeeklyLimitOverrideCentsState(val);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("vesper_weekly_limit_override", val.toString());
     }
   }, []);
 
@@ -614,6 +624,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
         const storedReserve = localStorage.getItem("vesper_survival_reserve");
         if (storedReserve) setSurvivalReserveCentsState(parseInt(storedReserve, 10));
+
+        const storedWeeklyLimit = localStorage.getItem("vesper_weekly_limit_override");
+        if (storedWeeklyLimit) setWeeklyLimitOverrideCentsState(parseInt(storedWeeklyLimit, 10));
       } catch (err) {
         console.error("ERRO AO CARREGAR LOCALSTORAGE:", err);
       }
@@ -725,6 +738,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     monthlyIncomeCents, setMonthlyIncomeCents,
     fixedExpensesCents, setFixedExpensesCents,
     survivalReserveCents, setSurvivalReserveCents,
+    weeklyLimitOverrideCents, setWeeklyLimitOverrideCents,
     extraIncomeCents, currentMonthExpensesCents, accumulatedBalanceCents,
     recurringIncomeCents, recurringExpensesCents,
     goals,
@@ -767,6 +781,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     monthlyIncomeCents, setMonthlyIncomeCents,
     fixedExpensesCents, setFixedExpensesCents,
     survivalReserveCents, setSurvivalReserveCents,
+    weeklyLimitOverrideCents, setWeeklyLimitOverrideCents,
     extraIncomeCents, currentMonthExpensesCents, accumulatedBalanceCents,
     recurringIncomeCents, recurringExpensesCents,
     goals,
