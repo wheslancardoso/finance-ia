@@ -312,7 +312,7 @@ export default function RealtimeDashboard({
         />
 
         {/* ROW 2 — Painel Unificado de Controle Temporal (Máquina do Tempo) */}
-        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] p-6 shadow-2xl flex flex-col lg:flex-row gap-6 items-stretch">
+        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] p-6 shadow-2xl flex flex-col lg:flex-row gap-6 lg:items-start items-stretch">
           <div className="flex-1 min-w-0">
             <MonthNavigator 
               selectedDate={targetDate}

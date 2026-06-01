@@ -1,9 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { formatCurrency } from "@/lib/utils";
-import { TrendingUp, ArrowDownRight, Calculator, PieChart, Briefcase, Zap, CreditCard, Target } from "lucide-react";
+import { ArrowDownRight, Briefcase, PieChart, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MonthlyConsolidatedExcelProps {
@@ -31,6 +31,12 @@ export function MonthlyConsolidatedExcel({
   items,
   monthName
 }: MonthlyConsolidatedExcelProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const maxInitialItems = 5;
+  const hasMoreItems = items.length > maxInitialItems;
+  const displayItems = isExpanded ? items : items.slice(0, maxInitialItems);
+
   return (
     <div className="space-y-6">
       {/* Mini Header de Totais Estilo Planilha */}
@@ -63,12 +69,12 @@ export function MonthlyConsolidatedExcel({
         </div>
         
         <div className="border border-white/10 bg-white/[0.02] rounded-b-xl divide-y divide-white/5 overflow-hidden">
-          {items.map((item, idx) => (
+          {displayItems.map((item, idx) => (
             <motion.div 
               key={`${item.name}-${idx}`}
               initial={{ opacity: 0, x: -5 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: idx * 0.03 }}
+              transition={{ delay: idx * 0.02 }}
               className="flex items-center justify-between px-4 py-3 group hover:bg-white/[0.03] transition-colors"
             >
               <div className="flex items-center gap-3">
@@ -101,6 +107,29 @@ export function MonthlyConsolidatedExcel({
           {items.length === 0 && (
             <div className="p-8 text-center">
               <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Nenhum dado consolidado</p>
+            </div>
+          )}
+
+          {/* Botão de Expansão Interativo */}
+          {hasMoreItems && (
+            <div className="p-3 text-center border-t border-white/5 bg-white/[0.01]">
+              <button
+                type="button"
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-[9px] font-black uppercase tracking-widest text-violet-400 hover:text-violet-300 transition-colors flex items-center justify-center gap-1.5 mx-auto active:scale-95 transition-all cursor-pointer"
+              >
+                {isExpanded ? (
+                  <>
+                    <ChevronUp className="w-3.5 h-3.5" />
+                    Ver menos
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    Ver todos (+{items.length - maxInitialItems} itens)
+                  </>
+                )}
+              </button>
             </div>
           )}
         </div>
@@ -139,6 +168,32 @@ export function MonthlyConsolidatedExcel({
               {formatCurrency(balance)}
             </span>
           </div>
+
+          {/* Frase didática explicativa de leitura natural premium */}
+          <div className="h-px bg-white/5 w-full my-3" />
+          <p className="text-[10px] font-bold text-white/40 leading-relaxed">
+            {balance >= 0 ? (
+              income > 0 ? (
+                <>
+                  Como você inicia com <span className="text-white/70">{formatCurrency(startingBalance)}</span> e recebe <span className="text-emerald-400">+{formatCurrency(income)}</span> (totalizando <span className="text-white/70">{formatCurrency(startingBalance + income)}</span> disponíveis) para cobrir despesas de <span className="text-white/70">{formatCurrency(expenses)}</span>, você terminará o mês com um saldo positivo de <span className="text-emerald-400">{formatCurrency(balance)}</span>.
+                </>
+              ) : (
+                <>
+                  Como você inicia com <span className="text-white/70">{formatCurrency(startingBalance)}</span> e suas movimentações projetam um superávit sobre as despesas de <span className="text-white/70">{formatCurrency(expenses)}</span>, você terminará o mês com um saldo positivo de <span className="text-emerald-400">{formatCurrency(balance)}</span>.
+                </>
+              )
+            ) : (
+              income > 0 ? (
+                <>
+                  Como você inicia com <span className="text-white/70">{formatCurrency(startingBalance)}</span> e recebe <span className="text-emerald-400">+{formatCurrency(income)}</span> (totalizando <span className="text-white/70">{formatCurrency(startingBalance + income)}</span> disponíveis), mas as despesas previstas totalizam <span className="text-white/70">{formatCurrency(expenses)}</span>, você precisará cobrir a diferença de <span className="text-red-400">{formatCurrency(Math.abs(balance))}</span>.
+                </>
+              ) : (
+                <>
+                  Como seu saldo de partida é <span className="text-white/70">{formatCurrency(startingBalance)}</span> e as despesas previstas totalizam <span className="text-white/70">{formatCurrency(expenses)}</span>, você precisará cobrir a diferença de <span className="text-red-400">{formatCurrency(Math.abs(balance))}</span>.
+                </>
+              )
+            )}
+          </p>
         </div>
       </div>
 

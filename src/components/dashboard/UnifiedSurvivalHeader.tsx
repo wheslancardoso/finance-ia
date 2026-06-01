@@ -45,8 +45,12 @@ export function UnifiedSurvivalHeader({
   const isFuture = monthOffset > 0;
   const hasSimulations = activeSimulations.length > 0;
   
-  // Sempre exibimos o somatório do saldo das contas correntes (presente ou projetado futuro)
-  const displayBalanceCents = accumulatedBalanceCents;
+  // Se for mês futuro ou houver simulações de impacto ativas, o usuário espera ver no cabeçalho principal
+  // o Saldo Projetado Final Líquido de fim de período (após deduzir contas a pagar, faturas e compromissos).
+  // Caso contrário, no mês atual em tempo real, exibimos o saldo acumulado bruto atual das contas correntes.
+  const displayBalanceCents = (isFuture || hasSimulations)
+    ? monthlyOutlook.balanceAtMonthEnd
+    : accumulatedBalanceCents;
   const isNegativeBalance = displayBalanceCents < 0;
 
   // Limite semanal vindo da inteligência do domínio
