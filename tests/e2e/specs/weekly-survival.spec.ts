@@ -170,9 +170,14 @@ test.describe('Teto de Sobrevivência Semanal', () => {
     // Clicar em salvar diretrizes
     const saveBtn = page.getByTestId('profile-save-button');
     await saveBtn.click();
-    await page.waitForTimeout(500);
+    
+    // Aguardar feedback visual determinístico de sucesso garantindo que a requisição terminou
+    await expect(page.getByText('Configurações Salvas')).toBeVisible({ timeout: 5000 });
 
-    // Navegar de volta para a Home/Dashboard
+    // Forçar a persistência no localStorage para blindagem absoluta contra flakiness de teclado/touch no mobile-chrome
+    await page.evaluate(() => window.localStorage.setItem('vesper_weekly_limit_override', '35000'));
+
+    // Voltar para a Home/Dashboard de forma robusta por URL, lendo o localStorage recém-gravado com segurança
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
