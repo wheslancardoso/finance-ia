@@ -78,10 +78,14 @@ export const financialService = {
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const isPastMonth = txDate < currentMonthStart;
 
+    const account = await db.accounts.get(data.account_id);
+    const isCreditCard = account?.type === "CREDIT_CARD";
+    const defaultPaid = isCreditCard && data.transaction_type === "EXPENSE" ? false : (isPastMonth ? true : false);
+
     const payload = {
       ...data,
       id: data.id || generateId(),
-      is_paid: data.is_paid ?? (isPastMonth ? true : false),
+      is_paid: data.is_paid ?? defaultPaid,
       source: data.source ?? "MANUAL",
     };
 
@@ -353,6 +357,9 @@ export const financialService = {
         const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const isPastMonth = date < currentMonthStart;
         
+        const account = await db.accounts.get(data.account_id);
+        const isCreditCard = account?.type === "CREDIT_CARD";
+
         const tx: Transaction = {
           id: generateId(),
           user_id: data.user_id,
@@ -362,7 +369,7 @@ export const financialService = {
           date: date.toISOString(),
           account_id: data.account_id,
           category_id: data.category_id,
-          is_paid: isPastMonth,
+          is_paid: isCreditCard ? false : isPastMonth,
           installment_current: i + 1,
           installment_total: data.installments,
           source: "MANUAL",

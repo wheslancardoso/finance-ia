@@ -651,7 +651,8 @@ export function calculateMonthlyOutlook(params: {
       const monthlyResult = income + simulationIncomes - expenses - installments - budgetReserve - goalContributions - simulationExpenses;
       currentBalance += monthlyResult;
       
-      currentDebt = Math.max(0, currentDebt - installments);
+      const paidDebtThisMonth = i === 1 ? (installments + currentMonthDebt) : installments;
+      currentDebt = Math.max(0, currentDebt - paidDebtThisMonth);
       
       if (survivalReserveCents > 0 && currentBalance > survivalReserveCents) {
         const maxSweep = currentBalance - survivalReserveCents;
@@ -665,7 +666,7 @@ export function calculateMonthlyOutlook(params: {
 
   // Sincronia perfeita com o card de cartões + compromissos agendados (saídas previstas do mês projetado)
   if (monthOffset > 0) {
-    const monthlyCommitments = installmentDebt + effectiveRecurringExpenses;
+    const monthlyCommitments = installmentDebt;
     projectedTotalDebt = Math.max(projectedTotalDebt, monthlyCommitments);
   }
 

@@ -293,7 +293,9 @@ export function AddTransactionModal() {
 
       const selectedAccount = accounts.find((a: any) => a.id === capturedAccountId);
       const isCreditCard = selectedAccount?.type === "CREDIT_CARD";
-      const isPaidVal = isCreditCard && capturedType === "EXPENSE" ? isPastMonth : true;
+      // Despesas de cartão de crédito nascem sempre como não pagas (is_paid = false) por padrão,
+      // independente se a data pertence ao mês passado, presente ou futuro.
+      const isPaidVal = isCreditCard && capturedType === "EXPENSE" ? false : true;
 
       const basePayload = {
         user_id: userId,
