@@ -36,9 +36,9 @@ test.describe('Teto de Sobrevivência Semanal', () => {
     
     const ceiling = page.getByTestId('survival-ceiling-value');
     await expect(ceiling).toBeVisible();
-    // Nova fórmula: (10000 - 5000 = 5000) / 4 semanas (data fixada em 7/maio: 25 dias restantes).
-    // Teto semanal = 5000 / 4 = R$ 1.250,00
-    await expect(ceiling).toContainText(/1\.250,00/);
+    // O Oráculo inteligente de teto dinâmico aplica o Redutor de Abundância Progressiva
+    // e o corte de 50% por Modo de Crise (saldo negativo de -R$ 150), resultando em exatamente R$ 292,50.
+    await expect(ceiling).toContainText(/292,50/);
   });
   
   test('deve exibir alerta de ciclo de dívida no modo crise', async ({ page }) => {
@@ -78,11 +78,12 @@ test.describe('Teto de Sobrevivência Semanal', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // Com renda 30k e despesas 10k, a margem livre é 20k.
-    // Teto semanal = 20k / 4 semanas = R$ 5.000,00
+    // Com renda 30k e despesas 10k, a margem livre base é 20k.
+    // O Oráculo de Abundância Progressiva suaviza o limite base de R$ 5.000/semana
+    // para evitar discrepâncias (300 + (5000 - 300) * 0.3 = R$ 1.710,00).
     const ceiling = page.getByTestId('survival-ceiling-value');
     await expect(ceiling).toBeVisible();
-    await expect(ceiling).toContainText(/5\.000,00/);
+    await expect(ceiling).toContainText(/1\.710,00/);
 
     // Inserir despesa manual severa de R$ 5.200,00 para empurrar o caixa para o negativo e forçar a crise de caixa
     const desktopBtn = page.getByTestId('add-transaction-button');
@@ -114,9 +115,10 @@ test.describe('Teto de Sobrevivência Semanal', () => {
     // Aguardar fechar o modal
     await expect(page.getByTestId('add-transaction-modal')).not.toBeVisible({ timeout: 10000 });
 
-    // Como a margem livre principal é renda - fixas (e o gasto inserido é variável),
-    // a margem não se altera, o teto semanal continua R$ 5.000,00.
-    await expect(ceiling).toContainText(/5\.000,00/, { timeout: 10000 });
+    // Sob despesa severa inesperada, a liquidez de caixa fica negativa, ativando
+    // o modo crise e sobrevivência. O Oráculo reage aplicando o corte emergencial
+    // de 50% sobre o teto atenuado de R$ 1.710,00, caindo para R$ 855,00.
+    await expect(ceiling).toContainText(/855,00/, { timeout: 10000 });
   });
 
   test('deve aplicar priorização inteligente suspendendo metas menos prioritárias sob aperto parcial de caixa (Test 3.3)', async ({ page }) => {
@@ -143,5 +145,62 @@ test.describe('Teto de Sobrevivência Semanal', () => {
     const ceiling = page.getByTestId('survival-ceiling-value');
     await expect(ceiling).toBeVisible();
     await expect(ceiling).toContainText(/50,00/);
+  });
+
+  test('deve aplicar teto semanal personalizado configurado nas settings', async ({ page }) => {
+    const initialState = createDashboardState({
+      accounts: [
+        { id: 'acc-healthy', name: 'Conta Saudável', type: 'CHECKING', balance_cents: 500000, color_hex: '#10b981', user_id: USER_ID }
+      ],
+      recurring_transactions: [
+        { id: 'rec-inc', amount_cents: 300000, transaction_type: 'INCOME', status: 'active', next_date: new Date().toISOString(), frequency: 'monthly', user_id: USER_ID }
+      ]
+    });
+
+    await setupFinancialMocks(page, initialState);
+    
+    // Ir para as configurações
+    await page.goto('/settings');
+    await page.waitForLoadState('networkidle');
+
+    const input = page.getByTestId('profile-weekly-override-input');
+    await expect(input).toBeVisible();
+    await input.fill('350,00');
+
+    // Clicar em salvar diretrizes
+    const saveBtn = page.getByTestId('profile-save-button');
+    await saveBtn.click();
+    await page.waitForTimeout(500);
+
+    // Navegar de volta para a Home/Dashboard
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const ceiling = page.getByTestId('survival-ceiling-value');
+    await expect(ceiling).toBeVisible();
+    await expect(ceiling).toContainText(/350,00/);
+  });
+
+  test('deve aplicar o Redutor de Abundância Progressivo em rendas muito altas', async ({ page }) => {
+    // Renda recorrente de R$ 10.000,00 e despesas zero.
+    // Sobra semanal = R$ 10.000,00 / 4 = R$ 2.500,00.
+    // Redutor de Abundância: 300 + (2500 - 300) * 0.3 = R$ 960,00.
+    const abundantState = createDashboardState({
+      accounts: [
+        { id: 'acc-abundant', name: 'Conta Abundante', type: 'CHECKING', balance_cents: 500000, color_hex: '#10b981', user_id: USER_ID }
+      ],
+      recurring_transactions: [
+        { id: 'rec-inc', amount_cents: 1000000, transaction_type: 'INCOME', status: 'active', next_date: new Date().toISOString(), frequency: 'monthly', user_id: USER_ID }
+      ]
+    });
+
+    await setupFinancialMocks(page, abundantState);
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const ceiling = page.getByTestId('survival-ceiling-value');
+    await expect(ceiling).toBeVisible();
+    // O teto deve ser R$ 960,00, em vez de R$ 2.500,00
+    await expect(ceiling).toContainText(/960,00/);
   });
 });

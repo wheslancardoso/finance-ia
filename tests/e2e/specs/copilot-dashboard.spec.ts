@@ -116,8 +116,8 @@ test.describe('Modo Copiloto de IA (Modo Jarvis) e Simulações no Chat', () => 
     await expect(page.getByText('Jarvis Lembra de 2 fatos')).toBeVisible();
     await expect(page.getByText('Usuário deseja economizar para notebook de estudos')).toBeVisible();
 
-    // Teto semanal inicial deve ser baseado no saldo projetado (R$ 1.600 / 4 = R$ 400)
-    await expect(page.getByTestId('survival-ceiling-value')).toContainText(/400/);
+    // Teto semanal inicial deve ser baseado no saldo projetado (R$ 1.600 / 4 = R$ 400, reduzido por abundância para R$ 330)
+    await expect(page.getByTestId('survival-ceiling-value')).toContainText(/330/);
 
     // 5. Testar ação: "Simular no Caixa" (Simulate)
     const simularBtn = page.getByRole('button', { name: 'Simular Caixa' });
@@ -128,8 +128,8 @@ test.describe('Modo Copiloto de IA (Modo Jarvis) e Simulações no Chat', () => 
     await expect(page.getByRole('button', { name: 'Simulado' })).toBeVisible();
 
     // Com a simulação activa (Notebook de R$ 1.200 em 4x = R$ 300 de gasto no mês corrente):
-    // Sobra projetada reduz de R$ 1.600 para R$ 1.300. Teto semanal vira (R$ 1.300 / 4 = R$ 325)
-    await expect(page.getByTestId('survival-ceiling-value')).toContainText(/325/);
+    // Sobra projetada reduz de R$ 1.600 para R$ 1.300. Teto semanal vira (R$ 1.300 / 4 = R$ 325, reduzido para R$ 307)
+    await expect(page.getByTestId('survival-ceiling-value')).toContainText(/307/);
 
     // 6. Testar ação: "Criar Meta" (Goals API)
     const metaBtn = page.getByRole('button', { name: 'Criar Meta' });

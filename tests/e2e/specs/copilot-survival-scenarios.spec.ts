@@ -11,6 +11,11 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
     // Capturar logs do console do navegador
     page.on('console', msg => console.log(`BROWSER [${msg.type()}]: ${msg.text()}`));
     await setupAuthMock(page, { id: USER_ID });
+    
+    // Fixar o relógio em 7 de Maio de 2026 de forma determinística
+    if (page.clock) {
+      await page.clock.setFixedTime(new Date('2026-05-07T12:00:00Z'));
+    }
   });
 
   test('deve validar cenário de empréstimo com juros Price e consistência de caixa em Junho/2026', async ({ page, isMobile }) => {
@@ -267,6 +272,12 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
     await expect(simularBtn).toBeVisible();
     await simularBtn.click();
 
+    // Como limitamos a planilha a 5 itens por padrão, expandimos para ver os itens ocultos além dos 5 primeiros
+    const verTodosBtn = page.getByRole('button', { name: /Ver todos/i });
+    if (await verTodosBtn.isVisible()) {
+      await verTodosBtn.click();
+    }
+
     // 5. Validar impacto no dashboard físico
     // O item "Simulado" na planilha deve exibir R$ 230,00
     await expect(page.getByText(/Simulado:/).first()).toBeVisible();
@@ -470,6 +481,12 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
     const simularBtn = page.getByRole('button', { name: 'Simular Caixa' });
     await expect(simularBtn).toBeVisible();
     await simularBtn.click();
+
+    // Como limitamos a planilha a 5 itens por padrão, expandimos para ver os itens ocultos além dos 5 primeiros
+    const verTodosBtn = page.getByRole('button', { name: /Ver todos/i });
+    if (await verTodosBtn.isVisible()) {
+      await verTodosBtn.click();
+    }
 
     // 5. Validar impacto no dashboard físico
     // O item "Simulado" na planilha deve exibir R$ 178,50
