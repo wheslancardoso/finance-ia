@@ -96,26 +96,6 @@ export async function POST(request: NextRequest) {
 
     // 5. Se "Pagar Agora" (não é "Já Paguei"), criar transação de débito na conta de pagamento
     if (!alreadyPaid && paymentAccountId) {
-      const { data: payAcc, error: payAccErr } = await supabase
-        .from("accounts")
-        .select("balance_cents")
-        .eq("id", paymentAccountId)
-        .single();
-
-      if (payAccErr || !payAcc) {
-        throw new Error(`Conta de pagamento não encontrada: ${payAccErr?.message || ""}`);
-      }
-
-      const currentBalance = payAcc.balance_cents || 0;
-      const newBalance = currentBalance - amountCents;
-
-      const { error: updateAccErr } = await supabase
-        .from("accounts")
-        .update({ balance_cents: newBalance })
-        .eq("id", paymentAccountId);
-
-      if (updateAccErr) throw updateAccErr;
-
       const monthLabel = targetInvoice?.reference_month 
         ? (() => {
             const [y, m] = targetInvoice.reference_month.split('-');
