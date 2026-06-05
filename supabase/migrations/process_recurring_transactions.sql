@@ -9,6 +9,8 @@ DECLARE
     r RECORD;
     target_date DATE;
     tx_exists BOOLEAN;
+    v_account_type TEXT;
+    v_is_paid BOOLEAN;
     current_month_start DATE := date_trunc('month', CURRENT_DATE)::DATE;
     current_month_end DATE := (date_trunc('month', CURRENT_DATE) + interval '1 month' - interval '1 day')::DATE;
 BEGIN
@@ -19,6 +21,17 @@ BEGIN
         -- Calcular a data da transação para o mês atual baseando-se no dia do next_date
         target_date := (date_trunc('month', CURRENT_DATE) + (EXTRACT(DAY FROM r.next_date) - 1 || ' days')::interval)::DATE;
 
+        -- Obter o tipo de conta para verificar se é cartão de crédito
+        SELECT type INTO v_account_type FROM public.accounts WHERE id = r.account_id;
+
+        -- Determinar se a transação deve nascer como paga
+        -- Se a conta não for cartão de crédito e a data da transação for menor ou igual à data atual, nasce paga.
+        IF v_account_type != 'CREDIT_CARD' AND target_date <= CURRENT_DATE THEN
+            v_is_paid := true;
+        ELSE
+            v_is_paid := false;
+        END IF;
+
         -- Verificar se já existe uma transação física correspondente no mês atual
         SELECT EXISTS (
             SELECT 1 FROM public.transactions
@@ -28,7 +41,7 @@ BEGIN
               AND date <= current_month_end
         ) INTO tx_exists;
 
-        -- Se não existir, insere
+        -- Se não existir, insere com o status correto
         IF NOT tx_exists THEN
             INSERT INTO public.transactions (
                 user_id, account_id, category_id, description,
@@ -37,10 +50,31 @@ BEGIN
             ) VALUES (
                 r.user_id, r.account_id, r.category_id, r.description,
                 r.amount_cents, r.transaction_type, target_date,
-                false, 'RECURRING', jsonb_build_object('recurring_id', r.id)
+                v_is_paid, 'RECURRING', jsonb_build_object('recurring_id', r.id)
             );
+        ELSE
+            -- Se já existe, mas deve estar paga e está marcada como não paga, atualiza
+            IF v_is_paid THEN
+                UPDATE public.transactions
+                SET is_paid = true
+                WHERE user_id = r.user_id
+                  AND source_metadata->>'recurring_id' = r.id::text
+                  AND date >= current_month_start
+                  AND date <= current_month_end
+                  AND is_paid = false;
+            END IF;
         END IF;
     END LOOP;
+
+    -- UPDATE retroativo e contínuo para transações recorrentes passadas de contas não-cartão que ficaram pendentes
+    UPDATE public.transactions t
+    SET is_paid = true
+    FROM public.accounts a
+    WHERE t.account_id = a.id
+      AND a.type != 'CREDIT_CARD'
+      AND t.source = 'RECURRING'
+      AND t.is_paid = false
+      AND t.date::date <= CURRENT_DATE;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
