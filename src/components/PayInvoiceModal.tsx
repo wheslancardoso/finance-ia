@@ -72,6 +72,7 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
         creditCardAccountId: creditCardAccount.id,
         paymentAccountId: selectedAccountId,
         amountCents: paymentCents,
+        invoiceId: creditCardAccount.closed_invoice_id,
         alreadyPaid: false
       });
   
@@ -96,6 +97,7 @@ export function PayInvoiceModal({ isOpen, onClose, creditCardAccount }: PayInvoi
     const { error } = await financialService.payInvoice({
       creditCardAccountId: creditCardAccount.id,
       amountCents: paymentCents,
+      invoiceId: creditCardAccount.closed_invoice_id,
       alreadyPaid: true
     });
 

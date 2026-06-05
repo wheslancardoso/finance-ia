@@ -31,70 +31,81 @@ export async function GET(request: NextRequest) {
   const supabase = await createAdminClient();
 
   try {
-    // Tentar usar a função RPC se existir (com retry simples)
-    let rpcResult: any;
-    let retries = 0;
-    while (retries < 2) {
-      rpcResult = await supabase.rpc('get_financial_state_v5', { p_user_id: userId });
-      if (!rpcResult.error) break;
-      retries++;
-      if (retries < 2) await new Promise(r => setTimeout(r, 500));
+    // Fechar automaticamente faturas cuja data de fechamento já passou
+    try {
+      await supabase.rpc('fn_auto_close_invoices');
+    } catch {
+      // Se a função não existir ou falhar, segue normalmente
     }
-    const { data, error } = rpcResult;
 
-    if (error) {
-      console.warn("RPC get_financial_state_v5 failed, using manual build:", error.message);
-    } else if (data) {
-      // Enriquecer contas de cartão com dados de fatura retornados na própria RPC
-      const enrichedAccounts = (data.accounts || []).map((acc: any) => {
-        if (acc.type !== "CREDIT_CARD") return acc;
-
-        const accountInvoices = (data.invoices || []).filter((i: any) => i.account_id === acc.id);
-        
-        // Ordenar faturas por reference_month de forma crescente (mais antigas primeiro)
-        const sortedInvoices = [...accountInvoices].sort((a, b) => 
-          (a.reference_month || "").localeCompare(b.reference_month || "")
-        );
-
-        const openInvoice = sortedInvoices.find((i: any) => i.status === "OPEN");
-        const closedInvoices = sortedInvoices.filter((i: any) => i.status === "CLOSED");
-
-        const openCents = openInvoice ? (Number(openInvoice.amount_cents) || 0) : 0;
-        const closedCents = closedInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
-
-        // Dívida Consolidada Pendente Real: soma de todas as faturas abertas (OPEN) e fechadas (CLOSED) pendentes
-        const unpaidInvoices = sortedInvoices.filter((i: any) => i.status === "OPEN" || i.status === "CLOSED");
-        const unpaidDebtCents = unpaidInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
-        const totalDebt = accountInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
-
-        return {
-          ...acc,
-          open_invoice_id: openInvoice ? openInvoice.id : null,
-          closed_invoice_id: closedInvoices.length > 0 ? closedInvoices[0].id : null,
-          open_invoice_cents: openCents,
-          closed_invoice_cents: closedCents,
-          balance_cents: -totalDebt,
-          total_debt_cents: unpaidDebtCents,
-          open_invoice_month: openInvoice ? openInvoice.reference_month : null,
-          closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
-        };
-      });
-
-      data.accounts = enrichedAccounts;
-      
-      // Garantir consistência: Se a RPC retornou family_group mas não user_profile, mapeamos
-      if (data.family_group && !data.user_profile) {
-        data.user_profile = {
-          monthly_income_cents: data.family_group.monthly_income_cents || 0,
-          fixed_expenses_cents: data.family_group.fixed_expenses_cents || 0,
-          accumulated_balance_cents: (data.accounts || [])
-            .filter((a: any) => a.type !== "CREDIT_CARD")
-            .reduce((acc: number, a: any) => acc + (Number(a.balance_cents) || 0), 0),
-          financial_health_score: data.family_group.financial_health_score || 80,
-        };
+    // Tentar usar a função RPC se existir (com retry simples)
+    try {
+      let rpcResult: any;
+      let retries = 0;
+      while (retries < 2) {
+        rpcResult = await supabase.rpc('get_financial_state_v5', { p_user_id: userId });
+        if (!rpcResult.error) break;
+        retries++;
+        if (retries < 2) await new Promise(r => setTimeout(r, 500));
       }
+      const { data, error } = rpcResult;
 
-      return NextResponse.json(data);
+      if (!error && data) {
+        // Enriquecer contas de cartão com dados de fatura retornados na própria RPC
+        const enrichedAccounts = (data.accounts || []).map((acc: any) => {
+          if (acc.type !== "CREDIT_CARD") return acc;
+
+          const accountInvoices = (data.invoices || []).filter((i: any) => i.account_id === acc.id);
+          
+          // Ordenar faturas por reference_month de forma crescente (mais antigas primeiro)
+          const sortedInvoices = [...accountInvoices].sort((a, b) => 
+            (a.reference_month || "").localeCompare(b.reference_month || "")
+          );
+
+          const openInvoice = sortedInvoices.find((i: any) => i.status === "OPEN");
+          const closedInvoices = sortedInvoices.filter((i: any) => i.status === "CLOSED");
+
+          const openCents = openInvoice ? (Number(openInvoice.amount_cents) || 0) : 0;
+          const closedCents = closedInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
+
+          // Dívida Consolidada Pendente Real: soma de todas as faturas abertas (OPEN) e fechadas (CLOSED) pendentes
+          const unpaidInvoices = sortedInvoices.filter((i: any) => i.status === "OPEN" || i.status === "CLOSED");
+          const unpaidDebtCents = unpaidInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
+          const totalDebt = accountInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
+
+          return {
+            ...acc,
+            open_invoice_id: openInvoice ? openInvoice.id : null,
+            closed_invoice_id: closedInvoices.length > 0 ? closedInvoices[0].id : null,
+            open_invoice_cents: openCents,
+            closed_invoice_cents: closedCents,
+            balance_cents: -totalDebt,
+            total_debt_cents: unpaidDebtCents,
+            open_invoice_month: openInvoice ? openInvoice.reference_month : null,
+            closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
+          };
+        });
+
+        data.accounts = enrichedAccounts;
+        
+        // Garantir consistência: Se a RPC retornou family_group mas não user_profile, mapeamos
+        if (data.family_group && !data.user_profile) {
+          data.user_profile = {
+            monthly_income_cents: data.family_group.monthly_income_cents || 0,
+            fixed_expenses_cents: data.family_group.fixed_expenses_cents || 0,
+            accumulated_balance_cents: (data.accounts || [])
+              .filter((a: any) => a.type !== "CREDIT_CARD")
+              .reduce((acc: number, a: any) => acc + (Number(a.balance_cents) || 0), 0),
+            financial_health_score: data.family_group.financial_health_score || 80,
+          };
+        }
+
+        return NextResponse.json(data);
+      } else {
+        console.warn("RPC get_financial_state_v5 failed, using manual build:", error?.message);
+      }
+    } catch (rpcErr: any) {
+      console.warn("Error calling get_financial_state_v5 RPC:", rpcErr.message);
     }
 
     // Fallback: montar o estado manualmente a partir das tabelas usando Supabase
@@ -211,62 +222,45 @@ async function buildFinancialState(userId: string) {
     .select('*, accounts!inner(user_id, closing_day, due_day)')
     .eq('accounts.user_id', userId);
 
-  const currentMonthRef = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  const nextMonthRef = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
-  // Enriquecer contas com dados de fatura
+
+  // Enriquecer contas com dados de fatura — confia no status real do banco
+  // O fn_auto_close_invoices() já foi chamado, então os status são corretos
   const enrichedAccounts = (accounts || []).map((acc: any) => {
     if (acc.type !== "CREDIT_CARD") return acc;
 
     const accountInvoices = (allInvoices || []).filter((i: any) => i.account_id === acc.id);
     
-    // 1. Processar faturas virtuais para o passado
-    const processedInvoices = accountInvoices.map(inv => {
-      // Se a fatura é de um mês anterior ao atual e ainda está OPEN ou CLOSED, tratamos como PAID
-      // (conforme pedido pelo usuário para entrar contando como pago)
-      if (inv.reference_month < currentMonthRef && inv.status !== 'PAID') {
-        return { ...inv, status: 'PAID' };
-      }
-      return inv;
-    });
+    // Ordenar por reference_month crescente
+    const sortedInvoices = [...accountInvoices].sort((a, b) => 
+      (a.reference_month || "").localeCompare(b.reference_month || "")
+    );
 
-    // 2. Determinar qual mês deve estar aberto baseado no dia de fechamento
-    // Se hoje >= dia de fechamento, a fatura do mês atual já "fechou" e a aberta deve ser a próxima
-    const today = now.getDate();
-    const isCurrentMonthClosed = acc.closing_day && today >= acc.closing_day;
-    const targetOpenMonth = isCurrentMonthClosed ? nextMonthRef : currentMonthRef;
+    // Faturas ativas: OPEN e CLOSED (não pagas)
+    const activeInvoices = sortedInvoices.filter(i => i.status !== 'PAID');
 
-    // 3. Filtrar e ordenar faturas ativas (não pagas após o processamento acima)
-    const activeInvoices = processedInvoices
-      .filter(i => i.status !== 'PAID')
-      .sort((a, b) => (a.reference_month || "").localeCompare(b.reference_month || ""));
-
-    // Tentar encontrar a fatura aberta do mês alvo ou a mais próxima futura
-    let openInvoice = activeInvoices.find(i => i.status === 'OPEN' && i.reference_month >= targetOpenMonth);
+    // A fatura OPEN mais próxima é a "aberta" (acumulando compras)
+    const openInvoice = activeInvoices.find(i => i.status === 'OPEN');
     
-    if (!openInvoice) {
-      openInvoice = activeInvoices.find(i => i.status === 'OPEN');
-    }
-
-    const closedInvoices = activeInvoices.filter(i => i.status === 'CLOSED' && i.id !== openInvoice?.id);
+    // Todas as faturas CLOSED são pendentes de pagamento
+    const closedInvoices = activeInvoices.filter(i => i.status === 'CLOSED');
 
     const openCents = openInvoice ? (Number(openInvoice.amount_cents) || 0) : 0;
     const closedCents = closedInvoices.reduce((sum, i) => sum + (Number(i.amount_cents) || 0), 0);
     
-    // IMPORTANTE: totalDebt deve ser a soma de TODAS as transações não pagas do cartão,
-    // inclusive parcelas futuras que ainda não entraram em faturas geradas.
+    // Dívida total: soma de todas as transações não pagas do cartão
+    // (inclui parcelas futuras que ainda não entraram em faturas geradas)
     const accountTransactions = allTransactions.filter(t => t.account_id === acc.id && !t.is_paid);
     const totalDebt = accountTransactions.reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
-    // Próximo mês de alívio: quanto será liberado no próximo mês (fatura que vence após a atual)
-    // Buscamos transações que terminam ou que têm parcelas no próximo mês
-    const nextMonthTransactions = allTransactions.filter(t => {
-      if (t.account_id !== acc.id || t.is_paid) return false;
-      const d = new Date(t.date);
-      const mRef = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      return mRef === targetOpenMonth;
-    });
+    // Próxima fatura aberta: quanto será liberado quando parcelas terminarem
+    const nextOpenMonth = openInvoice?.reference_month;
+    const nextMonthTransactions = nextOpenMonth
+      ? allTransactions.filter(t => {
+          if (t.account_id !== acc.id || t.is_paid) return false;
+          return t.invoice_id === openInvoice?.id;
+        })
+      : [];
     const nextMonthReleaseCandidate = nextMonthTransactions.reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
     return {
@@ -278,7 +272,7 @@ async function buildFinancialState(userId: string) {
       balance_cents: -totalDebt,
       total_debt_cents: totalDebt,
       next_month_impact_cents: nextMonthReleaseCandidate,
-      open_invoice_month: openInvoice ? openInvoice.reference_month : targetOpenMonth,
+      open_invoice_month: openInvoice ? openInvoice.reference_month : null,
       closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
     };
   });

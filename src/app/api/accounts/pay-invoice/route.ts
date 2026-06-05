@@ -8,6 +8,9 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/accounts/pay-invoice
  * Realiza o pagamento de uma fatura de cartão de crédito.
+ * 
+ * Inteligência: Recebe o invoiceId direto do frontend quando disponível.
+ * Se não receber, busca a fatura CLOSED mais antiga (pendente de pagamento).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -16,6 +19,7 @@ export async function POST(request: NextRequest) {
       creditCardAccountId,
       paymentAccountId,
       amountCents,
+      invoiceId: requestedInvoiceId,
       alreadyPaid = false
     } = body;
 
@@ -39,78 +43,59 @@ export async function POST(request: NextRequest) {
       throw new Error("Conta de cartão não encontrada");
     }
 
-    // 2. Calcular a referência da fatura fechada
-    const cDay = creditCardAccount.closing_day || 31;
-    const now = new Date();
-    const todayDay = now.getDate();
+    // 2. Determinar qual fatura pagar
+    let targetInvoiceId = requestedInvoiceId;
+    let targetInvoice: any = null;
 
-    let closedY = now.getFullYear();
-    let closedM = now.getMonth();
-    if (todayDay < cDay) {
-      closedM--;
-      if (closedM < 0) { closedM = 11; closedY--; }
+    if (targetInvoiceId) {
+      // Se o frontend enviou o ID da fatura, usar diretamente
+      const { data: inv } = await supabase
+        .from('credit_card_invoices')
+        .select('*')
+        .eq('id', targetInvoiceId)
+        .single();
+      targetInvoice = inv;
     }
-    const closedInvoiceStr = `${closedY}-${String(closedM + 1).padStart(2, '0')}-01`;
 
-    // 3. Buscar transações pendentes do cartão
-    const { data: cardTxs, error: txsFetchError } = await supabase
-      .from("transactions")
-      .select("id, amount_cents, date, is_paid, invoice_id")
-      .eq("account_id", creditCardAccountId)
-      .eq("is_paid", false);
+    if (!targetInvoice) {
+      // Fallback: buscar a fatura CLOSED mais antiga (pendente de pagamento)
+      const { data: closedInvoices } = await supabase
+        .from('credit_card_invoices')
+        .select('*')
+        .eq('account_id', creditCardAccountId)
+        .eq('status', 'CLOSED')
+        .order('reference_month', { ascending: true })
+        .limit(1);
+      
+      targetInvoice = closedInvoices?.[0];
+      targetInvoiceId = targetInvoice?.id;
+    }
 
-    if (txsFetchError) throw txsFetchError;
-
-    // 4. Filtrar transações que pertencem ao mês de referência da fatura fechada
-    const invoiceTxIds = (cardTxs || [])
-      .filter(tx => {
-        const txDate = new Date(tx.date);
-        let tY = txDate.getUTCFullYear();
-        let tM = txDate.getUTCMonth();
-        // Lógica simplificada: se a data >= dia de fechamento, pertence ao próximo mês
-        if (txDate.getUTCDate() >= cDay) {
-          tM++;
-          if (tM > 11) { tM = 0; tY++; }
-        }
-        return `${tY}-${String(tM + 1).padStart(2, '0')}-01` === closedInvoiceStr;
-      })
-      .map(tx => tx.id);
-
-    // Identificar os IDs das faturas envolvidas
-    const invoiceIds = Array.from(new Set((cardTxs || []).filter(tx => invoiceTxIds.includes(tx.id)).map(tx => tx.invoice_id).filter(Boolean)));
-
-    // 5. Executar mutações (preferencialmente em uma transação, mas o Supabase client v2 não suporta transactions nativamente via .rpc() ou similares de forma trivial sem SQL direto, 
-    //    então faremos as chamadas sequencialmente. Em um ambiente real, um RPC seria melhor.)
-    
-    if (invoiceTxIds.length > 0) {
-      // Marcar transações como pagas
+    // 3. Marcar transações da fatura como pagas
+    if (targetInvoiceId) {
       const { error: txUpdateError } = await supabase
         .from("transactions")
         .update({ is_paid: true })
-        .in("id", invoiceTxIds);
+        .eq("invoice_id", targetInvoiceId)
+        .eq("is_paid", false);
       
       if (txUpdateError) throw txUpdateError;
 
-      // Marcar faturas como pagas
-      if (invoiceIds.length > 0) {
-        const { error: invUpdateError } = await supabase
-          .from("credit_card_invoices")
-          .update({ status: "PAID", updated_at: new Date().toISOString() })
-          .in("id", invoiceIds);
-        if (invUpdateError) throw invUpdateError;
-      } else {
-        const { error: invUpdateError } = await supabase
-          .from("credit_card_invoices")
-          .update({ status: "PAID", updated_at: new Date().toISOString() })
-          .eq("account_id", creditCardAccountId)
-          .eq("reference_month", closedInvoiceStr.substring(0, 7));
-        if (invUpdateError) throw invUpdateError;
-      }
+      // 4. Marcar a fatura como paga
+      const { error: invUpdateError } = await supabase
+        .from("credit_card_invoices")
+        .update({ 
+          status: "PAID", 
+          paid_amount_cents: amountCents,
+          updated_at: new Date().toISOString() 
+        })
+        .eq("id", targetInvoiceId);
+      
+      if (invUpdateError) throw invUpdateError;
     }
 
-    // 6. Se não for "Já Paguei", criar transação de débito
+    // 5. Se "Pagar Agora" (não é "Já Paguei"), criar transação de débito na conta de pagamento
     if (!alreadyPaid && paymentAccountId) {
-      // Buscar conta de pagamento para obter saldo atual
       const { data: payAcc, error: payAccErr } = await supabase
         .from("accounts")
         .select("balance_cents")
@@ -121,7 +106,6 @@ export async function POST(request: NextRequest) {
         throw new Error(`Conta de pagamento não encontrada: ${payAccErr?.message || ""}`);
       }
 
-      // Debitar do saldo
       const currentBalance = payAcc.balance_cents || 0;
       const newBalance = currentBalance - amountCents;
 
@@ -132,7 +116,13 @@ export async function POST(request: NextRequest) {
 
       if (updateAccErr) throw updateAccErr;
 
-      const monthLabel = format(new Date(closedY, closedM, 1), "MMM/yy", { locale: ptBR });
+      const monthLabel = targetInvoice?.reference_month 
+        ? (() => {
+            const [y, m] = targetInvoice.reference_month.split('-');
+            return format(new Date(parseInt(y), parseInt(m) - 1, 1), "MMM/yy", { locale: ptBR });
+          })()
+        : format(new Date(), "MMM/yy", { locale: ptBR });
+
       const { error: paymentTxError } = await supabase.from("transactions").insert([{
         user_id: creditCardAccount.user_id,
         account_id: paymentAccountId,
@@ -145,13 +135,17 @@ export async function POST(request: NextRequest) {
         installment_current: 1,
         installment_total: 1,
         is_legacy_debt: false,
-        is_paid: true, // No backend, marcamos como pago se é "Pagar Agora"
+        is_paid: true,
       }]);
 
       if (paymentTxError) throw paymentTxError;
     }
 
-    return NextResponse.json({ success: true, closedInvoiceStr });
+    return NextResponse.json({ 
+      success: true, 
+      invoiceId: targetInvoiceId,
+      referenceMonth: targetInvoice?.reference_month 
+    });
   } catch (error: any) {
     console.error("❌ [API] POST /api/accounts/pay-invoice error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });

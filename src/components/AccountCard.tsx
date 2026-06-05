@@ -143,6 +143,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
       await financialService.payInvoice({
         creditCardAccountId: id,
         amountCents: closedAmount,
+        invoiceId: liveAccount.closed_invoice_id,
         alreadyPaid: true
       });
       refreshData();

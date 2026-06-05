@@ -336,10 +336,11 @@ export const financialService = {
       const startYear = startDate.getFullYear();
       const startMonth = startDate.getMonth();
       const startDay = startDate.getDate();
-      const startHours = startDate.getHours();
-      const startMinutes = startDate.getMinutes();
-      const startSeconds = startDate.getSeconds();
-      const startMs = startDate.getMilliseconds();
+      // Usar 12:00 (meio-dia) para evitar que conversões de fuso horário local alterem o dia em UTC
+      const startHours = 12;
+      const startMinutes = 0;
+      const startSeconds = 0;
+      const startMs = 0;
 
       for (let i = startingInstallment - 1; i < data.installments; i++) {
         // Cálculo de mês e ano de destino com clamping de data seguro
@@ -877,6 +878,7 @@ export const financialService = {
     creditCardAccountId: string;
     paymentAccountId?: string;
     amountCents: number;
+    invoiceId?: string;
     alreadyPaid?: boolean;
   }) {
     console.log("💳 Iniciando pagamento de fatura:", params.creditCardAccountId);
