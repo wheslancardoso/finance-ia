@@ -184,9 +184,18 @@ export default function RealtimeDashboard({
 
   // Preparar dados para o Resumo Excel
   const consolidatedItems = useMemo(() => {
+    const creditCardAccountIds = new Set(
+      liveAccounts.filter(a => a.type === "CREDIT_CARD").map(a => a.id)
+    );
+
     const transactionsToUse = isFuture ? projectionTransactions : displayTransactions;
     
-    const baseItems = transactionsToUse.map((t: any) => ({
+    // Filtrar transações de cartão de crédito para evitar double-counting com as faturas
+    const filteredTransactions = transactionsToUse.filter((t: any) => 
+      !t.account_id || !creditCardAccountIds.has(t.account_id)
+    );
+    
+    const baseItems = filteredTransactions.map((t: any) => ({
       name: t.description,
       value: t.amount_cents,
       type: t.transaction_type as "INCOME" | "EXPENSE",
