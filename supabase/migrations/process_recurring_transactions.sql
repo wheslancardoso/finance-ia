@@ -53,18 +53,29 @@ BEGIN
                 v_is_paid, 'RECURRING', jsonb_build_object('recurring_id', r.id)
             );
         ELSE
-            -- Se já existe, mas deve estar paga e está marcada como não paga, atualiza
-            IF v_is_paid THEN
-                UPDATE public.transactions
-                SET is_paid = true
-                WHERE user_id = r.user_id
-                  AND source_metadata->>'recurring_id' = r.id::text
-                  AND date >= current_month_start
-                  AND date <= current_month_end
-                  AND is_paid = false;
-            END IF;
+            -- Se já existe, sincronizar descrição, categoria, conta (e o valor se não estiver paga)
+            -- Além de garantir que seja marcada como paga caso necessário
+            UPDATE public.transactions
+            SET description = r.description,
+                category_id = r.category_id,
+                account_id = r.account_id,
+                amount_cents = CASE WHEN is_paid = false THEN r.amount_cents ELSE amount_cents END,
+                is_paid = CASE WHEN v_is_paid THEN true ELSE is_paid END
+            WHERE user_id = r.user_id
+              AND source_metadata->>'recurring_id' = r.id::text
+              AND date >= current_month_start
+              AND date <= current_month_end;
         END IF;
     END LOOP;
+
+    -- Limpar transações duplicadas no mês atual (mesmo recurring_id + mesmo mês), mantendo apenas a mais antiga
+    DELETE FROM public.transactions t1
+    USING public.transactions t2
+    WHERE t1.user_id = t2.user_id
+      AND t1.source_metadata->>'recurring_id' = t2.source_metadata->>'recurring_id'
+      AND t1.date >= current_month_start AND t1.date <= current_month_end
+      AND t2.date >= current_month_start AND t2.date <= current_month_end
+      AND t1.created_at > t2.created_at;
 
     -- UPDATE retroativo e contínuo para transações recorrentes passadas de contas não-cartão que ficaram pendentes
     UPDATE public.transactions t

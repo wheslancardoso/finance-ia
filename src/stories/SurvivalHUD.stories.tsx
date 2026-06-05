@@ -75,6 +75,8 @@ const baseContext = {
   setGamificationEnabled: () => {},
   survivalReserveCents: 0,
   setSurvivalReserveCents: () => {},
+  weeklyLimitOverrideCents: 0,
+  setWeeklyLimitOverrideCents: () => {},
 };
 
 export const Healthy: Story = {

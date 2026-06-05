@@ -98,6 +98,55 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
+    // Se for edição de uma recorrência existente, sincronizar e remover possíveis duplicatas físicas deste mês
+    if (id) {
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const endOfMonth = new Date(startOfMonth);
+      endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+      endOfMonth.setDate(0);
+      endOfMonth.setHours(23, 59, 59, 999);
+
+      const { data: txs, error: txError } = await supabase
+        .from('transactions')
+        .select('id, is_paid')
+        .eq('user_id', user.id)
+        .filter('source_metadata->>recurring_id', 'eq', id)
+        .gte('date', startOfMonth.toISOString())
+        .lte('date', endOfMonth.toISOString())
+        .order('created_at', { ascending: true });
+
+      if (!txError && txs && txs.length > 0) {
+        // Se existirem duplicatas, remover as extras mantendo apenas a mais antiga
+        if (txs.length > 1) {
+          const idsToDelete = txs.slice(1).map(t => t.id);
+          await supabase
+            .from('transactions')
+            .delete()
+            .in('id', idsToDelete);
+        }
+
+        // Sincronizar dados na transação remanescente
+        const firstTx = txs[0];
+        const updatePayload: any = {
+          description,
+          category_id,
+          account_id
+        };
+
+        if (!firstTx.is_paid) {
+          updatePayload.amount_cents = amount_cents;
+        }
+
+        await supabase
+          .from('transactions')
+          .update(updatePayload)
+          .eq('id', firstTx.id);
+      }
+    }
+
     return NextResponse.json(data ? data[0] : null);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Erro desconhecido";
