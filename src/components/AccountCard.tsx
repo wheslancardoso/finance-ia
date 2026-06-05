@@ -447,15 +447,18 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
       <>
         {isCreditCard && payModalOpen && createPortal(
           <PayInvoiceModal
+            key={`pay-invoice-modal-${liveAccount.id}`}
             isOpen={payModalOpen}
             onClose={() => setPayModalOpen(false)}
             creditCardAccount={liveAccount}
           />,
-          document.body
+          document.body,
+          `pay-invoice-portal-${liveAccount.id}`
         )}
 
         {isCreditCard && invoiceDetailsOpen && createPortal(
           <InvoiceTransactionsModal
+            key={`invoice-details-modal-${liveAccount.id}`}
             isOpen={invoiceDetailsOpen}
             onClose={() => setInvoiceDetailsOpen(false)}
             invoiceId={invoiceId}
@@ -463,47 +466,42 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
             invoiceMonth={invoiceMonth}
             invoiceAmountCents={invoiceAmount}
           />,
-          document.body
+          document.body,
+          `invoice-details-portal-${liveAccount.id}`
         )}
 
-        {createPortal(
-          <ConfirmModal
-            isOpen={deleteModalOpen}
-            onClose={() => setDeleteModalOpen(false)}
-            onConfirm={confirmDelete}
-            title="Excluir Conta"
-            message={`Tem certeza que deseja excluir a conta "${name}"? Todas as transações vinculadas serão apagadas permanentemente.`}
-            confirmText="Excluir"
-            cancelText="Manter"
-            variant="danger"
-          />,
-          document.body
-        )}
+        <ConfirmModal
+          key={`delete-account-modal-${liveAccount.id}`}
+          isOpen={deleteModalOpen}
+          onClose={() => setDeleteModalOpen(false)}
+          onConfirm={confirmDelete}
+          title="Excluir Conta"
+          message={`Tem certeza que deseja excluir a conta "${name}"? Todas as transações vinculadas serão apagadas permanentemente.`}
+          confirmText="Excluir"
+          cancelText="Manter"
+          variant="danger"
+        />
 
-        {createPortal(
-          <ConfirmModal
-            isOpen={markPaidModalOpen}
-            onClose={() => setMarkPaidModalOpen(false)}
-            onConfirm={confirmMarkAsPaid}
-            title="Confirmar Pagamento Externo"
-            message={`Você está confirmando que a fatura de ${formatCurrency(closedAmount)} já foi paga fora do sistema. Isso liberará seu limite sem gerar débitos em suas contas bancárias cadastradas.`}
-            confirmText="Sim, já paguei"
-            cancelText="Voltar"
-            variant="info"
-          />,
-          document.body
-        )}
+        <ConfirmModal
+          key={`mark-invoice-paid-modal-${liveAccount.id}`}
+          isOpen={markPaidModalOpen}
+          onClose={() => setMarkPaidModalOpen(false)}
+          onConfirm={confirmMarkAsPaid}
+          title="Confirmar Pagamento Externo"
+          message={`Você está confirmando que a fatura de ${formatCurrency(closedAmount)} já foi paga fora do sistema. Isso liberará seu limite sem gerar débitos em suas contas bancárias cadastradas.`}
+          confirmText="Sim, já paguei"
+          cancelText="Voltar"
+          variant="info"
+        />
 
-        {createPortal(
-          <StatusModal
-            isOpen={statusModal.isOpen}
-            onClose={() => setStatusModal({ ...statusModal, isOpen: false })}
-            title={statusModal.title}
-            message={statusModal.message}
-            type={statusModal.type}
-          />,
-          document.body
-        )}
+        <StatusModal
+          key={`status-modal-${liveAccount.id}`}
+          isOpen={statusModal.isOpen}
+          onClose={() => setStatusModal({ ...statusModal, isOpen: false })}
+          title={statusModal.title}
+          message={statusModal.message}
+          type={statusModal.type}
+        />
       </>
     )}
     </>
