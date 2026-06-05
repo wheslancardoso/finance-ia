@@ -73,6 +73,7 @@ const baseContext = {
   deleteRecurringTransaction: async () => {},
   isGamificationEnabled: false,
   setGamificationEnabled: () => {},
+  payRecurringOccurrence: async () => {},
   survivalReserveCents: 0,
   setSurvivalReserveCents: () => {},
   weeklyLimitOverrideCents: 0,

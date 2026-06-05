@@ -133,6 +133,7 @@ interface FinancialDataContextType {
   createTransfer: (fromId: string, toId: string, amountCents: number) => Promise<void>;
   skipRecurringOccurrence: (recurringId: string, monthKey: string) => Promise<void>;
   deleteRecurringTransaction: (id: string) => Promise<void>;
+  payRecurringOccurrence: (recurringId: string) => Promise<void>;
   primaryIncomeCents: number;
   userId: string | null;
   isGamificationEnabled: boolean;
@@ -541,6 +542,13 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     setLoading(false);
   }, [refreshData]);
 
+  const payRecurringOccurrence = useCallback(async (recurringId: string) => {
+    setLoading(true);
+    await financialService.payRecurringOccurrence(recurringId);
+    await refreshData();
+    setLoading(false);
+  }, [refreshData]);
+
   const deleteTransaction = useCallback(async (id: string) => {
     const { error } = await financialService.deleteTransaction(id);
     await refreshData();
@@ -754,6 +762,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     createTransfer,
     skipRecurringOccurrence,
     deleteRecurringTransaction,
+    payRecurringOccurrence,
     upsertTransaction,
     primaryIncomeCents,
     deleteTransaction,
@@ -796,6 +805,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     createTransfer,
     skipRecurringOccurrence,
     deleteRecurringTransaction,
+    payRecurringOccurrence,
     upsertTransaction,
     primaryIncomeCents,
     deleteTransaction,

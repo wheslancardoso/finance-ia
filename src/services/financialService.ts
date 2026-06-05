@@ -1043,6 +1043,70 @@ export const financialService = {
     }
   },
 
+  async payRecurringOccurrence(recurringId: string) {
+    console.log(`💳 Pagando ocorrência do fluxo recorrente ${recurringId}`);
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      endOfMonth.setHours(23, 59, 59, 999);
+
+      // Procurar transação física no Dexie correspondente à recorrência no mês atual
+      const txs = await db.transactions
+        .filter(t => 
+          t.source_metadata?.recurring_id === recurringId &&
+          new Date(t.date) >= startOfMonth &&
+          new Date(t.date) <= endOfMonth
+        )
+        .toArray();
+
+      if (txs.length > 0) {
+        const tx = txs[0];
+        if (!tx.is_paid) {
+          console.log(`🔧 Atualizando transação física pendente para paga: ${tx.id}`);
+          const updatedTx = { ...tx, is_paid: true };
+          await this.upsertTransaction(updatedTx);
+        } else {
+          console.log(`ℹ️ Transação física já está paga: ${tx.id}`);
+        }
+      } else {
+        console.log(`🔧 Transação física não encontrada no mês atual. Criando nova...`);
+        const recurring = await db.recurring_transactions.get(recurringId);
+        if (!recurring) throw new Error("Fluxo recorrente não encontrado");
+
+        let targetDay = 15;
+        const dateMatch = recurring.next_date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (dateMatch) {
+          targetDay = parseInt(dateMatch[3], 10);
+        } else {
+          targetDay = new Date(recurring.next_date).getDate();
+        }
+        const txDate = new Date(now.getFullYear(), now.getMonth(), targetDay, 12, 0, 0);
+
+        const newTx = {
+          user_id: recurring.user_id,
+          description: recurring.description,
+          amount_cents: recurring.amount_cents,
+          transaction_type: recurring.transaction_type,
+          date: txDate.toISOString(),
+          account_id: recurring.account_id,
+          category_id: recurring.category_id,
+          is_paid: true,
+          source: "RECURRING",
+          source_metadata: { recurring_id: recurringId }
+        };
+
+        await this.upsertTransaction(newTx);
+      }
+      return { data: true, error: null };
+    } catch (error: any) {
+      console.error("❌ payRecurringOccurrence falhou:", error.message);
+      return { data: null, error };
+    }
+  },
+
   // --- IA INTEGRATIONS ---
   async analyzeSimulationIA(simulation: any, summary: any) {
     try {

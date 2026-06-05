@@ -4,6 +4,7 @@ import { financialService } from "./financialService";
 // Mock do banco de dados Dexie local
 const mockTransactions = new Map<string, any>();
 const mockAccounts = new Map<string, any>();
+const mockRecurring = new Map<string, any>();
 
 vi.mock("@/lib/db", () => {
   return {
@@ -25,6 +26,13 @@ vi.mock("@/lib/db", () => {
         delete: vi.fn(async (id: string) => {
           mockTransactions.delete(id);
           return 1;
+        }),
+        toArray: vi.fn(async () => Array.from(mockTransactions.values())),
+        filter: vi.fn((fn: any) => {
+          const filtered = Array.from(mockTransactions.values()).filter(fn);
+          return {
+            toArray: async () => filtered
+          };
         })
       },
       accounts: {
@@ -45,15 +53,41 @@ vi.mock("@/lib/db", () => {
           mockAccounts.delete(id);
           return 1;
         })
+      },
+      recurring_transactions: {
+        get: vi.fn(async (id: string) => mockRecurring.get(id)),
+        put: vi.fn(async (rec: any) => {
+          mockRecurring.set(rec.id, rec);
+          return rec;
+        }),
+        delete: vi.fn(async (id: string) => {
+          mockRecurring.delete(id);
+          return 1;
+        })
       }
     }
   };
 });
 
 // Mock da função global fetch (usada por apiFetch)
-const globalFetchMock = vi.fn().mockResolvedValue({
-  ok: true,
-  json: async () => ({ id: "saved-id" })
+const globalFetchMock = vi.fn().mockImplementation(async (url, options) => {
+  let responseData: any = { id: "saved-id" };
+  if (options && options.body) {
+    try {
+      const body = JSON.parse(options.body);
+      if (body) {
+        responseData = { ...body };
+        // Garante que retorne um ID válido
+        if (!responseData.id) {
+          responseData.id = "saved-id";
+        }
+      }
+    } catch (e) {}
+  }
+  return {
+    ok: true,
+    json: async () => responseData
+  };
 });
 vi.stubGlobal("fetch", globalFetchMock);
 
@@ -351,6 +385,74 @@ describe("financialService - Sincronização Dinâmica de Transações e Saldos"
 
       const tx = mockTransactions.get("tx-inc-unpay");
       expect(tx.is_paid).toBe(false);
+    });
+  });
+
+  describe("payRecurringOccurrence", () => {
+    beforeEach(() => {
+      mockRecurring.clear();
+    });
+
+    it("deve marcar transação física existente do mês atual como paga se ela já existia pendente", async () => {
+      const now = new Date();
+      const targetDay = 15;
+      const txDate = new Date(now.getFullYear(), now.getMonth(), targetDay, 12, 0, 0);
+
+      mockTransactions.set("tx-rec-exist", {
+        id: "tx-rec-exist",
+        description: "Empréstimo",
+        amount_cents: 13000, // R$ 130
+        transaction_type: "EXPENSE",
+        is_paid: false,
+        account_id: "acc-checking",
+        date: txDate.toISOString(),
+        source: "RECURRING",
+        source_metadata: { recurring_id: "rec-loan-1" }
+      });
+
+      const res = await financialService.payRecurringOccurrence("rec-loan-1");
+      expect(res.data).toBe(true);
+
+      const tx = mockTransactions.get("tx-rec-exist");
+      expect(tx.is_paid).toBe(true);
+      
+      const acc = mockAccounts.get("acc-checking");
+      // R$ 1000 - R$ 130 = R$ 870 (87000 cents)
+      expect(acc.balance_cents).toBe(87000);
+    });
+
+    it("deve criar uma nova transação física paga no mês atual caso ela não exista", async () => {
+      const now = new Date();
+      const nextDate = new Date(now.getFullYear(), now.getMonth(), 10, 12, 0, 0);
+      
+      mockRecurring.set("rec-sub-new", {
+        id: "rec-sub-new",
+        user_id: "user-123",
+        description: "Netflix",
+        amount_cents: 5500, // R$ 55
+        transaction_type: "EXPENSE",
+        frequency: "monthly",
+        next_date: nextDate.toISOString().split("T")[0],
+        status: "active",
+        account_id: "acc-checking",
+        category_id: "cat-entertainment"
+      });
+
+      const res = await financialService.payRecurringOccurrence("rec-sub-new");
+      expect(res.data).toBe(true);
+
+      const txs = Array.from(mockTransactions.values()).filter(t => t.source_metadata?.recurring_id === "rec-sub-new");
+      expect(txs.length).toBe(1);
+      
+      const newTx = txs[0];
+      expect(newTx.is_paid).toBe(true);
+      expect(newTx.amount_cents).toBe(5500);
+      expect(newTx.description).toBe("Netflix");
+      expect(new Date(newTx.date).getDate()).toBe(10);
+      
+      const acc = mockAccounts.get("acc-checking");
+      // R$ 1000 - R$ 55 = R$ 945 (94500 cents)
+      expect(acc.balance_cents).toBe(94500);
     });
   });
 });

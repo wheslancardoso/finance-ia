@@ -24,7 +24,8 @@ import {
   Heart,
   Tv,
   Wallet,
-  Pencil
+  Pencil,
+  CheckCircle2
 } from "lucide-react";
 import { useSubscriptionModal } from "@/context/SubscriptionModalContext";
 import { useFinancialData } from "@/context/FinancialDataContext";
@@ -92,9 +93,10 @@ interface SubscriptionManagerProps {
 }
 
 export function SubscriptionManager({ initialSubscriptions }: SubscriptionManagerProps) {
-  const { recurringTransactions: contextSubs, refreshData } = useFinancialData();
+  const { recurringTransactions: contextSubs, refreshData, transactions, payRecurringOccurrence } = useFinancialData();
   const { openModal } = useSubscriptionModal();
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
 
   async function toggleStatus(id: string, currentStatus: string) {
     await financialService.toggleRecurringStatus(id, currentStatus);
@@ -106,6 +108,17 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
     await financialService.deleteRecurringTransaction(deleteId);
     setDeleteId(null);
     await refreshData();
+  }
+
+  async function handlePay(id: string) {
+    setLoadingStates(prev => ({ ...prev, [id]: true }));
+    try {
+      await payRecurringOccurrence(id);
+    } catch (err) {
+      console.error("Erro ao pagar ocorrência:", err);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, [id]: false }));
+    }
   }
 
   const subscriptionsToDisplay = contextSubs.length > 0 ? contextSubs : (initialSubscriptions || []);
@@ -136,6 +149,10 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
 
           // Detectar a frequência real baseada no metadado
           const realFrequency = freqMatch ? freqMatch[1] : (sub.frequency || "monthly");
+
+          // Verificar se a transação do mês atual vinculada à recorrência já foi paga
+          const monthTx = transactions.find(t => t.source_metadata?.recurring_id === sub.id);
+          const isPaidThisMonth = monthTx ? monthTx.is_paid : false;
 
           return (
             <GlassCard 
@@ -221,6 +238,34 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
                     {sub.account?.name}
                   </div>
                 </div>
+
+                {sub.status === "active" && (
+                  isPaidThisMonth ? (
+                    <div className="flex items-center justify-center gap-2 py-3 bg-emerald-500/10 text-emerald-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-emerald-500/20" data-testid={`paid-badge-${sub.id}`}>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      {sub.transaction_type === 'INCOME' ? "Recebido este mês" : "Pago este mês"}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handlePay(sub.id)}
+                      disabled={loadingStates[sub.id]}
+                      data-testid={`pay-now-${sub.id}`}
+                      className={cn(
+                        "w-full flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                        sub.transaction_type === 'INCOME'
+                          ? "bg-emerald-500 text-black hover:bg-emerald-400 disabled:opacity-50"
+                          : "bg-white text-black hover:bg-white/90 disabled:opacity-50"
+                      )}
+                    >
+                      {loadingStates[sub.id] ? (
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4" />
+                      )}
+                      {sub.transaction_type === 'INCOME' ? "Receber agora" : "Pagar agora"}
+                    </button>
+                  )
+                )}
 
                 <div className="flex items-center gap-2">
                   <button 
