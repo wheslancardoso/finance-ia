@@ -45,6 +45,11 @@ export default function RealtimeDashboard({
   const [selectedAccount] = useState<any>(null);
   const [activeSimulations, setActiveSimulations] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"timeline" | "summary">("summary");
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   
   const { 
@@ -289,6 +294,14 @@ export default function RealtimeDashboard({
       setTargetDate(new Date(target));
     }
   }, [lastDebtExitDate, debtExit.exitDate]);
+
+  if (!isClient) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px] bg-transparent">
+        <div className="w-8 h-8 border-4 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex flex-col xl:flex-row items-stretch min-h-screen bg-transparent overflow-hidden">

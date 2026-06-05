@@ -29,7 +29,7 @@ test.describe('Repasse de Terceiros e Abatimento de Saldos', () => {
   test('deve registrar gastos de terceiro e abater saldo com receitas', async ({ page }) => {
     // Helper local para clicar no botão de Adicionar Transação de acordo com o viewport
     const openAddModal = async () => {
-      const desktopBtn = page.getByTestId('add-transaction-button');
+      const desktopBtn = page.getByTestId('add-transaction-button').first();
       if (await desktopBtn.isVisible()) {
         await desktopBtn.click();
       } else {
