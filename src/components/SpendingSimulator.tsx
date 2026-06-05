@@ -5,6 +5,7 @@ import { formatCurrency, cn } from "@/lib/utils";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { useTransactionModal } from "@/context/TransactionModalContext";
+import { calculateLoanInstallment } from "@/domain/financial/financial-logic";
 
 interface SpendingSimulatorProps {
   onSimulate?: (simulations: any[] | null) => void;
@@ -151,20 +152,35 @@ export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSi
       const valueCents = Math.round(parseFloat(cleanValue) * 100);
       
       if (!isNaN(valueCents) && valueCents > 0) {
+        const isSimLoan = simulationType === "INCOME" && isLoan;
+        const instCount = isSimLoan ? loanInstallmentsCount : installments;
+        
+        let installmentCents = undefined;
+        if (isSimLoan) {
+          const cleanInstallment = loanInstallment.replace(/\./g, "").replace(",", ".");
+          installmentCents = Math.round(parseFloat(cleanInstallment) * 100);
+          if (isNaN(installmentCents) || installmentCents <= 0) {
+            installmentCents = calculateLoanInstallment(valueCents, 9.53, loanInstallmentsCount);
+          }
+        }
+
         onSimulate([
           ...activeSandbox,
           { 
             amount_cents: valueCents, 
-            installments, 
+            installments: instCount, 
             type: simulationType, 
-            description: undefined 
+            description: undefined,
+            isLoan: isSimLoan,
+            customInstallmentCents: installmentCents,
+            interestRate: isSimLoan ? 9.53 : undefined
           }
         ]);
       } else {
         onSimulate(activeSandbox.length > 0 ? activeSandbox : null);
       }
     }
-  }, [amount, installments, simulationType, sandboxSimulations, onSimulate]);
+  }, [amount, installments, simulationType, isLoan, loanInstallment, loanInstallmentsCount, sandboxSimulations, onSimulate]);
 
   const getStatusColor = (status: string) => {
     if (simulationType === "INCOME") return "text-emerald-400";
@@ -434,14 +450,31 @@ export default function SpendingSimulator({ onSimulate, targetDate }: SpendingSi
                   const valueCents = Math.round(parseFloat(cleanValue) * 100);
                   if (isNaN(valueCents) || valueCents <= 0) return;
                   
+                  const isSimLoan = simulationType === "INCOME" && isLoan;
+                  const instCount = isSimLoan ? loanInstallmentsCount : installments;
+                  
+                  let installmentCents = undefined;
+                  if (isSimLoan) {
+                    const cleanInstallment = loanInstallment.replace(/\./g, "").replace(",", ".");
+                    installmentCents = Math.round(parseFloat(cleanInstallment) * 100);
+                    if (isNaN(installmentCents) || installmentCents <= 0) {
+                      installmentCents = calculateLoanInstallment(valueCents, 9.53, loanInstallmentsCount);
+                    }
+                  }
+
                   const newSim = {
                     id: Date.now(),
-                    description: simulationType === "INCOME"
-                      ? `Receita Sandbox: R$ ${amount} (${installments}x)`
-                      : `Gasto Sandbox: R$ ${amount} (${installments}x)`,
+                    description: isSimLoan
+                      ? `Empréstimo Sandbox: R$ ${amount} (${instCount}x)`
+                      : (simulationType === "INCOME"
+                          ? `Receita Sandbox: R$ ${amount} (${instCount}x)`
+                          : `Gasto Sandbox: R$ ${amount} (${instCount}x)`),
                     amount_cents: valueCents,
-                    installments,
+                    installments: instCount,
                     type: simulationType,
+                    isLoan: isSimLoan,
+                    customInstallmentCents: installmentCents,
+                    interestRate: isSimLoan ? 9.53 : undefined,
                     active: true
                   };
                   
