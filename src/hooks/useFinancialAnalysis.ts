@@ -292,7 +292,23 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
 
   const startingBalanceCents = useMemo(() => {
     if (monthOffset === 0) {
-      return currentAssets;
+      const creditCardAccountIds = new Set(
+        accounts.filter(a => a.type === "CREDIT_CARD").map(a => a.id)
+      );
+
+      const paidIncomeThisMonth = (monthTransactions || [])
+        .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
+        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+      const paidExpenseThisMonth = (monthTransactions || [])
+        .filter(t => t.transaction_type === "EXPENSE" && t.is_paid === true && !creditCardAccountIds.has(t.account_id))
+        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+      const paidTransferThisMonth = (monthTransactions || [])
+        .filter(t => t.transaction_type === "TRANSFER" && t.is_paid === true)
+        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+      return currentAssets - paidIncomeThisMonth + paidExpenseThisMonth + paidTransferThisMonth;
     }
     
     const effectiveScheduledIncome = scheduledIncomeCents || recurringIncomeCents;
