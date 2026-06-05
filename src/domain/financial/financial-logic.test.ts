@@ -388,6 +388,26 @@ describe('Financial Logic Domain', () => {
       
       expect(result).toBe(200000);
     });
+
+    it('deve propagar impacto de simulação à vista do mês 0 nos meses futuros', () => {
+      const result = calculateAdvancedProjection({
+        currentNetLiquidity: 100000,
+        currentAssetsCents: 200000,
+        recurringTransactions,
+        futureTransactions: [],
+        goals: [],
+        budgets,
+        monthOffset: 2,
+        activeSimulations: [
+          { amount_cents: 50000, installments: 1, type: "EXPENSE" }
+        ],
+        accounts: mockAccounts
+      });
+      // Saldo parte de 200000 - 50000 (gasto no mês 0) = 150000
+      // + 2 meses de sobra (150000 * 2) = 300000
+      // Total: 150000 + 300000 = 450000
+      expect(result).toBe(450000);
+    });
   });
 
   describe('calculateAntifragilityTier', () => {

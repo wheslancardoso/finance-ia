@@ -331,7 +331,35 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       survivalReserveCents
     });
     
-    return prevOutlook.totalAssets || 0;
+    let basePrevAssets = prevOutlook.totalAssets || 0;
+
+    // Se o mês anterior for o mês atual (0), precisamos adicionar o ajuste simulado do mês 0,
+    // pois prevOutlook.totalAssets para monthOffset = 0 retorna apenas o saldo bruto real de hoje (currentAssets).
+    if (monthOffset - 1 === 0 && activeSimulations.length > 0) {
+      const simulatedIncomeMonth0 = activeSimulations
+        .filter(s => s.type === "INCOME")
+        .reduce((sum, s) => {
+          const startOffset = s.startMonthOffset ?? 0;
+          if (startOffset !== 0) return sum;
+          if (s.isLoan || (s.interestRate && s.interestRate > 0)) {
+            return sum + s.amount_cents;
+          }
+          const monthly = s.installments > 1 ? Math.round(s.amount_cents / s.installments) : s.amount_cents;
+          return sum + monthly;
+        }, 0);
+
+      const simulatedDebitExpenseMonth0 = activeSimulations
+        .filter(s => s.type === "EXPENSE" && s.installments === 1)
+        .reduce((sum, s) => {
+          const startOffset = s.startMonthOffset ?? 0;
+          if (startOffset !== 0) return sum;
+          return sum + s.amount_cents;
+        }, 0);
+
+      basePrevAssets += (simulatedIncomeMonth0 - simulatedDebitExpenseMonth0);
+    }
+    
+    return basePrevAssets;
   }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, activeSimulations, futureTransactions, monthTransactions, recurringTransactions, goals, survivalReserveCents, currentAssets]);
 
   const isSurvivalMode = useMemo(() => (monthlyOutlook.balanceAtMonthEnd || 0) < 0 || activeNetLiquidity < 0, [monthlyOutlook.balanceAtMonthEnd, activeNetLiquidity]);
