@@ -38,6 +38,13 @@ export async function GET(request: NextRequest) {
       // Se a função não existir ou falhar, segue normalmente
     }
 
+    // Processar transações recorrentes do mês atual
+    try {
+      await supabase.rpc('fn_process_recurring_transactions');
+    } catch {
+      // Se a função não existir ou falhar, segue normalmente
+    }
+
     // Tentar usar a função RPC se existir (com retry simples)
     try {
       let rpcResult: any;

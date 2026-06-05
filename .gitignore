@@ -51,6 +51,7 @@ storybook-static
 
 # database backups and sql files
 *.sql
+!supabase/migrations/*.sql
 
 # scratch directory (agent workspace temporary scripts)
 /scratch/
