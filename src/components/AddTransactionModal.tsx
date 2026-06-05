@@ -267,6 +267,9 @@ export function AddTransactionModal() {
         setLoading(false);
         return;
       }
+      const selectedAccount = accounts.find((a: any) => a.id === capturedAccountId);
+      const isCreditCard = selectedAccount?.type === "CREDIT_CARD";
+
       const totalAmountCents = Math.round(parsedAmount * 100);
       const installmentAmountCents = Math.floor(totalAmountCents / capturedInstallments);
 
@@ -291,11 +294,9 @@ export function AddTransactionModal() {
         return;
       }
 
-      const selectedAccount = accounts.find((a: any) => a.id === capturedAccountId);
-      const isCreditCard = selectedAccount?.type === "CREDIT_CARD";
-      // Despesas de cartão de crédito nascem sempre como não pagas (is_paid = false) por padrão,
-      // independente se a data pertence ao mês passado, presente ou futuro.
-      const isPaidVal = isCreditCard && capturedType === "EXPENSE" ? false : true;
+      // Para cartões de crédito, tanto EXPENSE quanto INCOME (ajuste) nascem como não pagos (is_paid = false) por padrão,
+      // pois dependem do fechamento e pagamento da fatura consolidada.
+      const isPaidVal = isCreditCard ? false : true;
 
       const basePayload = {
         user_id: userId,

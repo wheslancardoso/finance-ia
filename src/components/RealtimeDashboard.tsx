@@ -176,7 +176,8 @@ export default function RealtimeDashboard({
         amount_cents: r.amount_cents,
         transaction_type: r.transaction_type,
         date: targetMonth.toISOString(),
-        category: r.category_id
+        category: r.category_id,
+        source_metadata: { recurring_id: r.id }
       }));
 
     return [...filteredFuture, ...virtualRecurring, ...simulationTransactions];
@@ -191,9 +192,22 @@ export default function RealtimeDashboard({
     const transactionsToUse = isFuture ? projectionTransactions : displayTransactions;
     
     // Filtrar transações de cartão de crédito para evitar double-counting com as faturas
-    const filteredTransactions = transactionsToUse.filter((t: any) => 
+    let filteredTransactions = transactionsToUse.filter((t: any) => 
       !t.account_id || !creditCardAccountIds.has(t.account_id)
     );
+
+    // Deduplicar transações físicas/projetadas por recurring_id para evitar double-counting
+    const seenRecurringIds = new Set<string>();
+    filteredTransactions = filteredTransactions.filter((t: any) => {
+      const recId = t.source_metadata?.recurring_id || t.source_metadata?.['recurring_id'];
+      if (recId) {
+        if (seenRecurringIds.has(recId)) {
+          return false;
+        }
+        seenRecurringIds.add(recId);
+      }
+      return true;
+    });
     
     const baseItems = filteredTransactions.map((t: any) => ({
       name: t.description,
@@ -255,9 +269,12 @@ export default function RealtimeDashboard({
             .filter(t => {
               if (t.account_id !== a.id) return false;
               const impactDate = getTransactionImpactDate(t, liveAccounts);
-              return t.transaction_type === "EXPENSE" && isSameMonth(impactDate, targetMonth);
+              return (t.transaction_type === "EXPENSE" || t.transaction_type === "INCOME") && isSameMonth(impactDate, targetMonth);
             })
-            .reduce((sum, t) => sum + (t.amount_cents || 0), 0);
+            .reduce((sum, t) => {
+              const val = t.amount_cents || 0;
+              return t.transaction_type === "INCOME" ? sum - val : sum + val;
+            }, 0);
         }
         
         if (billAmount <= 0) return null;

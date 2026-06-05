@@ -207,6 +207,36 @@ describe('Financial Logic Domain', () => {
       // Correto: 100000 - 20000 - 5000 = 75000.
       expect(result.balanceAtMonthEnd).toBe(75000);
     });
+
+    it('deve subtrair receitas/ajustes de tipo INCOME do total de parcelas futuras do cartão', () => {
+      const accounts: Account[] = [
+        { id: 'checking-1', type: 'CHECKING', balance_cents: 100000 } as any,
+        { id: 'card-1', type: 'CREDIT_CARD', open_invoice_cents: 0, closing_day: 1 } as any
+      ];
+
+      const allTransactions = [
+        // Compra no cartão (R$ 100,00) que vence no mês alvo
+        { id: 't1', account_id: 'card-1', transaction_type: 'EXPENSE', amount_cents: 10000, is_paid: false, date: new Date().toISOString() } as any,
+        // Ajuste/estorno de INCOME no cartão (R$ 40,00) que vence no mesmo mês alvo
+        { id: 't2', account_id: 'card-1', transaction_type: 'INCOME', amount_cents: 4000, is_paid: false, date: new Date().toISOString() } as any
+      ];
+
+      const result = calculateMonthlyOutlook({
+        accounts,
+        scheduledIncomeCents: 0,
+        scheduledExpensesCents: 0,
+        recurringIncomeCents: 0,
+        recurringExpensesCents: 0,
+        budgets: [],
+        netLiquidityCents: 100000,
+        allTransactions,
+        monthOffset: 1 // Projeção para mês futuro
+      });
+
+      // No futuro, a dívida do cartão (immediateCardDebt) é o installmentDebt.
+      // O installmentDebt deve ser 10000 (Expense) - 4000 (Income) = 6000 cents (R$ 60,00).
+      expect(result.immediateCardDebt).toBe(6000);
+    });
   });
 
   describe('calculateDebtExitProjection', () => {

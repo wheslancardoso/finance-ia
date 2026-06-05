@@ -441,9 +441,12 @@ export function calculateMonthlyOutlook(params: {
   const installmentDebt = uniqueTx
     .filter(t => {
       const impactDate = getTransactionImpactDate(t, accounts);
-      return t.transaction_type === "EXPENSE" && isSameMonth(impactDate, targetDate);
+      return (t.transaction_type === "EXPENSE" || t.transaction_type === "INCOME") && isSameMonth(impactDate, targetDate);
     })
-    .reduce((sum, t) => sum + (t.amount_cents || 0), 0);
+    .reduce((sum, t) => {
+      const val = t.amount_cents || 0;
+      return t.transaction_type === "INCOME" ? sum - val : sum + val;
+    }, 0);
 
   // Impacto de Simulações
   const simulationExpenseImpact = activeSimulations.reduce((sum, s) => {
