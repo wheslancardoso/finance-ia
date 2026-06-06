@@ -120,38 +120,47 @@ export default function RealtimeDashboard({
 
       const results = [];
       const startOffset = sim.startMonthOffset ?? 0;
+      const isSimLoan = sim.isLoan || (sim.interestRate && sim.interestRate > 0 && sim.type === "INCOME");
 
       for (let i = 0; i < installments; i++) {
-        const simDate = addMonths(new Date(), startOffset + i);
+        // Para empréstimos, as parcelas correm com 1 mês de atraso (começam no mês seguinte)
+        const simDate = addMonths(new Date(), startOffset + i + (isSimLoan ? 1 : 0));
+        
         if (isSameMonth(simDate, targetMonth)) {
           const cleanDesc = (sim.description || 'Compra').startsWith("Simulado: ")
             ? (sim.description || 'Compra').replace("Simulado: ", "")
             : (sim.description || 'Compra');
 
-          // Empréstimo no mês de início (mês 0) injeta receita de capital
-          if (i === 0 && (sim.isLoan || (sim.interestRate && sim.interestRate > 0 && sim.type === "INCOME"))) {
-            results.push({
-              id: `sim-tx-income-${simIdx}`,
-              description: `Simulado: Injeção ${cleanDesc}`,
-              amount_cents: sim.amount_cents,
-              transaction_type: "INCOME" as const,
-              date: simDate.toISOString(),
-              category: "Simulação"
-            });
-          }
-
-          // Se for empréstimo, a parcela mensal é despesa nos meses subsequentes (ou no mesmo mês se o teste esperar)
-          // Na nossa lógica, o empréstimo gera despesas de parcela em todos os meses do intervalo da simulação
           results.push({
             id: `sim-tx-${simIdx}-${i}`,
             description: `Simulado: ${cleanDesc} (${i + 1}/${installments})`,
             amount_cents: monthlyAmount,
-            transaction_type: (sim.isLoan || (sim.interestRate && sim.interestRate > 0 && sim.type === "INCOME")) ? ("EXPENSE" as const) : (sim.type as "INCOME" | "EXPENSE"),
+            transaction_type: isSimLoan ? ("EXPENSE" as const) : (sim.type as "INCOME" | "EXPENSE"),
             date: simDate.toISOString(),
             category: "Simulação"
           });
         }
       }
+
+      // Empréstimo no mês de início (mês 0) injeta receita de capital
+      if (isSimLoan) {
+        const injectionDate = addMonths(new Date(), startOffset);
+        if (isSameMonth(injectionDate, targetMonth)) {
+          const cleanDesc = (sim.description || 'Compra').startsWith("Simulado: ")
+            ? (sim.description || 'Compra').replace("Simulado: ", "")
+            : (sim.description || 'Compra');
+
+          results.push({
+            id: `sim-tx-income-${simIdx}`,
+            description: `Simulado: Injeção ${cleanDesc}`,
+            amount_cents: sim.amount_cents,
+            transaction_type: "INCOME" as const,
+            date: injectionDate.toISOString(),
+            category: "Simulação"
+          });
+        }
+      }
+
       return results;
     });
   }, [activeSimulations, targetDate]);

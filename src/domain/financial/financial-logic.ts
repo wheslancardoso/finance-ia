@@ -451,9 +451,9 @@ export function calculateMonthlyOutlook(params: {
   // Impacto de Simulações
   const simulationExpenseImpact = activeSimulations.reduce((sum, s) => {
     const startOffset = s.startMonthOffset ?? 0;
-    // Caso especial: Simulação de Empréstimo
+    // Caso especial: Simulação de Empréstimo (parcelas começam no mês seguinte)
     if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-      if (monthOffset >= startOffset && monthOffset < startOffset + s.installments) {
+      if (monthOffset >= startOffset + 1 && monthOffset < startOffset + 1 + s.installments) {
         if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
           return sum + s.customInstallmentCents;
         }
@@ -596,9 +596,9 @@ export function calculateMonthlyOutlook(params: {
         
       const simulationExpenses = activeSimulations.reduce((sum, s) => {
         const startOffset = s.startMonthOffset ?? 0;
-        // Caso especial: Simulação de Empréstimo
+        // Caso especial: Simulação de Empréstimo (parcelas começam no mês seguinte)
         if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-          if (i >= startOffset && i < startOffset + s.installments) {
+          if (i >= startOffset + 1 && i < startOffset + 1 + s.installments) {
             if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
               return sum + s.customInstallmentCents;
             }

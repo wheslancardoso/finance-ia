@@ -159,12 +159,12 @@ test.describe('Projection Alignment (Time Machine)', () => {
 
     // Validar impacto combinado na Time Machine
     // Notebook Gamer: R$ 1200 / 4 = R$ 300/mês de saídas
-    // Empréstimo Extra: R$ 3000 / 6 = R$ 500/mês de saídas
-    // Total saídas simuladas = R$ 800,00
-    await expect(page.locator('span:has-text("R$ 800,00")').first()).toBeVisible();
+    // Empréstimo Extra: R$ 3000 / 6 = R$ 500/mês de saídas (parcelas iniciam no mês seguinte, então a saída no mês 0 é R$ 300,00)
+    // Total saídas simuladas = R$ 300,00
+    await expect(page.locator('span:has-text("R$ 300,00")').first()).toBeVisible();
 
-    // Saldo inicial = 1.000 + 3.000 (injeção empréstimo) - 800 (parcelas) = R$ 3.200,00
-    // O Saldo Final Projetado na planilha consolidada deve exibir R$ 3.200,00
-    await expect(page.getByText(/R\$\s?3\.200,00/).first()).toBeVisible();
+    // Saldo inicial = 1.000 + 3.000 (injeção empréstimo) - 300 (parcelas) = R$ 3.700,00
+    // O Saldo Final Projetado na planilha consolidada deve exibir R$ 3.700,00
+    await expect(page.getByText(/R\$\s?3\.700,00/).first()).toBeVisible();
   });
 });

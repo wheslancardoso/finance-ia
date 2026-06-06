@@ -217,17 +217,20 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
 
     const simulatedExpense = activeSimulations.reduce((sum, s) => {
       const startOffset = s.startMonthOffset ?? 0;
-      if (monthOffset < startOffset || monthOffset >= startOffset + s.installments) return sum;
       
-      // Caso especial: Simulação de Empréstimo
+      // Caso especial: Simulação de Empréstimo (parcelas começam no mês seguinte)
       if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-        if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
-          return sum + s.customInstallmentCents;
+        if (monthOffset >= startOffset + 1 && monthOffset < startOffset + 1 + s.installments) {
+          if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
+            return sum + s.customInstallmentCents;
+          }
+          const rate = (s.interestRate && s.interestRate > 0) ? s.interestRate : 9.53;
+          return sum + calculateLoanInstallment(s.amount_cents, rate, s.installments);
         }
-        const rate = (s.interestRate && s.interestRate > 0) ? s.interestRate : 9.53;
-        return sum + calculateLoanInstallment(s.amount_cents, rate, s.installments);
+        return sum;
       }
       
+      if (monthOffset < startOffset || monthOffset >= startOffset + s.installments) return sum;
       if (s.type === "INCOME") return sum;
       
       if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {

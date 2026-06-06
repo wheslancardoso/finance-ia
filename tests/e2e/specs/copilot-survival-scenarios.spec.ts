@@ -246,6 +246,7 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
     });
 
     await dashboard.goto();
+    await page.waitForLoadState('networkidle');
 
     // 1. Navegar para o mês projetado de Junho de 2026
     const nextMonthBtn = page.getByRole('button', { name: 'Próximo Mês' });
@@ -273,22 +274,36 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
     await simularBtn.click();
 
     // Como limitamos a planilha a 5 itens por padrão, expandimos para ver os itens ocultos além dos 5 primeiros
-    const verTodosBtn = page.getByRole('button', { name: /Ver todos/i });
-    if (await verTodosBtn.isVisible()) {
-      await verTodosBtn.click();
+    const verTodosBtnJune = page.getByRole('button', { name: /Ver todos/i });
+    if (await verTodosBtnJune.isVisible()) {
+      await verTodosBtnJune.click();
     }
 
-    // 5. Validar impacto no dashboard físico
-    // O item "Simulado" na planilha deve exibir R$ 230,00
-    await expect(page.getByText(/Simulado:/).first()).toBeVisible();
+    // Em Junho (mês de contração), deve aparecer apenas a injeção de capital (INCOME) de R$ 1.400,00
+    await expect(page.getByText(/Simulado: Injeção/).first()).toBeVisible();
+    await expect(page.locator('span:has-text("R$ 1.400,00")').first()).toBeVisible();
+
+    // A despesa em Junho continua sendo R$ 3.869,99 (pois a parcela só começa no mês seguinte)
+    await expect(page.locator('span:has-text("R$ 3.869,99")').first()).toBeVisible();
+
+    // Navegar para o mês seguinte (Julho de 2026) para verificar a cobrança da parcela
+    await page.getByRole('button', { name: 'Próximo Mês' }).click();
+
+    // Como limitamos a planilha a 5 itens por padrão, expandimos para ver os itens ocultos além dos 5 primeiros
+    const verTodosBtnJuly = page.getByRole('button', { name: /Ver todos/i });
+    if (await verTodosBtnJuly.isVisible()) {
+      await verTodosBtnJuly.click();
+    }
+
+    // Em Julho, a primeira parcela do empréstimo de R$ 230,00 deve ser cobrada
+    await expect(page.getByText(/Simulado: Empréstimo/).first()).toBeVisible();
     await expect(page.locator('span:has-text("R$ 230,00")').first()).toBeVisible();
 
-    // O "Total" na planilha de despesas deve saltar para R$ 4.099,99 (R$ 3.869,99 + R$ 230,00)
-    await expect(page.locator('span:has-text("R$ 4.099,99")').first()).toBeVisible();
+    // Voltar para Junho
+    await page.getByRole('button', { name: 'Mês Anterior' }).click();
 
     // 6. Desativar simulação e verificar retorno
     await page.getByRole('button', { name: 'Simulado' }).click();
-    await expect(page.locator('span:has-text("R$ 3.869,99")').first()).toBeVisible();
     await expect(page.locator('span').filter({ hasText: /Simulado:/ })).not.toBeVisible();
   });
 
@@ -335,6 +350,7 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
 
     await setupFinancialMocks(page, crisisState);
     await dashboard.goto();
+    await page.waitForLoadState('networkidle');
 
     // Navegar para Junho/2026
     const nextMonthBtn = page.getByRole('button', { name: 'Próximo Mês' });
@@ -386,6 +402,7 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
     // Mocar novamente com estado saudável e atualizar a página
     await setupFinancialMocks(page, healthyState);
     await page.reload();
+    await page.waitForLoadState('networkidle');
 
     // Navegar novamente para Junho/2026 após reload
     await expect(page.getByRole('button', { name: 'Próximo Mês' })).toBeVisible();
@@ -462,6 +479,7 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
     });
 
     await dashboard.goto();
+    await page.waitForLoadState('networkidle');
 
     // 1. Ir para Junho/2026
     const nextMonthBtn = page.getByRole('button', { name: 'Próximo Mês' });
