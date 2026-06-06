@@ -21,6 +21,7 @@ import { useFinancialData } from "@/context/FinancialDataContext";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { buildHorizonSnapshot } from "@/domain/financial/buildHorizonSnapshot";
 
 interface Message {
   role: "user" | "model";
@@ -89,7 +90,15 @@ export default function CopilotChatPanel({
     createInstallmentSeries, 
     netLiquidityCents, 
     accumulatedBalanceCents, 
-    scheduledExpensesCents 
+    scheduledExpensesCents,
+    scheduledIncomeCents,
+    recurringIncomeCents,
+    recurringExpensesCents,
+    budgets,
+    futureTransactions,
+    monthTransactions,
+    recurringTransactions,
+    survivalReserveCents
   } = useFinancialData();
 
   const {
@@ -250,6 +259,22 @@ export default function CopilotChatPanel({
       isCrisis: activeIsCrisisMode
     };
 
+    const horizonSnapshot = buildHorizonSnapshot({
+      accounts,
+      scheduledIncomeCents,
+      scheduledExpensesCents,
+      recurringIncomeCents,
+      recurringExpensesCents,
+      budgets,
+      netLiquidityCents,
+      activeSimulations,
+      futureTransactions,
+      allTransactions: monthTransactions,
+      recurringTransactions,
+      goals,
+      survivalReserveCents
+    });
+
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -258,7 +283,8 @@ export default function CopilotChatPanel({
           message: activeMsg,
           monthOffset,
           monthLabel: activeMonthLabel,
-          projectionSummary
+          projectionSummary,
+          horizonSnapshot
         })
       });
 
@@ -807,9 +833,9 @@ export default function CopilotChatPanel({
             Ideias de Exploração Contextual:
           </p>
           {[
-            "Simular empréstimo de 3000 para emergências",
-            "Consigo comprar um fogão de 800 parcelado em 4x?",
-            "Qual o impacto de gastar 500 no mercado agora?"
+            "Quanto de empréstimo preciso pegar pra ficar tranquilo até agosto?",
+            "Me mostra mês a mês como ficam minhas contas até o final do ano",
+            "Qual mês é o mais apertado e o que posso fazer pra sobreviver?"
           ].map((q, idx) => (
             <button
               key={idx}

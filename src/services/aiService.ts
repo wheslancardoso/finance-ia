@@ -72,7 +72,7 @@ export const aiService = {
         model: modelName,
         messages: formattedMessages,
         temperature: 0.7,
-        max_completion_tokens: 1000
+        max_completion_tokens: 2000
       })
     });
 
@@ -118,7 +118,7 @@ export const aiService = {
       contents: geminiContents.slice(-11),
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 1000
+        maxOutputTokens: 2000
       }
     };
 

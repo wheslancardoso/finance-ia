@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { message, monthOffset, monthLabel, projectionSummary } = body;
+    const { message, monthOffset, monthLabel, projectionSummary, horizonSnapshot } = body;
 
     if (!message) {
       return NextResponse.json({ error: "Mensagem é obrigatória" }, { status: 400 });
@@ -229,6 +229,36 @@ VALORES FINANCEIROS CONTEXTUAIS DA TELA DO MÊS DE ${monthLabel || "HOJE"}:
 - Limite de Oxigênio Semanal Saudável: R$ ${(projectionSummary.weeklyLimitCents / 100).toFixed(2)}
 - Total de Compromissos/Despesas Agendadas do Mês: R$ ${(projectionSummary.plannedExpensesCents / 100).toFixed(2)}
 - Situação do Caixa: ${projectionSummary.isCrisis ? "Alerta de Crise Ativo (Saldo negativo ou estressado)" : "Saldo Equilibrado ou sob Controle"}
+`;
+    }
+
+    let horizonContext = "";
+    if (horizonSnapshot) {
+      const currentMonth = horizonSnapshot.currentMonth;
+      const futureMonths = horizonSnapshot.futureMonths || [];
+      const allMonths = [currentMonth, ...futureMonths];
+
+      const tableRows = allMonths.map((m: any) => {
+        const balance = (m.projectedBalance / 100).toFixed(2);
+        const recIncome = (m.recurringIncome / 100).toFixed(2);
+        const recExpenses = (m.recurringExpenses / 100).toFixed(2);
+        const instExpenses = (m.installmentExpenses / 100).toFixed(2);
+        const simImpact = (m.simulationImpact / 100).toFixed(2);
+        const status = m.isCrisis ? "CRISE" : "OK";
+        return `| ${m.monthLabel.padEnd(15)} | R$ ${balance.padEnd(12)} | R$ ${recIncome.padEnd(12)} | R$ ${recExpenses.padEnd(12)} | R$ ${instExpenses.padEnd(12)} | R$ ${simImpact.padEnd(12)} | ${status.padEnd(6)} |`;
+      }).join("\n");
+
+      horizonContext = `
+=== PROJEÇÃO DE HORIZONTE FINANCEIRO (6 MESES) ===
+Esta tabela mostra as projeções financeiras consolidadas para os próximos 6 meses. Use-a para dar análises e conselhos estratégicos precisos baseados no horizonte de longo prazo:
+
+| Mês             | Saldo Projetado | Receita Recorrente | Despesa Recorrente | Parcelas Cartão | Simulação Impacto | Status |
+|-----------------|-----------------|--------------------|---------------------|-----------------|--------------------|--------|
+${tableRows}
+
+- Dívida Física Consolidada Total Projetada para o final do período (mês 6): R$ ${(horizonSnapshot.totalProjectedDebt / 100).toFixed(2)}
+- Meses Críticos de Alerta (Crise): ${horizonSnapshot.criticalMonths && horizonSnapshot.criticalMonths.length > 0 ? horizonSnapshot.criticalMonths.join(", ") : "Nenhum mês em crise projetado."}
+- Saída Projetada da Crise (Mês onde o saldo volta a ficar positivo): ${horizonSnapshot.debtExitMonth ? horizonSnapshot.debtExitMonth : (currentMonth.isCrisis ? "Indefinida (não zera no horizonte de 6 meses)" : "O usuário já está fora da crise atualmente")}
 `;
     }
 
@@ -337,9 +367,15 @@ Suas diretrizes de comportamento e comunicação são:
    - As categorias válidas de caixinhas são: "profile" (Perfil & Renda), "goals" (Objetivos & Sonhos), "fears" (Preocupações & Dores) e "preferences" (Preferências de Decisão).
    - Não adicione marcadores de código markdown (como crases ou json) dentro da tag de memória. Apenas o JSON válido.
    - Tente manter a lista de fatos sempre enxuta, com no máximo de 2 a 3 fatos curtos e diretos por caixinha, focando em dados úteis para orientar o suporte financeiro contínuo do Vesper.
+8. **Visão de Horizonte Obrigatória (Hiper-Inteligência Temporal):**
+    - Ao analisar empréstimos ou gastos de alto valor, mostre ao usuário o impacto projetado mês a mês ao longo de todo o horizonte de 6 meses.
+    - Ao sugerir o valor de um empréstimo, calcule de forma estratégica a menor quantia possível que cubra o déficit do mês ativo sem inviabilizar os meses futuros (considere a prestação da simulação).
+    - Indique sempre o mês mais apertado (menor saldo projetado) e se há previsão de alívio no horizonte (como recebimento de FGTS ou redução de despesas).
+    - NUNCA use markdown (como #, ##, *, **) na sua resposta, mesmo na análise do horizonte de 6 meses. Use letras maiúsculas para cabeçalhos e traços simples para listas.
 
 Aqui está o contexto temporal e financeiro ativo:
 ${temporalContext}
+${horizonContext}
 
 Aqui está o contexto real das finanças consolidadas do banco de dados:
 ${financialContext}
