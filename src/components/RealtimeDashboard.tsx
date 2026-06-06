@@ -57,6 +57,7 @@ export default function RealtimeDashboard({
     monthTransactions: liveMonthTransactions,
     recentTransactions: liveRecentTransactions,
     budgets: liveBudgets,
+    goals,
     recurringTransactions,
     futureTransactions,
     allTransactions: liveAllTransactions
@@ -291,8 +292,71 @@ export default function RealtimeDashboard({
       })
       .filter(Boolean) as any[];
 
-    return [...items, ...bills];
-  }, [isFuture, projectionTransactions, displayTransactions, simulationTransactions, targetDate, monthOffset, liveAccounts, futureTransactions, liveAllTransactions]);
+    const baseItemsList = [...items, ...bills];
+
+    // Calcular o saldo bruto intermediário antes das provisões
+    const baseIncome = baseItemsList
+      .filter(i => i.type === "INCOME")
+      .reduce((sum, i) => sum + i.value, 0);
+    const baseExpenses = baseItemsList
+      .filter(i => i.type === "EXPENSE")
+      .reduce((sum, i) => sum + i.value, 0);
+
+    let tempBalance = startingBalanceCents + baseIncome - baseExpenses;
+
+    // Injetar provisões de orçamento
+    const budgetItems = (liveBudgets || []).map(b => {
+      const reserve = monthOffset === 0
+        ? Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0))
+        : (b.amount_cents || 0);
+      
+      if (reserve <= 0) return null;
+
+      return {
+        name: `Reserva: ${b.category_id || 'Geral'}`,
+        value: reserve,
+        type: "EXPENSE" as const,
+        category: "Orçamento",
+        isBudget: true,
+        isInstallment: false,
+        isGoal: false
+      };
+    }).filter(Boolean) as any[];
+
+    // Deduzir os orçamentos do saldo temporário
+    const totalBudgetsReserve = budgetItems.reduce((sum, item) => sum + item.value, 0);
+    tempBalance -= totalBudgetsReserve;
+
+    // Injetar provisões de metas
+    const goalItems: any[] = [];
+    const netLiquidityCents = monthlyOutlook.projectedNetLiquidity ?? 0;
+    if (netLiquidityCents >= 0 && tempBalance >= 0) {
+      const activeGoals = (goals || []).filter(g => g.status === "active" || g.status === "ACTIVE");
+      const sortedGoals = [...activeGoals].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+      
+      for (const g of sortedGoals) {
+        const contribution = Number(g.monthly_contribution_cents) || 0;
+        if (contribution <= 0) continue;
+        
+        if (tempBalance >= contribution) {
+          goalItems.push({
+            name: `Aporte Meta: ${g.name}`,
+            value: contribution,
+            type: "EXPENSE" as const,
+            category: "Metas",
+            isBudget: false,
+            isInstallment: false,
+            isGoal: true
+          });
+          tempBalance -= contribution;
+        } else {
+          break;
+        }
+      }
+    }
+
+    return [...baseItemsList, ...budgetItems, ...goalItems];
+  }, [isFuture, projectionTransactions, displayTransactions, simulationTransactions, targetDate, monthOffset, liveAccounts, futureTransactions, liveAllTransactions, liveBudgets, goals, startingBalanceCents, monthlyOutlook.projectedNetLiquidity]);
 
   const totalIncome = useMemo(() => 
     consolidatedItems.filter((i: any) => i.type === "INCOME").reduce((sum: number, i: any) => sum + i.value, 0)
@@ -415,7 +479,7 @@ export default function RealtimeDashboard({
                   <MonthlyConsolidatedExcel 
                     income={totalIncome}
                     expenses={totalExpenses}
-                    balance={startingBalanceCents + totalIncome - totalExpenses}
+                    balance={monthlyOutlook.balanceAtMonthEnd ?? 0}
                     startingBalance={startingBalanceCents}
                     items={consolidatedItems}
                     monthName={format(targetDate, "MMMM 'de' yyyy", { locale: ptBR })}
