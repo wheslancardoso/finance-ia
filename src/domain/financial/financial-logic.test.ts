@@ -237,6 +237,60 @@ describe('Financial Logic Domain', () => {
       // O installmentDebt deve ser 10000 (Expense) - 4000 (Income) = 6000 cents (R$ 60,00).
       expect(result.immediateCardDebt).toBe(6000);
     });
+
+    it('deve encadear saldo final do mês 0 no saldo inicial de meses futuros', () => {
+      const accounts: Account[] = [
+        { id: 'checking-1', type: 'CHECKING', balance_cents: 100000 } as any
+      ];
+      const resultMonth0 = calculateMonthlyOutlook({
+        accounts,
+        scheduledIncomeCents: 50000,
+        scheduledExpensesCents: 30000,
+        recurringIncomeCents: 0,
+        recurringExpensesCents: 0,
+        budgets: [],
+        netLiquidityCents: 100000,
+        monthOffset: 0
+      });
+      // Saldo de ativos final de Junho (mês 0) deve ser 100000 + 50000 - 30000 = 120000 (R$ 1.200,00)
+      expect(resultMonth0.totalAssets).toBe(120000);
+
+      const recurringTransactions = [
+        {
+          id: 'rec-inc-1',
+          description: 'Salário',
+          amount_cents: 10000,
+          transaction_type: 'INCOME' as const,
+          frequency: 'monthly',
+          next_date: new Date().toISOString(),
+          status: 'active' as const
+        },
+        {
+          id: 'rec-exp-1',
+          description: 'Aluguel',
+          amount_cents: 5000,
+          transaction_type: 'EXPENSE' as const,
+          frequency: 'monthly',
+          next_date: new Date().toISOString(),
+          status: 'active' as const
+        }
+      ];
+
+      const resultMonth1 = calculateMonthlyOutlook({
+        accounts,
+        scheduledIncomeCents: 50000,
+        scheduledExpensesCents: 30000,
+        recurringIncomeCents: 10000,
+        recurringExpensesCents: 5000,
+        recurringTransactions,
+        budgets: [],
+        netLiquidityCents: 100000,
+        monthOffset: 1
+      });
+      // Saldo de partida de Julho deve ser o final de Junho (120000)
+      // E os ativos totais no fim de Julho devem ser 120000 + 10000 - 5000 = 125000
+      expect(resultMonth1.totalAssets).toBe(125000);
+    });
   });
 
   describe('calculateDebtExitProjection', () => {

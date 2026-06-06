@@ -391,10 +391,10 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
     await expect(page.getByRole('button', { name: 'Próximo Mês' })).toBeVisible();
     await page.getByRole('button', { name: 'Próximo Mês' }).click();
 
-    // Sob situação saudável (saldo inicial de R$ 3.000,00), a meta ativa deve ser cobrada (150,00)
-    // O saldo projetado final deve refletir Nubank (3.000) - Aluguel (1.500) - Meta (150) = R$ 1.350,00
+    // Sob situação saudável (saldo inicial de R$ 3.000,00), a meta ativa deve ser cobrada em ambos os meses (150,00 * 2 = 300,00)
+    // O saldo projetado final deve refletir Nubank (3.000) - Aluguel (1.500) - Metas (300) = R$ 1.200,00
     const balanceVal2 = page.getByTestId('net-liquidity-value');
-    await expect(balanceVal2).toContainText(/R\$\s?1\.350,00/);
+    await expect(balanceVal2).toContainText(/R\$\s?1\.200,00/);
   });
 
   test('deve simular cenário de rotativo do cartão via Copiloto e validar o impacto orçamentário no dashboard', async ({ page, isMobile }) => {

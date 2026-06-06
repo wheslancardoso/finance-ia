@@ -675,19 +675,26 @@ export function calculateMonthlyOutlook(params: {
 
   // 2. CÁLCULO DO SALDO BRUTO PROJETADO (Total Assets - Contas Correntes/Investimento)
   // Usa o motor de projeção com o parâmetro currentAssetsCents para eliminar double-counting de cartões.
+  const juneEndingAssets = monthOffset === 0
+    ? 0
+    : calculateMonthlyOutlook({
+        ...params,
+        monthOffset: 0
+      }).totalAssets;
+
   const projectedAssets = monthOffset === 0
-    ? calculateAccumulatedBalance(accounts)
+    ? calculateAccumulatedBalance(accounts) + adjustedMonthlyIncome - realOutflow - goalContributions
     : calculateAdvancedProjection({
         currentNetLiquidity: netLiquidityCents,
-        currentAssetsCents: calculateAccumulatedBalance(accounts),
+        currentAssetsCents: juneEndingAssets,
         recurringTransactions,
         futureTransactions,
         goals,
         budgets,
         monthOffset,
         activeSimulations,
-        scheduledIncomeCents: adjustedMonthlyIncome,
-        scheduledExpensesCents: realOutflow,
+        scheduledIncomeCents: 0,
+        scheduledExpensesCents: 0,
         allTransactions,
         accounts,
         survivalReserveCents
@@ -789,7 +796,9 @@ export function calculateAdvancedProjection(params: {
 
   const startBalance = currentAssetsCents !== undefined ? currentAssetsCents : currentNetLiquidity;
   // O saldo inicial de partida parte do saldo atual bruto de ativos (sem deduzir compromissos passados quitados).
-  let projectedBalance = startBalance + simulationIncomesMonth0 - simulationExpensesMonth0;
+  const startIncomeAdjustment = (params.scheduledIncomeCents !== undefined ? params.scheduledIncomeCents : simulationIncomesMonth0);
+  const startExpenseAdjustment = (params.scheduledExpensesCents !== undefined ? params.scheduledExpensesCents : simulationExpensesMonth0);
+  let projectedBalance = startBalance + startIncomeAdjustment - startExpenseAdjustment;
   let projectedTotalDebt = calculateTotalConsolidatedDebt(accounts);
   const now = new Date();
 

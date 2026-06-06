@@ -94,17 +94,17 @@ test.describe('Projection Alignment (Time Machine)', () => {
     // Navegar para Março/2028 (próximo mês)
     await page.getByRole('button', { name: 'Próximo Mês' }).click();
 
-    // Em Março/2028, a receita recorrente de Fevereiro (2.000) foi acumulada, saldo = R$ 7.000,00
-    await expect(page.getByRole('heading', { name: 'R$ 7.000,00' })).toBeVisible();
+    // Em Março/2028, a receita recorrente de Fevereiro (2.000) e Março (2.000) foram acumuladas, saldo = R$ 9.000,00
+    await expect(page.getByRole('heading', { name: 'R$ 9.000,00' })).toBeVisible();
     
-    // Navegar mais 10 meses até Janeiro/2029 (total de 11 meses de acúmulo de receitas de Fev/2028 a Dez/2028)
-    // Saldo = 5.000 (inicial) + 2.000 * 11 = R$ 27.000,00
+    // Navegar mais 10 meses até Janeiro/2029 (total de 12 meses de acúmulo de receitas de Fev/2028 a Jan/2029)
+    // Saldo = 5.000 (inicial) + 2.000 * 12 = R$ 29.000,00
     for (let i = 0; i < 10; i++) {
       await page.getByRole('button', { name: 'Próximo Mês' }).click();
     }
     
     // Deve exibir o saldo acumulado matematicamente correto e a virada de ano no seletor temporal
-    await expect(page.getByRole('heading', { name: 'R$ 27.000,00' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'R$ 29.000,00' })).toBeVisible();
     await expect(page.getByText('2029').first()).toBeVisible();
   });
 
