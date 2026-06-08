@@ -94,6 +94,27 @@ export async function GET(request: NextRequest) {
         });
 
         data.accounts = enrichedAccounts;
+
+        // Garantir que todas as transações recorrentes (incluindo as pausadas) sejam retornadas
+        try {
+          const { data: dbRecurring, error: recError } = await supabase
+            .from('recurring_transactions')
+            .select('*')
+            .eq('user_id', userId);
+
+          if (!recError && dbRecurring) {
+            const catMap = new Map((data.categories || []).map((c: any) => [c.id, c]));
+            const accMap = new Map((enrichedAccounts || []).map((a: any) => [a.id, a]));
+            
+            data.recurring_transactions = dbRecurring.map((rt: any) => ({
+              ...rt,
+              category: rt.category_id ? catMap.get(rt.category_id) || null : null,
+              account: rt.account_id ? accMap.get(rt.account_id) || null : null
+            }));
+          }
+        } catch (err) {
+          console.warn("⚠️ Falha ao buscar transações recorrentes pausadas:", err);
+        }
         
         // Garantir consistência: Se a RPC retornou family_group mas não user_profile, mapeamos
         if (data.family_group && !data.user_profile) {
@@ -299,6 +320,14 @@ async function buildFinancialState(userId: string) {
     }
   });
 
+  const catMap = new Map((categories || []).map((c: any) => [c.id, c]));
+  const accMap = new Map((enrichedAccounts || []).map((a: any) => [a.id, a]));
+  const enrichedRecurring = (recurring_transactions || []).map((rt: any) => ({
+    ...rt,
+    category: rt.category_id ? catMap.get(rt.category_id) || null : null,
+    account: rt.account_id ? accMap.get(rt.account_id) || null : null
+  }));
+
   return {
     user_profile: {
       monthly_income_cents: profile?.monthly_income_cents || 0,
@@ -309,7 +338,7 @@ async function buildFinancialState(userId: string) {
     categories: categories || [],
     accounts: enrichedAccounts,
     goals: goals || [],
-    recurring_transactions: recurring_transactions || [],
+    recurring_transactions: enrichedRecurring,
     budgets: budgets || [],
     recent_transactions,
     month_transactions,

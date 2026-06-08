@@ -96,7 +96,7 @@ BEGIN
                 FROM public.recurring_transactions rt
                 LEFT JOIN public.categories c ON rt.category_id = c.id
                 LEFT JOIN public.accounts a ON rt.account_id = a.id
-                WHERE rt.family_group_id = p_family_group_id AND rt.status = 'active'
+                WHERE rt.family_group_id = p_family_group_id
             ) rt_joined
         ),
         'budgets', (
