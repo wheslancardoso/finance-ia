@@ -53,6 +53,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
   const [showMigrationInput, setShowMigrationInput] = useState(false);
   const [showAdjustmentInput, setShowAdjustmentInput] = useState(false);
   const [adjustmentValue, setAdjustmentValue] = useState("");
+  const clickPendingRef = React.useRef(false);
 
   const [hasFearWarning, setHasFearWarning] = useState(false);
 
@@ -138,6 +139,8 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
   }
 
   async function confirmMarkAsPaid() {
+    if (clickPendingRef.current) return;
+    clickPendingRef.current = true;
     setIsMigrationLoading(true);
     try {
       await financialService.payInvoice({
@@ -150,6 +153,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
     } catch (err) {
       console.error("Erro ao marcar como pago:", err);
     } finally {
+      clickPendingRef.current = false;
       setIsMigrationLoading(false);
       setMarkPaidModalOpen(false);
     }
@@ -231,26 +235,35 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
                   <button
                     disabled={isMigrationLoading}
                     onClick={async () => {
+                      if (clickPendingRef.current) return;
                       const cents = Math.round(parseFloat(migrationValue.replace(",", ".")) * 100);
                       if (isNaN(cents)) return;
+                      
+                      clickPendingRef.current = true;
                       setIsMigrationLoading(true);
                       const now = new Date();
                       // Se a fatura é a fechada do mês atual, usamos uma data antes do dia de fechamento
                       const migrationDate = new Date(now.getFullYear(), now.getMonth(), (closing_day || 5) - 1);
                       
-                      await financialService.createMigrationBalanceTransaction({
-                        user_id: liveAccount.user_id,
-                        account_id: id,
-                        amount_cents: cents,
-                        description: `Saldo Inicial (${invoiceMonth})`,
-                        date: migrationDate.toISOString(),
-                        is_paid: false // Nasce como a pagar, o usuário clica em Pagar depois se quiser
-                      });
-                      
-                      setIsMigrationLoading(false);
-                      setShowMigrationInput(false);
-                      setMigrationValue("");
-                      window.dispatchEvent(new CustomEvent('financial-data-updated'));
+                      try {
+                        await financialService.createMigrationBalanceTransaction({
+                          user_id: liveAccount.user_id,
+                          account_id: id,
+                          amount_cents: cents,
+                          description: `Saldo Inicial (${invoiceMonth})`,
+                          date: migrationDate.toISOString(),
+                          is_paid: false // Nasce como a pagar, o usuário clica em Pagar depois se quiser
+                        });
+                        
+                        setShowMigrationInput(false);
+                        setMigrationValue("");
+                        window.dispatchEvent(new CustomEvent('financial-data-updated'));
+                      } catch (err) {
+                        console.error("Erro ao migrar saldo inicial:", err);
+                      } finally {
+                        clickPendingRef.current = false;
+                        setIsMigrationLoading(false);
+                      }
                     }}
                     className="p-2 rounded-lg bg-violet-500 text-white hover:bg-violet-600 transition-colors"
                   >
@@ -320,9 +333,11 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
                     <button
                       disabled={isMigrationLoading}
                       onClick={async () => {
+                        if (clickPendingRef.current) return;
                         const targetCents = Math.round(parseFloat(adjustmentValue.replace(",", ".")) * 100);
                         if (isNaN(targetCents)) return;
                         
+                        clickPendingRef.current = true;
                         setIsMigrationLoading(true);
                         const diffCents = targetCents - invoiceAmount;
                         
@@ -346,6 +361,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
                         } catch (err) {
                           console.error("Erro ao ajustar saldo:", err);
                         } finally {
+                          clickPendingRef.current = false;
                           setIsMigrationLoading(false);
                         }
                       }}
