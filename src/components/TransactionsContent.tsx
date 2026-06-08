@@ -159,7 +159,10 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
           const inv = getTransactionInvoiceMonth(tx.date, activeAccount?.closing_day);
           return inv.year === im.year && inv.month === im.month;
         })
-        .reduce((sum, tx) => sum + (tx.amount_cents || 0), 0);
+        .reduce((sum, tx) => {
+          const amt = tx.amount_cents || 0;
+          return sum + (tx.transaction_type === 'INCOME' ? -amt : amt);
+        }, 0);
       totals[im.key] = totalCents;
     });
 
