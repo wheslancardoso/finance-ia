@@ -16,6 +16,17 @@ import {
   calculatePrimaryIncome
 } from "@/domain/financial/financial-logic";
 
+export interface CreditCardInvoice {
+  id: string;
+  account_id: string;
+  reference_month: string;
+  amount_cents: number;
+  paid_amount_cents: number;
+  status: "OPEN" | "CLOSED" | "PAID";
+  closing_date: string;
+  due_date: string;
+}
+
 interface FinancialStateResponse {
   user_profile: {
     monthly_income_cents: number;
@@ -26,6 +37,7 @@ interface FinancialStateResponse {
   };
   categories: Category[];
   accounts: Account[];
+  invoices?: CreditCardInvoice[];
   goals: Goal[];
   recurring_transactions: RecurringTransaction[];
   budgets: Budget[];
@@ -75,6 +87,7 @@ interface SimulationResult {
 interface FinancialDataContextType {
   categories: Category[];
   accounts: Account[];
+  invoices: CreditCardInvoice[];
   loading: boolean;
   refreshData: () => Promise<void>;
   lastFetched: number | null;
@@ -147,6 +160,7 @@ const CACHE_DURATION = 10 * 60 * 1000; // 10 minutos de cache
 export function FinancialDataProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [invoices, setInvoices] = useState<CreditCardInvoice[]>([]);
   const [loading, setLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [lastFetched, setLastFetched] = useState<number | null>(null);
@@ -262,6 +276,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     const accounts = data.accounts || [];
 
     setAccounts(accounts);
+    setInvoices(data.invoices || []);
     setCategories(data.categories || []);
     setGoals(data.goals || []);
     setRecurringTransactions(recurring);
@@ -299,6 +314,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       setLoading(false);
       // Limpar estados ao deslogar
       setAccounts([]);
+      setInvoices([]);
       setCategories([]);
       setGoals([]);
       setRecurringTransactions([]);
@@ -392,6 +408,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       
       if (localState) {
         setAccounts(localState.accounts || []);
+        setInvoices(localState.invoices || []);
         setGoals(localState.goals || []);
         setRecurringTransactions(localState.recurring_transactions || []);
         setBudgets(localState.budgets || []);
@@ -742,7 +759,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   }, [userId, lastFetched, refreshData]);
 
   const contextValue = useMemo(() => ({ 
-    categories, accounts, loading, refreshData, lastFetched,
+    categories, accounts, invoices, loading, refreshData, lastFetched,
     monthlyIncomeCents, setMonthlyIncomeCents,
     fixedExpensesCents, setFixedExpensesCents,
     survivalReserveCents, setSurvivalReserveCents,
@@ -786,7 +803,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     isGamificationEnabled,
     setGamificationEnabled
   }), [
-    categories, accounts, loading, refreshData, lastFetched,
+    categories, accounts, invoices, loading, refreshData, lastFetched,
     monthlyIncomeCents, setMonthlyIncomeCents,
     fixedExpensesCents, setFixedExpensesCents,
     survivalReserveCents, setSurvivalReserveCents,

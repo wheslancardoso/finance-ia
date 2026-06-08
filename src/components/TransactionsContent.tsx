@@ -14,7 +14,7 @@ import {
   Plus
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useFinancialData } from "@/context/FinancialDataContext";
+import { useFinancialData, type CreditCardInvoice } from "@/context/FinancialDataContext";
 import { useTransactionModal } from "@/context/TransactionModalContext";
 import { format, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -26,7 +26,7 @@ interface TransactionsContentProps {
 }
 
 export function TransactionsContent({ initialTransactions, accounts: serverAccounts }: TransactionsContentProps) {
-  const { accounts: contextAccounts, transactions: monthTransactions, loading } = useFinancialData();
+  const { accounts: contextAccounts, invoices, transactions: monthTransactions, loading } = useFinancialData();
   const { openAdd } = useTransactionModal();
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -150,24 +150,35 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
     const totals: Record<string, number> = {};
     if (!selectedAccountId || !isCreditSelected) return totals;
 
-    const txsArray = Array.isArray(localTransactions) ? localTransactions : [];
-    const cardTxs = txsArray.filter(tx => tx.account_id === selectedAccountId);
+    const dbInvoices = invoices || [];
+    const cardInvoices = dbInvoices.filter((inv: CreditCardInvoice) => inv.account_id === selectedAccountId);
 
     invoiceMonths.forEach(im => {
-      const totalCents = cardTxs
-        .filter(tx => {
-          const inv = getTransactionInvoiceMonth(tx.date, activeAccount?.closing_day);
-          return inv.year === im.year && inv.month === im.month;
-        })
-        .reduce((sum, tx) => {
-          const amt = tx.amount_cents || 0;
-          return sum + (tx.transaction_type === 'INCOME' ? -amt : amt);
-        }, 0);
-      totals[im.key] = totalCents;
+      // 1. Tentar obter o valor diretamente da fatura consolidada no banco de dados (fonte da verdade)
+      const matchedInvoice = cardInvoices.find((inv: CreditCardInvoice) => inv.reference_month === im.key);
+      
+      if (matchedInvoice) {
+        totals[im.key] = matchedInvoice.amount_cents || 0;
+      } else {
+        // 2. Fallback offline: calcular com as transações locais se a fatura ainda não estiver no banco
+        const txsArray = Array.isArray(localTransactions) ? localTransactions : [];
+        const cardTxs = txsArray.filter(tx => tx.account_id === selectedAccountId);
+        
+        const totalCents = cardTxs
+          .filter(tx => {
+            const inv = getTransactionInvoiceMonth(tx.date, activeAccount?.closing_day);
+            return inv.year === im.year && inv.month === im.month;
+          })
+          .reduce((sum, tx) => {
+            const amt = tx.amount_cents || 0;
+            return sum + (tx.transaction_type === 'INCOME' ? -amt : amt);
+          }, 0);
+        totals[im.key] = totalCents;
+      }
     });
 
     return totals;
-  }, [selectedAccountId, isCreditSelected, localTransactions, invoiceMonths, activeAccount]);
+  }, [selectedAccountId, isCreditSelected, invoices, localTransactions, invoiceMonths, activeAccount]);
 
   // Atualiza a fatura ativa por padrão para a fatura aberta do ciclo
   useEffect(() => {
@@ -316,7 +327,9 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
                         const [yStr, mStr] = selectedInvoiceKey.split("-");
                         const y = parseInt(yStr);
                         const m = parseInt(mStr) - 1;
-                        const closingDate = new Date(y, m - 1, activeAccount.closing_day || 10);
+                        const isDueMonthAfterClosing = (activeAccount.due_day || 17) < (activeAccount.closing_day || 10);
+                        const closingMonth = isDueMonthAfterClosing ? m - 1 : m;
+                        const closingDate = new Date(y, closingMonth, activeAccount.closing_day || 10);
                         return format(closingDate, "dd 'de' MMM", { locale: ptBR });
                       })()}
                     </strong>

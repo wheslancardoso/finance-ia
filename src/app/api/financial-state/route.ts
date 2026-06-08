@@ -343,6 +343,7 @@ async function buildFinancialState(userId: string) {
     },
     categories: categories || [],
     accounts: enrichedAccounts,
+    invoices: allInvoices || [],
     goals: goals || [],
     recurring_transactions: enrichedRecurring,
     budgets: budgets || [],
