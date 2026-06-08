@@ -279,7 +279,10 @@ async function buildFinancialState(userId: string) {
     // Dívida total: soma de todas as transações não pagas do cartão
     // (inclui parcelas futuras que ainda não entraram em faturas geradas)
     const accountTransactions = allTransactions.filter(t => t.account_id === acc.id && !t.is_paid);
-    const totalDebt = accountTransactions.reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+    const totalDebt = accountTransactions.reduce((sum, t) => {
+      const amt = Number(t.amount_cents) || 0;
+      return sum + (t.transaction_type === "INCOME" ? -amt : amt);
+    }, 0);
 
     // Próxima fatura aberta: quanto será liberado quando parcelas terminarem
     const nextOpenMonth = openInvoice?.reference_month;
@@ -289,7 +292,10 @@ async function buildFinancialState(userId: string) {
           return t.invoice_id === openInvoice?.id;
         })
       : [];
-    const nextMonthReleaseCandidate = nextMonthTransactions.reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+    const nextMonthReleaseCandidate = nextMonthTransactions.reduce((sum, t) => {
+      const amt = Number(t.amount_cents) || 0;
+      return sum + (t.transaction_type === "INCOME" ? -amt : amt);
+    }, 0);
 
     return {
       ...acc,

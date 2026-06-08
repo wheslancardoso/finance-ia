@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
       id,
       account_id,
       category_id,
+      invoice_id,
       amount_cents,
       transaction_type,
       date,
@@ -115,6 +116,7 @@ export async function POST(request: NextRequest) {
       user_id: user.id, // Forçar o ID do usuário logado
       account_id: account_id || null,
       category_id: category_id || null,
+      invoice_id: invoice_id || null,
       amount_cents: Number(amount_cents) || 0,
       transaction_type,
       date,
