@@ -166,6 +166,7 @@ describe('Financial Logic Domain', () => {
   describe('calculateMonthlyOutlook', () => {
     it('deve calcular o panorama mensal corretamente', () => {
       const result = calculateMonthlyOutlook({
+        confirmedIncomeCents: 0,
         accounts: mockAccounts,
         scheduledIncomeCents: 50000,
         scheduledExpensesCents: 30000,
@@ -193,6 +194,7 @@ describe('Financial Logic Domain', () => {
       ];
 
       const result = calculateMonthlyOutlook({
+        confirmedIncomeCents: 0,
         accounts,
         scheduledIncomeCents: 0,
         scheduledExpensesCents: 5000,
@@ -224,6 +226,7 @@ describe('Financial Logic Domain', () => {
       ];
 
       const result = calculateMonthlyOutlook({
+        confirmedIncomeCents: 0,
         accounts,
         scheduledIncomeCents: 0,
         scheduledExpensesCents: 0,
@@ -245,6 +248,7 @@ describe('Financial Logic Domain', () => {
         { id: 'checking-1', type: 'CHECKING', balance_cents: 100000 } as any
       ];
       const resultMonth0 = calculateMonthlyOutlook({
+        confirmedIncomeCents: 0,
         accounts,
         scheduledIncomeCents: 50000,
         scheduledExpensesCents: 30000,
@@ -279,6 +283,7 @@ describe('Financial Logic Domain', () => {
       ];
 
       const resultMonth1 = calculateMonthlyOutlook({
+        confirmedIncomeCents: 0,
         accounts,
         scheduledIncomeCents: 50000,
         scheduledExpensesCents: 30000,
@@ -298,6 +303,7 @@ describe('Financial Logic Domain', () => {
   describe('calculateDebtExitProjection', () => {
     it('deve calcular corretamente o tempo para sair da dívida', () => {
       const projection = calculateDebtExitProjection({
+        monthlyInstallmentsCents: 0,
         netLiquidityCents: -100000, // Dívida de 1000
         recurringIncomeCents: 500000, // Ganha 5000
         recurringExpensesCents: 300000, // Gasta 3000
@@ -407,7 +413,7 @@ describe('Financial Logic Domain', () => {
       // Sobra mensal = 5000 - 3000 - 500 = 1500
       // 3 meses = 4500
       const result = calculateAdvancedProjection({
-        currentNetLiquidity: 100000,
+        liquidityHealthGuard: 100000,
         currentAssetsCents: 100000,
         recurringTransactions,
         futureTransactions: [],
@@ -420,7 +426,7 @@ describe('Financial Logic Domain', () => {
 
     it('deve retornar saldo atual se offset for 0', () => {
       const result = calculateAdvancedProjection({
-        currentNetLiquidity: 100000,
+        liquidityHealthGuard: 100000,
         currentAssetsCents: 100000,
         recurringTransactions,
         futureTransactions: [],
@@ -433,7 +439,7 @@ describe('Financial Logic Domain', () => {
 
     it('deve aplicar sweep automático de dívida na Time Machine se houver reserva configurada', () => {
       const result = calculateAdvancedProjection({
-        currentNetLiquidity: 50000,
+        liquidityHealthGuard: 50000,
         currentAssetsCents: 100000,
         recurringTransactions,
         futureTransactions: [],
@@ -449,7 +455,7 @@ describe('Financial Logic Domain', () => {
 
     it('deve propagar impacto de simulação à vista do mês 0 nos meses futuros', () => {
       const result = calculateAdvancedProjection({
-        currentNetLiquidity: 100000,
+        liquidityHealthGuard: 100000,
         currentAssetsCents: 200000,
         recurringTransactions,
         futureTransactions: [],

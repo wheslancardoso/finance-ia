@@ -23,7 +23,8 @@ import {
   type Simulation,
   generateCashFlowStatement,
   type CashFlowStatement,
-  calculateSimulationImpactForMonth
+  calculateSimulationImpactForMonth,
+  deduplicateTransactions
 } from "@/domain/financial/financial-logic";
 
 export type { SimulationDetailedResult, MonthlyOutlook, DebtExitProjection, GoalProjection, CashFlowStatement };
@@ -91,33 +92,42 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       currentMonthTransactions: monthTransactions
     }), [accounts, monthTransactions]);
 
+  const consolidatedTransactions = useMemo(() => 
+    deduplicateTransactions([futureTransactions, allTransactions]),
+    [futureTransactions, allTransactions]
+  );
+
+  const prevMonthOutlook = useMemo(() => {
+    if (monthOffset === 0) return null;
+    const confirmedIncomeThisMonth = (monthTransactions || [])
+      .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
+      .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+    const effectiveScheduledIncome = scheduledIncomeCents || recurringIncomeCents;
+    const effectiveScheduledExpenses = scheduledExpensesCents || recurringExpensesCents;
+
+    return calculateMonthlyOutlook({
+      accounts,
+      confirmedIncomeCents: confirmedIncomeThisMonth,
+      scheduledIncomeCents: effectiveScheduledIncome,
+      scheduledExpensesCents: effectiveScheduledExpenses,
+      recurringIncomeCents,
+      recurringExpensesCents,
+      budgets,
+      netLiquidityCents: netLiquidity,
+      monthOffset: monthOffset - 1,
+      activeSimulations,
+      futureTransactions,
+      allTransactions: consolidatedTransactions,
+      recurringTransactions,
+      goals,
+      survivalReserveCents
+    });
+  }, [monthOffset, accounts, monthTransactions, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, activeSimulations, futureTransactions, consolidatedTransactions, recurringTransactions, goals, survivalReserveCents]);
+
   const cashFlowStatement = useMemo(() => {
     let prevMonthAssets = currentAssets;
-    if (monthOffset > 0) {
-      const confirmedIncomeThisMonth = (monthTransactions || [])
-        .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
-        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
-      const effectiveScheduledIncome = scheduledIncomeCents || recurringIncomeCents;
-      const effectiveScheduledExpenses = scheduledExpensesCents || recurringExpensesCents;
-      const incomeForOutlook = confirmedIncomeThisMonth > 0 ? 0 : effectiveScheduledIncome;
-
-      const prevOutlook = calculateMonthlyOutlook({
-        accounts,
-        scheduledIncomeCents: incomeForOutlook,
-        scheduledExpensesCents: effectiveScheduledExpenses,
-        recurringIncomeCents,
-        recurringExpensesCents,
-        budgets,
-        netLiquidityCents: netLiquidity,
-        monthOffset: monthOffset - 1,
-        activeSimulations,
-        futureTransactions,
-        allTransactions,
-        recurringTransactions,
-        goals,
-        survivalReserveCents
-      });
-      prevMonthAssets = prevOutlook.totalAssets;
+    if (monthOffset > 0 && prevMonthOutlook) {
+      prevMonthAssets = prevMonthOutlook.totalAssets;
     }
 
     return generateCashFlowStatement({
@@ -129,21 +139,19 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       recurringTransactions,
       activeSimulations,
       targetDate: addMonths(new Date(), monthOffset),
-      liveAllTransactions: allTransactions
+      liveAllTransactions: consolidatedTransactions
     });
-  }, [monthOffset, currentAssets, accounts, monthTransactions, futureTransactions, recurringTransactions, activeSimulations, allTransactions, scheduledIncomeCents, recurringIncomeCents, scheduledExpensesCents, recurringExpensesCents, budgets, netLiquidity, goals, survivalReserveCents]);
+  }, [monthOffset, currentAssets, accounts, monthTransactions, futureTransactions, recurringTransactions, activeSimulations, consolidatedTransactions, prevMonthOutlook]);
 
   const monthlyOutlook = useMemo(() => {
-    // Se já há renda confirmada no mês (is_paid: true), não projetar renda agendada para evitar double-count
     const confirmedIncomeThisMonth = (monthTransactions || [])
       .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
       .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
-    const incomeForOutlook = confirmedIncomeThisMonth > 0 ? 0 : scheduledIncomeCents;
-
     const baseOutlook = calculateMonthlyOutlook({
       accounts,
-      scheduledIncomeCents: incomeForOutlook,
+      confirmedIncomeCents: confirmedIncomeThisMonth,
+      scheduledIncomeCents: scheduledIncomeCents,
       scheduledExpensesCents: scheduledExpensesCents,
       recurringIncomeCents,
       recurringExpensesCents,
@@ -152,7 +160,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       monthOffset,
       activeSimulations,
       futureTransactions,
-      allTransactions: monthTransactions,
+      allTransactions: consolidatedTransactions,
       recurringTransactions,
       goals,
       survivalReserveCents
@@ -170,7 +178,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       balanceAtMonthEnd: (monthOffset === 0 ? baseOutlook.balanceAtMonthEnd : baseOutlook.totalAssets) || 0,
       projectedNetLiquidity: projectedNetLiquidity || 0
     };
-  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, futureTransactions, goals, activeSimulations, monthTransactions, survivalReserveCents]);
+  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, futureTransactions, goals, activeSimulations, monthTransactions, consolidatedTransactions, survivalReserveCents, realCycleLiquidity]);
 
   // --- CÁLCULO UNIFICADO DE IMPACTO DE SIMULAÇÕES (Etapa 2) ---
   const { incomeImpact: simIncome, expenseImpact: simExpense } = useMemo(() => 
@@ -222,9 +230,10 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       netLiquidityCents: netLiquidity,
       recurringIncomeCents,
       recurringExpensesCents,
+      monthlyInstallmentsCents: monthlyOutlook.immediateCardDebt,
       budgets
     });
-  }, [netLiquidity, recurringIncomeCents, recurringExpensesCents, budgets]);
+  }, [netLiquidity, recurringIncomeCents, recurringExpensesCents, monthlyOutlook.immediateCardDebt, budgets]);
 
   const goalProjections = useMemo(() => {
     return calculateGoalProjections({
@@ -233,12 +242,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     });
   }, [debtExit, goals]);
   
-  // Saldo consolidado apenas das contas correntes (verificável no app do banco)
-  const checkingBalance = useMemo(() => {
-    return accounts
-      .filter(a => a.type !== "CREDIT_CARD")
-      .reduce((sum, a) => sum + (Number(a.balance_cents) || 0), 0);
-  }, [accounts]);
+
 
   // Total gasto nos cartões de crédito — projetado para meses futuros
   const creditCardUsed = useMemo(() => {
@@ -276,8 +280,13 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       return currentAssets - paidIncomeThisMonth + paidExpenseThisMonth + paidTransferThisMonth;
     }
     
+    const confirmedIncomeThisMonth = (monthTransactions || [])
+      .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
+      .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
     const prevOutlook = calculateMonthlyOutlook({
       accounts,
+      confirmedIncomeCents: confirmedIncomeThisMonth,
       scheduledIncomeCents: scheduledIncomeCents,
       scheduledExpensesCents: scheduledExpensesCents,
       recurringIncomeCents,
@@ -305,7 +314,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     let freeMarginMonthly = Math.max(0, regularIncome - regularExpenses);
 
     // Ajustar margem livre mensal e saldo de contas com base no impacto de simulações ativas
-    let effectiveCheckingBalance = checkingBalance;
+    let effectiveCheckingBalance = currentAssets;
     if (activeSimulations.length > 0) {
       const monthlySimulatedExpense = simulatedNetImpact < 0 ? Math.abs(simulatedNetImpact) : 0;
       freeMarginMonthly = Math.max(0, freeMarginMonthly - monthlySimulatedExpense);
@@ -332,64 +341,28 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       weeksInPeriod = Math.max(1, Math.ceil(daysRemaining / 7));
     }
 
-    let weeklyLimitCents = 0;
-
-    if (weeklyLimitOverrideCents > 0) {
-      // Se houver um limite semanal personalizado definido pelo usuário nas configurações
-      weeklyLimitCents = weeklyLimitOverrideCents;
-    } else {
-      // Oráculo Dinâmico Automático
-      // 1. Fator Metas: Deduzir aportes necessários das metas ativas para protegê-las
-      const activeGoalsContribution = (goals || [])
-        .filter(g => g.status === "active" || g.status === undefined)
-        .reduce((sum, g) => sum + (g.monthly_contribution_cents || 0), 0);
-      
-      const netFreeMarginMonthly = Math.max(0, freeMarginMonthly - activeGoalsContribution);
-
-      // Calcular limite base
-      let baseLimitCents = 0;
-      if (netFreeMarginMonthly > 0) {
-        baseLimitCents = Math.round(netFreeMarginMonthly / weeksInPeriod);
-      } else if (effectiveCheckingBalance > 0) {
-        baseLimitCents = Math.round(effectiveCheckingBalance / weeksInPeriod);
-      }
-
-      // 2. Redutor de Abundância Progressiva: Acima de R$ 300,00, apenas 30% do excedente entra no teto
-      if (baseLimitCents > 30000) {
-        weeklyLimitCents = 30000 + Math.round((baseLimitCents - 30000) * 0.30);
-      } else {
-        weeklyLimitCents = baseLimitCents;
-      }
-
-      // 3. Corte Emergencial de Crise: Se em crise ou sobrevivência, cortar 50%
-      if (isCrisisMode || isSurvivalMode) {
-        weeklyLimitCents = Math.round(weeklyLimitCents * 0.5);
-        // Piso de subsistência rígido na crise
-        if (weeklyLimitCents < 8000) {
-          weeklyLimitCents = 5000; // R$ 50,00
-        }
-      }
-    }
-
-    // Piso absoluto geral de sobrevivência
-    weeklyLimitCents = Math.max(5000, weeklyLimitCents);
-
     const result = calculateWeeklySurvival({
-      monthlySurplusCents: freeMarginMonthly,
+      netFreeMarginMonthly: freeMarginMonthly,
+      effectiveCheckingBalance,
+      isCrisisMode,
+      isSurvivalMode,
       currentMonthTransactions: monthOffset === 0 ? monthTransactions : [],
     });
 
+    if (weeklyLimitOverrideCents > 0) {
+      result.weeklyLimitCents = weeklyLimitOverrideCents;
+    }
+
     return {
       ...result,
-      weeklyLimitCents,
-      remainingCents: weeklyLimitCents - result.weeklySpentCents,
-      status: (weeklyLimitCents > 0 && result.weeklySpentCents / weeklyLimitCents > 0.9) || (weeklyLimitCents - result.weeklySpentCents < 0)
+      remainingCents: result.weeklyLimitCents - result.weeklySpentCents,
+      status: (result.weeklyLimitCents > 0 && result.weeklySpentCents / result.weeklyLimitCents > 0.9) || (result.weeklyLimitCents - result.weeklySpentCents < 0)
         ? "CRITICAL" as const
-        : (weeklyLimitCents > 0 && result.weeklySpentCents / weeklyLimitCents > 0.6)
+        : (result.weeklyLimitCents > 0 && result.weeklySpentCents / result.weeklyLimitCents > 0.6)
           ? "WARNING" as const
           : "NORMAL" as const
     };
-  }, [accounts, checkingBalance, recurringIncomeCents, recurringExpensesCents, monthTransactions, monthOffset, activeSimulations, simulatedNetImpact, monthlyOutlook.totalAssets, weeklyLimitOverrideCents, goals, isCrisisMode, isSurvivalMode]);
+  }, [accounts, currentAssets, recurringIncomeCents, recurringExpensesCents, monthTransactions, monthOffset, activeSimulations, simulatedNetImpact, monthlyOutlook.totalAssets, weeklyLimitOverrideCents, goals, isCrisisMode, isSurvivalMode]);
 
   const simulateDetailedImpactFn = useCallback((
     amountCents: number, 
@@ -504,7 +477,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     totalConsolidatedDebtCents: activeDebt,
     accumulatedBalanceCents: activeAssets,
     startingBalanceCents: startingBalanceCents,
-    checkingBalanceCents: checkingBalance,
+    checkingBalanceCents: currentAssets,
     creditCardUsedCents: creditCardUsed,
     monthlyOutlook: {
       ...monthlyOutlook,
@@ -525,5 +498,5 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     solveFinancialDilemma,
     optimizeSweepIA,
     consultJarvisIA
-  }), [activeNetLiquidity, activeDebt, activeAssets, checkingBalance, creditCardUsed, monthlyOutlook, cashFlowStatement, healthScore, recurringIncomeCents, recurringExpensesCents, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn, analyzeSimulationIA, solveFinancialDilemma, optimizeSweepIA, consultJarvisIA]);
+  }), [activeNetLiquidity, activeDebt, activeAssets, currentAssets, creditCardUsed, monthlyOutlook, cashFlowStatement, healthScore, recurringIncomeCents, recurringExpensesCents, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn, analyzeSimulationIA, solveFinancialDilemma, optimizeSweepIA, consultJarvisIA]);
 }

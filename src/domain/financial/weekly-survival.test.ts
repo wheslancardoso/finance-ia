@@ -5,7 +5,10 @@ import { Transaction } from '@/lib/db';
 describe('calculateWeeklySurvival', () => {
   it('deve calcular o limite semanal baseado na sobra mensal ou ativos', () => {
     const result = calculateWeeklySurvival({
-      monthlySurplusCents: 100000, // Sobra 1.000
+      netFreeMarginMonthly: 100000, // Sobra 1.000
+      effectiveCheckingBalance: 0,
+      isCrisisMode: false,
+      isSurvivalMode: false,
       currentMonthTransactions: []
     });
 
@@ -26,7 +29,10 @@ describe('calculateWeeklySurvival', () => {
     ] as unknown as Transaction[];
 
     const result = calculateWeeklySurvival({
-      monthlySurplusCents: 100000, // Sobra 1000
+      netFreeMarginMonthly: 100000, // Sobra 1000
+      effectiveCheckingBalance: 0,
+      isCrisisMode: false,
+      isSurvivalMode: false,
       currentMonthTransactions: transactions
     });
 
@@ -40,7 +46,10 @@ describe('calculateWeeklySurvival', () => {
     ] as unknown as Transaction[];
 
     const result = calculateWeeklySurvival({
-      monthlySurplusCents: 100000,
+      netFreeMarginMonthly: 100000,
+      effectiveCheckingBalance: 0,
+      isCrisisMode: false,
+      isSurvivalMode: false,
       currentMonthTransactions: transactions
     });
 
@@ -55,7 +64,10 @@ describe('calculateWeeklySurvival', () => {
     ] as unknown as Transaction[];
 
     const result = calculateWeeklySurvival({
-      monthlySurplusCents: 10000, // Sobra R$ 100 por mês. Teto = R$ 50 (mínimo). 16/50 = 32% (NORMAL).
+      netFreeMarginMonthly: 10000, // Sobra R$ 100 por mês. Teto = R$ 50 (mínimo). 16/50 = 32% (NORMAL).
+      effectiveCheckingBalance: 0,
+      isCrisisMode: false,
+      isSurvivalMode: false,
       // Se gastou 3500 (R$ 35), 35/50 = 70% (WARNING).
       currentMonthTransactions: [{ id: '1', date: now.toISOString(), amount_cents: 3500, transaction_type: 'EXPENSE' } as unknown as Transaction]
     });

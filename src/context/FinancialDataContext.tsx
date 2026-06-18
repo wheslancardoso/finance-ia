@@ -13,7 +13,10 @@ import {
   calculateScheduledExpenses,
   calculateRecurringIncome,
   calculateRecurringExpenses,
-  calculatePrimaryIncome
+  calculatePrimaryIncome,
+  deduplicateTransactions,
+  calculateIncomeMix,
+  calculateCheckingBalanceHistory
 } from "@/domain/financial/financial-logic";
 
 export interface CreditCardInvoice {
@@ -139,7 +142,6 @@ interface FinancialDataContextType {
   deleteAccount: (id: string) => Promise<void>;
   upsertGoal: (data: Partial<Goal> & { status?: string }) => Promise<any>;
   updateGoalBalance: (id: string, amount: number) => Promise<void>;
-  simulatePurchaseImpact: (amount: number) => Promise<SimulationResult>;
   getGoalRecommendations: () => Promise<GoalRecommendationsResponse>;
   getIncomeMix: () => IncomeMixItem[];
   getNetWorthHistory: () => NetWorthHistoryItem[];
@@ -290,7 +292,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
       ...(data.month_transactions || []),
       ...(data.future_transactions || [])
     ];
-    const uniqueTx = Array.from(new Map(allTx.map(t => [t.id, t])).values());
+    const uniqueTx = deduplicateTransactions([allTx]);
     setAllTransactions(uniqueTx);
     
     if (data.user_profile) {
@@ -388,7 +390,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
             ...(state.month_transactions || []),
             ...(state.future_transactions || [])
           ];
-          const uniqueTx = Array.from(new Map(allTx.map(t => [t.id, t])).values());
+          const uniqueTx = deduplicateTransactions([allTx]);
           await db.transactions.bulkPut(uniqueTx.map(t => ({ ...t, user_id: userId! })));
 
           // Re-inserir transações pendentes de sincronização que foram salvas offline
@@ -421,7 +423,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
           ...(localState.month_transactions || []),
           ...(localState.future_transactions || [])
         ];
-        const uniqueTx = Array.from(new Map(allTx.map(t => [t.id, t])).values());
+        const uniqueTx = deduplicateTransactions([allTx]);
         setAllTransactions(uniqueTx);
         
         if (localState.month_stats) {
@@ -442,25 +444,6 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     }
   }, [userId]);
 
-  const simulatePurchaseImpact = async (amountCents: number): Promise<SimulationResult> => {
-    if (!userId) return {
-      current_surplus_cents: 0,
-      simulated_surplus_cents: 0,
-      status: "DANGER",
-      message: "Usuário não identificado.",
-      impact_percentage: 0
-    };
-    const { data, error } = await financialService.simulatePurchaseImpact(userId, amountCents);
-    if (error || !data) return {
-      current_surplus_cents: 0,
-      simulated_surplus_cents: 0,
-      status: "DANGER",
-      message: "Erro ao conectar com o simulador.",
-      impact_percentage: 0
-    };
-    return data as SimulationResult;
-  };
-
   const getGoalRecommendations = async (): Promise<GoalRecommendationsResponse> => {
     if (!userId) return { surplus_cents: 0, real_surplus_cents: 0, recommendations: [] };
     const { data, error } = await financialService.getGoalRecommendations(userId);
@@ -469,61 +452,15 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   };
 
   const getIncomeMix = useCallback((): IncomeMixItem[] => {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const incomeTransactions = monthTransactions.filter(tx => 
-      tx.transaction_type === "INCOME" && 
-      new Date(tx.date) >= thirtyDaysAgo
-    );
-
-    const mixMap: Record<string, number> = {};
-    
-    incomeTransactions.forEach((tx: Transaction) => {
-      const catName = tx.category?.name || "Outros";
-      mixMap[catName] = (mixMap[catName] || 0) + (tx.amount_cents / 100);
-    });
-
-    return Object.entries(mixMap).map(([name, value]) => ({
-      name,
-      value: Math.round(value * 100) / 100
-    }));
-  }, [monthTransactions]);
+    return calculateIncomeMix(monthTransactions, budgets);
+  }, [monthTransactions, budgets]);
 
   const getNetWorthHistory = useCallback((): NetWorthHistoryItem[] => {
-    const history: NetWorthHistoryItem[] = [];
-    const now = new Date();
-    
-    let currentTotalCents = accounts.reduce((sum: number, acc: Account) => sum + (acc.balance_cents || 0), 0);
-    
-    for (let i = 0; i < 6; i++) {
-      const targetMonth = addMonths(now, -i);
-      const monthStr = format(targetMonth, "MMM", { locale: ptBR });
-      
-      history.unshift({
-        month: monthStr,
-        amount: Math.round(currentTotalCents / 100)
-      });
-
-      const monthStart = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 1);
-      const monthEnd = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0, 23, 59, 59);
-
-      const mTransactions = monthTransactions.filter((tx: any) => {
-        const d = new Date(tx.date);
-        return d >= monthStart && d <= monthEnd;
-      });
-
-      const netChangeCents = mTransactions.reduce((net: number, tx: any) => {
-        if (tx.transaction_type === "INCOME") return net + tx.amount_cents;
-        if (tx.transaction_type === "EXPENSE") return net - tx.amount_cents;
-        return net;
-      }, 0);
-
-      currentTotalCents -= netChangeCents;
-    }
-
-    return history;
-  }, [accounts, monthTransactions]);
+    return calculateCheckingBalanceHistory(accounts, allTransactions).map(item => ({
+      month: item.month,
+      amount: item.netWorth
+    }));
+  }, [accounts, allTransactions]);
 
   const createTransfer = async (fromId: string, toId: string, amountCents: number) => {
     if (!userId) return;
@@ -796,7 +733,6 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     totalConsolidatedDebtCents,
     netLiquidityCents,
     createInstallmentSeries,
-    simulatePurchaseImpact,
     getGoalRecommendations,
     toggleTransactionPaid,
     userId,
@@ -839,7 +775,6 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     totalConsolidatedDebtCents,
     netLiquidityCents,
     createInstallmentSeries,
-    simulatePurchaseImpact,
     getGoalRecommendations,
     toggleTransactionPaid,
     userId,

@@ -1,4 +1,13 @@
-import { Account, Budget, Goal, RecurringTransaction, Transaction } from "@/lib/db";
+import { Account, Transaction, RecurringTransaction, Budget, Goal } from "@/lib/db";
+
+/**
+ * Força interpretação de data no formato YYYY-MM-DD como data local, evitando bugs de fuso horário UTC.
+ */
+export function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 import { addMonths, startOfMonth, endOfMonth, isSameMonth, isAfter, isBefore, format } from "date-fns";
 
 export interface Simulation {
@@ -23,6 +32,7 @@ export interface MonthlyOutlook {
   isRecovering: boolean;
   isCritical: boolean;
   isCrisisMode: boolean;
+  isSurvivalMode: boolean;
   totalDebt: number;       // Dívida total remanescente no mês projetado
   totalAssets: number;     // Saldo bruto projetado no mês projetado
   projectedNetLiquidity?: number; // Patrimônio Líquido na data projetada
@@ -170,6 +180,15 @@ export function calculatePrimaryIncome(recurring: RecurringTransaction[], date: 
 }
 
 /**
+ * Deduplica transações com base no ID da transação.
+ * Combina múltiplos arrays de transações em um único array sem duplicatas.
+ */
+export function deduplicateTransactions(txArrays: Transaction[][]): Transaction[] {
+  const consolidated = txArrays.flat().filter(Boolean);
+  return Array.from(new Map(consolidated.map(t => [t.id, t])).values());
+}
+
+/**
  * Calcula a Dívida de Parcelamentos para o mês específico (Calculado a partir de transactions)
  * Considera transações EXPENSE não pagas que caem no mês alvo.
  */
@@ -180,7 +199,7 @@ export function calculateInstallmentDebtForMonth(transactions: Transaction[], ta
   return (transactions || [])
     .filter((t) => {
       if (t.transaction_type !== "EXPENSE" || t.is_paid) return false;
-      const d = new Date(t.date);
+      const d = parseLocalDate(t.date);
       return (
         d.getMonth() === targetMonth &&
         d.getFullYear() === targetYear
@@ -195,7 +214,7 @@ export function calculateInstallmentDebtForMonth(transactions: Transaction[], ta
  * Para outras contas, retorna a data original da transação.
  */
 export function getTransactionImpactDate(t: Transaction, accounts: Account[]): Date {
-  const tDate = new Date(t.date);
+  const tDate = parseLocalDate(t.date);
   const account = (accounts || []).find(a => a.id === t.account_id);
   if (!account || account.type !== "CREDIT_CARD") {
     return tDate;
@@ -290,7 +309,7 @@ export function calculateRealCycleLiquidity(params: {
     .filter(t =>
       t.transaction_type === "EXPENSE" &&
       !t.is_paid &&
-      isSameMonth(new Date(t.date), new Date())
+      isSameMonth(getTransactionImpactDate(t, accounts), new Date())
     )
     .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
@@ -343,31 +362,65 @@ export interface WeeklySurvival {
   status: "NORMAL" | "WARNING" | "CRITICAL";
 }
 
+export const MIN_WEEKLY_LIMIT_CENTS = 5000;
+
 /**
- * Calcula o Teto de Sobrevivência Semanal (Sobra Mensal / 4)
- * e o quanto já foi consumido na semana atual.
+ * Calcula o Teto de Sobrevivência Semanal (Sobra Mensal / Semanas do Mês)
+ * e o quanto já foi consumido na semana atual, aplicando regras de abundância e corte emergencial.
  */
 export function calculateWeeklySurvival(params: {
-  monthlySurplusCents: number;
-  currentMonthTransactions: unknown[];
+  netFreeMarginMonthly: number;
+  effectiveCheckingBalance: number;
+  isCrisisMode: boolean;
+  isSurvivalMode: boolean;
+  currentMonthTransactions: Transaction[];
 }): WeeklySurvival {
-  const { monthlySurplusCents, currentMonthTransactions: rawTransactions } = params;
-  const currentMonthTransactions = rawTransactions as any[];
+  const { netFreeMarginMonthly, effectiveCheckingBalance, isCrisisMode, isSurvivalMode, currentMonthTransactions } = params;
 
-  // Limite semanal é a sobra mensal dividida por 4 (janelas de 7 dias)
-  const weeklyLimitCents = Math.max(0, Math.round(monthlySurplusCents / 4));
+  const now = new Date();
+  
+  // 1. Base Limit (Dinâmico conforme a data)
+  const currentDay = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysRemainingInMonth = Math.max(1, daysInMonth - currentDay + 1);
+  const weeksInPeriod = Math.max(1, Math.ceil(daysRemainingInMonth / 7));
+
+  let baseLimitCents = 0;
+  if (netFreeMarginMonthly > 0) {
+    baseLimitCents = Math.round(netFreeMarginMonthly / weeksInPeriod);
+  } else if (effectiveCheckingBalance > 0) {
+    baseLimitCents = Math.round(effectiveCheckingBalance / weeksInPeriod);
+  }
+
+  let weeklyLimitCents = baseLimitCents;
+
+  // 2. Redutor de Abundância Progressiva: Acima de R$ 300,00, apenas 30% do excedente entra no teto
+  if (baseLimitCents > 30000) {
+    weeklyLimitCents = 30000 + Math.round((baseLimitCents - 30000) * 0.30);
+  }
+
+  // 3. Corte Emergencial de Crise: Se em crise ou sobrevivência, cortar 50%
+  if (isCrisisMode || isSurvivalMode) {
+    weeklyLimitCents = Math.round(weeklyLimitCents * 0.5);
+    // Piso de subsistência rígido na crise
+    if (weeklyLimitCents < 8000) {
+      weeklyLimitCents = MIN_WEEKLY_LIMIT_CENTS;
+    }
+  }
+
+  // Piso absoluto geral de sobrevivência
+  weeklyLimitCents = Math.max(MIN_WEEKLY_LIMIT_CENTS, weeklyLimitCents);
 
   // Identificar transações variáveis da semana atual (últimos 7 dias)
-  const now = new Date();
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(now.getDate() - 7);
 
   const weeklySpentCents = currentMonthTransactions
     .filter(t => {
-      const tDate = new Date(t.date);
+      const tDate = parseLocalDate(t.date);
       // Apenas despesas que não são recorrentes (gastos variáveis de sobrevivência)
       return t.transaction_type === "EXPENSE" &&
-        !t.is_recurring &&
+        !t.source_metadata?.recurring_id &&
         tDate >= sevenDaysAgo &&
         tDate <= now;
     })
@@ -395,6 +448,7 @@ export function calculateWeeklySurvival(params: {
 
 export function calculateMonthlyOutlook(params: {
   accounts: Account[];
+  confirmedIncomeCents: number;
   scheduledIncomeCents: number;
   scheduledExpensesCents: number;
   recurringIncomeCents: number;
@@ -411,6 +465,7 @@ export function calculateMonthlyOutlook(params: {
 }): MonthlyOutlook {
   const {
     accounts,
+    confirmedIncomeCents,
     scheduledIncomeCents,
     scheduledExpensesCents,
     recurringIncomeCents,
@@ -472,11 +527,7 @@ export function calculateMonthlyOutlook(params: {
   // Parcelas de Cartão para o mês específico (Calculado a partir de futureTransactions + allTransactions)
   // Consolidamos todas as transações para garantir que parcelas com data de compra no mês atual 
   // mas cujo impacto de fatura caia em meses futuros (pós-fechamento) sejam computadas corretamente!
-  const consolidatedTx = [
-    ...(futureTransactions || []),
-    ...(allTransactions || [])
-  ];
-  const uniqueTx = Array.from(new Map(consolidatedTx.map(t => [t.id, t])).values());
+  const uniqueTx = deduplicateTransactions([futureTransactions, allTransactions]);
 
   const installmentDebt = uniqueTx
     .filter(t => {
@@ -538,15 +589,12 @@ export function calculateMonthlyOutlook(params: {
   const effectiveCardDebt = monthOffset === 0 ? Math.max(currentMonthDebt, installmentDebt) : installmentDebt;
 
   // LÓGICA DE EVITAR DUPLICIDADE (Mês Atual)
-  const hasIncomeTransactionInMonth = monthOffset === 0 && allTransactions?.some((t: any) =>
-    t.transaction_type === "INCOME" && isSameMonth(new Date(t.date), new Date())
-  );
-
   let adjustedMonthlyIncome = monthlyIncome + simulationIncomeImpact;
-  if (monthOffset === 0 && hasIncomeTransactionInMonth) {
-    adjustedMonthlyIncome = allTransactions
-      .filter((t: any) => t.transaction_type === "INCOME" && !t.is_paid && isSameMonth(new Date(t.date), new Date()))
-      .reduce((sum: number, t: any) => sum + (t.amount_cents || 0), 0) + simulationIncomeImpact;
+  if (monthOffset === 0 && confirmedIncomeCents > 0) {
+    const pendingIncomeCents = allTransactions
+      .filter((t: any) => t.transaction_type === "INCOME" && !t.is_paid && isSameMonth(parseLocalDate(t.date), new Date()))
+      .reduce((sum: number, t: any) => sum + (t.amount_cents || 0), 0);
+    adjustedMonthlyIncome = pendingIncomeCents + simulationIncomeImpact;
   }
 
   const monthlyExpenses = baseMonthlyExpenses; // Restaurado para corrigir o lint
@@ -561,7 +609,7 @@ export function calculateMonthlyOutlook(params: {
       .filter((t: any) => 
         t.transaction_type === "EXPENSE" && 
         !t.is_paid && 
-        isSameMonth(new Date(t.date), new Date()) &&
+        isSameMonth(parseLocalDate(t.date), new Date()) &&
         !creditCardAccountIds.has(t.account_id)
       )
       .reduce((sum: number, t: any) => sum + (t.amount_cents || 0), 0)
@@ -603,142 +651,36 @@ export function calculateMonthlyOutlook(params: {
   };
 
   let projectedTotalDebt = 0;
-  const initialDebt = calculateTotalConsolidatedDebt(accounts);
+  let projectedAssets = 0;
 
   if (monthOffset === 0) {
-    projectedTotalDebt = initialDebt;
+    projectedTotalDebt = calculateTotalConsolidatedDebt(accounts);
+    projectedAssets = calculateAccumulatedBalance(accounts) + adjustedMonthlyIncome - realOutflow - goalContributions;
   } else {
-    let currentDebt = initialDebt;
-    let currentBalance = calculateAccumulatedBalance(accounts);
+    // 2. CÁLCULO DO SALDO BRUTO E DÍVIDA PROJETADA (Total Assets & Debt)
+    // Usa o motor de projeção com o parâmetro currentAssetsCents para eliminar double-counting de cartões.
+    const startingAssets = calculateMonthlyOutlook({
+      ...params,
+      monthOffset: 0
+    }).totalAssets;
+
+    const advancedProjection = calculateAdvancedProjection({
+      liquidityHealthGuard: netLiquidityCents,
+      currentAssetsCents: startingAssets,
+      recurringTransactions,
+      futureTransactions,
+      goals,
+      budgets,
+      monthOffset,
+      activeSimulations,
+      allTransactions,
+      accounts,
+      survivalReserveCents
+    });
     
-    // Mês 0 impacto de simulações
-    currentBalance += simulationIncomeImpact - simulationExpenseImpact;
-    
-    for (let i = 1; i <= monthOffset; i++) {
-      const targetMonthKey = format(addMonths(now, i), 'yyyy-MM');
-      
-      const income = recurringTransactions
-        .filter(r => r.transaction_type === "INCOME" && r.status === "active" && !isRecurringExpired(r.description, targetMonthKey))
-        .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
-        
-      const expenses = recurringTransactions
-        .filter(r => r.transaction_type === "EXPENSE" && r.status === "active" && !isRecurringExpired(r.description, targetMonthKey))
-        .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
-        
-      const consolidatedTx = [...(futureTransactions || []), ...(allTransactions || [])];
-      const uniqueTxForProj = Array.from(new Map(consolidatedTx.map(t => [t.id, t])).values());
-      const installments = uniqueTxForProj
-        .filter(t => t.transaction_type === "EXPENSE" && isSameMonth(getTransactionImpactDate(t, accounts), addMonths(now, i)))
-        .reduce((sum, t) => sum + (t.amount_cents || 0), 0);
-        
-      const budgetReserve = budgets.reduce((sum, b) => sum + (b.amount_cents || 0), 0);
-      let goalContributions = 0;
-        
-      const simulationExpenses = activeSimulations.reduce((sum, s) => {
-        const startOffset = s.startMonthOffset ?? 0;
-        // Caso especial: Simulação de Empréstimo (parcelas começam no mês seguinte)
-        if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-          if (i >= startOffset + 1 && i < startOffset + 1 + s.installments) {
-            if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
-              return sum + s.customInstallmentCents;
-            }
-            const rate = (s.interestRate && s.interestRate > 0) ? s.interestRate : 9.53;
-            return sum + calculateLoanInstallment(s.amount_cents, rate, s.installments);
-          }
-          return sum;
-        }
-        if (s.type === "INCOME") return sum;
-        if (i >= startOffset && i < startOffset + s.installments) {
-          if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
-            return sum + s.customInstallmentCents;
-          }
-          return sum + (s.amount_cents / (s.installments || 1));
-        }
-        return sum;
-      }, 0);
-      const simulationIncomes = activeSimulations.reduce((sum, s) => {
-        const startOffset = s.startMonthOffset ?? 0;
-        // Caso especial: Simulação de Empréstimo
-        if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-          if (i === startOffset) {
-            return sum + s.amount_cents; // Injeção de capital no mês de início
-          }
-          return sum;
-        }
-        if (s.type !== "INCOME") return sum;
-        if (i >= startOffset && i < startOffset + s.installments) {
-          if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
-            return sum + s.customInstallmentCents;
-          }
-          return sum + (s.amount_cents / (s.installments || 1));
-        }
-        return sum;
-      }, 0);
-      
-      const availableSurplus = currentBalance + income + simulationIncomes - expenses - installments - budgetReserve - simulationExpenses;
-      if (netLiquidityCents >= 0 && currentBalance >= 0 && availableSurplus >= 0) {
-        const activeGoals = goals.filter(g => g.status === "active" || g.status === "ACTIVE");
-        const sortedGoals = [...activeGoals].sort((a, b) => (a.priority || 999) - (b.priority || 999));
-        let remainingSurplus = availableSurplus;
-        for (const g of sortedGoals) {
-          const contribution = Number(g.monthly_contribution_cents) || 0;
-          if (remainingSurplus >= contribution) {
-            goalContributions += contribution;
-            remainingSurplus -= contribution;
-          } else {
-            break;
-          }
-        }
-      }
-      
-      const monthlyResult = income + simulationIncomes - expenses - installments - budgetReserve - goalContributions - simulationExpenses;
-      currentBalance += monthlyResult;
-      
-      const paidDebtThisMonth = i === 1 ? (installments + currentMonthDebt) : installments;
-      currentDebt = Math.max(0, currentDebt - paidDebtThisMonth);
-      
-      if (survivalReserveCents > 0 && currentBalance > survivalReserveCents) {
-        const maxSweep = currentBalance - survivalReserveCents;
-        const sweepApplied = Math.min(maxSweep, currentDebt);
-        currentBalance -= sweepApplied;
-        currentDebt -= sweepApplied;
-      }
-    }
-    projectedTotalDebt = currentDebt;
+    projectedAssets = advancedProjection.projectedBalance;
+    projectedTotalDebt = advancedProjection.projectedTotalDebt;
   }
-
-  // Sincronia perfeita com o card de cartões + compromissos agendados (saídas previstas do mês projetado)
-  if (monthOffset > 0) {
-    const monthlyCommitments = installmentDebt;
-    projectedTotalDebt = Math.max(projectedTotalDebt, monthlyCommitments);
-  }
-
-  // 2. CÁLCULO DO SALDO BRUTO PROJETADO (Total Assets - Contas Correntes/Investimento)
-  // Usa o motor de projeção com o parâmetro currentAssetsCents para eliminar double-counting de cartões.
-  const juneEndingAssets = monthOffset === 0
-    ? 0
-    : calculateMonthlyOutlook({
-        ...params,
-        monthOffset: 0
-      }).totalAssets;
-
-  const projectedAssets = monthOffset === 0
-    ? calculateAccumulatedBalance(accounts) + adjustedMonthlyIncome - realOutflow - goalContributions
-    : calculateAdvancedProjection({
-        currentNetLiquidity: netLiquidityCents,
-        currentAssetsCents: juneEndingAssets,
-        recurringTransactions,
-        futureTransactions,
-        goals,
-        budgets,
-        monthOffset,
-        activeSimulations,
-        scheduledIncomeCents: 0,
-        scheduledExpensesCents: 0,
-        allTransactions,
-        accounts,
-        survivalReserveCents
-      });
 
   // 3. DETERMINAÇÃO DA LIQUIDEZ FINAL PROJETADA (Patrimônio Líquido)
   // Nos meses futuros, é o saldo bruto projetado das contas (ativos) menos a dívida de cartão remanescente (passivo).
@@ -747,6 +689,7 @@ export function calculateMonthlyOutlook(params: {
     : (projectedAssets - projectedTotalDebt);
 
   const isCritical = finalLiquidity < 0;
+  const isSurvivalMode = isCritical || netLiquidityCents < 0;
   const isCrisisMode = isCritical && netLiquidityCents < 0;
 
   // Para o card de compromissos: Mostrar o planejado consolidado
@@ -767,6 +710,7 @@ export function calculateMonthlyOutlook(params: {
     isRecovering: finalLiquidity >= 0 && netLiquidityCents < 0,
     isCritical,
     isCrisisMode,
+    isSurvivalMode,
     totalDebt: projectedTotalDebt,
     totalAssets: projectedAssets,
     projectedNetLiquidity: Number(finalLiquidity)
@@ -778,22 +722,20 @@ export function calculateMonthlyOutlook(params: {
  * Calcula o saldo futuro simulando a passagem dos meses.
  */
 export function calculateAdvancedProjection(params: {
-  currentNetLiquidity: number;       // Liquidez líquida REAL de hoje (saldo - dívidas)
-  currentAssetsCents?: number;       // Opcional: Ativos brutos de hoje (sem deduzir dívidas)
+  liquidityHealthGuard: number;       // Liquidez líquida REAL de hoje usada como guarda para aportes em metas
+  currentAssetsCents: number;         // Ativos brutos de hoje (sem deduzir dívidas)
   recurringTransactions: RecurringTransaction[];
   futureTransactions: Transaction[];  // Parcelas futuras de cartão
   goals: Goal[];
   budgets: Budget[];
   monthOffset: number;                // 0 = mês atual, 1 = próximo, etc.
   activeSimulations?: Simulation[];
-  scheduledIncomeCents?: number;      // Renda que ainda cai no mês atual
-  scheduledExpensesCents?: number;    // Despesas agendadas para o mês atual
   allTransactions?: Transaction[];
   accounts?: Account[];
   survivalReserveCents?: number;      // Reserva pessoal para o mês
-}): number {
+}): { projectedBalance: number; projectedTotalDebt: number } {
   const {
-    currentNetLiquidity,
+    liquidityHealthGuard,
     currentAssetsCents,
     recurringTransactions,
     futureTransactions,
@@ -801,15 +743,19 @@ export function calculateAdvancedProjection(params: {
     budgets,
     monthOffset,
     activeSimulations = [],
-    scheduledIncomeCents = 0,
-    scheduledExpensesCents = 0,
     allTransactions = [],
     accounts = [],
     survivalReserveCents = 0
   } = params;
 
-  // Se o offset é 0, retornamos a liquidez real atual (estado presente)
-  if (monthOffset === 0) return currentNetLiquidity;
+  // Se o offset é 0, retornamos a liquidez real atual (estado presente) - não aplicável ao projectedTotalDebt aqui, 
+  // mas o chamador não usa essa função para o mês 0 na nova arquitetura. Se chamar, retornamos o atual.
+  if (monthOffset === 0) {
+    return {
+      projectedBalance: currentAssetsCents,
+      projectedTotalDebt: calculateTotalConsolidatedDebt(accounts)
+    };
+  }
 
   // Adiciona o impacto de simulações do mês atual (mês 0) no saldo de partida da projeção acumulada
   const simulationExpensesMonth0 = activeSimulations.reduce((sum, s) => {
@@ -834,10 +780,10 @@ export function calculateAdvancedProjection(params: {
     return sum + (s.amount_cents / (s.installments || 1));
   }, 0);
 
-  const startBalance = currentAssetsCents !== undefined ? currentAssetsCents : currentNetLiquidity;
+  const startBalance = currentAssetsCents;
   // O saldo inicial de partida parte do saldo atual bruto de ativos (sem deduzir compromissos passados quitados).
-  const startIncomeAdjustment = (params.scheduledIncomeCents !== undefined ? params.scheduledIncomeCents : simulationIncomesMonth0);
-  const startExpenseAdjustment = (params.scheduledExpensesCents !== undefined ? params.scheduledExpensesCents : simulationExpensesMonth0);
+  const startIncomeAdjustment = simulationIncomesMonth0;
+  const startExpenseAdjustment = simulationExpensesMonth0;
   let projectedBalance = startBalance + startIncomeAdjustment - startExpenseAdjustment;
   let projectedTotalDebt = calculateTotalConsolidatedDebt(accounts);
   const now = new Date();
@@ -867,11 +813,7 @@ export function calculateAdvancedProjection(params: {
       .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
 
     // 2. Parcelamentos do Cartão (Consolida futureTransactions + allTransactions para enxergar compras do mês de partida pós-fechamento)
-    const consolidatedTx = [
-      ...(futureTransactions || []),
-      ...(allTransactions || [])
-    ];
-    const uniqueTxForProjection = Array.from(new Map(consolidatedTx.map(t => [t.id, t])).values());
+    const uniqueTxForProjection = deduplicateTransactions([futureTransactions, allTransactions]);
 
     const installments = uniqueTxForProjection
       .filter(t => t.transaction_type === "EXPENSE" && isSameMonth(getTransactionImpactDate(t, accounts), targetDate))
@@ -930,7 +872,7 @@ export function calculateAdvancedProjection(params: {
     }, 0);
 
     const availableSurplus = projectedBalance + income + simulationIncomes - expenses - installments - budgetReserve - simulationExpenses;
-    if (currentNetLiquidity >= 0 && projectedBalance >= 0 && availableSurplus >= 0) {
+    if (liquidityHealthGuard >= 0 && projectedBalance >= 0 && availableSurplus >= 0) {
       const activeGoals = goals.filter(g => g.status === "active" || g.status === "ACTIVE");
       const sortedGoals = [...activeGoals].sort((a, b) => (a.priority || 999) - (b.priority || 999));
       let remainingSurplus = availableSurplus;
@@ -963,7 +905,7 @@ export function calculateAdvancedProjection(params: {
     }
   }
 
-  return projectedBalance;
+  return { projectedBalance, projectedTotalDebt };
 }
 
 /**
@@ -973,12 +915,13 @@ export function calculateDebtExitProjection(params: {
   netLiquidityCents: number;
   recurringIncomeCents: number;
   recurringExpensesCents: number;
+  monthlyInstallmentsCents: number;
   budgets: Budget[];
 }): DebtExitProjection {
-  const { netLiquidityCents, recurringIncomeCents, recurringExpensesCents, budgets } = params;
+  const { netLiquidityCents, recurringIncomeCents, recurringExpensesCents, monthlyInstallmentsCents, budgets } = params;
 
   const budgetTotal = budgets.reduce((sum, b) => sum + (b.amount_cents || 0), 0);
-  const monthlySurplus = (recurringIncomeCents || 0) - (recurringExpensesCents || 0) - budgetTotal;
+  const monthlySurplus = (recurringIncomeCents || 0) - (recurringExpensesCents || 0) - budgetTotal - (monthlyInstallmentsCents || 0);
 
   if (netLiquidityCents >= 0) {
     return { monthsToExit: 0, exitDate: new Date(), monthlySurplus };
@@ -995,14 +938,17 @@ export function calculateDebtExitProjection(params: {
   return { monthsToExit, exitDate, monthlySurplus };
 }
 
+export const DEFAULT_GOAL_ALLOCATION_RATIO = 0.5;
+
 /**
  * Projeta o cronograma de foco para cada meta.
  */
 export function calculateGoalProjections(params: {
   debtExit: DebtExitProjection;
   goals: Goal[];
+  goalAllocationRatio?: number;
 }): GoalProjection[] {
-  const { debtExit, goals } = params;
+  const { debtExit, goals, goalAllocationRatio = DEFAULT_GOAL_ALLOCATION_RATIO } = params;
   let currentFocusDate = debtExit.exitDate ? new Date(debtExit.exitDate) : new Date();
 
   // Ordenar por prioridade (assumindo que já vêm ordenadas ou usando critério padrão)
@@ -1010,7 +956,7 @@ export function calculateGoalProjections(params: {
 
   return sortedGoals.map((goal) => {
     const remainingCents = (goal.target_amount_cents || 0) - (goal.current_amount_cents || 0);
-    const surplusForGoals = (debtExit.monthlySurplus || 0) * 0.5;
+    const surplusForGoals = (debtExit.monthlySurplus || 0) * goalAllocationRatio;
 
     const monthsToComplete = (surplusForGoals > 0 && remainingCents > 0)
       ? Math.ceil(remainingCents / surplusForGoals)
@@ -1028,9 +974,9 @@ export function calculateGoalProjections(params: {
     const today = new Date();
     const monthsToStart = Math.max(0, (focusDate.getFullYear() - today.getFullYear()) * 12 + (focusDate.getMonth() - today.getMonth()));
 
-    // Sugerimos alocar 50% da sobra se for o foco atual, senão 0
+    // Sugerimos alocar a % da sobra se for o foco atual, senão 0
     const recommendedAmountCents = (monthsToStart === 0 && (debtExit.monthsToExit || 0) === 0)
-      ? Math.round((debtExit.monthlySurplus || 0) * 0.5)
+      ? Math.round((debtExit.monthlySurplus || 0) * goalAllocationRatio)
       : 0;
 
     const projection = {
@@ -1286,7 +1232,7 @@ export function calculateIncomeMix(transactions: Transaction[], budgets: Budget[
 
   const incomeTransactions = (transactions || []).filter(tx => 
     tx.transaction_type === "INCOME" && 
-    new Date(tx.date) >= thirtyDaysAgo
+    parseLocalDate(tx.date) >= thirtyDaysAgo
   );
 
   const mixMap: Record<string, number> = {};
@@ -1303,9 +1249,10 @@ export function calculateIncomeMix(transactions: Transaction[], budgets: Budget[
 }
 
 /**
- * Calcula a evolução do Patrimônio Líquido nos últimos 6 meses.
+ * Calcula o histórico de patrimônio em conta corrente revertendo transações passadas a partir do saldo atual.
+ * Nota: Retorna patrimônio em conta corrente (não patrimônio líquido real).
  */
-export function calculateNetWorthHistory(accounts: Account[], transactions: Transaction[]): any[] {
+export function calculateCheckingBalanceHistory(accounts: Account[], transactions: Transaction[]): { month: string; netWorth: number }[] {
   const history: any[] = [];
   const now = new Date();
   
@@ -1324,7 +1271,7 @@ export function calculateNetWorthHistory(accounts: Account[], transactions: Tran
     const monthEnd = endOfMonth(targetMonth);
 
     const mTransactions = (transactions || []).filter(tx => {
-      const d = new Date(tx.date);
+      const d = parseLocalDate(tx.date);
       return d >= monthStart && d <= monthEnd;
     });
 
@@ -1546,8 +1493,7 @@ export function generateCashFlowStatement(params: {
       const hasPaidBill = allItems.some(i => i.type === "EXPENSE" && i.name.toLowerCase().includes(cc.name.toLowerCase()) && i.name.toLowerCase().includes("fatura"));
       if (hasPaidBill) billAmount = 0; // Evitar duplicidade do pagamento da fatura
     } else {
-      const consolidatedTx = [...futureTransactions, ...liveAllTransactions];
-      const uniqueTx = Array.from(new Map(consolidatedTx.map(t => [t.id, t])).values());
+      const uniqueTx = deduplicateTransactions([futureTransactions, liveAllTransactions]);
       billAmount = uniqueTx.filter(t => t.account_id === cc.id && t.transaction_type === "EXPENSE" && isSameMonth(getTransactionImpactDate(t, accounts), targetMonth))
         .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
     }

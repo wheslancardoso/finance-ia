@@ -74,6 +74,9 @@ export function buildHorizonSnapshot(params: BuildHorizonSnapshotParams): Horizo
     // Obter panorama mensal projetado pelo motor central
     const outlook = calculateMonthlyOutlook({
       ...params,
+      confirmedIncomeCents: i === 0 && params.allTransactions ? params.allTransactions
+        .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
+        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0) : 0,
       scheduledIncomeCents: i === 0 ? incomeForOutlook : 0,
       scheduledExpensesCents: i === 0 ? params.scheduledExpensesCents : 0,
       monthOffset: i,
@@ -154,6 +157,7 @@ export function buildHorizonSnapshot(params: BuildHorizonSnapshotParams): Horizo
   // Dívida total remanescente no fim do horizonte de 6 meses (offset 5)
   const lastMonthOutlook = calculateMonthlyOutlook({
     ...params,
+    confirmedIncomeCents: 0,
     scheduledIncomeCents: 0,
     scheduledExpensesCents: 0,
     monthOffset: 5,
