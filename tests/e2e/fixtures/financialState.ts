@@ -26,9 +26,10 @@ export const stateUser2 = createInitialState({
   ]
 });
 export const createDashboardState = (overrides = {}) => {
-  const now = new Date();
-  const day = Math.min(now.getDate() + 1, 28);
-  const futureDate = new Date(now.getFullYear(), now.getMonth(), day).toISOString();
+  // O Playwright mocka o relógio para 2026-05-07T12:00:00Z na maioria dos testes e2e
+  // Usar uma data fixa compatível garante que as recurring transactions 
+  // caiam no mesmo mês (Maio) que a UI está renderizando no teste.
+  const futureDate = "2026-05-28T12:00:00.000Z";
   
   return createInitialState({
     user_profile: {

@@ -244,11 +244,7 @@ async function buildFinancialState(userId: string) {
   let credit_expense = 0;
   let investments = 0;
 
-  // Buscar faturas para contas de cartão de crédito (todas, para processar histórico)
-  const { data: allInvoices } = await supabase
-    .from('credit_card_invoices')
-    .select('*, accounts!inner(user_id, closing_day, due_day)')
-    .eq('accounts.user_id', userId);
+  // Faturas foram descontinuadas - Agregação é 100% dinâmica via transações
 
 
 
@@ -256,54 +252,60 @@ async function buildFinancialState(userId: string) {
   // O fn_auto_close_invoices() já foi chamado, então os status são corretos
   const enrichedAccounts = (accounts || []).map((acc: any) => {
     if (acc.type !== "CREDIT_CARD") return acc;
-
-    const accountInvoices = (allInvoices || []).filter((i: any) => i.account_id === acc.id);
+    const accountTxs = allTransactions.filter(t => t.account_id === acc.id && !t.is_paid);
     
-    // Ordenar por reference_month crescente
-    const sortedInvoices = [...accountInvoices].sort((a, b) => 
-      (a.reference_month || "").localeCompare(b.reference_month || "")
-    );
+    // Agrupar transações pendentes por ciclo de faturamento
+    const closingDay = acc.closing_day || 28;
+    const invoicesMap = new Map<string, number>();
 
-    // Faturas ativas: OPEN e CLOSED (não pagas)
-    const activeInvoices = sortedInvoices.filter(i => i.status !== 'PAID');
-
-    // A fatura OPEN mais próxima é a "aberta" (acumulando compras)
-    const openInvoice = activeInvoices.find(i => i.status === 'OPEN');
-    
-    // Todas as faturas CLOSED são pendentes de pagamento
-    const closedInvoices = activeInvoices.filter(i => i.status === 'CLOSED');
-
-    const openCents = openInvoice ? (Number(openInvoice.amount_cents) || 0) : 0;
-    const closedCents = closedInvoices.reduce((sum, i) => sum + (Number(i.amount_cents) || 0), 0);
-    
-    // Dívida total: apenas faturas abertas e fechadas reais (já incorridas)
-    const unpaidInvoices = sortedInvoices.filter(i => i.status === "OPEN" || i.status === "CLOSED");
-    const unpaidDebtCents = unpaidInvoices.reduce((sum, i) => sum + (Number(i.amount_cents) || 0), 0);
-
-    // Próxima fatura aberta: quanto será liberado quando parcelas terminarem
-    const nextOpenMonth = openInvoice?.reference_month;
-    const nextMonthTransactions = nextOpenMonth
-      ? allTransactions.filter(t => {
-          if (t.account_id !== acc.id || t.is_paid) return false;
-          return t.invoice_id === openInvoice?.id;
-        })
-      : [];
-    const nextMonthReleaseCandidate = nextMonthTransactions.reduce((sum, t) => {
+    accountTxs.forEach(t => {
+      const txDate = new Date(t.date);
+      let refMonth = new Date(txDate);
+      // Se comprou no dia ou após o fechamento, joga pro mês seguinte
+      if (txDate.getDate() >= closingDay) {
+        refMonth.setMonth(refMonth.getMonth() + 1);
+      }
+      const refMonthStr = `${refMonth.getFullYear()}-${String(refMonth.getMonth() + 1).padStart(2, '0')}`;
       const amt = Number(t.amount_cents) || 0;
-      return sum + (t.transaction_type === "INCOME" ? -amt : amt);
-    }, 0);
+      const netAmt = t.transaction_type === 'EXPENSE' ? amt : (t.transaction_type === 'INCOME' ? -amt : 0);
+      invoicesMap.set(refMonthStr, (invoicesMap.get(refMonthStr) || 0) + netAmt);
+    });
+
+    const now = new Date();
+    let currentRefMonth = new Date(now);
+    if (now.getDate() >= closingDay) {
+      currentRefMonth.setMonth(currentRefMonth.getMonth() + 1);
+    }
+    const currentRefMonthStr = `${currentRefMonth.getFullYear()}-${String(currentRefMonth.getMonth() + 1).padStart(2, '0')}`;
+
+    let openCents = 0;
+    let closedCents = 0;
+    let closedMonth: string | null = null;
+
+    invoicesMap.forEach((amount, monthStr) => {
+      if (monthStr === currentRefMonthStr) {
+        openCents += amount;
+      } else if (monthStr < currentRefMonthStr) {
+        closedCents += amount;
+        if (!closedMonth || monthStr > closedMonth) {
+          closedMonth = monthStr; // a fechada mais recente
+        }
+      }
+    });
+
+    const unpaidDebtCents = openCents + closedCents;
 
     return {
       ...acc,
-      open_invoice_id: openInvoice ? openInvoice.id : null,
-      closed_invoice_id: closedInvoices.length > 0 ? closedInvoices[0].id : null,
-      open_invoice_cents: openCents,
-      closed_invoice_cents: closedCents,
+      open_invoice_id: currentRefMonthStr, // Placeholder para manter tipagem da UI
+      closed_invoice_id: closedMonth || null,
+      open_invoice_cents: Math.max(0, openCents),
+      closed_invoice_cents: Math.max(0, closedCents),
+      total_debt_cents: Math.max(0, unpaidDebtCents),
       balance_cents: -unpaidDebtCents,
-      total_debt_cents: unpaidDebtCents,
-      next_month_impact_cents: nextMonthReleaseCandidate,
-      open_invoice_month: openInvoice ? openInvoice.reference_month : null,
-      closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
+      next_month_impact_cents: 0, // deprecado, mas mantido para UI
+      open_invoice_month: currentRefMonthStr,
+      closed_invoice_month: closedMonth
     };
   });
 
@@ -339,7 +341,7 @@ async function buildFinancialState(userId: string) {
     },
     categories: categories || [],
     accounts: enrichedAccounts,
-    invoices: allInvoices || [],
+    invoices: [], // Campo mantido para retrocompatibilidade da UI sem quebrar imediatamente
     goals: goals || [],
     recurring_transactions: enrichedRecurring,
     budgets: budgets || [],

@@ -9,8 +9,8 @@ export const dynamic = 'force-dynamic';
  * POST /api/accounts/pay-invoice
  * Realiza o pagamento de uma fatura de cartão de crédito.
  * 
- * Inteligência: Recebe o invoiceId direto do frontend quando disponível.
- * Se não receber, busca a fatura CLOSED mais antiga (pendente de pagamento).
+ * Inteligência: Recebe o invoiceId (agora sendo o `referenceMonth` string, ex: "2026-05") direto do frontend quando disponível.
+ * Se não receber, busca o mês mais antigo com transações não pagas no cartão.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -43,62 +43,71 @@ export async function POST(request: NextRequest) {
       throw new Error("Conta de cartão não encontrada");
     }
 
-    // 2. Determinar qual fatura pagar
-    let targetInvoiceId = requestedInvoiceId;
-    let targetInvoice: any = null;
+    // 2. Buscar transações não pagas do cartão
+    const { data: unpaidTxs, error: txError } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('account_id', creditCardAccountId)
+      .eq('is_paid', false);
 
-    if (targetInvoiceId) {
-      // Se o frontend enviou o ID da fatura, usar diretamente
-      const { data: inv } = await supabase
-        .from('credit_card_invoices')
-        .select('*')
-        .eq('id', targetInvoiceId)
-        .single();
-      targetInvoice = inv;
-    }
+    if (txError) throw txError;
 
-    if (!targetInvoice) {
-      // Fallback: buscar a fatura CLOSED mais antiga (pendente de pagamento)
-      const { data: closedInvoices } = await supabase
-        .from('credit_card_invoices')
-        .select('*')
-        .eq('account_id', creditCardAccountId)
-        .eq('status', 'CLOSED')
-        .order('reference_month', { ascending: true })
-        .limit(1);
+    // 3. Determinar qual mês pagar (agrupamento dinâmico)
+    const closingDay = creditCardAccount.closing_day || 28;
+    
+    // Mapear transação -> referenceMonth
+    const txByMonth = new Map<string, any[]>();
+    
+    (unpaidTxs || []).forEach(t => {
+      const txDate = new Date(t.date);
+      let refMonth = new Date(txDate);
+      if (txDate.getDate() >= closingDay) {
+        refMonth.setMonth(refMonth.getMonth() + 1);
+      }
+      const refMonthStr = `${refMonth.getFullYear()}-${String(refMonth.getMonth() + 1).padStart(2, '0')}`;
+      if (!txByMonth.has(refMonthStr)) txByMonth.set(refMonthStr, []);
+      txByMonth.get(refMonthStr)!.push(t);
+    });
+
+    let targetMonthStr = requestedInvoiceId; // "2026-05"
+
+    if (!targetMonthStr) {
+      // Fallback: buscar a "fatura fechada" mais antiga com base na data de hoje
+      const now = new Date();
+      let currentRefMonth = new Date(now);
+      if (now.getDate() >= closingDay) {
+        currentRefMonth.setMonth(currentRefMonth.getMonth() + 1);
+      }
+      const currentRefMonthStr = `${currentRefMonth.getFullYear()}-${String(currentRefMonth.getMonth() + 1).padStart(2, '0')}`;
       
-      targetInvoice = closedInvoices?.[0];
-      targetInvoiceId = targetInvoice?.id;
+      const pastMonths = Array.from(txByMonth.keys()).filter(m => m < currentRefMonthStr).sort();
+      if (pastMonths.length > 0) {
+        targetMonthStr = pastMonths[0]; // mais antiga pendente
+      } else if (txByMonth.has(currentRefMonthStr)) {
+        targetMonthStr = currentRefMonthStr; // paga a atual se não tiver atrasada
+      }
     }
 
-    // 3. Marcar transações da fatura como pagas
-    if (targetInvoiceId) {
+    if (!targetMonthStr || !txByMonth.has(targetMonthStr)) {
+      return NextResponse.json({ success: true, message: "Nenhuma transação pendente para faturar." });
+    }
+
+    const txIdsToPay = txByMonth.get(targetMonthStr)!.map(t => t.id);
+
+    // 4. Marcar transações selecionadas como pagas
+    if (txIdsToPay.length > 0) {
       const { error: txUpdateError } = await supabase
         .from("transactions")
         .update({ is_paid: true })
-        .eq("invoice_id", targetInvoiceId)
-        .eq("is_paid", false);
+        .in("id", txIdsToPay);
       
       if (txUpdateError) throw txUpdateError;
-
-      // 4. Marcar a fatura como paga
-      const { error: invUpdateError } = await supabase
-        .from("credit_card_invoices")
-        .update({ 
-          status: "PAID", 
-          paid_amount_cents: amountCents,
-          updated_at: new Date().toISOString() 
-        })
-        .eq("id", targetInvoiceId);
-      
-      if (invUpdateError) throw invUpdateError;
     }
 
-    // 5. Se "Pagar Agora" (não é "Já Paguei"), criar transação de débito na conta de pagamento
     if (!alreadyPaid && paymentAccountId) {
-      const monthLabel = targetInvoice?.reference_month 
+      const monthLabel = targetMonthStr 
         ? (() => {
-            const [y, m] = targetInvoice.reference_month.split('-');
+            const [y, m] = targetMonthStr.split('-');
             return format(new Date(parseInt(y), parseInt(m) - 1, 1), "MMM/yy", { locale: ptBR });
           })()
         : format(new Date(), "MMM/yy", { locale: ptBR });
@@ -123,8 +132,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      invoiceId: targetInvoiceId,
-      referenceMonth: targetInvoice?.reference_month 
+      invoiceId: targetMonthStr,
+      referenceMonth: targetMonthStr 
     });
   } catch (error: any) {
     console.error("❌ [API] POST /api/accounts/pay-invoice error:", error.message);
