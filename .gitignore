@@ -55,3 +55,4 @@ storybook-static
 
 # scratch directory (agent workspace temporary scripts)
 /scratch/
+src/domain/financial/financial-logic.js

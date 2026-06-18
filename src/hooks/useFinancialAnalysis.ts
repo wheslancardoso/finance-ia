@@ -304,8 +304,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     return prevOutlook.totalAssets || 0;
   }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, activeSimulations, futureTransactions, monthTransactions, recurringTransactions, goals, survivalReserveCents, currentAssets]);
 
-  const isSurvivalMode = useMemo(() => (monthlyOutlook.balanceAtMonthEnd || 0) < 0 || activeNetLiquidity < 0, [monthlyOutlook.balanceAtMonthEnd, activeNetLiquidity]);
-  const isCrisisMode = useMemo(() => activeNetLiquidity < 0 && (monthlyOutlook.balanceAtMonthEnd || 0) < 0, [activeNetLiquidity, monthlyOutlook.balanceAtMonthEnd]);
+  const isSurvivalMode = monthlyOutlook.isSurvivalMode;
+  const isCrisisMode = monthlyOutlook.isCrisisMode;
 
   const weeklySurvival = useMemo(() => {
     // Margem livre real = Renda recorrente - Despesas fixas recorrentes
@@ -326,43 +326,15 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       effectiveCheckingBalance = monthlyOutlook.totalAssets ?? 0;
     }
 
-    // Semanas no mês — para meses futuros, usar o mês inteiro (4-5 semanas)
-    const now = new Date();
-    let weeksInPeriod: number;
-    if (monthOffset > 0) {
-      // Mês futuro: distribuir pelo mês inteiro
-      const targetDate = new Date(now.getFullYear(), now.getMonth() + monthOffset + 1, 0);
-      const daysInMonth = targetDate.getDate();
-      weeksInPeriod = Math.max(1, Math.ceil(daysInMonth / 7));
-    } else {
-      // Mês atual: semanas restantes
-      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-      const daysRemaining = Math.max(1, lastDayOfMonth - now.getDate() + 1);
-      weeksInPeriod = Math.max(1, Math.ceil(daysRemaining / 7));
-    }
-
-    const result = calculateWeeklySurvival({
+    return calculateWeeklySurvival({
       netFreeMarginMonthly: freeMarginMonthly,
       effectiveCheckingBalance,
       isCrisisMode,
       isSurvivalMode,
       currentMonthTransactions: monthOffset === 0 ? monthTransactions : [],
+      weeklyLimitOverrideCents: weeklyLimitOverrideCents > 0 ? weeklyLimitOverrideCents : undefined
     });
-
-    if (weeklyLimitOverrideCents > 0) {
-      result.weeklyLimitCents = weeklyLimitOverrideCents;
-    }
-
-    return {
-      ...result,
-      remainingCents: result.weeklyLimitCents - result.weeklySpentCents,
-      status: (result.weeklyLimitCents > 0 && result.weeklySpentCents / result.weeklyLimitCents > 0.9) || (result.weeklyLimitCents - result.weeklySpentCents < 0)
-        ? "CRITICAL" as const
-        : (result.weeklyLimitCents > 0 && result.weeklySpentCents / result.weeklyLimitCents > 0.6)
-          ? "WARNING" as const
-          : "NORMAL" as const
-    };
-  }, [accounts, currentAssets, recurringIncomeCents, recurringExpensesCents, monthTransactions, monthOffset, activeSimulations, simulatedNetImpact, monthlyOutlook.totalAssets, weeklyLimitOverrideCents, goals, isCrisisMode, isSurvivalMode]);
+  }, [currentAssets, recurringIncomeCents, recurringExpensesCents, monthTransactions, monthOffset, activeSimulations, simulatedNetImpact, monthlyOutlook.totalAssets, weeklyLimitOverrideCents, isCrisisMode, isSurvivalMode]);
 
   const simulateDetailedImpactFn = useCallback((
     amountCents: number, 

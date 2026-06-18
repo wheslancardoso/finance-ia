@@ -374,8 +374,9 @@ export function calculateWeeklySurvival(params: {
   isCrisisMode: boolean;
   isSurvivalMode: boolean;
   currentMonthTransactions: Transaction[];
+  weeklyLimitOverrideCents?: number;
 }): WeeklySurvival {
-  const { netFreeMarginMonthly, effectiveCheckingBalance, isCrisisMode, isSurvivalMode, currentMonthTransactions } = params;
+  const { netFreeMarginMonthly, effectiveCheckingBalance, isCrisisMode, isSurvivalMode, currentMonthTransactions, weeklyLimitOverrideCents } = params;
 
   const now = new Date();
   
@@ -410,6 +411,10 @@ export function calculateWeeklySurvival(params: {
 
   // Piso absoluto geral de sobrevivência
   weeklyLimitCents = Math.max(MIN_WEEKLY_LIMIT_CENTS, weeklyLimitCents);
+
+  if (weeklyLimitOverrideCents && weeklyLimitOverrideCents > 0) {
+    weeklyLimitCents = weeklyLimitOverrideCents;
+  }
 
   // Identificar transações variáveis da semana atual (últimos 7 dias)
   const sevenDaysAgo = new Date();
