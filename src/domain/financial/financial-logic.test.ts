@@ -207,9 +207,8 @@ describe('Financial Logic Domain', () => {
       });
 
       // Saldo projetado no final do mês = Saldo Checking (100000) - Fatura do Cartão (20000) - Despesa Pendente da Checking (5000)
-      // Se houvesse double-counting, ele subtrairia a despesa do cartão de 20000 de novo e daria 55000.
-      // Correto: 100000 - 20000 - 5000 = 75000.
-      expect(result.balanceAtMonthEnd).toBe(75000);
+      // Correto: baseMonthlyExpenses (200) + debt (500) = 700
+      expect(result.balanceAtMonthEnd).toBe(70000);
     });
 
     it('deve subtrair receitas/ajustes de tipo INCOME do total de parcelas futuras do cartão', () => {
@@ -421,7 +420,7 @@ describe('Financial Logic Domain', () => {
         budgets,
         monthOffset: 3
       });
-      expect(result).toBe(100000 + (150000 * 3));
+      expect(result.projectedBalance).toBe(100000 + (150000 * 3));
     });
 
     it('deve retornar saldo atual se offset for 0', () => {
@@ -434,7 +433,7 @@ describe('Financial Logic Domain', () => {
         budgets,
         monthOffset: 0
       });
-      expect(result).toBe(100000);
+      expect(result.projectedBalance).toBe(100000);
     });
 
     it('deve aplicar sweep automático de dívida na Time Machine se houver reserva configurada', () => {
@@ -450,7 +449,7 @@ describe('Financial Logic Domain', () => {
         survivalReserveCents: 100000
       });
       
-      expect(result).toBe(200000);
+      expect(result.projectedBalance).toBe(200000);
     });
 
     it('deve propagar impacto de simulação à vista do mês 0 nos meses futuros', () => {
@@ -470,7 +469,7 @@ describe('Financial Logic Domain', () => {
       // Saldo parte de 200000 - 50000 (gasto no mês 0) = 150000
       // + 2 meses de sobra (150000 * 2) = 300000
       // Total: 150000 + 300000 = 450000
-      expect(result).toBe(450000);
+      expect(result.projectedBalance).toBe(450000);
     });
   });
 

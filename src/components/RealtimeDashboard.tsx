@@ -488,7 +488,7 @@ export default function RealtimeDashboard({
                   <MonthlyConsolidatedExcel 
                     income={totalIncome}
                     expenses={totalExpenses}
-                    balance={monthlyOutlook.balanceAtMonthEnd ?? 0}
+                    balance={startingBalanceCents + totalIncome - totalExpenses}
                     startingBalance={startingBalanceCents}
                     items={consolidatedItems}
                     monthName={format(targetDate, "MMMM 'de' yyyy", { locale: ptBR })}

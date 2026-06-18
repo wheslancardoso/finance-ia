@@ -61,8 +61,8 @@ export function UnifiedSurvivalHeader({
 
   // Total de contas fixas a pagar no mês — projetado para meses futuros
   const fixedExpensesTotal = (isFuture || hasSimulations)
-    ? (monthlyOutlook.scheduledOnly + monthlyOutlook.immediateCardDebt)
-    : (recurringExpensesCents > 0 ? recurringExpensesCents : contextRecurringExpenses);
+    ? (monthlyOutlook.plannedExpenses ?? 0)
+    : (monthlyOutlook.plannedExpenses ?? 0);
 
   return (
     <div className={cn(

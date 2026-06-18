@@ -296,7 +296,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       monthOffset: monthOffset - 1,
       activeSimulations,
       futureTransactions,
-      allTransactions: monthTransactions,
+      allTransactions: consolidatedTransactions,
       recurringTransactions,
       goals,
       survivalReserveCents

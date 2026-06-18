@@ -221,17 +221,25 @@ export function getTransactionImpactDate(t: Transaction, accounts: Account[]): D
   }
 
   const closingDay = account.closing_day || 31;
+  const dueDay = account.due_day || 5;
   let year = tDate.getFullYear();
   let month = tDate.getMonth();
   const day = tDate.getDate();
 
-  // Se a data da compra for maior ou igual ao dia de fechamento do cartão, ela cai no próximo mês
+  // Se a data da compra for maior ou igual ao dia de fechamento do cartão, ela cai na fatura do próximo mês
   if (day >= closingDay) {
     month++;
-    if (month > 11) {
-      month = 0;
-      year++;
-    }
+  }
+
+  // Se o dia de vencimento for menor que o dia de fechamento, significa que a fatura 
+  // só será paga no mês seguinte ao mês da fatura.
+  if (dueDay < closingDay) {
+    month++;
+  }
+
+  if (month > 11) {
+    year += Math.floor(month / 12);
+    month = month % 12;
   }
 
   return new Date(year, month, 1);
@@ -791,6 +799,21 @@ export function calculateAdvancedProjection(params: {
   const startExpenseAdjustment = simulationExpensesMonth0;
   let projectedBalance = startBalance + startIncomeAdjustment - startExpenseAdjustment;
   let projectedTotalDebt = calculateTotalConsolidatedDebt(accounts);
+
+  // Lógica de Amortização do Mês 0: A dívida de cartão projetada para o futuro
+  // não pode conter as faturas do mês atual que já estão sendo quitadas no saldo inicial (startBalance).
+  // Deduzimos o passivo do mês atual para evitar double-count de dívida na Time Machine.
+  const currentMonthDebt = accounts.reduce((sum, a) => {
+    if (a.type !== "CREDIT_CARD") return sum;
+    const currentMonthStr = format(new Date(), "yyyy-MM");
+    let debt = 0;
+    if (a.closed_invoice_cents && a.closed_invoice_month === currentMonthStr) debt += Number(a.closed_invoice_cents);
+    if (a.open_invoice_cents && a.open_invoice_month === currentMonthStr) debt += Number(a.open_invoice_cents);
+    return sum + debt;
+  }, 0);
+  
+  projectedTotalDebt = Math.max(0, projectedTotalDebt - currentMonthDebt);
+
   const now = new Date();
 
   // Iterar mês a mês a partir do próximo mês (i=1) até o offset desejado
