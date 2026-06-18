@@ -2,7 +2,7 @@
 import { useMemo, useCallback } from "react";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { financialService } from "@/services/financialService";
-import { addMonths } from "date-fns";
+import { addMonths, startOfMonth } from "date-fns";
 import { 
   calculateNetLiquidity, 
   calculateMonthlyOutlook, 
@@ -96,6 +96,69 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     deduplicateTransactions([futureTransactions, allTransactions]),
     [futureTransactions, allTransactions]
   );
+  const startingBalanceCents = useMemo(() => {
+    if (monthOffset === 0) {
+      const creditCardAccountIds = new Set(
+        accounts.filter(a => a.type === "CREDIT_CARD").map(a => a.id)
+      );
+
+      const paidIncomeThisMonth = (monthTransactions || [])
+        .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
+        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+      const paidExpenseThisMonth = (monthTransactions || [])
+        .filter(t => t.transaction_type === "EXPENSE" && t.is_paid === true && !creditCardAccountIds.has(t.account_id))
+        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+      const paidTransferThisMonth = (monthTransactions || [])
+        .filter(t => t.transaction_type === "TRANSFER" && t.is_paid === true)
+        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+      return currentAssets - paidIncomeThisMonth + paidExpenseThisMonth + paidTransferThisMonth;
+    }
+    if (monthOffset < 0) {
+      // Retro-cálculo exato para meses passados
+      const targetMonthStart = startOfMonth(addMonths(new Date(), monthOffset));
+      const bankAccountIds = new Set(accounts.filter(a => a.type !== "CREDIT_CARD").map(a => a.id));
+
+      const paidIncomeSinceThen = (consolidatedTransactions || [])
+        .filter(t => t.transaction_type === "INCOME" && t.is_paid === true && new Date(t.date) >= targetMonthStart)
+        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+      const paidExpenseSinceThen = (consolidatedTransactions || [])
+        .filter(t => t.transaction_type === "EXPENSE" && t.is_paid === true && bankAccountIds.has(t.account_id) && new Date(t.date) >= targetMonthStart)
+        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+      const paidTransferSinceThen = (consolidatedTransactions || [])
+        .filter(t => t.transaction_type === "TRANSFER" && t.is_paid === true && new Date(t.date) >= targetMonthStart)
+        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+      return currentAssets - paidIncomeSinceThen + paidExpenseSinceThen + paidTransferSinceThen;
+    }
+
+    const confirmedIncomeThisMonth = (monthTransactions || [])
+      .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
+      .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+    const prevOutlook = calculateMonthlyOutlook({
+      accounts,
+      confirmedIncomeCents: confirmedIncomeThisMonth,
+      scheduledIncomeCents: scheduledIncomeCents,
+      scheduledExpensesCents: scheduledExpensesCents,
+      recurringIncomeCents,
+      recurringExpensesCents,
+      budgets,
+      netLiquidityCents: netLiquidity,
+      monthOffset: monthOffset - 1,
+      activeSimulations,
+      futureTransactions,
+      allTransactions: consolidatedTransactions,
+      recurringTransactions,
+      goals,
+      survivalReserveCents
+    });
+    return prevOutlook.totalAssets || 0;
+  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, activeSimulations, futureTransactions, monthTransactions, recurringTransactions, goals, survivalReserveCents, currentAssets, consolidatedTransactions]);
 
   const prevMonthOutlook = useMemo(() => {
     if (monthOffset === 0) return null;
@@ -139,9 +202,10 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       recurringTransactions,
       activeSimulations,
       targetDate: addMonths(new Date(), monthOffset),
-      liveAllTransactions: consolidatedTransactions
+      liveAllTransactions: consolidatedTransactions,
+      startingBalanceOverride: startingBalanceCents
     });
-  }, [monthOffset, currentAssets, accounts, monthTransactions, futureTransactions, recurringTransactions, activeSimulations, consolidatedTransactions, prevMonthOutlook]);
+  }, [monthOffset, currentAssets, accounts, monthTransactions, futureTransactions, recurringTransactions, activeSimulations, consolidatedTransactions, prevMonthOutlook, startingBalanceCents]);
 
   const monthlyOutlook = useMemo(() => {
     const confirmedIncomeThisMonth = (monthTransactions || [])
@@ -254,55 +318,14 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     return accounts
       .filter(a => a.type === "CREDIT_CARD")
       .reduce((sum, a) => {
+        const debt = Number(a.total_debt_cents);
+        if (!isNaN(debt) && a.total_debt_cents !== undefined) return sum + Math.max(0, debt);
         const balance = Number(a.balance_cents) || 0;
         return sum + (balance < 0 ? Math.abs(balance) : 0);
       }, 0);
   }, [accounts, monthOffset, monthlyOutlook.totalDebt]);
 
-  const startingBalanceCents = useMemo(() => {
-    if (monthOffset === 0) {
-      const creditCardAccountIds = new Set(
-        accounts.filter(a => a.type === "CREDIT_CARD").map(a => a.id)
-      );
 
-      const paidIncomeThisMonth = (monthTransactions || [])
-        .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
-        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
-
-      const paidExpenseThisMonth = (monthTransactions || [])
-        .filter(t => t.transaction_type === "EXPENSE" && t.is_paid === true && !creditCardAccountIds.has(t.account_id))
-        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
-
-      const paidTransferThisMonth = (monthTransactions || [])
-        .filter(t => t.transaction_type === "TRANSFER" && t.is_paid === true)
-        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
-
-      return currentAssets - paidIncomeThisMonth + paidExpenseThisMonth + paidTransferThisMonth;
-    }
-    
-    const confirmedIncomeThisMonth = (monthTransactions || [])
-      .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
-      .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
-
-    const prevOutlook = calculateMonthlyOutlook({
-      accounts,
-      confirmedIncomeCents: confirmedIncomeThisMonth,
-      scheduledIncomeCents: scheduledIncomeCents,
-      scheduledExpensesCents: scheduledExpensesCents,
-      recurringIncomeCents,
-      recurringExpensesCents,
-      budgets,
-      netLiquidityCents: netLiquidity,
-      monthOffset: monthOffset - 1,
-      activeSimulations,
-      futureTransactions,
-      allTransactions: consolidatedTransactions,
-      recurringTransactions,
-      goals,
-      survivalReserveCents
-    });
-    return prevOutlook.totalAssets || 0;
-  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, activeSimulations, futureTransactions, monthTransactions, recurringTransactions, goals, survivalReserveCents, currentAssets]);
 
   const isSurvivalMode = monthlyOutlook.isSurvivalMode;
   const isCrisisMode = monthlyOutlook.isCrisisMode;

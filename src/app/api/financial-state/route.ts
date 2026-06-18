@@ -209,7 +209,7 @@ async function buildFinancialState(userId: string) {
   const unpaidOrNewTransactions = allTransactions.filter((t: any) => {
     const acc = initialAccountMap.get(t.account_id);
     const createdDate = new Date(t.created_at);
-    const isUnpaidCredit = acc?.type === "CREDIT_CARD" && !t.is_paid;
+    const isUnpaidCredit = (acc as any)?.type === "CREDIT_CARD" && !t.is_paid;
     const isNew = createdDate >= limitDate;
     return isUnpaidCredit || isNew;
   });
@@ -234,7 +234,7 @@ async function buildFinancialState(userId: string) {
   const future_transactions = allTransactions.filter((t: any) => {
     const d = new Date(t.date);
     const acc = initialAccountMap.get(t.account_id);
-    const isUnpaidCredit = acc?.type === "CREDIT_CARD" && !t.is_paid;
+    const isUnpaidCredit = (acc as any)?.type === "CREDIT_CARD" && !t.is_paid;
     return d > lastDayOfMonth || isUnpaidCredit;
   });
 
@@ -276,13 +276,9 @@ async function buildFinancialState(userId: string) {
     const openCents = openInvoice ? (Number(openInvoice.amount_cents) || 0) : 0;
     const closedCents = closedInvoices.reduce((sum, i) => sum + (Number(i.amount_cents) || 0), 0);
     
-    // Dívida total: soma de todas as transações não pagas do cartão
-    // (inclui parcelas futuras que ainda não entraram em faturas geradas)
-    const accountTransactions = allTransactions.filter(t => t.account_id === acc.id && !t.is_paid);
-    const totalDebt = accountTransactions.reduce((sum, t) => {
-      const amt = Number(t.amount_cents) || 0;
-      return sum + (t.transaction_type === "INCOME" ? -amt : amt);
-    }, 0);
+    // Dívida total: apenas faturas abertas e fechadas reais (já incorridas)
+    const unpaidInvoices = sortedInvoices.filter(i => i.status === "OPEN" || i.status === "CLOSED");
+    const unpaidDebtCents = unpaidInvoices.reduce((sum, i) => sum + (Number(i.amount_cents) || 0), 0);
 
     // Próxima fatura aberta: quanto será liberado quando parcelas terminarem
     const nextOpenMonth = openInvoice?.reference_month;
@@ -303,8 +299,8 @@ async function buildFinancialState(userId: string) {
       closed_invoice_id: closedInvoices.length > 0 ? closedInvoices[0].id : null,
       open_invoice_cents: openCents,
       closed_invoice_cents: closedCents,
-      balance_cents: -totalDebt,
-      total_debt_cents: totalDebt,
+      balance_cents: -unpaidDebtCents,
+      total_debt_cents: unpaidDebtCents,
       next_month_impact_cents: nextMonthReleaseCandidate,
       open_invoice_month: openInvoice ? openInvoice.reference_month : null,
       closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
@@ -318,7 +314,7 @@ async function buildFinancialState(userId: string) {
     if (t.transaction_type === "INCOME") income += amountCents;
     if (t.transaction_type === "EXPENSE") {
       const acc = accountMap.get(t.account_id);
-      if (acc && acc.type === "CREDIT_CARD") {
+      if (acc && (acc as any).type === "CREDIT_CARD") {
         credit_expense += amountCents;
       } else {
         debit_expense += amountCents;

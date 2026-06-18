@@ -632,35 +632,20 @@ export function calculateMonthlyOutlook(params: {
     (monthOffset === 0 ? (budgets.reduce((sum, b) => sum + Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0)), 0)) : (budgets.reduce((sum, b) => sum + (b.amount_cents || 0), 0))) +
     simulationExpenseImpact;
 
-  // Aportes em Metas (Compromisso de poupança mensal ativo com priorização inteligente)
-  const finalBalanceBeforeGoals = liquidity + adjustedMonthlyIncome - realOutflow;
-  if (netLiquidityCents >= 0 && finalBalanceBeforeGoals >= 0) {
-    const activeGoals = goals.filter(g => g.status === "active" || g.status === "ACTIVE");
-    const sortedGoals = [...activeGoals].sort((a, b) => (a.priority || 999) - (b.priority || 999));
-    let remainingSurplus = finalBalanceBeforeGoals;
-    for (const g of sortedGoals) {
-      const contribution = Number(g.monthly_contribution_cents) || 0;
-      if (remainingSurplus >= contribution) {
-        goalContributions += contribution;
-        remainingSurplus -= contribution;
-      } else {
-        break;
-      }
-    }
-  }
-  budgetReserves = baseBudgetReserves + goalContributions;
-
   // 1. CÁLCULO DE DÍVIDA TOTAL REMANESCENTE COM AMORTIZAÇÃO (Time Machine)
-  // Permite decair a dívida total física consolidada à medida que as faturas mensais são pagas,
-  // garantindo no mínimo a fatura do próprio mês (sincronia perfeita).
   const getInstallmentDebtForOffset = (offset: number) => {
     const target = addMonths(now, offset);
+    const creditCardAccounts = new Set(accounts.filter(a => a.type === "CREDIT_CARD").map(a => a.id));
     return uniqueTx
       .filter(t => {
         const impactDate = getTransactionImpactDate(t, accounts);
-        return t.transaction_type === "EXPENSE" && isSameMonth(impactDate, target);
+        const isCreditCard = t.account_id && creditCardAccounts.has(t.account_id);
+        return isCreditCard && isSameMonth(impactDate, target);
       })
-      .reduce((sum, t) => sum + (t.amount_cents || 0), 0);
+      .reduce((sum, t) => {
+        const val = Number(t.amount_cents) || 0;
+        return t.transaction_type === "INCOME" ? sum - val : sum + val;
+      }, 0);
   };
 
   let projectedTotalDebt = 0;
@@ -668,7 +653,45 @@ export function calculateMonthlyOutlook(params: {
 
   if (monthOffset === 0) {
     projectedTotalDebt = calculateTotalConsolidatedDebt(accounts);
-    projectedAssets = calculateAccumulatedBalance(accounts) + adjustedMonthlyIncome - realOutflow - goalContributions;
+    
+    // O Saldo Projetado real para o Mês 0 parte do dinheiro que já temos HOJE (calculateAccumulatedBalance)
+    // soma o que AINDA VAI ENTRAR (não pago), e subtrai o que AINDA VAI SAIR (não pago).
+    const targetMonthStr = format(now, "yyyy-MM");
+    const targetMonth = startOfMonth(now);
+
+    const currentMonthRealizedRecurrings = new Set(
+      allTransactions
+        .filter((t: any) => isSameMonth(parseLocalDate(t.date), targetMonth) && t.source === "RECURRING" && t.source_metadata?.recurring_id)
+        .map((t: any) => t.source_metadata.recurring_id)
+    );
+
+    // 1. O que falta cair de receita orgânica
+    const pendingFutureIncomes = futureTransactions
+      .filter(t => isSameMonth(getTransactionImpactDate(t, accounts), targetMonth) && t.transaction_type === "INCOME" && !t.is_paid && isOrganicTransaction(t, accounts))
+      .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+      
+    const pendingRecurringIncomes = recurringTransactions
+      .filter(r => r.status === 'active' && !isRecurringExpired(r.description, targetMonthStr) && r.transaction_type === "INCOME" && !currentMonthRealizedRecurrings.has(r.id) && (!r.next_date || format(parseLocalDate(r.next_date), "yyyy-MM") <= targetMonthStr))
+      .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
+
+    const totalPendingIncomes = pendingFutureIncomes + pendingRecurringIncomes;
+
+    // 2. O que falta pagar de despesa orgânica
+    const pendingFutureExpenses = futureTransactions
+      .filter(t => isSameMonth(getTransactionImpactDate(t, accounts), targetMonth) && t.transaction_type === "EXPENSE" && !t.is_paid && isOrganicTransaction(t, accounts))
+      .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+    const pendingRecurringExpenses = recurringTransactions
+      .filter(r => r.status === 'active' && !isRecurringExpired(r.description, targetMonthStr) && r.transaction_type === "EXPENSE" && !currentMonthRealizedRecurrings.has(r.id) && (!r.next_date || format(parseLocalDate(r.next_date), "yyyy-MM") <= targetMonthStr))
+      .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
+
+    const totalPendingExpenses = pendingFutureExpenses + pendingRecurringExpenses;
+
+    // 3. Faturas de cartão do mês que ainda não foram pagas
+    const pendingCreditCardBills = currentMonthDebt;
+
+    // Fórmula contábil M0 Base
+    projectedAssets = calculateAccumulatedBalance(accounts) + totalPendingIncomes - totalPendingExpenses - pendingCreditCardBills;
   } else {
     // 2. CÁLCULO DO SALDO BRUTO E DÍVIDA PROJETADA (Total Assets & Debt)
     // Usa o motor de projeção com o parâmetro currentAssetsCents para eliminar double-counting de cartões.
@@ -695,11 +718,36 @@ export function calculateMonthlyOutlook(params: {
     projectedTotalDebt = advancedProjection.projectedTotalDebt;
   }
 
+  // Aportes em Metas (Compromisso de poupança mensal ativo)
+  // Base de cálculo para metas deve usar o novo projectedAssets se M0, ou o antigo finalBalanceBeforeGoals se futuro.
+  const finalBalanceBeforeGoals = monthOffset === 0 
+    ? projectedAssets 
+    : liquidity + adjustedMonthlyIncome - realOutflow;
+
+  goalContributions = 0;
+  if (netLiquidityCents >= 0 && finalBalanceBeforeGoals >= 0) {
+    const activeGoals = goals.filter(g => g.status === "active" || g.status === "ACTIVE");
+    const sortedGoals = [...activeGoals].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+    let remainingSurplus = finalBalanceBeforeGoals;
+    for (const g of sortedGoals) {
+      const contribution = Number(g.monthly_contribution_cents) || 0;
+      if (remainingSurplus >= contribution) {
+        goalContributions += contribution;
+        remainingSurplus -= contribution;
+      } else {
+        break;
+      }
+    }
+  }
+  budgetReserves = baseBudgetReserves + goalContributions;
+
+  // No Mês 0, deduzimos as goals diretamente de projectedAssets (já que foi calculado livre disso antes)
+  if (monthOffset === 0) {
+    projectedAssets -= goalContributions;
+  }
+
   // 3. DETERMINAÇÃO DA LIQUIDEZ FINAL PROJETADA (Patrimônio Líquido)
-  // Nos meses futuros, é o saldo bruto projetado das contas (ativos) menos a dívida de cartão remanescente (passivo).
-  const finalLiquidity = monthOffset === 0
-    ? (liquidity + adjustedMonthlyIncome - realOutflow)
-    : (projectedAssets - projectedTotalDebt);
+  const finalLiquidity = projectedAssets - projectedTotalDebt;
 
   const isCritical = finalLiquidity < 0;
   const isSurvivalMode = isCritical || netLiquidityCents < 0;
@@ -803,12 +851,19 @@ export function calculateAdvancedProjection(params: {
   // Lógica de Amortização do Mês 0: A dívida de cartão projetada para o futuro
   // não pode conter as faturas do mês atual que já estão sendo quitadas no saldo inicial (startBalance).
   // Deduzimos o passivo do mês atual para evitar double-count de dívida na Time Machine.
+  // Rollover de crédito por cartão (INCOME excess carrega para o próximo mês do mesmo cartão)
+  const cardCreditRollover = new Map<string, number>();
+
   const currentMonthDebt = accounts.reduce((sum, a) => {
     if (a.type !== "CREDIT_CARD") return sum;
     const currentMonthStr = format(new Date(), "yyyy-MM");
     let debt = 0;
-    if (a.closed_invoice_cents && a.closed_invoice_month === currentMonthStr) debt += Number(a.closed_invoice_cents);
-    if (a.open_invoice_cents && a.open_invoice_month === currentMonthStr) debt += Number(a.open_invoice_cents);
+    if (a.closed_invoice_cents && a.closed_invoice_month === currentMonthStr) {
+      debt += Math.max(0, Number(a.closed_invoice_cents)); // guarda: nunca negativo
+    }
+    if (a.open_invoice_cents && a.open_invoice_month === currentMonthStr) {
+      debt += Math.max(0, Number(a.open_invoice_cents)); // guarda: nunca negativo
+    }
     return sum + debt;
   }, 0);
   
@@ -840,11 +895,56 @@ export function calculateAdvancedProjection(params: {
       )
       .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
 
-    // 2. Parcelamentos do Cartão (Consolida futureTransactions + allTransactions para enxergar compras do mês de partida pós-fechamento)
+    // 2. Parcelamentos do Cartão e Transações Futuras Orgânicas
     const uniqueTxForProjection = deduplicateTransactions([futureTransactions, allTransactions]);
+    const creditCardAccounts = new Set(accounts.filter(a => a.type === "CREDIT_CARD").map(a => a.id));
 
-    const installments = uniqueTxForProjection
-      .filter(t => t.transaction_type === "EXPENSE" && isSameMonth(getTransactionImpactDate(t, accounts), targetDate))
+    // A. Parcelamentos de Cartão — cálculo individual por cartão com rollover de crédito
+    let ccInstallmentsCashOut = 0;  // Saída real de caixa do mês (nunca negativa)
+    let ccDebtAmortization = 0;     // Quanto abater da dívida projetada total no mês
+
+    const creditCardAccountsList = accounts.filter(a => a.type === "CREDIT_CARD");
+
+    for (const cc of creditCardAccountsList) {
+      // Soma de todas as transações deste cartão que impactam no mês alvo
+      const rawBill = uniqueTxForProjection
+        .filter(t =>
+          t.account_id === cc.id &&
+          isSameMonth(getTransactionImpactDate(t, accounts), targetDate)
+        )
+        .reduce((sum, t) => {
+          const val = Number(t.amount_cents) || 0;
+          return t.transaction_type === "INCOME" ? sum - val : sum + val;
+        }, 0);
+
+      // Aplicar rollover acumulado deste cartão de meses anteriores no loop
+      const rolledCredit = cardCreditRollover.get(cc.id) || 0;
+      const effectiveBill = rawBill - rolledCredit; // abate crédito acumulado
+
+      if (effectiveBill > 0) {
+        // Há fatura positiva: o usuário paga do caixa e amortiza a dívida
+        ccInstallmentsCashOut += effectiveBill;
+        ccDebtAmortization += effectiveBill;
+        cardCreditRollover.set(cc.id, 0); // crédito consumido
+      } else {
+        // Fatura negativa ou zero: não há saída de caixa.
+        // O excesso de crédito rola para o próximo mês deste cartão.
+        // A dívida projetada diminui pelo crédito real (sem exceder a dívida atual deste cartão).
+        const creditThisMonth = Math.abs(effectiveBill);
+        cardCreditRollover.set(cc.id, creditThisMonth); // acumula para o próximo mês
+        // Amortiza a dívida global pelo crédito real recebido (ex: estorno do banco)
+        ccDebtAmortization += rawBill < 0 ? Math.abs(rawBill) : 0;
+      }
+    }
+
+    // B. Despesas Orgânicas Futuras (Pix Agendado, Boletos)
+    const organicFutureExpenses = uniqueTxForProjection
+      .filter(t => (!t.account_id || !creditCardAccounts.has(t.account_id)) && t.transaction_type === "EXPENSE" && isSameMonth(getTransactionImpactDate(t, accounts), targetDate))
+      .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+    // C. Receitas Orgânicas Futuras (Pix Recebido Agendado)
+    const organicFutureIncomes = uniqueTxForProjection
+      .filter(t => (!t.account_id || !creditCardAccounts.has(t.account_id)) && t.transaction_type === "INCOME" && isSameMonth(getTransactionImpactDate(t, accounts), targetDate))
       .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
     // 3. Reservas de Orçamento (Provisão mensal total planejada)
@@ -899,7 +999,10 @@ export function calculateAdvancedProjection(params: {
       return sum;
     }, 0);
 
-    const availableSurplus = projectedBalance + income + simulationIncomes - expenses - installments - budgetReserve - simulationExpenses;
+    const totalOutflow = expenses + organicFutureExpenses + ccInstallmentsCashOut + budgetReserve + simulationExpenses;
+    const totalIncome = income + organicFutureIncomes + simulationIncomes;
+
+    const availableSurplus = projectedBalance + totalIncome - totalOutflow;
     if (liquidityHealthGuard >= 0 && projectedBalance >= 0 && availableSurplus >= 0) {
       const activeGoals = goals.filter(g => g.status === "active" || g.status === "ACTIVE");
       const sortedGoals = [...activeGoals].sort((a, b) => (a.priority || 999) - (b.priority || 999));
@@ -916,13 +1019,13 @@ export function calculateAdvancedProjection(params: {
     }
 
     // Resultado do mês: o que sobra (surplus) ou falta (deficit)
-    const monthlyResult = income + simulationIncomes - expenses - installments - budgetReserve - goalContributions - simulationExpenses;
+    const monthlyResult = totalIncome - totalOutflow - goalContributions;
 
     // Acumular no saldo projetado (sem floor em zero)
     projectedBalance += monthlyResult;
 
-    // Amortizar parcelas de cartão de crédito no passivo projetado
-    projectedTotalDebt = Math.max(0, projectedTotalDebt - installments);
+    // Amortizar parcelas de cartão de crédito no passivo projetado (aceita negativo para roll-over de faturas pagas a maior)
+    projectedTotalDebt = Math.max(0, projectedTotalDebt - ccDebtAmortization);
 
     // Sweep Automático de Dívida se houver reserva configurada e sobra de saldo
     if (survivalReserveCents > 0 && projectedBalance > survivalReserveCents && projectedTotalDebt > 0) {
@@ -1390,13 +1493,17 @@ export function generateCashFlowStatement(params: {
   activeSimulations: Simulation[];
   targetDate: Date;
   liveAllTransactions: Transaction[];
+  startingBalanceOverride?: number;
 }): CashFlowStatement {
-  const { monthOffset, currentAssetsCents, accounts, liveMonthTransactions, futureTransactions, recurringTransactions, activeSimulations, targetDate, liveAllTransactions } = params;
+  const { monthOffset, currentAssetsCents, accounts, liveMonthTransactions, futureTransactions, recurringTransactions, activeSimulations, targetDate, liveAllTransactions, startingBalanceOverride } = params;
   const targetMonthStr = format(targetDate, "yyyy-MM");
   const targetMonth = startOfMonth(targetDate);
 
   let startingBalanceCents = 0;
-  if (monthOffset === 0) {
+  
+  if (startingBalanceOverride !== undefined) {
+    startingBalanceCents = startingBalanceOverride;
+  } else if (monthOffset === 0) {
     // Reconstrução Imutável do Saldo Inicial do mês atual
     const organicPaidIncomes = liveMonthTransactions
       .filter(t => t.transaction_type === "INCOME" && t.is_paid && isOrganicTransaction(t, accounts))
@@ -1409,9 +1516,7 @@ export function generateCashFlowStatement(params: {
     startingBalanceCents = currentAssetsCents - organicPaidIncomes + organicPaidExpenses;
   } else {
     // Para meses futuros, o saldo inicial precisa vir do motor principal de projeção externa (passado no hook)
-    // Então temporariamente colocaremos 0, e quem chama injeta o saldo do MonthlyOutlook do mês anterior
-    // Na verdade, o ideal é não calcular recursivamente aqui por performance, então o hook passará o `previousProjectedBalance` ou a gente usa o `calculateMonthlyOutlook`.
-    // Por hora, startingBalanceCents será substituído depois por quem chamou se monthOffset > 0.
+    startingBalanceCents = currentAssetsCents;
   }
 
   // Montar base de transações orgânicas projetadas
@@ -1522,8 +1627,11 @@ export function generateCashFlowStatement(params: {
       if (hasPaidBill) billAmount = 0; // Evitar duplicidade do pagamento da fatura
     } else {
       const uniqueTx = deduplicateTransactions([futureTransactions, liveAllTransactions]);
-      billAmount = uniqueTx.filter(t => t.account_id === cc.id && t.transaction_type === "EXPENSE" && isSameMonth(getTransactionImpactDate(t, accounts), targetMonth))
-        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+      billAmount = uniqueTx.filter(t => t.account_id === cc.id && isSameMonth(getTransactionImpactDate(t, accounts), targetMonth))
+        .reduce((sum, t) => {
+          const val = Number(t.amount_cents) || 0;
+          return t.transaction_type === "INCOME" ? sum - val : sum + val;
+        }, 0);
     }
 
     if (billAmount > 0) {
