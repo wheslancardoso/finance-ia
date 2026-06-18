@@ -666,7 +666,7 @@ export function calculateMonthlyOutlook(params: {
     );
 
     // 1. O que falta cair de receita orgânica
-    const pendingFutureIncomes = futureTransactions
+    const pendingFutureIncomes = allTransactions
       .filter(t => isSameMonth(getTransactionImpactDate(t, accounts), targetMonth) && t.transaction_type === "INCOME" && !t.is_paid && isOrganicTransaction(t, accounts))
       .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
       
@@ -677,7 +677,7 @@ export function calculateMonthlyOutlook(params: {
     const totalPendingIncomes = pendingFutureIncomes + pendingRecurringIncomes;
 
     // 2. O que falta pagar de despesa orgânica
-    const pendingFutureExpenses = futureTransactions
+    const pendingFutureExpenses = allTransactions
       .filter(t => isSameMonth(getTransactionImpactDate(t, accounts), targetMonth) && t.transaction_type === "EXPENSE" && !t.is_paid && isOrganicTransaction(t, accounts))
       .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
@@ -876,13 +876,26 @@ export function calculateAdvancedProjection(params: {
     const targetDate = addMonths(now, i);
     const monthKey = format(targetDate, 'yyyy-MM');
 
-    // 1. Receitas e Despesas Recorrentes
+    const uniqueTxForProjection = deduplicateTransactions([futureTransactions, allTransactions]);
+    
+    // Evita dupla contagem identificando quais recorrências já têm instância física neste mês (Tabela Base + Exceção)
+    const realizedRecurringsThisMonth = new Set(
+      uniqueTxForProjection
+        .filter(t => t.source === "RECURRING" && t.source_metadata?.recurring_id && isSameMonth(getTransactionImpactDate(t, accounts), targetDate))
+        .map(t => t.source_metadata?.recurring_id)
+    );
+
+    // Filtra apenas transações não pagas para as despesas e receitas futuras orgânicas
+    const unpaidTxForProjection = uniqueTxForProjection.filter(t => !t.is_paid);
+
+    // 1. Receitas e Despesas Recorrentes (excluindo as que já têm transação física no mês)
     const income = recurringTransactions
       .filter(r => 
         r.transaction_type === "INCOME" && 
         r.status === "active" && 
         !isRecurringExpired(r.description, monthKey) &&
-        !r.excluded_months?.includes(monthKey)
+        !r.excluded_months?.includes(monthKey) &&
+        !realizedRecurringsThisMonth.has(r.id)
       )
       .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
 
@@ -891,12 +904,11 @@ export function calculateAdvancedProjection(params: {
         r.transaction_type === "EXPENSE" && 
         r.status === "active" && 
         !isRecurringExpired(r.description, monthKey) &&
-        !r.excluded_months?.includes(monthKey)
+        !r.excluded_months?.includes(monthKey) &&
+        !realizedRecurringsThisMonth.has(r.id)
       )
       .reduce((sum, r) => sum + (Number(r.amount_cents) || 0), 0);
 
-    // 2. Parcelamentos do Cartão e Transações Futuras Orgânicas
-    const uniqueTxForProjection = deduplicateTransactions([futureTransactions, allTransactions]);
     const creditCardAccounts = new Set(accounts.filter(a => a.type === "CREDIT_CARD").map(a => a.id));
 
     // A. Parcelamentos de Cartão — cálculo individual por cartão com rollover de crédito
@@ -906,8 +918,8 @@ export function calculateAdvancedProjection(params: {
     const creditCardAccountsList = accounts.filter(a => a.type === "CREDIT_CARD");
 
     for (const cc of creditCardAccountsList) {
-      // Soma de todas as transações deste cartão que impactam no mês alvo
-      const rawBill = uniqueTxForProjection
+      // Soma de todas as transações deste cartão que impactam no mês alvo (apenas não pagas)
+      const rawBill = unpaidTxForProjection
         .filter(t =>
           t.account_id === cc.id &&
           isSameMonth(getTransactionImpactDate(t, accounts), targetDate)
@@ -938,13 +950,13 @@ export function calculateAdvancedProjection(params: {
     }
 
     // B. Despesas Orgânicas Futuras (Pix Agendado, Boletos)
-    const organicFutureExpenses = uniqueTxForProjection
-      .filter(t => (!t.account_id || !creditCardAccounts.has(t.account_id)) && t.transaction_type === "EXPENSE" && isSameMonth(getTransactionImpactDate(t, accounts), targetDate))
+    const organicFutureExpenses = unpaidTxForProjection
+      .filter(t => (!t.account_id || !creditCardAccounts.has(t.account_id)) && t.transaction_type === "EXPENSE" && isSameMonth(getTransactionImpactDate(t, accounts), targetDate) && isOrganicTransaction(t, accounts))
       .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
     // C. Receitas Orgânicas Futuras (Pix Recebido Agendado)
-    const organicFutureIncomes = uniqueTxForProjection
-      .filter(t => (!t.account_id || !creditCardAccounts.has(t.account_id)) && t.transaction_type === "INCOME" && isSameMonth(getTransactionImpactDate(t, accounts), targetDate))
+    const organicFutureIncomes = unpaidTxForProjection
+      .filter(t => (!t.account_id || !creditCardAccounts.has(t.account_id)) && t.transaction_type === "INCOME" && isSameMonth(getTransactionImpactDate(t, accounts), targetDate) && isOrganicTransaction(t, accounts))
       .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
     // 3. Reservas de Orçamento (Provisão mensal total planejada)
