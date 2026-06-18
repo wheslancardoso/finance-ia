@@ -129,8 +129,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       recurringTransactions,
       activeSimulations,
       targetDate: addMonths(new Date(), monthOffset),
-      liveAllTransactions: allTransactions,
-      previousMonthProjectedAssetsCents: prevMonthAssets
+      liveAllTransactions: allTransactions
     });
   }, [monthOffset, currentAssets, accounts, monthTransactions, futureTransactions, recurringTransactions, activeSimulations, allTransactions, scheduledIncomeCents, recurringIncomeCents, scheduledExpensesCents, recurringExpensesCents, budgets, netLiquidity, goals, survivalReserveCents]);
 
@@ -339,24 +338,45 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       // Se houver um limite semanal personalizado definido pelo usuário nas configurações
       weeklyLimitCents = weeklyLimitOverrideCents;
     } else {
-      // Teto semanal = margem livre mensal / semanas do período
-      // Se não houver renda cadastrada, usar saldo em conta / semanas do período
-      if (freeMarginMonthly > 0) {
-        weeklyLimitCents = Math.round(freeMarginMonthly / weeksInPeriod);
+      // Oráculo Dinâmico Automático
+      // 1. Fator Metas: Deduzir aportes necessários das metas ativas para protegê-las
+      const activeGoalsContribution = (goals || [])
+        .filter(g => g.status === "active" || g.status === undefined)
+        .reduce((sum, g) => sum + (g.monthly_contribution_cents || 0), 0);
+      
+      const netFreeMarginMonthly = Math.max(0, freeMarginMonthly - activeGoalsContribution);
+
+      // Calcular limite base
+      let baseLimitCents = 0;
+      if (netFreeMarginMonthly > 0) {
+        baseLimitCents = Math.round(netFreeMarginMonthly / weeksInPeriod);
       } else if (effectiveCheckingBalance > 0) {
-        weeklyLimitCents = Math.round(effectiveCheckingBalance / weeksInPeriod);
+        baseLimitCents = Math.round(effectiveCheckingBalance / weeksInPeriod);
+      }
+
+      // 2. Redutor de Abundância Progressiva: Acima de R$ 300,00, apenas 30% do excedente entra no teto
+      if (baseLimitCents > 30000) {
+        weeklyLimitCents = 30000 + Math.round((baseLimitCents - 30000) * 0.30);
+      } else {
+        weeklyLimitCents = baseLimitCents;
+      }
+
+      // 3. Corte Emergencial de Crise: Se em crise ou sobrevivência, cortar 50%
+      if (isCrisisMode || isSurvivalMode) {
+        weeklyLimitCents = Math.round(weeklyLimitCents * 0.5);
+        // Piso de subsistência rígido na crise
+        if (weeklyLimitCents < 8000) {
+          weeklyLimitCents = 5000; // R$ 50,00
+        }
       }
     }
+
+    // Piso absoluto geral de sobrevivência
     weeklyLimitCents = Math.max(5000, weeklyLimitCents);
 
-    // Calcular consumo semanal baseado em transações reais de despesas variáveis
     const result = calculateWeeklySurvival({
-      recurringIncomeCents: regularIncome,
-      recurringExpensesCents: regularExpenses,
-      monthOffset,
-      targetAssetsCents: monthlyOutlook.totalAssets,
+      monthlySurplusCents: freeMarginMonthly,
       currentMonthTransactions: monthOffset === 0 ? monthTransactions : [],
-      activeSimulations
     });
 
     return {

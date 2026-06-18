@@ -39,6 +39,46 @@ export function isRecurringExpired(description: string, targetMonthKey: string):
   return targetMonthKey > match[1];
 }
 
+export function calculateSimulationImpactForMonth(simulations: Simulation[], monthOffset: number): { incomeImpact: number; expenseImpact: number } {
+  const expenseImpact = simulations.reduce((sum, s) => {
+    const startOffset = s.startMonthOffset ?? 0;
+    const sType = s.type ? s.type.toUpperCase() : "EXPENSE";
+    const isLoan = s.isLoan || sType === "LOAN" || (s.interestRate && s.interestRate > 0 && sType === "INCOME");
+    
+    if (isLoan) {
+      if (monthOffset >= startOffset && monthOffset < startOffset + s.installments) {
+        if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
+          return sum + s.customInstallmentCents;
+        }
+        const rate = (s.interestRate && s.interestRate > 0) ? s.interestRate : 9.53;
+        return sum + calculateLoanInstallment(s.amount_cents, rate, s.installments);
+      }
+      return sum;
+    }
+    if (sType === "INCOME") return sum;
+    if (monthOffset >= startOffset && monthOffset < startOffset + s.installments) {
+      if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
+        return sum + s.customInstallmentCents;
+      }
+      return sum + (s.amount_cents / (s.installments || 1));
+    }
+    return sum;
+  }, 0);
+
+  const incomeImpact = simulations.reduce((sum, s) => {
+    const startOffset = s.startMonthOffset ?? 0;
+    const sType = s.type ? s.type.toUpperCase() : "EXPENSE";
+    const isLoan = s.isLoan || sType === "LOAN" || (s.interestRate && s.interestRate > 0 && sType === "INCOME");
+    
+    if (monthOffset === startOffset && (isLoan || sType === "INCOME")) {
+      return sum + s.amount_cents;
+    }
+    return sum;
+  }, 0);
+
+  return { incomeImpact, expenseImpact };
+}
+
 /**
  * Calcula o total de receitas agendadas para o mês atual (do dia atual até o fim do mês)
  */

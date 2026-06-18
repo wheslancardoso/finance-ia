@@ -77,7 +77,7 @@ const baseContext = {
   survivalReserveCents: 0,
   setSurvivalReserveCents: () => {},
   weeklyLimitOverrideCents: 0,
-  setWeeklyLimitOverrideCents: () => {},
+  setWeeklyLimitOverrideCents: () => {}, invoices: [],
 };
 
 export const Healthy: Story = {

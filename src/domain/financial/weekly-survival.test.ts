@@ -5,10 +5,7 @@ import { Transaction } from '@/lib/db';
 describe('calculateWeeklySurvival', () => {
   it('deve calcular o limite semanal baseado na sobra mensal ou ativos', () => {
     const result = calculateWeeklySurvival({
-      recurringIncomeCents: 150000, // Ganha 1.500
-      recurringExpensesCents: 50000, // Gasta 500 = sobra 1.000
-      monthOffset: 0,
-      targetAssetsCents: 0,
+      monthlySurplusCents: 100000, // Sobra 1.000
       currentMonthTransactions: []
     });
 
@@ -29,10 +26,7 @@ describe('calculateWeeklySurvival', () => {
     ] as unknown as Transaction[];
 
     const result = calculateWeeklySurvival({
-      recurringIncomeCents: 150000,
-      recurringExpensesCents: 50000, // Sobra 1000
-      monthOffset: 0,
-      targetAssetsCents: 0,
+      monthlySurplusCents: 100000, // Sobra 1000
       currentMonthTransactions: transactions
     });
 
@@ -46,10 +40,7 @@ describe('calculateWeeklySurvival', () => {
     ] as unknown as Transaction[];
 
     const result = calculateWeeklySurvival({
-      recurringIncomeCents: 150000,
-      recurringExpensesCents: 50000,
-      monthOffset: 0,
-      targetAssetsCents: 0,
+      monthlySurplusCents: 100000,
       currentMonthTransactions: transactions
     });
 
@@ -64,11 +55,8 @@ describe('calculateWeeklySurvival', () => {
     ] as unknown as Transaction[];
 
     const result = calculateWeeklySurvival({
-      recurringIncomeCents: 50000,
-      recurringExpensesCents: 40000, // Sobra R$ 100 por mês. Teto = R$ 50 (mínimo). 16/50 = 32% (NORMAL).
+      monthlySurplusCents: 10000, // Sobra R$ 100 por mês. Teto = R$ 50 (mínimo). 16/50 = 32% (NORMAL).
       // Se gastou 3500 (R$ 35), 35/50 = 70% (WARNING).
-      monthOffset: 0,
-      targetAssetsCents: 0,
       currentMonthTransactions: [{ id: '1', date: now.toISOString(), amount_cents: 3500, transaction_type: 'EXPENSE' } as unknown as Transaction]
     });
 
