@@ -56,3 +56,9 @@ storybook-static
 # scratch directory (agent workspace temporary scripts)
 /scratch/
 src/domain/financial/financial-logic.js
+/apk_extracted/
+/apk_decompiled/
+"Minhas Finanças.apk"
+/jadx_bin/
+jadx.zip
+Minhas Finanças.apk

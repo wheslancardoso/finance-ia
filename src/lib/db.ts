@@ -6,6 +6,20 @@ export interface Category {
   type: "EXPENSE" | "INCOME" | "TRANSFER";
   user_id?: string;
   color_hex?: string;
+  icon_name?: string;
+  is_system_default?: boolean;
+  ignore_dashboard?: boolean;
+  ignore_reports?: boolean;
+  ignore_balance?: boolean;
+}
+
+export interface TransactionSplit {
+  id: string;
+  transaction_id: string;
+  category_id: string;
+  amount_cents: number;
+  description?: string;
+  category?: Category;
 }
 
 export interface Account {
@@ -118,6 +132,7 @@ export interface Transaction {
     recurring_id?: string;
     [key: string]: any;
   };
+  splits?: TransactionSplit[];
 }
 
 export class VesperDB extends Dexie {

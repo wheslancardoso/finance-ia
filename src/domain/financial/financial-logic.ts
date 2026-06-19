@@ -49,6 +49,25 @@ export function isRecurringExpired(description: string, targetMonthKey: string):
   return targetMonthKey > match[1];
 }
 
+export function expandSplits(txs: Transaction[]): Transaction[] {
+  return txs.flatMap(tx => {
+    if (tx.splits && tx.splits.length > 0) {
+      return tx.splits.map((split: any) => ({
+        ...tx,
+        amount_cents: split.amount_cents,
+        category_id: split.category_id,
+        category: split.category || { id: split.category_id, name: "Outros", type: tx.transaction_type },
+        description: split.description || tx.description,
+      } as Transaction));
+    }
+    return [tx];
+  });
+}
+
+export function filterIgnoredBalance(txs: Transaction[]): Transaction[] {
+  return txs.filter(tx => !tx.category?.ignore_balance);
+}
+
 export function calculateSimulationImpactForMonth(simulations: Simulation[], monthOffset: number): { incomeImpact: number; expenseImpact: number } {
   const expenseImpact = simulations.reduce((sum, s) => {
     const startOffset = s.startMonthOffset ?? 0;
@@ -1387,16 +1406,18 @@ export function calculateIncomeMix(transactions: Transaction[], budgets: Budget[
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const incomeTransactions = (transactions || []).filter(tx => 
-    tx.transaction_type === "INCOME" && 
-    parseLocalDate(tx.date) >= thirtyDaysAgo
-  );
+  const incomeTransactions = expandSplits(transactions || [])
+    .filter(tx => 
+      tx.transaction_type === "INCOME" && 
+      !tx.category?.ignore_dashboard &&
+      parseLocalDate(tx.date) >= thirtyDaysAgo
+    );
 
   const mixMap: Record<string, number> = {};
   
   incomeTransactions.forEach((tx: Transaction) => {
     const catName = tx.category?.name || "Outros";
-    mixMap[catName] = (mixMap[catName] || 0) + (tx.amount_cents / 100);
+    mixMap[catName] = (mixMap[catName] || 0) + ((tx.amount_cents || 0) / 100);
   });
 
   return Object.entries(mixMap).map(([name, value]) => ({
@@ -1574,8 +1595,10 @@ export function generateCashFlowStatement(params: {
     rawTransactionsToUse = [...filteredFuture, ...virtualRecurring];
   }
 
-  // Filtrar apenas orgânicas (ignorar cartões e ajustes)
-  const organicTransactions = rawTransactionsToUse.filter(t => isOrganicTransaction(t, accounts));
+  // Filtrar apenas orgânicas (ignorar cartões e ajustes) e separar os splits
+  const organicTransactions = expandSplits(rawTransactionsToUse)
+    .filter(t => isOrganicTransaction(t, accounts))
+    .filter(t => !t.category?.ignore_dashboard);
   
   const baseItems: CashFlowStatementItem[] = organicTransactions.map((t: any) => ({
     id: t.id || Math.random().toString(),

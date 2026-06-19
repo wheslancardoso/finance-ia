@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Shield, Palette, ChevronRight, MessageSquare, User as UserIcon } from "lucide-react";
+import { Shield, Palette, ChevronRight, MessageSquare, User as UserIcon, Tags } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WhatsAppSettings } from "@/components/WhatsAppSettings";
 import { UserProfileSettings } from "@/components/UserProfileSettings";
+import { CategoryManagerSettings } from "@/components/CategoryManagerSettings";
 import { useFinancialData } from "@/context/FinancialDataContext";
 
 export default function SettingsPage() {
@@ -28,6 +29,15 @@ export default function SettingsPage() {
       color: "text-violet-400",
       bg: "bg-violet-400/10",
       content: <UserProfileSettings />
+    },
+    {
+      id: "categories",
+      title: "Gerenciamento de Categorias",
+      subtitle: "Crie, edite e oculte categorias para afinar sua análise estatística e separar despesas do saldo geral.",
+      icon: Tags,
+      color: "text-blue-400",
+      bg: "bg-blue-400/10",
+      content: <CategoryManagerSettings />
     },
     {
       id: "preferences",

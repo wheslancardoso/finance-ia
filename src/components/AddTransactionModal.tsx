@@ -62,6 +62,10 @@ export function AddTransactionModal() {
   const [startingInstallment, setStartingInstallment] = useState(1);
   const [iaLoading, setIaLoading] = useState(false);
 
+  // Splits State
+  const [useSplits, setUseSplits] = useState(false);
+  const [splits, setSplits] = useState<{ id: string, amount: string, categoryId: string, description: string }[]>([]);
+
   // Custom Select States
   const [openCategory, setOpenCategory] = useState(false);
   const [openAccount, setOpenAccount] = useState(false);
@@ -138,6 +142,20 @@ export function AddTransactionModal() {
           setIsLegacyDebt(transactionToEdit.is_legacy_debt || false);
           setIsThirdParty(transactionToEdit.is_third_party || false);
           setThirdPartyName(transactionToEdit.third_party_name || "");
+          
+          if (transactionToEdit.splits && transactionToEdit.splits.length > 0) {
+            setUseSplits(true);
+            setSplits(transactionToEdit.splits.map((s: any) => ({
+              id: s.id || Math.random().toString(),
+              amount: (s.amount_cents / 100).toFixed(2).replace(".", ","),
+              categoryId: s.category_id,
+              description: s.description || ""
+            })));
+          } else {
+            setUseSplits(false);
+            setSplits([]);
+          }
+          
           const dateObj = new Date(transactionToEdit.date);
 
           // Se for uma parcela, sempre editar a série a partir da primeira
@@ -273,6 +291,26 @@ export function AddTransactionModal() {
       const totalAmountCents = Math.round(parsedAmount * 100);
       const installmentAmountCents = Math.floor(totalAmountCents / capturedInstallments);
 
+      const parsedSplits = useSplits ? splits.map(s => ({
+        amount_cents: Math.round(parseFloat(s.amount.replace(",", ".")) * 100) || 0,
+        category_id: s.categoryId,
+        description: s.description
+      })) : [];
+
+      if (useSplits) {
+        const sumSplits = parsedSplits.reduce((acc, s) => acc + s.amount_cents, 0);
+        if (sumSplits !== totalAmountCents) {
+          setStatusModal({
+            isOpen: true,
+            title: "Divisão Inválida",
+            message: `A soma das divisões (${formatCurrency(sumSplits)}) não bate com o valor total (${formatCurrency(totalAmountCents)}).`,
+            type: "error"
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
       let finalDateISO: string;
       let isPastMonth = false;
       try {
@@ -308,6 +346,7 @@ export function AddTransactionModal() {
         source: "MANUAL",
         is_third_party: capturedIsThirdParty,
         third_party_name: capturedIsThirdParty ? capturedThirdPartyName : null,
+        splits: parsedSplits as any
       };
 
       let errorOccurred = false;
@@ -451,6 +490,8 @@ export function AddTransactionModal() {
     setIsLegacyDebt(false);
     setIsThirdParty(false);
     setThirdPartyName("");
+    setUseSplits(false);
+    setSplits([]);
     setTransactionTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
   }
 
@@ -748,72 +789,156 @@ export function AddTransactionModal() {
 
                     {/* Categoria Custom Select */}
                     <div className="space-y-2 relative" ref={categoryDropdownRef}>
-                      <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-4">Categoria</label>
-                      <div
-                        onClick={() => {
-                          setOpenCategory(!openCategory);
-                          setOpenAccount(false);
-                        }}
-                        className={cn(
-                          "w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-sm text-white font-bold flex justify-between items-center transition-all cursor-pointer hover:border-white/20",
-                          categories.length === 0 && !contextLoading && "opacity-80"
-                        )}
-                        data-testid="transaction-category-select"
-                      >
-                        <span className="truncate">
-                          {categories.length === 0 ? (
-                            <span className="flex items-center gap-2 text-white/30 italic">
-                              {contextLoading && <Loader2 className="w-3 h-3 animate-spin text-violet-400" />}
-                              {contextLoading ? "Buscando categorias..." : "Nenhuma categoria"}
-                            </span>
-                          ) : filteredCategories.length === 0 ? (
-                            <span className="text-white/30 italic">
-                              Sem categorias de {type === "EXPENSE" ? "Gasto" : "Receita"}
-                            </span>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <span className="text-white">{categories.find(c => c.id === categoryId)?.name || "Selecione a categoria"}</span>
-                            </div>
-                          )}
-                        </span>
-                        <ChevronDown className={cn("w-4 h-4 transition-transform", openCategory && "rotate-180")} />
+                      <div className="flex justify-between items-center px-4">
+                        <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Categoria</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!useSplits) {
+                              setUseSplits(true);
+                              if (splits.length === 0) {
+                                setSplits([{ id: Math.random().toString(), amount: amount, categoryId: categoryId, description: "" }]);
+                              }
+                            } else {
+                              setUseSplits(false);
+                            }
+                          }}
+                          className="text-[9px] font-black uppercase text-violet-400 hover:text-violet-300 transition-colors"
+                        >
+                          {useSplits ? "Desfazer Divisão" : "Dividir Transação"}
+                        </button>
                       </div>
 
-                      <AnimatePresence>
-                        {openCategory && filteredCategories.length > 0 && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            className="absolute z-50 left-0 right-0 top-full mt-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto"
+                      {!useSplits ? (
+                        <>
+                          <div
+                            onClick={() => {
+                              setOpenCategory(!openCategory);
+                              setOpenAccount(false);
+                            }}
+                            className={cn(
+                              "w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-sm text-white font-bold flex justify-between items-center transition-all cursor-pointer hover:border-white/20",
+                              categories.length === 0 && !contextLoading && "opacity-80"
+                            )}
+                            data-testid="transaction-category-select"
                           >
-                            <div
-                              onClick={() => {
-                                setCategoryId("");
-                                setOpenCategory(false);
-                              }}
-                              className="px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-bold text-white/40 hover:text-white transition-colors border-b border-white/5 italic"
-                            >
-                              Nenhuma (Deixar Vazio)
-                            </div>
-                            {filteredCategories.map((cat, idx) => (
-                              <div
-                                key={cat.id || `cat-${idx}`}
-                                onClick={() => {
-                                  setCategoryId(cat.id);
-                                  setOpenCategory(false);
-                                }}
-                                className={cn(
-                                  "px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-medium text-white/80 hover:text-white transition-colors border-b border-white/5 last:border-0",
-                                  cat.id === categoryId && "bg-violet-500/10 text-violet-300"
-                                )}
+                            <span className="truncate">
+                              {categories.length === 0 ? (
+                                <span className="flex items-center gap-2 text-white/30 italic">
+                                  {contextLoading && <Loader2 className="w-3 h-3 animate-spin text-violet-400" />}
+                                  {contextLoading ? "Buscando categorias..." : "Nenhuma categoria"}
+                                </span>
+                              ) : filteredCategories.length === 0 ? (
+                                <span className="text-white/30 italic">
+                                  Sem categorias de {type === "EXPENSE" ? "Gasto" : "Receita"}
+                                </span>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-white">{categories.find(c => c.id === categoryId)?.name || "Selecione a categoria"}</span>
+                                </div>
+                              )}
+                            </span>
+                            <ChevronDown className={cn("w-4 h-4 transition-transform", openCategory && "rotate-180")} />
+                          </div>
+
+                          <AnimatePresence>
+                            {openCategory && filteredCategories.length > 0 && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className="absolute z-50 left-0 right-0 top-full mt-2 bg-[#0F0F0F] border border-white/10 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto"
                               >
-                                {cat.name}
+                                <div
+                                  onClick={() => {
+                                    setCategoryId("");
+                                    setOpenCategory(false);
+                                  }}
+                                  className="px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-bold text-white/40 hover:text-white transition-colors border-b border-white/5 italic"
+                                >
+                                  Nenhuma (Deixar Vazio)
+                                </div>
+                                {filteredCategories.map((cat, idx) => (
+                                  <div
+                                    key={cat.id || `cat-${idx}`}
+                                    onClick={() => {
+                                      setCategoryId(cat.id);
+                                      setOpenCategory(false);
+                                    }}
+                                    className={cn(
+                                      "px-5 py-4 hover:bg-white/5 cursor-pointer text-sm font-medium text-white/80 hover:text-white transition-colors border-b border-white/5 last:border-0",
+                                      cat.id === categoryId && "bg-violet-500/10 text-violet-300"
+                                    )}
+                                  >
+                                    {cat.name}
+                                  </div>
+                                ))}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </>
+                      ) : (
+                        <div className="space-y-3">
+                          {splits.map((split, index) => (
+                            <div key={split.id} className="flex gap-2 p-3 bg-black/20 border border-white/5 rounded-2xl relative">
+                              <button 
+                                type="button"
+                                onClick={() => setSplits(splits.filter(s => s.id !== split.id))}
+                                className="absolute -top-2 -right-2 w-6 h-6 bg-rose-500 rounded-full flex items-center justify-center text-white"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                              <div className="flex-1 space-y-2 min-w-0">
+                                <select
+                                  value={split.categoryId}
+                                  onChange={(e) => {
+                                    const newSplits = [...splits];
+                                    newSplits[index].categoryId = e.target.value;
+                                    setSplits(newSplits);
+                                  }}
+                                  className="w-full bg-[#111] border border-white/10 rounded-xl py-2 px-3 text-xs text-white outline-none truncate"
+                                >
+                                  <option value="">Selecione...</option>
+                                  {filteredCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                                <input
+                                  type="text"
+                                  placeholder="Descrição opcional"
+                                  value={split.description}
+                                  onChange={(e) => {
+                                    const newSplits = [...splits];
+                                    newSplits[index].description = e.target.value;
+                                    setSplits(newSplits);
+                                  }}
+                                  className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-xs text-white outline-none placeholder:text-white/20"
+                                />
                               </div>
-                            ))}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                              <div className="w-[100px] shrink-0 flex flex-col justify-center bg-white/5 border border-white/10 rounded-xl px-2">
+                                <div className="flex items-center w-full">
+                                  <span className="text-xs text-white/30 mr-1">R$</span>
+                                  <input
+                                    type="text"
+                                    value={split.amount}
+                                    onChange={(e) => {
+                                      const newSplits = [...splits];
+                                      newSplits[index].amount = e.target.value;
+                                      setSplits(newSplits);
+                                    }}
+                                    className="w-full bg-transparent text-xs text-white font-bold outline-none text-right"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setSplits([...splits, { id: Math.random().toString(), amount: "", categoryId: "", description: "" }])}
+                            className="w-full py-3 border border-dashed border-white/20 rounded-2xl text-[10px] font-black uppercase text-white/40 hover:text-white hover:border-white/40 transition-colors flex justify-center items-center gap-2"
+                          >
+                            <Plus className="w-3 h-3" /> Adicionar Divisão
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 

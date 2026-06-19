@@ -6,6 +6,7 @@ import {
   calculateRecurringIncome,
   calculateRecurringExpenses,
   calculateLoanInstallment,
+  filterIgnoredBalance,
   Simulation
 } from "./financial-logic";
 
@@ -62,9 +63,9 @@ export function buildHorizonSnapshot(params: BuildHorizonSnapshotParams): Horizo
     // Ajustar scheduledIncomeCents apenas para o mês atual para evitar double-counting com transações reais recebidas
     let incomeForOutlook = params.scheduledIncomeCents;
     if (i === 0 && params.allTransactions) {
-      const confirmedIncomeThisMonth = params.allTransactions
-        .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
-        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+      const confirmedIncomeThisMonth = filterIgnoredBalance(params.allTransactions)
+        .filter((t: Transaction) => t.transaction_type === "INCOME" && t.is_paid === true)
+        .reduce((sum: number, t: Transaction) => sum + (Number(t.amount_cents) || 0), 0);
 
       if (confirmedIncomeThisMonth > 0) {
         incomeForOutlook = 0;
@@ -74,9 +75,9 @@ export function buildHorizonSnapshot(params: BuildHorizonSnapshotParams): Horizo
     // Obter panorama mensal projetado pelo motor central
     const outlook = calculateMonthlyOutlook({
       ...params,
-      confirmedIncomeCents: i === 0 && params.allTransactions ? params.allTransactions
-        .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
-        .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0) : 0,
+      confirmedIncomeCents: i === 0 && params.allTransactions ? filterIgnoredBalance(params.allTransactions)
+        .filter((t: Transaction) => t.transaction_type === "INCOME" && t.is_paid === true)
+        .reduce((sum: number, t: Transaction) => sum + (Number(t.amount_cents) || 0), 0) : 0,
       scheduledIncomeCents: i === 0 ? incomeForOutlook : 0,
       scheduledExpensesCents: i === 0 ? params.scheduledExpensesCents : 0,
       monthOffset: i,

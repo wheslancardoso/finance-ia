@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
       source = "MANUAL",
       is_third_party = false,
       third_party_name = null,
+      splits = []
     } = body;
 
     if (!amount_cents || !transaction_type || !date || !description) {
@@ -137,7 +138,41 @@ export async function POST(request: NextRequest) {
       .select();
 
     if (error) throw error;
-    return NextResponse.json(data[0]);
+    
+    const savedTx = data[0];
+
+    // Handle splits
+    if (splits && splits.length > 0) {
+      // Delete existing splits
+      await supabase
+        .from('transaction_splits')
+        .delete()
+        .eq('transaction_id', savedTx.id);
+        
+      // Insert new splits
+      const splitsData = splits.map((s: any) => ({
+        transaction_id: savedTx.id,
+        category_id: s.category_id,
+        amount_cents: s.amount_cents,
+        description: s.description || null
+      }));
+      
+      const { error: splitsError } = await supabase
+        .from('transaction_splits')
+        .insert(splitsData);
+        
+      if (splitsError) {
+        console.error("Erro ao salvar splits:", splitsError);
+      }
+    } else if (id) {
+      // If updating and no splits provided, ensure no splits remain
+      await supabase
+        .from('transaction_splits')
+        .delete()
+        .eq('transaction_id', id);
+    }
+
+    return NextResponse.json(savedTx);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
