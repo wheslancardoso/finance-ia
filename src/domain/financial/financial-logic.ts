@@ -542,11 +542,21 @@ export function calculateMonthlyOutlook(params: {
   // mas cujo impacto de fatura caia em meses futuros (pós-fechamento) sejam computadas corretamente!
   const uniqueTx = deduplicateTransactions([futureTransactions, allTransactions]);
 
-  const installmentDebt = uniqueTx
+  const creditCardAccounts = new Set(accounts.filter(a => a.type === "CREDIT_CARD").map(a => a.id));
+
+  const installmentDebtTxs = uniqueTx
     .filter(t => {
       const impactDate = getTransactionImpactDate(t, accounts);
-      return (t.transaction_type === "EXPENSE" || t.transaction_type === "INCOME") && isSameMonth(impactDate, targetDate);
-    })
+      const isCreditCard = t.account_id && creditCardAccounts.has(t.account_id);
+      return isCreditCard && 
+             (t.transaction_type === "EXPENSE" || t.transaction_type === "INCOME") && 
+             isSameMonth(impactDate, targetDate) &&
+             !isAdjustmentTransaction(t);
+    });
+    
+
+
+  const installmentDebt = installmentDebtTxs
     .reduce((sum, t) => {
       const val = t.amount_cents || 0;
       return t.transaction_type === "INCOME" ? sum - val : sum + val;
@@ -691,7 +701,8 @@ export function calculateMonthlyOutlook(params: {
     const pendingCreditCardBills = currentMonthDebt;
 
     // Fórmula contábil M0 Base
-    projectedAssets = calculateAccumulatedBalance(accounts) + totalPendingIncomes - totalPendingExpenses - pendingCreditCardBills;
+    projectedAssets = calculateAccumulatedBalance(accounts) + totalPendingIncomes - totalPendingExpenses;
+    projectedAssets += simulationIncomeImpact - simulationExpenseImpact;
   } else {
     // 2. CÁLCULO DO SALDO BRUTO E DÍVIDA PROJETADA (Total Assets & Debt)
     // Usa o motor de projeção com o parâmetro currentAssetsCents para eliminar double-counting de cartões.
@@ -970,8 +981,8 @@ export function calculateAdvancedProjection(params: {
       const startOffset = s.startMonthOffset ?? 0;
       // Caso especial: Simulação de Empréstimo
       if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-        // As parcelas são pagas nos meses de startOffset a startOffset + n - 1
-        if (i >= startOffset && i < startOffset + s.installments) {
+        // As parcelas são pagas nos meses de startOffset + 1 a startOffset + 1 + n - 1
+        if (i >= startOffset + 1 && i < startOffset + 1 + s.installments) {
           if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
             return sum + s.customInstallmentCents;
           }

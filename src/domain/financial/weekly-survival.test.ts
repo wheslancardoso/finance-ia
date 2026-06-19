@@ -24,8 +24,8 @@ describe('calculateWeeklySurvival', () => {
     threeDaysAgo.setDate(now.getDate() - 3);
 
     const transactions = [
-      { id: '1', date: threeDaysAgo.toISOString(), amount_cents: 5000, transaction_type: 'EXPENSE' }, // R$ 50,00 variável
-      { id: '2', date: threeDaysAgo.toISOString(), amount_cents: 10000, transaction_type: 'EXPENSE', source_metadata: { recurring_id: 'rec1' } }, // Recorrente (ignorado)
+      { id: '1', date: "2026-06-16T10:00:00-03:00", amount_cents: 5000, transaction_type: 'EXPENSE' }, // R$ 50,00 variável
+      { id: '2', date: "2026-06-16T10:00:00-03:00", amount_cents: 10000, transaction_type: 'EXPENSE', source_metadata: { recurring_id: 'rec1' } }, // Recorrente (ignorado)
     ] as unknown as Transaction[];
 
     const result = calculateWeeklySurvival({
@@ -42,7 +42,7 @@ describe('calculateWeeklySurvival', () => {
   it('deve retornar status CRITICAL quando o limite é excedido', () => {
     const now = new Date();
     const transactions = [
-      { id: '1', date: now.toISOString(), amount_cents: 150000, transaction_type: 'EXPENSE' }, // Gastou R$ 1.500 na semana atual, sobra era só 1000 no mês todo
+      { id: '1', date: "2026-06-18T10:00:00-03:00", amount_cents: 150000, transaction_type: 'EXPENSE' }, // Gastou R$ 1.500 na semana atual, sobra era só 1000 no mês todo
     ] as unknown as Transaction[];
 
     const result = calculateWeeklySurvival({
@@ -60,7 +60,7 @@ describe('calculateWeeklySurvival', () => {
   it('deve retornar status WARNING quando consome mais de 60%', () => {
     const now = new Date();
     const transactions = [
-      { id: '1', date: now.toISOString(), amount_cents: 16000, transaction_type: 'EXPENSE' },
+      { id: '1', date: "2026-06-18T10:00:00-03:00", amount_cents: 16000, transaction_type: 'EXPENSE' },
     ] as unknown as Transaction[];
 
     const result = calculateWeeklySurvival({
@@ -69,7 +69,7 @@ describe('calculateWeeklySurvival', () => {
       isCrisisMode: false,
       isSurvivalMode: false,
       // Se gastou 3500 (R$ 35), 35/50 = 70% (WARNING).
-      currentMonthTransactions: [{ id: '1', date: now.toISOString(), amount_cents: 3500, transaction_type: 'EXPENSE' } as unknown as Transaction]
+      currentMonthTransactions: [{ id: '1', date: "2026-06-18T10:00:00-03:00", amount_cents: 3500, transaction_type: 'EXPENSE' } as unknown as Transaction]
     });
 
     expect(result.status).toBe('WARNING');

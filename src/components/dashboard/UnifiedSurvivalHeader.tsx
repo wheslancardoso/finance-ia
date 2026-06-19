@@ -59,10 +59,8 @@ export function UnifiedSurvivalHeader({
   // Listar contas correntes para exibição detalhada
   const checkingAccounts = accounts.filter(a => a.type !== "CREDIT_CARD");
 
-  // Total de contas fixas a pagar no mês — projetado para meses futuros
-  const fixedExpensesTotal = (isFuture || hasSimulations)
-    ? (monthlyOutlook.plannedExpenses ?? 0)
-    : (monthlyOutlook.plannedExpenses ?? 0);
+  // Total de contas fixas a pagar no mês (recorrentes + agendados)
+  const fixedExpensesTotal = monthlyOutlook.scheduledOnly ?? 0;
 
   return (
     <div className={cn(
@@ -184,7 +182,7 @@ export function UnifiedSurvivalHeader({
                   
                   <div className="flex flex-wrap items-center gap-6 mt-6">
                     {/* Contas a pagar (despesas fixas do mês) */}
-                    {fixedExpensesTotal > 0 && (
+                    {(fixedExpensesTotal > 0 || isFuture) && (
                       <div className="flex flex-col">
                         <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Contas a Pagar</span>
                         <span className="text-sm font-black text-amber-400/80 tabular-nums">{formatCurrency(fixedExpensesTotal)}</span>
@@ -194,7 +192,7 @@ export function UnifiedSurvivalHeader({
                     {/* Cartões usados */}
                     {creditCardUsedCents > 0 && (
                       <>
-                        {fixedExpensesTotal > 0 && <div className="w-px h-8 bg-white/5" />}
+                        {(fixedExpensesTotal > 0 || isFuture) && <div className="w-px h-8 bg-white/5" />}
                         <div className="flex flex-col">
                           <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Cartões Usados</span>
                           <span className="text-sm font-black text-red-400/80 tabular-nums">{formatCurrency(creditCardUsedCents)}</span>
