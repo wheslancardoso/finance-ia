@@ -83,6 +83,15 @@ export interface UserGamificationProfile {
   updated_at: string;
 }
 
+export interface MonthlyBalanceOverride {
+  id: string;
+  user_id: string;
+  month_key: string;
+  balance_cents: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Transaction {
   id: string;
   description: string;
@@ -120,6 +129,7 @@ export class VesperDB extends Dexie {
   financial_health_score!: Table<FinancialHealthScore>;
   transactions!: Table<Transaction>;
   gamification_profile!: Table<UserGamificationProfile>;
+  monthly_balance_overrides!: Table<MonthlyBalanceOverride>;
 
   constructor() {
     super('VesperDB');
@@ -134,6 +144,9 @@ export class VesperDB extends Dexie {
     });
     this.version(6).stores({
       gamification_profile: 'id, user_id'
+    });
+    this.version(7).stores({
+      monthly_balance_overrides: 'id, user_id, month_key, [user_id+month_key]'
     });
   }
 }

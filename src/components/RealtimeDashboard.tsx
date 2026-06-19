@@ -24,6 +24,7 @@ import CopilotChatPanel from "./dashboard/CopilotChatPanel";
 
 // Hooks
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
+import { useStartingBalanceOverrides } from "@/hooks/useStartingBalanceOverrides";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { getTransactionImpactDate, isRecurringExpired, calculateLoanInstallment } from "@/domain/financial/financial-logic";
 
@@ -96,6 +97,10 @@ export default function RealtimeDashboard({
     startingBalanceCents,
     accumulatedBalanceCents
   } = useFinancialAnalysis(monthOffset, activeSimulations);
+
+  const { overrides, saveOverride, removeOverride } = useStartingBalanceOverrides();
+  const monthKey = format(startOfMonth(targetDate), "yyyy-MM");
+  const hasOverride = overrides && overrides[monthKey] !== undefined;
 
   const isFuture = monthOffset > 0;
 
@@ -492,6 +497,14 @@ export default function RealtimeDashboard({
                     startingBalance={startingBalanceCents}
                     items={consolidatedItems}
                     monthName={format(targetDate, "MMMM 'de' yyyy", { locale: ptBR })}
+                    hasStartingBalanceOverride={hasOverride}
+                    onUpdateStartingBalance={(cents) => {
+                      if (cents === null) {
+                        removeOverride(monthKey);
+                      } else {
+                        saveOverride(monthKey, cents);
+                      }
+                    }}
                   />
                 ) : (
                   isFuture ? (

@@ -2,7 +2,8 @@
 import { useMemo, useCallback } from "react";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { financialService } from "@/services/financialService";
-import { addMonths, startOfMonth } from "date-fns";
+import { useStartingBalanceOverrides } from "./useStartingBalanceOverrides";
+import { addMonths, startOfMonth, format } from "date-fns";
 import { 
   calculateNetLiquidity, 
   calculateMonthlyOutlook, 
@@ -96,7 +97,12 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     deduplicateTransactions([futureTransactions, allTransactions]),
     [futureTransactions, allTransactions]
   );
+  const { overrides } = useStartingBalanceOverrides();
+
   const startingBalanceCents = useMemo(() => {
+    const targetDate = addMonths(new Date(), monthOffset);
+    const monthKey = format(targetDate, "yyyy-MM");
+
     if (monthOffset === 0) {
       const creditCardAccountIds = new Set(
         accounts.filter(a => a.type === "CREDIT_CARD").map(a => a.id)
@@ -114,7 +120,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
         .filter(t => t.transaction_type === "TRANSFER" && t.is_paid === true)
         .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
-      return currentAssets - paidIncomeThisMonth + paidExpenseThisMonth + paidTransferThisMonth;
+      const calculated = currentAssets - paidIncomeThisMonth + paidExpenseThisMonth + paidTransferThisMonth;
+      return overrides && overrides[monthKey] !== undefined ? overrides[monthKey] : calculated;
     }
     if (monthOffset < 0) {
       // Retro-cálculo exato para meses passados
@@ -133,7 +140,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
         .filter(t => t.transaction_type === "TRANSFER" && t.is_paid === true && new Date(t.date) >= targetMonthStart)
         .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
-      return currentAssets - paidIncomeSinceThen + paidExpenseSinceThen + paidTransferSinceThen;
+      const calculated = currentAssets - paidIncomeSinceThen + paidExpenseSinceThen + paidTransferSinceThen;
+      return overrides && overrides[monthKey] !== undefined ? overrides[monthKey] : calculated;
     }
 
     const confirmedIncomeThisMonth = (monthTransactions || [])
@@ -157,8 +165,10 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       goals,
       survivalReserveCents
     });
-    return prevOutlook.totalAssets || 0;
-  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, activeSimulations, futureTransactions, monthTransactions, recurringTransactions, goals, survivalReserveCents, currentAssets, consolidatedTransactions]);
+    
+    const calculated = prevOutlook.balanceAtMonthEnd || 0;
+    return overrides && overrides[monthKey] !== undefined ? overrides[monthKey] : calculated;
+  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, activeSimulations, futureTransactions, monthTransactions, recurringTransactions, goals, survivalReserveCents, currentAssets, consolidatedTransactions, overrides]);
 
   const prevMonthOutlook = useMemo(() => {
     if (monthOffset === 0) return null;
@@ -227,7 +237,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       allTransactions: consolidatedTransactions,
       recurringTransactions,
       goals,
-      survivalReserveCents
+      survivalReserveCents,
+      startingBalanceOverride: startingBalanceCents
     });
 
     // Projeção Avançada: Usa a liquidez calculada pelo motor central para manter 100% de consistência

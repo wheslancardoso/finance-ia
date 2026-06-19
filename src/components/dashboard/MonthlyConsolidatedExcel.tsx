@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { formatCurrency } from "@/lib/utils";
-import { ArrowDownRight, Briefcase, PieChart, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowDownRight, Briefcase, PieChart, ChevronDown, ChevronUp, Edit2, Check, X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MonthlyConsolidatedExcelProps {
@@ -21,6 +21,8 @@ interface MonthlyConsolidatedExcelProps {
     isGoal?: boolean;
   }>;
   monthName: string;
+  hasStartingBalanceOverride?: boolean;
+  onUpdateStartingBalance?: (newBalanceCents: number | null) => void;
 }
 
 export function MonthlyConsolidatedExcel({ 
@@ -29,9 +31,34 @@ export function MonthlyConsolidatedExcel({
   balance, 
   startingBalance,
   items,
-  monthName
+  monthName,
+  hasStartingBalanceOverride,
+  onUpdateStartingBalance
 }: MonthlyConsolidatedExcelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isEditingBalance, setIsEditingBalance] = useState(false);
+  const [editValue, setEditValue] = useState("");
+
+  const handleStartEdit = () => {
+    setEditValue((startingBalance / 100).toFixed(2).replace(".", ","));
+    setIsEditingBalance(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (onUpdateStartingBalance) {
+      const cleanStr = editValue.replace(/[^\d,-]/g, '').replace(',', '.');
+      const cents = Math.round(parseFloat(cleanStr) * 100);
+      onUpdateStartingBalance(isNaN(cents) ? null : cents);
+    }
+    setIsEditingBalance(false);
+  };
+
+  const handleResetEdit = () => {
+    if (onUpdateStartingBalance) {
+      onUpdateStartingBalance(null);
+    }
+    setIsEditingBalance(false);
+  };
 
   const maxInitialItems = 5;
   const hasMoreItems = items.length > maxInitialItems;
@@ -144,8 +171,51 @@ export function MonthlyConsolidatedExcel({
       )}>
         <div className="space-y-3">
           <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-white/30">
-            <span>Saldo Inicial (Com Ajustes)</span>
-            <span className="text-white/80 tabular-nums">{formatCurrency(startingBalance)}</span>
+            <span className="flex items-center gap-1.5">
+              Saldo Inicial {hasStartingBalanceOverride ? "(Editado)" : "(Calculado)"}
+            </span>
+            <div className="flex items-center gap-2">
+              {isEditingBalance ? (
+                <div className="flex items-center gap-2">
+                  <div className="relative flex items-center">
+                    <span className="absolute left-2 text-white/40 text-xs">R$</span>
+                    <input 
+                      type="text" 
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
+                      className="bg-black/20 border border-white/10 rounded px-2 py-0.5 pl-6 text-white text-xs w-24 outline-none focus:border-emerald-500/50"
+                      autoFocus
+                    />
+                  </div>
+                  <button onClick={handleSaveEdit} className="p-1 hover:bg-emerald-500/20 text-emerald-400 rounded-md transition-colors">
+                    <Check className="w-3 h-3" />
+                  </button>
+                  <button onClick={() => setIsEditingBalance(false)} className="p-1 hover:bg-red-500/20 text-red-400 rounded-md transition-colors">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 group cursor-pointer" onClick={handleStartEdit}>
+                  <span className={cn(
+                    "tabular-nums transition-colors",
+                    hasStartingBalanceOverride ? "text-amber-400" : "text-white/80"
+                  )}>
+                    {formatCurrency(startingBalance)}
+                  </span>
+                  <Edit2 className="w-3 h-3 text-white/20 group-hover:text-white/60 transition-colors" />
+                  {hasStartingBalanceOverride && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleResetEdit(); }} 
+                      className="p-1 hover:bg-white/10 text-white/40 hover:text-white/80 rounded-md transition-colors ml-1"
+                      title="Restaurar cálculo automático"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-white/30">
             <span>(+) Entradas Projetadas</span>

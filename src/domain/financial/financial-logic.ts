@@ -475,6 +475,7 @@ export function calculateMonthlyOutlook(params: {
   recurringTransactions?: RecurringTransaction[];
   goals?: Goal[];
   survivalReserveCents?: number;      // Reserva pessoal para o mês
+  startingBalanceOverride?: number;   // Override manual do saldo inicial
 }): MonthlyOutlook {
   const {
     accounts,
@@ -497,7 +498,9 @@ export function calculateMonthlyOutlook(params: {
   const now = new Date();
   const targetDate = addMonths(now, monthOffset);
 
-  const liquidity = calculateAccumulatedBalance(accounts);
+  const liquidity = params.startingBalanceOverride !== undefined 
+    ? params.startingBalanceOverride 
+    : calculateAccumulatedBalance(accounts);
   const currentMonthDebt = calculateCurrentMonthDebt(accounts);
 
   const monthKey = format(targetDate, "yyyy-MM");
