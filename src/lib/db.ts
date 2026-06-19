@@ -143,6 +143,8 @@ export interface Transaction {
   splits?: TransactionSplit[];
   interest_cents?: number;
   discount_cents?: number;
+  linked_transaction_id?: string | null;
+  is_amortized?: boolean;
 }
 
 export class VesperDB extends Dexie {

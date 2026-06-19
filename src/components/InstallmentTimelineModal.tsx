@@ -2,11 +2,12 @@
 
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, CheckCircle2, Circle, Clock, CreditCard, Calendar } from "lucide-react";
+import { X, CheckCircle2, Circle, Clock, CreditCard, Calendar, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency, cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
+import { useRouter } from "next/navigation";
 
 interface InstallmentTransaction {
   id: string;
@@ -15,6 +16,7 @@ interface InstallmentTransaction {
   installment_current: number;
   installment_total: number;
   description: string;
+  is_amortized?: boolean;
 }
 
 interface InstallmentTimelineModalProps {
@@ -26,6 +28,8 @@ interface InstallmentTimelineModalProps {
 export function InstallmentTimelineModal({ isOpen, onClose, transaction }: InstallmentTimelineModalProps) {
   const [installments, setInstallments] = useState<InstallmentTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [amortizingId, setAmortizingId] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (isOpen && transaction) {
@@ -51,6 +55,33 @@ export function InstallmentTimelineModal({ isOpen, onClose, transaction }: Insta
       setInstallments(data as any[]);
     }
     setLoading(false);
+  };
+
+  const handleAmortize = async (inst: InstallmentTransaction) => {
+    if (!window.confirm(`Tem certeza que deseja antecipar e pagar a parcela ${inst.installment_current} hoje?`)) return;
+    
+    setAmortizingId(inst.id);
+    const supabase = createClient();
+    
+    const today = new Date().toISOString();
+    
+    const { error } = await supabase
+      .from('transactions')
+      .update({
+        date: today,
+        is_amortized: true,
+        is_paid: true,
+        updated_at: today
+      })
+      .eq('id', inst.id);
+      
+    if (!error) {
+      await loadInstallments();
+      router.refresh();
+    } else {
+      alert("Erro ao amortizar a parcela.");
+    }
+    setAmortizingId(null);
   };
 
   if (!isOpen) return null;
@@ -156,9 +187,26 @@ export function InstallmentTimelineModal({ isOpen, onClose, transaction }: Insta
                         <div className="flex items-center gap-2">
                           <Calendar className="w-3 h-3 text-white/20" />
                           <span className="text-[10px] text-white/20 font-medium">
-                            Vencimento estimado: {format(new Date(inst.date), "dd/MM/yyyy")}
+                            {inst.is_amortized ? "Amortizada/Antecipada" : `Vencimento: ${format(new Date(inst.date), "dd/MM/yyyy")}`}
                           </span>
                         </div>
+                        {isFuture && !inst.is_amortized && (
+                          <div className="mt-4 flex justify-end">
+                            <button
+                              onClick={() => handleAmortize(inst)}
+                              disabled={amortizingId === inst.id}
+                              className="text-[9px] font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                            >
+                              {amortizingId === inst.id ? "Processando..." : "Antecipar p/ Hoje"}
+                            </button>
+                          </div>
+                        )}
+                        {inst.is_amortized && (
+                          <div className="mt-2 inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                            <Sparkles className="w-3 h-3" />
+                            <span className="text-[8px] font-black uppercase tracking-widest">Amortizada</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

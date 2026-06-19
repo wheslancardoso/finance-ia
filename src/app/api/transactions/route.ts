@@ -84,7 +84,9 @@ export async function POST(request: NextRequest) {
       third_party_name = null,
       splits = [],
       interest_cents = 0,
-      discount_cents = 0
+      discount_cents = 0,
+      linked_transaction_id = null,
+      is_amortized = false
     } = body;
 
     if (!amount_cents || !transaction_type || !date || !description) {
@@ -133,6 +135,8 @@ export async function POST(request: NextRequest) {
       third_party_name: third_party_name || null,
       interest_cents: interest_cents != null ? Number(interest_cents) : 0,
       discount_cents: discount_cents != null ? Number(discount_cents) : 0,
+      linked_transaction_id: linked_transaction_id || null,
+      is_amortized: !!is_amortized,
       updated_at: new Date().toISOString()
     };
 

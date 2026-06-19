@@ -24,7 +24,8 @@ export function AddTransactionModal() {
 
   const { 
     categories, 
-    accounts, 
+    accounts,
+    transactions,
     loading: contextLoading, 
     refreshData,
     upsertTransaction,
@@ -70,6 +71,10 @@ export function AddTransactionModal() {
   // Splits State
   const [useSplits, setUseSplits] = useState(false);
   const [splits, setSplits] = useState<{ id: string, amount: string, categoryId: string, description: string }[]>([]);
+
+  // Reembolso State
+  const [isReimbursement, setIsReimbursement] = useState(false);
+  const [linkedTransactionId, setLinkedTransactionId] = useState("");
 
   // Custom Select States
   const [openCategory, setOpenCategory] = useState(false);
@@ -147,6 +152,8 @@ export function AddTransactionModal() {
           setIsLegacyDebt(transactionToEdit.is_legacy_debt || false);
           setIsThirdParty(transactionToEdit.is_third_party || false);
           setThirdPartyName(transactionToEdit.third_party_name || "");
+          setIsReimbursement(!!transactionToEdit.linked_transaction_id);
+          setLinkedTransactionId(transactionToEdit.linked_transaction_id || "");
           
           if (transactionToEdit.interest_cents || transactionToEdit.discount_cents) {
             setShowFines(true);
@@ -246,6 +253,8 @@ export function AddTransactionModal() {
     const capturedIsThirdParty = isThirdParty;
     const capturedThirdPartyName = thirdPartyName;
     const capturedKeepOpen = keepOpen;
+    const capturedIsReimbursement = isReimbursement;
+    const capturedLinkedTransactionId = linkedTransactionId;
 
     try {
       if (!capturedAccountId || !capturedAmount || !userId) {
@@ -363,7 +372,8 @@ export function AddTransactionModal() {
         third_party_name: capturedIsThirdParty ? capturedThirdPartyName : null,
         splits: parsedSplits as any,
         interest_cents: interest ? Math.round(parseFloat(interest.replace(/\./g, "").replace(",", ".")) * 100) : 0,
-        discount_cents: discount ? Math.round(parseFloat(discount.replace(/\./g, "").replace(",", ".")) * 100) : 0
+        discount_cents: discount ? Math.round(parseFloat(discount.replace(/\./g, "").replace(",", ".")) * 100) : 0,
+        linked_transaction_id: capturedIsReimbursement && capturedLinkedTransactionId ? capturedLinkedTransactionId : null
       };
 
       let errorOccurred = false;
@@ -468,6 +478,8 @@ export function AddTransactionModal() {
           setInterest("");
           setDiscount("");
           setShowFines(false);
+          setIsReimbursement(false);
+          setLinkedTransactionId("");
           setStartingInstallment(1);
 
           // Foca no input de descrição após limpar
@@ -511,6 +523,8 @@ export function AddTransactionModal() {
     setIsLegacyDebt(false);
     setIsThirdParty(false);
     setThirdPartyName("");
+    setIsReimbursement(false);
+    setLinkedTransactionId("");
     setUseSplits(false);
     setSplits([]);
     setTransactionTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
@@ -1087,6 +1101,61 @@ export function AddTransactionModal() {
                       <span className="text-[10px] font-bold text-violet-400 bg-violet-400/10 px-2 py-0.5 rounded-full border border-violet-400/20">
                         Termina em {format(addMonths(new Date(transactionDate), installments - 1), "MMM 'de' yy", { locale: ptBR })}
                       </span>
+                    </div>
+                  )}
+
+                  {/* Reembolso Inteligente (Somente se for INCOME) */}
+                  {type === "INCOME" && (
+                    <div className="space-y-4 pt-2">
+                      <div className="flex items-center justify-between p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-white">Isto é um Reembolso?</span>
+                          <span className="text-[9px] text-white/40">Abater este valor de um gasto anterior</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsReimbursement(!isReimbursement)}
+                          className={cn(
+                            "w-11 h-6 rounded-full transition-all relative p-1 outline-none",
+                            isReimbursement ? "bg-emerald-500" : "bg-white/10"
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "w-4 h-4 rounded-full bg-white transition-all shadow",
+                              isReimbursement ? "translate-x-5" : "translate-x-0"
+                            )}
+                          />
+                        </button>
+                      </div>
+
+                      {isReimbursement && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          className="space-y-2 pt-1 overflow-hidden"
+                        >
+                          <label className="text-[9px] font-black text-emerald-400/60 uppercase tracking-widest px-4">Despesa Original</label>
+                          <div className="relative flex items-center">
+                            <select
+                              value={linkedTransactionId}
+                              onChange={(e) => setLinkedTransactionId(e.target.value)}
+                              className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-4 pr-5 text-sm text-white outline-none focus:border-emerald-500/50 appearance-none font-medium"
+                              required
+                            >
+                              <option value="" className="bg-[#1a1a1a]">Selecione a despesa...</option>
+                              {(transactions || [])
+                                .filter(t => t.transaction_type === "EXPENSE")
+                                .slice(0, 30)
+                                .map(t => (
+                                  <option key={t.id} value={t.id} className="bg-[#1a1a1a]">
+                                    {new Date(t.date).toLocaleDateString('pt-BR')} - {t.description} (R$ {(t.amount_cents / 100).toFixed(2).replace('.', ',')})
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+                        </motion.div>
+                      )}
                     </div>
                   )}
 
