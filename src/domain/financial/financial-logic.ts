@@ -1430,7 +1430,11 @@ export function calculateIncomeMix(transactions: Transaction[], budgets: Budget[
  * Calcula o histórico de patrimônio em conta corrente revertendo transações passadas a partir do saldo atual.
  * Nota: Retorna patrimônio em conta corrente (não patrimônio líquido real).
  */
-export function calculateCheckingBalanceHistory(accounts: Account[], transactions: Transaction[]): { month: string; netWorth: number }[] {
+export function calculateCheckingBalanceHistory(
+  accounts: Account[], 
+  transactions: Transaction[], 
+  account_snapshots?: import("@/lib/db").AccountSnapshot[]
+): { month: string; netWorth: number }[] {
   const history: any[] = [];
   const now = new Date();
   
@@ -1439,27 +1443,60 @@ export function calculateCheckingBalanceHistory(accounts: Account[], transaction
   for (let i = 0; i < 6; i++) {
     const targetMonth = addMonths(now, -i);
     const monthStr = format(targetMonth, "MMM", { locale: ptBR });
-    
-    history.unshift({
-      month: monthStr,
-      amount: Math.round(currentTotalCents / 100)
-    });
-
-    const monthStart = startOfMonth(targetMonth);
     const monthEnd = endOfMonth(targetMonth);
+    
+    // If we have snapshots, find the closest snapshot to the end of the month
+    if (account_snapshots && account_snapshots.length > 0) {
+      let monthTotalCents = 0;
+      
+      for (const acc of accounts || []) {
+        if (acc.type === 'CREDIT_CARD') continue;
+        
+        // Find snapshot for this account
+        const accSnaps = account_snapshots.filter(s => s.account_id === acc.id);
+        
+        // Se targetMonth for o mês atual, apenas usamos o saldo atual
+        if (i === 0) {
+          monthTotalCents += acc.balance_cents || 0;
+          continue;
+        }
 
-    const mTransactions = (transactions || []).filter(tx => {
-      const d = parseLocalDate(tx.date);
-      return d >= monthStart && d <= monthEnd;
-    });
+        // Tenta achar um snapshot com data <= monthEnd, pegando o mais recente
+        const validSnaps = accSnaps.filter(s => new Date(s.snapshot_date) <= monthEnd)
+                                  .sort((a, b) => new Date(b.snapshot_date).getTime() - new Date(a.snapshot_date).getTime());
+        
+        if (validSnaps.length > 0) {
+          monthTotalCents += validSnaps[0].balance_cents;
+        }
+      }
+      
+      history.unshift({
+        month: monthStr,
+        amount: Math.round(monthTotalCents / 100)
+      });
+      
+    } else {
+      // Legacy fallback
+      history.unshift({
+        month: monthStr,
+        amount: Math.round(currentTotalCents / 100)
+      });
 
-    const netChangeCents = mTransactions.reduce((net, tx) => {
-      if (tx.transaction_type === "INCOME") return net + tx.amount_cents;
-      if (tx.transaction_type === "EXPENSE") return net - tx.amount_cents;
-      return net;
-    }, 0);
+      const monthStart = startOfMonth(targetMonth);
 
-    currentTotalCents -= netChangeCents;
+      const mTransactions = (transactions || []).filter(tx => {
+        const d = parseLocalDate(tx.date);
+        return d >= monthStart && d <= monthEnd;
+      });
+
+      const netChangeCents = mTransactions.reduce((net, tx) => {
+        if (tx.transaction_type === "INCOME") return net + tx.amount_cents;
+        if (tx.transaction_type === "EXPENSE") return net - tx.amount_cents;
+        return net;
+      }, 0);
+
+      currentTotalCents -= netChangeCents;
+    }
   }
 
   return history;

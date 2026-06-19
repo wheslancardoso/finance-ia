@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { financialService } from "@/services/financialService";
-import { db, type Account, type Category, type Goal, type RecurringTransaction, type Budget, type FinancialHealthScore, type Transaction } from "@/lib/db";
+import { db, type Account, type Category, type Goal, type RecurringTransaction, type Budget, type FinancialHealthScore, type Transaction, type AccountSnapshot } from "@/lib/db";
 import { useAccountModal } from "./AccountModalContext";
 import { addMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -40,6 +40,7 @@ interface FinancialStateResponse {
   };
   categories: Category[];
   accounts: Account[];
+  account_snapshots?: AccountSnapshot[];
   invoices?: CreditCardInvoice[];
   goals: Goal[];
   recurring_transactions: RecurringTransaction[];
@@ -182,6 +183,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   const [monthTransactions, setMonthTransactions] = useState<Transaction[]>([]);
   const [futureTransactions, setFutureTransactions] = useState<Transaction[]>([]);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+  const [accountSnapshots, setAccountSnapshots] = useState<AccountSnapshot[]>([]);
   const [healthScore, setHealthScore] = useState<number>(0);
 
   const { userId: rawUserId } = useAccountModal();
@@ -283,6 +285,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
     setGoals(data.goals || []);
     setRecurringTransactions(recurring);
     setBudgets(data.budgets || []);
+    setAccountSnapshots(data.account_snapshots || []);
     setRecentTransactions([...(data.recent_transactions || data.transactions || [])]);
     setMonthTransactions([...(data.month_transactions || data.transactions || [])]);
     setFutureTransactions([...(data.future_transactions || [])]);
@@ -370,6 +373,9 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         state.goals ? db.goals.where('user_id').equals(userId!).delete().then(() => 
           db.goals.bulkPut(state.goals.map(g => ({ ...g, user_id: userId! })))
         ) : Promise.resolve(),
+        state.account_snapshots ? db.account_snapshots.clear().then(() => 
+          db.account_snapshots.bulkPut(state.account_snapshots!)
+        ) : Promise.resolve(),
         state.recurring_transactions ? db.recurring_transactions.where('user_id').equals(userId!).delete().then(() => 
           db.recurring_transactions.bulkPut(state.recurring_transactions.map(r => ({ ...r, user_id: userId! })))
         ) : Promise.resolve(),
@@ -456,7 +462,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
   }, [monthTransactions, budgets]);
 
   const getNetWorthHistory = useCallback((): NetWorthHistoryItem[] => {
-    return calculateCheckingBalanceHistory(accounts, allTransactions).map(item => ({
+    return calculateCheckingBalanceHistory(accounts, allTransactions, accountSnapshots).map(item => ({
       month: item.month,
       amount: item.netWorth
     }));
@@ -617,6 +623,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         const localGoals = await db.goals.where('user_id').equals(userId).toArray();
         const localRecurring = await db.recurring_transactions.where('user_id').equals(userId).toArray();
         const localBudgets = await db.budgets.where('user_id').equals(userId).toArray();
+        const localSnapshots = await db.account_snapshots.toArray();
 
         // Só atualizamos se houver dados para evitar loops se o estado inicial for igual
         if (localAccounts.length > 0) setAccounts(localAccounts as Account[]);
@@ -624,6 +631,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
         if (localGoals.length > 0) setGoals(localGoals as Goal[]);
         if (localRecurring.length > 0) setRecurringTransactions(localRecurring as RecurringTransaction[]);
         if (localBudgets.length > 0) setBudgets(localBudgets as Budget[]);
+        if (localSnapshots.length > 0) setAccountSnapshots(localSnapshots as AccountSnapshot[]);
         
         loadedUserIdRef.current = userId;
       } catch (err) {

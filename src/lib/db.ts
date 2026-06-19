@@ -22,6 +22,14 @@ export interface TransactionSplit {
   category?: Category;
 }
 
+export interface AccountSnapshot {
+  id: string;
+  account_id: string;
+  snapshot_date: string;
+  balance_cents: number;
+  created_at?: string;
+}
+
 export interface Account {
   id: string;
   name: string;
@@ -145,11 +153,13 @@ export class VesperDB extends Dexie {
   transactions!: Table<Transaction>;
   gamification_profile!: Table<UserGamificationProfile>;
   monthly_balance_overrides!: Table<MonthlyBalanceOverride>;
+  account_snapshots!: Table<AccountSnapshot>;
 
   constructor() {
     super('VesperDB');
-    this.version(5).stores({
+    this.version(6).stores({
       accounts: 'id, user_id, type',
+      account_snapshots: 'id, account_id, snapshot_date',
       categories: 'id, user_id, type',
       goals: 'id, user_id',
       recurring_transactions: 'id, user_id, status',
