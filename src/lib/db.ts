@@ -141,6 +141,8 @@ export interface Transaction {
     [key: string]: any;
   };
   splits?: TransactionSplit[];
+  interest_cents?: number;
+  discount_cents?: number;
 }
 
 export class VesperDB extends Dexie {

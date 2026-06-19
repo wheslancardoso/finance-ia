@@ -62,6 +62,11 @@ export function AddTransactionModal() {
   const [startingInstallment, setStartingInstallment] = useState(1);
   const [iaLoading, setIaLoading] = useState(false);
 
+  // Multas e Descontos State
+  const [showFines, setShowFines] = useState(false);
+  const [interest, setInterest] = useState("");
+  const [discount, setDiscount] = useState("");
+
   // Splits State
   const [useSplits, setUseSplits] = useState(false);
   const [splits, setSplits] = useState<{ id: string, amount: string, categoryId: string, description: string }[]>([]);
@@ -143,6 +148,16 @@ export function AddTransactionModal() {
           setIsThirdParty(transactionToEdit.is_third_party || false);
           setThirdPartyName(transactionToEdit.third_party_name || "");
           
+          if (transactionToEdit.interest_cents || transactionToEdit.discount_cents) {
+            setShowFines(true);
+            setInterest(transactionToEdit.interest_cents ? (transactionToEdit.interest_cents / 100).toFixed(2).replace(".", ",") : "");
+            setDiscount(transactionToEdit.discount_cents ? (transactionToEdit.discount_cents / 100).toFixed(2).replace(".", ",") : "");
+          } else {
+            setShowFines(false);
+            setInterest("");
+            setDiscount("");
+          }
+
           if (transactionToEdit.splits && transactionToEdit.splits.length > 0) {
             setUseSplits(true);
             setSplits(transactionToEdit.splits.map((s: any) => ({
@@ -346,7 +361,9 @@ export function AddTransactionModal() {
         source: "MANUAL",
         is_third_party: capturedIsThirdParty,
         third_party_name: capturedIsThirdParty ? capturedThirdPartyName : null,
-        splits: parsedSplits as any
+        splits: parsedSplits as any,
+        interest_cents: interest ? Math.round(parseFloat(interest.replace(/\./g, "").replace(",", ".")) * 100) : 0,
+        discount_cents: discount ? Math.round(parseFloat(discount.replace(/\./g, "").replace(",", ".")) * 100) : 0
       };
 
       let errorOccurred = false;
@@ -448,6 +465,10 @@ export function AddTransactionModal() {
           setInstallments(1); // Reseta parcelas para o próximo
           setIsThirdParty(false);
           setThirdPartyName("");
+          setInterest("");
+          setDiscount("");
+          setShowFines(false);
+          setStartingInstallment(1);
 
           // Foca no input de descrição após limpar
           setTimeout(() => {
@@ -1112,6 +1133,83 @@ export function AddTransactionModal() {
                             data-testid="transaction-third-party-name-input"
                             required
                           />
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+
+                  {/* Multas e Descontos */}
+                  <div className="space-y-4 pt-2">
+                    <div className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-white">Multas e Descontos</span>
+                        <span className="text-[9px] text-white/40">Destrinchar juros ou descontos (Opção A)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowFines(!showFines)}
+                        className={cn(
+                          "w-11 h-6 rounded-full transition-all relative p-1 outline-none",
+                          showFines ? "bg-amber-500" : "bg-white/10"
+                        )}
+                        data-testid="transaction-fines-toggle"
+                      >
+                        <div
+                          className={cn(
+                            "w-4 h-4 rounded-full bg-white transition-all shadow",
+                            showFines ? "translate-x-5" : "translate-x-0"
+                          )}
+                        />
+                      </button>
+                    </div>
+
+                    {showFines && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        className="space-y-4 pt-1 overflow-hidden"
+                      >
+                        <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-2xl space-y-4">
+                          <p className="text-[10px] text-amber-500/70 font-medium leading-relaxed">
+                            <strong>O valor principal lá em cima é o fluxo real de caixa.</strong><br/>
+                            Use estes campos apenas para identificar quanto desse valor foi multa ou desconto.
+                          </p>
+
+                          <div>
+                            <label className="text-[9px] font-black text-amber-400/60 uppercase tracking-widest px-2">Multa / Juros (R$)</label>
+                            <div className="relative flex items-center mt-2">
+                              <span className="absolute left-4 text-white/30 font-bold text-sm">R$</span>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="0,00"
+                                value={interest}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(/[^0-9,]/g, '');
+                                  setInterest(val);
+                                }}
+                                className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl py-3 pl-10 pr-4 text-sm text-amber-400 font-bold outline-none focus:border-amber-500/50 transition-colors"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-[9px] font-black text-emerald-400/60 uppercase tracking-widest px-2">Desconto Obtido (R$)</label>
+                            <div className="relative flex items-center mt-2">
+                              <span className="absolute left-4 text-white/30 font-bold text-sm">R$</span>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="0,00"
+                                value={discount}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(/[^0-9,]/g, '');
+                                  setDiscount(val);
+                                }}
+                                className="w-full bg-[#0F0F0F] border border-white/10 rounded-xl py-3 pl-10 pr-4 text-sm text-emerald-400 font-bold outline-none focus:border-emerald-500/50 transition-colors"
+                              />
+                            </div>
+                          </div>
                         </div>
                       </motion.div>
                     )}

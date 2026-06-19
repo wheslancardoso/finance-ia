@@ -82,7 +82,9 @@ export async function POST(request: NextRequest) {
       source = "MANUAL",
       is_third_party = false,
       third_party_name = null,
-      splits = []
+      splits = [],
+      interest_cents = 0,
+      discount_cents = 0
     } = body;
 
     if (!amount_cents || !transaction_type || !date || !description) {
@@ -129,6 +131,8 @@ export async function POST(request: NextRequest) {
       source,
       is_third_party: !!is_third_party,
       third_party_name: third_party_name || null,
+      interest_cents: interest_cents != null ? Number(interest_cents) : 0,
+      discount_cents: discount_cents != null ? Number(discount_cents) : 0,
       updated_at: new Date().toISOString()
     };
 
