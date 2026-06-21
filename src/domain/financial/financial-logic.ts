@@ -443,17 +443,22 @@ export function calculateWeeklySurvival(params: {
     weeklyLimitCents = weeklyLimitOverrideCents;
   }
 
-  // Identificar transações variáveis da semana atual (últimos 7 dias)
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(now.getDate() - 7);
+  // Identificar transações variáveis da semana atual
+  // A semana começa na Segunda-feira (1) e vai até Domingo (7)
+  const startOfWeek = new Date(now);
+  const dayOfWeek = now.getDay() || 7; // 1 (Seg) a 7 (Dom)
+  startOfWeek.setDate(now.getDate() - dayOfWeek + 1);
+  startOfWeek.setHours(0, 0, 0, 0);
 
   const weeklySpentCents = currentMonthTransactions
     .filter(t => {
       const tDate = parseLocalDate(t.date);
-      // Apenas despesas que não são recorrentes (gastos variáveis de sobrevivência)
+      // Apenas despesas variáveis orgânicas de sobrevivência
       return t.transaction_type === "EXPENSE" &&
         !t.source_metadata?.recurring_id &&
-        tDate >= sevenDaysAgo &&
+        !t.category?.ignore_balance &&
+        !isAdjustmentTransaction(t) &&
+        tDate >= startOfWeek &&
         tDate <= now;
     })
     .reduce((sum, t) => sum + (t.amount_cents || 0), 0);
