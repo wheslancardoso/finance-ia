@@ -1557,7 +1557,13 @@ export interface CashFlowStatement {
 
 export function isAdjustmentTransaction(t: any): boolean {
   if (!t) return false;
-  return t.is_adjustment === true || t.source === "ADJUSTMENT" || t.source === "MIGRATION";
+  if (t.is_adjustment === true || t.source === "ADJUSTMENT" || t.source === "MIGRATION") return true;
+  
+  const desc = (t.description || "").toLowerCase();
+  if (desc.includes("ajuste de saldo") || desc.includes("reajuste de saldo") || desc.includes("ajuste de fatura")) {
+    return true;
+  }
+  return false;
 }
 
 export function isCreditCardPurchase(t: any, accounts: Account[]): boolean {
