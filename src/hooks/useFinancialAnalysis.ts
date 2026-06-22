@@ -318,20 +318,11 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
 
   // Total gasto nos cartões de crédito — projetado para meses futuros
   const creditCardUsed = useMemo(() => {
-    if (monthOffset > 0) {
-      // Em meses futuros, exibir a fatura exata projetada para o mês (immediateCardDebt), e não a dívida total (totalDebt).
-      return monthlyOutlook.immediateCardDebt ?? 0;
-    }
-    // Mês atual: somatório real dos saldos negativos dos cartões
-    return accounts
-      .filter(a => a.type === "CREDIT_CARD")
-      .reduce((sum, a) => {
-        const debt = Number(a.total_debt_cents);
-        if (!isNaN(debt) && a.total_debt_cents !== undefined) return sum + Math.max(0, debt);
-        const balance = Number(a.balance_cents) || 0;
-        return sum + (balance < 0 ? Math.abs(balance) : 0);
-      }, 0);
-  }, [accounts, monthOffset, monthlyOutlook.totalDebt]);
+    // O conceito de "Cartões Usados" na UI reflete a fatura que precisamos pagar no mês (immediateCardDebt).
+    // Antes, no mês atual (0) o código somava a dívida total (total_debt_cents), o que causava pânico no usuário
+    // pois exibia a soma de todas as faturas futuras de parcelamentos como se fossem contas do mês atual.
+    return monthlyOutlook.immediateCardDebt ?? 0;
+  }, [monthlyOutlook.immediateCardDebt]);
 
 
 
