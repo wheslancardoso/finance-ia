@@ -242,27 +242,54 @@ export function MonthlyConsolidatedExcel({
           {/* Frase didática explicativa de leitura natural premium */}
           <div className="h-px bg-white/5 w-full my-3" />
           <p className="text-[10px] font-bold text-white/40 leading-relaxed">
-            {balance >= 0 ? (
-              income > 0 ? (
-                <>
-                  Como você inicia com <span className="text-white/70">{formatCurrency(startingBalance)}</span> e recebe <span className="text-emerald-400">+{formatCurrency(income)}</span> (totalizando <span className="text-white/70">{formatCurrency(startingBalance + income)}</span> disponíveis) para cobrir despesas de <span className="text-white/70">{formatCurrency(expenses)}</span>, você terminará o mês com um saldo positivo de <span className="text-emerald-400">{formatCurrency(balance)}</span>.
-                </>
-              ) : (
-                <>
-                  Como você inicia com <span className="text-white/70">{formatCurrency(startingBalance)}</span> e suas movimentações projetam um superávit sobre as despesas de <span className="text-white/70">{formatCurrency(expenses)}</span>, você terminará o mês com um saldo positivo de <span className="text-emerald-400">{formatCurrency(balance)}</span>.
-                </>
-              )
-            ) : (
-              income > 0 ? (
-                <>
-                  Como você inicia com <span className="text-white/70">{formatCurrency(startingBalance)}</span> e recebe <span className="text-emerald-400">+{formatCurrency(income)}</span> (totalizando <span className="text-white/70">{formatCurrency(startingBalance + income)}</span> disponíveis), mas as despesas previstas totalizam <span className="text-white/70">{formatCurrency(expenses)}</span>, você precisará cobrir a diferença de <span className="text-red-400">{formatCurrency(Math.abs(balance))}</span>.
-                </>
-              ) : (
-                <>
-                  Como seu saldo de partida é <span className="text-white/70">{formatCurrency(startingBalance)}</span> e as despesas previstas totalizam <span className="text-white/70">{formatCurrency(expenses)}</span>, você precisará cobrir a diferença de <span className="text-red-400">{formatCurrency(Math.abs(balance))}</span>.
-                </>
-              )
-            )}
+            {(() => {
+              const partialBalance = startingBalance + income;
+              if (balance >= 0) {
+                if (income > 0) {
+                  return (
+                    <>
+                      Como você inicia com <span className="text-white/70">{formatCurrency(startingBalance)}</span> e tem entradas de <span className="text-emerald-400">+{formatCurrency(income)}</span> (alcançando uma base de <span className="text-white/70">{formatCurrency(partialBalance)}</span>), você consegue cobrir facilmente as despesas de <span className="text-white/70">{formatCurrency(expenses)}</span>, encerrando o mês com sobra de <span className="text-emerald-400">{formatCurrency(balance)}</span>.
+                    </>
+                  );
+                } else {
+                  return (
+                    <>
+                      Seu saldo inicial de <span className="text-white/70">{formatCurrency(startingBalance)}</span> é suficiente para cobrir sozinho as despesas de <span className="text-white/70">{formatCurrency(expenses)}</span>, garantindo um fim de mês seguro com <span className="text-emerald-400">{formatCurrency(balance)}</span>.
+                    </>
+                  );
+                }
+              } else {
+                if (income > 0) {
+                  if (partialBalance >= 0) {
+                    return (
+                      <>
+                        Você inicia com <span className="text-white/70">{formatCurrency(startingBalance)}</span> e recebe <span className="text-emerald-400">+{formatCurrency(income)}</span> (base de <span className="text-white/70">{formatCurrency(partialBalance)}</span>). No entanto, como as despesas chegam a <span className="text-white/70">{formatCurrency(expenses)}</span>, seu mês fechará no negativo em <span className="text-red-400">{formatCurrency(balance)}</span>.
+                      </>
+                    );
+                  } else {
+                    return (
+                      <>
+                        Mesmo com entradas de <span className="text-emerald-400">+{formatCurrency(income)}</span>, seu saldo base continuará negativo em <span className="text-white/70">{formatCurrency(partialBalance)}</span> devido ao déficit inicial de <span className="text-white/70">{formatCurrency(startingBalance)}</span>. Somando as despesas de <span className="text-white/70">{formatCurrency(expenses)}</span>, o saldo final afundará para <span className="text-red-400">{formatCurrency(balance)}</span>.
+                      </>
+                    );
+                  }
+                } else {
+                  if (startingBalance >= 0) {
+                    return (
+                      <>
+                        Você não possui novas entradas e seu saldo de <span className="text-white/70">{formatCurrency(startingBalance)}</span> não é suficiente para cobrir as despesas de <span className="text-white/70">{formatCurrency(expenses)}</span>, gerando um déficit projetado de <span className="text-red-400">{formatCurrency(balance)}</span>.
+                      </>
+                    );
+                  } else {
+                    return (
+                      <>
+                        Você já inicia o mês no vermelho com <span className="text-white/70">{formatCurrency(startingBalance)}</span> e não possui novas entradas projetadas. Com as despesas de <span className="text-white/70">{formatCurrency(expenses)}</span>, seu déficit final se agravará para <span className="text-red-400">{formatCurrency(balance)}</span>.
+                      </>
+                    );
+                  }
+                }
+              }
+            })()}
           </p>
         </div>
       </div>
