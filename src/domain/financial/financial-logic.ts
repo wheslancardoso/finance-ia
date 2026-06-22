@@ -407,17 +407,16 @@ export function calculateWeeklySurvival(params: {
 
   const now = new Date();
   
-  // 1. Base Limit (Dinâmico conforme a data)
-  const currentDay = now.getDate();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const daysRemainingInMonth = Math.max(1, daysInMonth - currentDay + 1);
-  const weeksInPeriod = Math.max(1, Math.ceil(daysRemainingInMonth / 7));
+  // 1. Base Limit (Estável)
+  // Usamos 4.33 como a média de semanas em um mês para garantir um teto semanal estável
+  // que não flutua loucamente conforme os dias passam.
+  const WEEKS_IN_MONTH = 4.33;
 
   let baseLimitCents = 0;
   if (netFreeMarginMonthly > 0) {
-    baseLimitCents = Math.round(netFreeMarginMonthly / weeksInPeriod);
+    baseLimitCents = Math.round(netFreeMarginMonthly / WEEKS_IN_MONTH);
   } else if (effectiveCheckingBalance > 0) {
-    baseLimitCents = Math.round(effectiveCheckingBalance / weeksInPeriod);
+    baseLimitCents = Math.round(effectiveCheckingBalance / WEEKS_IN_MONTH);
   }
 
   let weeklyLimitCents = baseLimitCents;
@@ -1560,7 +1559,14 @@ export function isAdjustmentTransaction(t: any): boolean {
   if (t.is_adjustment === true || t.source === "ADJUSTMENT" || t.source === "MIGRATION") return true;
   
   const desc = (t.description || "").toLowerCase();
-  if (desc.includes("ajuste de saldo") || desc.includes("reajuste de saldo") || desc.includes("ajuste de fatura")) {
+  if (
+    desc.includes("ajuste de saldo") || 
+    desc.includes("reajuste de saldo") || 
+    desc.includes("ajuste de fatura") ||
+    desc.includes("pgto fatura") ||
+    desc.includes("pagamento de fatura") ||
+    desc.includes("pagamento da fatura")
+  ) {
     return true;
   }
   return false;
