@@ -319,8 +319,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
   // Total gasto nos cartões de crédito — projetado para meses futuros
   const creditCardUsed = useMemo(() => {
     if (monthOffset > 0) {
-      // Em meses futuros, usar a dívida projetada pelo motor de projeção
-      return monthlyOutlook.totalDebt ?? 0;
+      // Em meses futuros, exibir a fatura exata projetada para o mês (immediateCardDebt), e não a dívida total (totalDebt).
+      return monthlyOutlook.immediateCardDebt ?? 0;
     }
     // Mês atual: somatório real dos saldos negativos dos cartões
     return accounts

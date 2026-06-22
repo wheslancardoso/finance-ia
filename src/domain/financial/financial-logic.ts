@@ -968,7 +968,20 @@ export function calculateAdvancedProjection(params: {
 
       // Aplicar rollover acumulado deste cartão de meses anteriores no loop
       const rolledCredit = cardCreditRollover.get(cc.id) || 0;
-      const effectiveBill = rawBill - rolledCredit; // abate crédito acumulado
+      let effectiveBill = rawBill - rolledCredit; // abate crédito acumulado
+
+      // Garantia de Fatura: Se a soma das transações mapeadas for menor que a fatura real conhecida para este mês, usamos a fatura.
+      let invoiceFallback = 0;
+      if (cc.closed_invoice_cents && cc.closed_invoice_month === monthKey) {
+        invoiceFallback += Math.max(0, Number(cc.closed_invoice_cents));
+      }
+      if (cc.open_invoice_cents && cc.open_invoice_month === monthKey) {
+        invoiceFallback += Math.max(0, Number(cc.open_invoice_cents));
+      }
+      
+      if (invoiceFallback > effectiveBill) {
+        effectiveBill = invoiceFallback;
+      }
 
       if (effectiveBill > 0) {
         // Há fatura positiva: o usuário paga do caixa e amortiza a dívida
