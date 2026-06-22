@@ -61,7 +61,8 @@ export default function RealtimeDashboard({
     goals,
     recurringTransactions,
     futureTransactions,
-    allTransactions: liveAllTransactions
+    allTransactions: liveAllTransactions,
+    invoices: liveInvoices
   } = useFinancialData();
 
   // Usar dados live se disponíveis, senão inicial
@@ -274,22 +275,33 @@ export default function RealtimeDashboard({
           );
           if (hasTx) billAmount = 0;
         } else {
-          // Em meses futuros, somar as transações futuras/atuais cujo impacto caia neste mês
-          const consolidatedTx = [
-            ...(futureTransactions || []),
-            ...(liveAllTransactions || [])
-          ];
-          const uniqueTx = Array.from(new Map(consolidatedTx.map(t => [t.id, t])).values());
-          billAmount = uniqueTx
-            .filter(t => {
-              if (t.account_id !== a.id) return false;
-              const impactDate = getTransactionImpactDate(t, liveAccounts);
-              return (t.transaction_type === "EXPENSE" || t.transaction_type === "INCOME") && isSameMonth(impactDate, targetMonth);
-            })
-            .reduce((sum, t) => {
-              const val = t.amount_cents || 0;
-              return t.transaction_type === "INCOME" ? sum - val : sum + val;
-            }, 0);
+          // Em meses futuros, usar a fatura real (credit_card_invoices) como fonte de verdade.
+          // A soma de transações individuais pode divergir da fatura real (juros, arredondamentos,
+          // transações INCOME no mesmo cartão que invertem o total indevidamente).
+          const cardInvoices = (liveInvoices || []).filter(inv => 
+            inv.account_id === a.id && 
+            inv.reference_month === targetMonthStr &&
+            (inv.status === 'OPEN' || inv.status === 'CLOSED')
+          );
+          
+          if (cardInvoices.length > 0) {
+            // Fonte de verdade: fatura real registrada no banco
+            billAmount = cardInvoices.reduce((sum, inv) => sum + (Number(inv.amount_cents) || 0), 0);
+          } else {
+            // Fallback: somar transações com impactDate quando não há fatura registrada
+            const consolidatedTx = [
+              ...(futureTransactions || []),
+              ...(liveAllTransactions || [])
+            ];
+            const uniqueTx = Array.from(new Map(consolidatedTx.map(t => [t.id, t])).values());
+            billAmount = uniqueTx
+              .filter(t => {
+                if (t.account_id !== a.id) return false;
+                const impactDate = getTransactionImpactDate(t, liveAccounts);
+                return t.transaction_type === "EXPENSE" && isSameMonth(impactDate, targetMonth);
+              })
+              .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+          }
         }
         
         if (billAmount <= 0) return null;
@@ -370,7 +382,7 @@ export default function RealtimeDashboard({
     }
 
     return [...baseItemsList, ...budgetItems, ...goalItems];
-  }, [isFuture, projectionTransactions, displayTransactions, simulationTransactions, targetDate, monthOffset, liveAccounts, futureTransactions, liveAllTransactions, liveBudgets, goals, startingBalanceCents, monthlyOutlook.projectedNetLiquidity]);
+  }, [isFuture, projectionTransactions, displayTransactions, simulationTransactions, targetDate, monthOffset, liveAccounts, futureTransactions, liveAllTransactions, liveBudgets, goals, startingBalanceCents, monthlyOutlook.projectedNetLiquidity, liveInvoices]);
 
   const totalIncome = useMemo(() => 
     consolidatedItems.filter((i: any) => i.type === "INCOME").reduce((sum: number, i: any) => sum + i.value, 0)

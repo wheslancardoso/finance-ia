@@ -79,7 +79,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     recurringTransactions,
     survivalReserveCents,
     weeklyLimitOverrideCents,
-    allTransactions
+    allTransactions,
+    invoices
   } = useFinancialData();
 
   const netLiquidity = useMemo(() => calculateNetLiquidity(accounts), [accounts]);
@@ -163,12 +164,13 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       allTransactions: consolidatedTransactions,
       recurringTransactions,
       goals,
-      survivalReserveCents
+      survivalReserveCents,
+      invoices
     });
     
     const calculated = prevOutlook.totalAssets || 0;
     return overrides && overrides[monthKey] !== undefined ? overrides[monthKey] : calculated;
-  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, activeSimulations, futureTransactions, monthTransactions, recurringTransactions, goals, survivalReserveCents, currentAssets, consolidatedTransactions, overrides]);
+  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, activeSimulations, futureTransactions, monthTransactions, recurringTransactions, goals, survivalReserveCents, currentAssets, consolidatedTransactions, overrides, invoices]);
 
   const prevMonthOutlook = useMemo(() => {
     if (monthOffset === 0) return null;
@@ -190,9 +192,10 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       allTransactions: consolidatedTransactions,
       recurringTransactions,
       goals,
-      survivalReserveCents
+      survivalReserveCents,
+      invoices
     });
-  }, [monthOffset, accounts, monthTransactions, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, activeSimulations, futureTransactions, consolidatedTransactions, recurringTransactions, goals, survivalReserveCents]);
+  }, [monthOffset, accounts, monthTransactions, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, activeSimulations, futureTransactions, consolidatedTransactions, recurringTransactions, goals, survivalReserveCents, invoices]);
 
   const cashFlowStatement = useMemo(() => {
     let prevMonthAssets = currentAssets;
@@ -235,7 +238,8 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       recurringTransactions,
       goals,
       survivalReserveCents,
-      startingBalanceOverride: startingBalanceCents
+      startingBalanceOverride: startingBalanceCents,
+      invoices
     });
 
     // Projeção Avançada: Usa a liquidez calculada pelo motor central para manter 100% de consistência
@@ -250,7 +254,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       balanceAtMonthEnd: (monthOffset === 0 ? baseOutlook.balanceAtMonthEnd : baseOutlook.totalAssets) || 0,
       projectedNetLiquidity: projectedNetLiquidity || 0
     };
-  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, futureTransactions, goals, activeSimulations, monthTransactions, consolidatedTransactions, survivalReserveCents, realCycleLiquidity]);
+  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, futureTransactions, goals, activeSimulations, monthTransactions, consolidatedTransactions, survivalReserveCents, realCycleLiquidity, invoices]);
 
   // --- CÁLCULO UNIFICADO DE IMPACTO DE SIMULAÇÕES (Etapa 2) ---
   const { incomeImpact: simIncome, expenseImpact: simExpense } = useMemo(() => 

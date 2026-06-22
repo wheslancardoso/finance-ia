@@ -21,6 +21,15 @@ export interface Simulation {
   customInstallmentCents?: number;
 }
 
+export interface Invoice {
+  id: string;
+  account_id: string;
+  reference_month: string;
+  amount_cents: number;
+  paid_amount_cents: number;
+  status: "OPEN" | "CLOSED" | "PAID";
+}
+
 export interface MonthlyOutlook {
   balanceAtMonthEnd: number;
   plannedExpenses: number;
@@ -499,6 +508,7 @@ export function calculateMonthlyOutlook(params: {
   goals?: Goal[];
   survivalReserveCents?: number;      // Reserva pessoal para o mês
   startingBalanceOverride?: number;   // Override manual do saldo inicial
+  invoices?: Invoice[];               // Faturas reais de cartão de crédito
 }): MonthlyOutlook {
   const {
     accounts,
@@ -515,7 +525,8 @@ export function calculateMonthlyOutlook(params: {
     recurringTransactions = [],
     goals = [],
     allTransactions = [],
-    survivalReserveCents = 0
+    survivalReserveCents = 0,
+    invoices = []
   } = params;
 
   const now = new Date();
@@ -582,11 +593,31 @@ export function calculateMonthlyOutlook(params: {
     
 
 
-  const installmentDebt = installmentDebtTxs
+  // Para meses futuros, usar faturas reais (invoices) como fonte de verdade quando disponíveis.
+  // A soma de transações pode divergir da fatura real (juros, estornos parciais, transações INCOME que invertem total).
+  const invoiceBasedDebt = monthOffset > 0 
+    ? accounts
+        .filter(a => a.type === "CREDIT_CARD")
+        .reduce((sum, a) => {
+          const cardInvoices = invoices.filter(inv => 
+            inv.account_id === a.id && 
+            inv.reference_month === monthKey &&
+            (inv.status === 'OPEN' || inv.status === 'CLOSED')
+          );
+          return sum + cardInvoices.reduce((s, inv) => s + (Number(inv.amount_cents) || 0), 0);
+        }, 0)
+    : 0;
+
+  const txBasedDebt = installmentDebtTxs
     .reduce((sum, t) => {
       const val = t.amount_cents || 0;
       return t.transaction_type === "INCOME" ? sum - val : sum + val;
     }, 0);
+
+  // Usar faturas reais quando disponíveis e houver diferença significativa
+  const installmentDebt = (monthOffset > 0 && invoiceBasedDebt > 0) 
+    ? invoiceBasedDebt 
+    : Math.max(0, txBasedDebt);
 
   // Impacto de Simulações
   const simulationExpenseImpact = activeSimulations.reduce((sum, s) => {
