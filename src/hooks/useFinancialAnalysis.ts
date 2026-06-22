@@ -166,7 +166,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       survivalReserveCents
     });
     
-    const calculated = prevOutlook.balanceAtMonthEnd || 0;
+    const calculated = prevOutlook.totalAssets || 0;
     return overrides && overrides[monthKey] !== undefined ? overrides[monthKey] : calculated;
   }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, activeSimulations, futureTransactions, monthTransactions, recurringTransactions, goals, survivalReserveCents, currentAssets, consolidatedTransactions, overrides]);
 
@@ -175,14 +175,11 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     const confirmedIncomeThisMonth = (monthTransactions || [])
       .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
       .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
-    const effectiveScheduledIncome = scheduledIncomeCents || recurringIncomeCents;
-    const effectiveScheduledExpenses = scheduledExpensesCents || recurringExpensesCents;
-
     return calculateMonthlyOutlook({
       accounts,
       confirmedIncomeCents: confirmedIncomeThisMonth,
-      scheduledIncomeCents: effectiveScheduledIncome,
-      scheduledExpensesCents: effectiveScheduledExpenses,
+      scheduledIncomeCents: scheduledIncomeCents,
+      scheduledExpensesCents: scheduledExpensesCents,
       recurringIncomeCents,
       recurringExpensesCents,
       budgets,
