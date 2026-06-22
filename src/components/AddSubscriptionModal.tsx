@@ -166,6 +166,18 @@ export function AddSubscriptionModal() {
     }
   }, [isOpen, accounts, editingSubscription]);
 
+  // Sync category when type changes or on open
+  useEffect(() => {
+    if (!editingSubscription && categories.length > 0) {
+      const currentCat = categories.find(c => c.id === categoryId);
+      if (currentCat && currentCat.type === type) {
+        return; // Mantém a categoria se já for do tipo certo
+      }
+      const firstOfType = categories.find(c => c.type === type);
+      if (firstOfType) setCategoryId(firstOfType.id);
+    }
+  }, [type, categories, editingSubscription, isOpen]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -187,9 +199,15 @@ export function AddSubscriptionModal() {
       }
 
       // Fallback para categorias caso esteja vazio (o banco exige category_id)
-      const fallbackCategoryId = type === "EXPENSE" 
-        ? "fe7555b9-5019-4cad-8d57-b2472d660c0f" // Outros (Gasto)
-        : "6e0e37fc-4104-4e2a-929e-170758d76d41"; // Outros (Receita)
+      let finalCategoryId = categoryId;
+      if (!finalCategoryId || finalCategoryId.trim() === "") {
+        const firstOfType = categories.find(c => c.type === type);
+        if (firstOfType) {
+          finalCategoryId = firstOfType.id;
+        } else {
+          throw new Error("Nenhuma categoria encontrada para este tipo de transação. Por favor, crie uma categoria primeiro.");
+        }
+      }
 
       let finalDescription = description.trim();
       let dbFrequency = frequency;
@@ -210,7 +228,7 @@ export function AddSubscriptionModal() {
         ...(editingSubscription ? { id: editingSubscription.id } : {}),
         user_id: userId,
         account_id: accountId,
-        category_id: categoryId || fallbackCategoryId,
+        category_id: finalCategoryId,
         description: finalDescription,
         amount_cents: amountCents,
         transaction_type: type,
