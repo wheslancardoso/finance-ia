@@ -87,8 +87,7 @@ export default function RealtimeDashboard({
   const monthOffset = useMemo(() => {
     const today = startOfMonth(new Date());
     const target = startOfMonth(targetDate);
-    const months = (target.getFullYear() - today.getFullYear()) * 12 + (target.getMonth() - today.getMonth());
-    return Math.max(0, months);
+    return (target.getFullYear() - today.getFullYear()) * 12 + (target.getMonth() - today.getMonth());
   }, [targetDate]);
 
   const { 
