@@ -21,34 +21,34 @@ export function SmartMatchDiff({ matchResult, onAddMissingToVesper }: SmartMatch
   return (
     <div className="space-y-6">
       {/* Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-center gap-4">
-          <div className="p-2 bg-emerald-500/20 rounded-full">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+      <div className="grid grid-cols-3 gap-2 md:gap-4">
+        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl md:rounded-2xl p-2.5 md:p-4 flex items-center gap-2 md:gap-4">
+          <div className="p-1.5 md:p-2 bg-emerald-500/20 rounded-full">
+            <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-emerald-400" />
           </div>
           <div>
-            <div className="text-[10px] font-black uppercase tracking-widest text-emerald-400/70">Matches Perfeitos</div>
-            <div className="text-xl font-black text-emerald-400">{matchResult.exactMatches.length}</div>
+            <div className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-emerald-400/70">Matches</div>
+            <div className="text-lg md:text-xl font-black text-emerald-400">{matchResult.exactMatches.length}</div>
           </div>
         </div>
         
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex items-center gap-4">
-          <div className="p-2 bg-amber-500/20 rounded-full">
-            <AlertTriangle className="w-5 h-5 text-amber-400" />
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl md:rounded-2xl p-2.5 md:p-4 flex items-center gap-2 md:gap-4">
+          <div className="p-1.5 md:p-2 bg-amber-500/20 rounded-full">
+            <AlertTriangle className="w-4 h-4 md:w-5 md:h-5 text-amber-400" />
           </div>
           <div>
-            <div className="text-[10px] font-black uppercase tracking-widest text-amber-400/70">Faltando no App</div>
-            <div className="text-xl font-black text-amber-400">{matchResult.missingInVesper.length}</div>
+            <div className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-amber-400/70">No App</div>
+            <div className="text-lg md:text-xl font-black text-amber-400">{matchResult.missingInVesper.length}</div>
           </div>
         </div>
 
-        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center gap-4">
-          <div className="p-2 bg-red-500/20 rounded-full">
-            <XCircle className="w-5 h-5 text-red-400" />
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl md:rounded-2xl p-2.5 md:p-4 flex items-center gap-2 md:gap-4">
+          <div className="p-1.5 md:p-2 bg-red-500/20 rounded-full">
+            <XCircle className="w-4 h-4 md:w-5 md:h-5 text-red-400" />
           </div>
           <div>
-            <div className="text-[10px] font-black uppercase tracking-widest text-red-400/70">Não consta no Extrato</div>
-            <div className="text-xl font-black text-red-400">{matchResult.missingInBank.length}</div>
+            <div className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-red-400/70">No Extrato</div>
+            <div className="text-lg md:text-xl font-black text-red-400">{matchResult.missingInBank.length}</div>
           </div>
         </div>
       </div>

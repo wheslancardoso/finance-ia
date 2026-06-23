@@ -26,7 +26,7 @@ export function MobileNav() {
   const { openAdd } = useTransactionModal();
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-20 bg-black/40 backdrop-blur-xl border-t border-white/10 z-[100] md:hidden flex items-center justify-around px-2 pb-safe">
+    <div className="fixed bottom-0 left-0 right-0 bg-black/40 backdrop-blur-xl border-t border-white/10 z-[100] md:hidden flex items-center justify-around px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       {mobileItems.map((item) => {
         const isActive = pathname === item.href;
         

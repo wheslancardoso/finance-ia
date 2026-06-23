@@ -441,7 +441,7 @@ export default function RealtimeDashboard({
         />
 
         {/* ROW 2 — Painel Unificado de Controle Temporal (Máquina do Tempo) */}
-        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] p-6 shadow-2xl flex flex-col lg:flex-row gap-6 lg:items-start items-stretch">
+        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-2xl md:rounded-[32px] p-3 md:p-6 shadow-2xl flex flex-col lg:flex-row gap-4 md:gap-6 lg:items-start items-stretch">
           <div className="flex-1 min-w-0">
             <MonthNavigator 
               selectedDate={targetDate}
@@ -460,13 +460,13 @@ export default function RealtimeDashboard({
         </div>
 
         {/* ROW 3 — Timeline/Resumo full width */}
-        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[32px] overflow-hidden shadow-2xl flex flex-col">
-          <div className="flex items-center justify-between p-4 border-b border-white/5 shrink-0">
-            <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
+        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-2xl md:rounded-[32px] overflow-hidden shadow-2xl flex flex-col">
+          <div className="flex items-center justify-between p-3 md:p-4 border-b border-white/5 shrink-0">
+            <div className="flex bg-white/5 p-0.5 md:p-1 rounded-xl border border-white/5">
               <button 
                 onClick={() => setActiveTab("summary")}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                  "flex items-center gap-1.5 md:gap-2 px-2.5 md:px-4 py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-wider md:tracking-widest transition-all",
                   activeTab === "summary" ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20" : "text-white/40 hover:text-white/60"
                 )}
               >
@@ -477,7 +477,7 @@ export default function RealtimeDashboard({
                 onClick={() => setActiveTab("timeline")}
                 aria-label="Timeline"
                 className={cn(
-                  "flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                  "flex items-center gap-1.5 md:gap-2 px-2.5 md:px-4 py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-wider md:tracking-widest transition-all",
                   activeTab === "timeline" ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20" : "text-white/40 hover:text-white/60"
                 )}
               >
@@ -492,7 +492,7 @@ export default function RealtimeDashboard({
             </div>
           </div>
 
-          <div className="max-h-[400px] overflow-y-auto p-4 custom-scrollbar">
+          <div className="max-h-[400px] overflow-y-auto p-2 md:p-4 custom-scrollbar">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}

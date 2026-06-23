@@ -40,10 +40,10 @@ export default async function ReconciliationPage() {
     .order('date', { ascending: false });
 
   return (
-    <div className="flex flex-col flex-1 p-6 lg:p-12 overflow-y-auto">
-      <div className="max-w-6xl w-full mx-auto space-y-8">
+    <div className="flex flex-col flex-1 p-4 md:p-6 lg:p-12 overflow-y-auto">
+      <div className="max-w-6xl w-full mx-auto space-y-6 md:space-y-8">
         <div>
-          <h1 className="text-3xl font-black text-white tracking-tight">Auditoria Mensal</h1>
+          <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">Auditoria Mensal</h1>
           <p className="text-sm font-medium text-white/40 mt-1">Sincronize o saldo do seu banco com o aplicativo</p>
         </div>
 

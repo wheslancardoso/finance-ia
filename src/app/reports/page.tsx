@@ -20,31 +20,31 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="p-6 md:p-12 max-w-7xl mx-auto w-full space-y-12 animate-in fade-in duration-700">
+    <div className="p-4 md:p-6 lg:p-12 max-w-7xl mx-auto w-full space-y-8 md:space-y-12 animate-in fade-in duration-700">
       <header className="flex flex-col gap-1">
-        <h2 className="text-4xl font-black tracking-tight text-white italic">Insights <span className="text-violet-400">Vesper</span></h2>
+        <h2 className="text-2xl md:text-4xl font-black tracking-tight text-white italic">Insights <span className="text-violet-400">Vesper</span></h2>
         <p className="text-white/40 font-medium tracking-wide">Análise estratégica do seu ecossistema financeiro.</p>
       </header>
 
       {/* Top Row: Health & Assets */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <GlassCard className="lg:col-span-2 p-8">
-          <div className="flex items-center gap-3 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+        <GlassCard className="lg:col-span-2 p-4 md:p-8">
+          <div className="flex items-center gap-3 mb-4 md:mb-8">
             <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
               <TrendingUp className="w-5 h-5 text-violet-400" />
             </div>
-            <h3 className="text-lg font-black text-white uppercase tracking-wider italic">Evolução Patrimonial</h3>
+            <h3 className="text-sm md:text-lg font-black text-white uppercase tracking-wider md:tracking-widest italic">Evolução Patrimonial</h3>
           </div>
           <NetWorthEvolutionChart />
         </GlassCard>
 
-        <GlassCard data-testid="health-score-card" className="p-8 flex flex-col justify-between">
+        <GlassCard data-testid="health-score-card" className="p-4 md:p-8 flex flex-col justify-between">
           <div className="space-y-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
                 <Activity className="w-5 h-5 text-blue-400" />
               </div>
-              <h3 className="text-lg font-black text-white uppercase tracking-wider italic">Saúde Financeira</h3>
+              <h3 className="text-sm md:text-lg font-black text-white uppercase tracking-wider md:tracking-widest italic">Saúde Financeira</h3>
             </div>
 
             <div className="relative py-8 flex flex-col items-center">
@@ -75,7 +75,7 @@ export default function ReportsPage() {
                 </defs>
               </svg>
               <div className="absolute bottom-4 flex flex-col items-center">
-                <span data-testid="health-score-value" className="text-5xl font-black text-white">{healthScore}</span>
+                <span data-testid="health-score-value" className="text-4xl md:text-5xl font-black text-white">{healthScore}</span>
                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">Score Vesper</span>
               </div>
             </div>
@@ -97,18 +97,18 @@ export default function ReportsPage() {
       </div>
 
       {/* Middle Row: Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <GlassCard className="p-8">
-          <div className="flex items-center gap-3 mb-10">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        <GlassCard className="p-4 md:p-8">
+          <div className="flex items-center gap-3 mb-6 md:mb-10">
             <div className="w-10 h-10 rounded-xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center">
               <PieChart className="w-5 h-5 text-pink-400" />
             </div>
-            <h3 className="text-lg font-black text-white uppercase tracking-wider italic">Mix de Receitas</h3>
+            <h3 className="text-sm md:text-lg font-black text-white uppercase tracking-wider md:tracking-widest italic">Mix de Receitas</h3>
           </div>
           <IncomeMixChart />
         </GlassCard>
 
-        <GlassCard className="p-8 flex flex-col justify-center">
+        <GlassCard className="p-4 md:p-8 flex flex-col justify-center">
            <div className="text-center space-y-4">
               <div className="w-20 h-20 rounded-[2rem] bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-6">
                 <Activity className="w-10 h-10 text-violet-400 animate-pulse" />

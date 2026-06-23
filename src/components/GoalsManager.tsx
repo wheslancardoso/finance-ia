@@ -132,12 +132,12 @@ export function GoalsManager({ initialGoals, activeSimulations = [] }: GoalsMana
 
       {goalsToDisplay.length > 0 && (
         <div className="space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/5 pb-4">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center justify-between gap-3 md:gap-4 border-b border-white/5 pb-4">
             <div>
               <h2 className="text-xl font-bold text-white tracking-tight">Suas Ambições</h2>
               <p className="text-xs text-white/40">Fila soberana de prioridades ativas</p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 md:gap-4 w-full sm:w-auto">
               {/* Seletor Visual Slide Tabs */}
               <div className="relative bg-white/5 border border-white/10 rounded-xl p-[3px] flex items-center shrink-0">
                 <button
@@ -183,14 +183,14 @@ export function GoalsManager({ initialGoals, activeSimulations = [] }: GoalsMana
                 onClick={handleOptimizeWithIA}
                 disabled={iaLoading || goalsToDisplay.length < 2}
                 data-testid="optimize-goals-ia-button"
-                className="px-4 py-2.5 rounded-xl bg-violet-600/10 hover:bg-violet-600/20 text-violet-400 border border-violet-500/20 text-[10px] font-black uppercase tracking-wider flex items-center gap-2 transition-all active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 md:px-4 py-2.5 rounded-xl bg-violet-600/10 hover:bg-violet-600/20 text-violet-400 border border-violet-500/20 text-[10px] font-black uppercase tracking-wider flex items-center gap-2 transition-all active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {iaLoading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
                   <Sparkles className="w-3.5 h-3.5" />
                 )}
-                <span>Auditar Fila com IA</span>
+                <span className="hidden md:inline">Auditar Fila com IA</span>
               </button>
             </div>
           </div>

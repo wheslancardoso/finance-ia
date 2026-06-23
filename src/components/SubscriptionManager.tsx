@@ -136,7 +136,7 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
         <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">{subs.length} items</span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {subs.map((sub, idx) => {
           let cleanDescription = sub.description || "";
           
@@ -313,13 +313,13 @@ export function SubscriptionManager({ initialSubscriptions }: SubscriptionManage
     <div className="space-y-16">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
-          <h1 className="text-4xl font-black text-white tracking-tighter">Fluxos Recorrentes</h1>
+          <h1 className="text-2xl md:text-4xl font-black text-white tracking-tighter">Fluxos Recorrentes</h1>
           <p className="text-white/40 font-bold text-xs uppercase tracking-[0.2em]">Gestão de Receitas e Gastos Fixos</p>
         </div>
         <button 
           onClick={() => openModal()}
           data-testid="add-subscription-button"
-          className="flex items-center gap-3 bg-white text-black px-8 py-4 rounded-[22px] font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-white/10"
+          className="flex items-center gap-2 md:gap-3 bg-white text-black px-5 py-3 md:px-8 md:py-4 rounded-2xl md:rounded-[22px] font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-white/10"
         >
           <Plus className="w-5 h-5" />
           Novo Fluxo
