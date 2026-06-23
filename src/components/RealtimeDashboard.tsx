@@ -503,6 +503,7 @@ export default function RealtimeDashboard({
               >
                 {activeTab === "summary" ? (
                   <MonthlyConsolidatedExcel 
+                    targetDate={targetDate}
                     income={totalIncome}
                     expenses={totalExpenses}
                     balance={startingBalanceCents + totalIncome - totalExpenses}

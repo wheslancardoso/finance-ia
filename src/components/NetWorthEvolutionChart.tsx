@@ -11,7 +11,7 @@ export default function NetWorthEvolutionChart() {
 
   if (data.length === 0) return null;
 
-  const amounts = data.map(d => d.amount);
+  const amounts = data.map(d => Number.isFinite(d.amount) ? d.amount : 0);
   // Sempre incluir o zero na escala para dar contexto (se é positivo ou negativo)
   const max = Math.max(...amounts, 0);
   const min = Math.min(...amounts, 0);
@@ -25,8 +25,9 @@ export default function NetWorthEvolutionChart() {
   const chartRange = chartMax - chartMin;
 
   const points = data.map((d, i) => {
-    const x = (i / (data.length - 1)) * 300;
-    const y = 100 - ((d.amount - chartMin) / chartRange) * 100;
+    const x = data.length > 1 ? (i / (data.length - 1)) * 300 : 150;
+    const safeAmount = Number.isFinite(d.amount) ? d.amount : 0;
+    const y = 100 - ((safeAmount - chartMin) / chartRange) * 100;
     return `${x},${y}`;
   }).join(" ");
 
@@ -129,8 +130,9 @@ export default function NetWorthEvolutionChart() {
 
           {/* Data Points */}
           {data.map((d, i) => {
-            const x = (i / (data.length - 1)) * 300;
-            const y = 100 - ((d.amount - chartMin) / chartRange) * 100;
+            const x = data.length > 1 ? (i / (data.length - 1)) * 300 : 150;
+            const safeAmount = Number.isFinite(d.amount) ? d.amount : 0;
+            const y = 100 - ((safeAmount - chartMin) / chartRange) * 100;
             return (
               <g key={i} className="cursor-pointer group/point">
                 <motion.circle

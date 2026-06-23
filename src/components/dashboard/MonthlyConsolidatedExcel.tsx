@@ -3,10 +3,11 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { formatCurrency } from "@/lib/utils";
-import { ArrowDownRight, Briefcase, PieChart, ChevronDown, ChevronUp, Edit2, Check, X, RotateCcw } from "lucide-react";
+import { ArrowDownRight, Briefcase, PieChart, ChevronDown, ChevronUp, Edit2, Check, X, RotateCcw, Download, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MonthlyConsolidatedExcelProps {
+  targetDate: Date;
   income: number;
   expenses: number;
   balance: number;
@@ -26,6 +27,7 @@ interface MonthlyConsolidatedExcelProps {
 }
 
 export function MonthlyConsolidatedExcel({ 
+  targetDate,
   income, 
   expenses, 
   balance, 
@@ -38,6 +40,35 @@ export function MonthlyConsolidatedExcel({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditingBalance, setIsEditingBalance] = useState(false);
   const [editValue, setEditValue] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportUrl, setExportUrl] = useState<string | null>(null);
+
+  const handleExportCSV = async () => {
+    setIsExporting(true);
+    setExportUrl(null);
+    try {
+      const year = targetDate.getFullYear();
+      const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+      const referenceMonth = `${year}-${month}`;
+
+      const res = await fetch('/api/snapshots/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reference_month: referenceMonth })
+      });
+      
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setExportUrl(data.url);
+      } else {
+        alert("Erro ao exportar CSV: " + (data.error || "Erro desconhecido"));
+      }
+    } catch (e: any) {
+      alert("Erro ao exportar CSV: " + e.message);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleStartEdit = () => {
     setEditValue((startingBalance / 100).toFixed(2).replace(".", ","));
@@ -300,6 +331,37 @@ export function MonthlyConsolidatedExcel({
         <p className="text-[9px] font-bold text-white/40 leading-relaxed italic">
           Este resumo consolida receitas, gastos fixos, parcelamentos ativos e provisões de orçamento para {monthName}.
         </p>
+      </div>
+
+      {/* Ação de Exportar Dump */}
+      <div className="flex flex-col sm:flex-row items-center gap-4 justify-between px-4 py-4 bg-white/2 rounded-2xl border border-white/5">
+        <div className="flex flex-col">
+          <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Backup Mensal</span>
+          <span className="text-[9px] font-medium text-white/40 max-w-[200px]">Gere um snapshot (CSV) congelado com os saldos e transações deste mês.</span>
+        </div>
+        <div className="flex items-center gap-3">
+          {exportUrl && (
+            <a 
+              href={exportUrl} 
+              target="_blank" 
+              rel="noreferrer"
+              className="text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 transition-colors"
+            >
+              Baixar CSV
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            disabled={isExporting}
+            className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/15 disabled:opacity-50 text-white rounded-xl transition-colors active:scale-95"
+          >
+            {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+            <span className="text-[10px] font-black uppercase tracking-widest">
+              {isExporting ? "Gerando..." : "Lacrar Mês (CSV)"}
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   );

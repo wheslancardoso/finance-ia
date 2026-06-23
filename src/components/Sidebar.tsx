@@ -25,6 +25,7 @@ const menuItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Transações", href: "/transactions", icon: ArrowLeftRight },
   { name: "Contas", href: "/accounts", icon: Wallet },
+  { name: "Auditoria", href: "/reconciliation", icon: RefreshCcw },
   { name: "Terceiros", href: "/third-parties", icon: Users },
   { name: "Fluxos", href: "/subscriptions", icon: Zap },
   { name: "Metas", href: "/goals", icon: Target },

@@ -39,4 +39,12 @@ export class DashboardPage {
     await this.simulatorAmountInput.fill(amount);
     await this.simulatorInstallmentsSelect.selectOption(installments);
   }
+
+  get exportCsvButton() {
+    return this.page.getByRole('button', { name: /lacrar mês \(csv\)/i });
+  }
+
+  get downloadCsvLink() {
+    return this.page.getByRole('link', { name: /baixar csv/i });
+  }
 }
