@@ -260,12 +260,17 @@ async function buildFinancialState(userId: string) {
 
     accountTxs.forEach(t => {
       const txDate = new Date(t.date);
-      let refMonth = new Date(txDate);
+      let refYear = txDate.getFullYear();
+      let refMonthNum = txDate.getMonth();
       // Se comprou no dia ou após o fechamento, joga pro mês seguinte
       if (txDate.getDate() >= closingDay) {
-        refMonth.setMonth(refMonth.getMonth() + 1);
+        refMonthNum += 1;
+        if (refMonthNum > 11) {
+          refMonthNum = 0;
+          refYear += 1;
+        }
       }
-      const refMonthStr = `${refMonth.getFullYear()}-${String(refMonth.getMonth() + 1).padStart(2, '0')}`;
+      const refMonthStr = `${refYear}-${String(refMonthNum + 1).padStart(2, '0')}`;
       const amt = Number(t.amount_cents) || 0;
       const netAmt = t.transaction_type === 'EXPENSE' ? amt : (t.transaction_type === 'INCOME' ? -amt : 0);
       invoicesMap.set(refMonthStr, (invoicesMap.get(refMonthStr) || 0) + netAmt);

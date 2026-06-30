@@ -268,7 +268,7 @@ export function AddTransactionModal() {
         return;
       }
 
-      const parsedAmount = parseFloat(capturedAmount.replace(",", "."));
+      const parsedAmount = parseFloat(capturedAmount.replace(/\./g, "").replace(",", "."));
       if (isNaN(parsedAmount)) {
         setStatusModal({
           isOpen: true,
