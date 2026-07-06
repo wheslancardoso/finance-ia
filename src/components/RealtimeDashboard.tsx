@@ -201,46 +201,121 @@ export default function RealtimeDashboard({
     return [...filteredFuture, ...virtualRecurring, ...simulationTransactions];
   }, [isFuture, targetDate, futureTransactions, recurringTransactions, liveAccounts, simulationTransactions]);
 
-  // Preparar dados para o Resumo Excel
+  // Preparar dados para o Resumo Excel (AGRUPADO POR CONTA)
   const consolidatedItems = useMemo(() => {
-    const creditCardAccountIds = new Set(
-      liveAccounts.filter(a => a.type === "CREDIT_CARD").map(a => a.id)
-    );
-
     const transactionsToUse = isFuture ? projectionTransactions : displayTransactions;
     
-    // Filtrar transações de cartão de crédito para evitar double-counting com as faturas
-    // Exceção: Para meses passados, não filtramos as transações e não injetamos a fatura agregada.
-    // Isso ocorre pois as faturas antigas (PAID) não trafegam no payload V5 por performance,
-    // então mostrar as transações individuais garante que o "Resumo Consolidado" bata 100% com a "Linha do Tempo".
-    let filteredTransactions = transactionsToUse.filter((t: any) => 
-      isPast ? true : (!t.account_id || !creditCardAccountIds.has(t.account_id))
-    );
-
     // Deduplicar transações físicas/projetadas por recurring_id para evitar double-counting
     const seenRecurringIds = new Set<string>();
-    filteredTransactions = filteredTransactions.filter((t: any) => {
+    const deduplicatedTransactions = transactionsToUse.filter((t: any) => {
       const recId = t.source_metadata?.recurring_id || t.source_metadata?.['recurring_id'];
       if (recId) {
-        if (seenRecurringIds.has(recId)) {
-          return false;
-        }
+        if (seenRecurringIds.has(recId)) return false;
         seenRecurringIds.add(recId);
       }
       return true;
     });
-    
-    const baseItems = filteredTransactions.map((t: any) => ({
+
+    const items: any[] = [];
+    const targetMonth = startOfMonth(targetDate);
+    const targetMonthStr = format(targetMonth, "yyyy-MM");
+
+    // Agrupar por contas (Corrente/Poupança e Cartão de Crédito)
+    liveAccounts.forEach(a => {
+      if (a.type === "CREDIT_CARD") {
+        let billAmount = 0;
+        
+        if (monthOffset === 0) {
+          if (a.closed_invoice_month === targetMonthStr) billAmount += Number(a.closed_invoice_cents) || 0;
+          if (a.open_invoice_month === targetMonthStr) billAmount += Number(a.open_invoice_cents) || 0;
+        } else {
+          // Para meses passados ou futuros, tenta buscar a fatura real
+          const cardInvoices = (liveInvoices || []).filter(inv => 
+            inv.account_id === a.id && 
+            inv.reference_month === targetMonthStr &&
+            (inv.status === 'OPEN' || inv.status === 'CLOSED' || inv.status === 'PAID')
+          );
+          
+          if (cardInvoices.length > 0) {
+            billAmount = cardInvoices.reduce((sum, inv) => sum + (Number(inv.amount_cents) || 0), 0);
+          } else {
+            // Fallback: somar transações com impactDate (faturas futuras ou antigas não cacheadas)
+            const consolidatedTx = isFuture 
+              ? [...(futureTransactions || []), ...(liveAllTransactions || [])]
+              : deduplicatedTransactions;
+              
+            const uniqueTx = Array.from(new Map(consolidatedTx.map(t => [t.id, t])).values());
+            billAmount = uniqueTx
+              .filter(t => {
+                if ((t as any).account_id !== a.id) return false;
+                const impactDate = getTransactionImpactDate(t as any, liveAccounts);
+                return t.transaction_type === "EXPENSE" && isSameMonth(impactDate, targetMonth);
+              })
+              .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+          }
+        }
+        
+        if (billAmount > 0) {
+          items.push({
+            name: `Fatura ${a.name}`,
+            value: billAmount,
+            type: "EXPENSE" as const,
+            category: "Cartão de Crédito",
+            isInstallment: false,
+            isBudget: false,
+            isGoal: false
+          });
+        }
+      } else {
+        // Contas Correntes/Poupança
+        const accTxs = deduplicatedTransactions.filter(t => (t as any).account_id === a.id);
+        
+        const accIncome = accTxs
+          .filter(t => t.transaction_type === "INCOME")
+          .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+          
+        const accExpense = accTxs
+          .filter(t => t.transaction_type === "EXPENSE")
+          .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+        if (accIncome > 0) {
+          items.push({
+            name: `Entradas ${a.name}`,
+            value: accIncome,
+            type: "INCOME" as const,
+            category: "Conta Bancária",
+            isInstallment: false,
+            isBudget: false,
+            isGoal: false
+          });
+        }
+        if (accExpense > 0) {
+          items.push({
+            name: `Saídas ${a.name}`,
+            value: accExpense,
+            type: "EXPENSE" as const,
+            category: "Conta Bancária",
+            isInstallment: false,
+            isBudget: false,
+            isGoal: false
+          });
+        }
+      }
+    });
+
+    // Transações sem conta (Simulações futuras, virtuais, etc) mantidas como itens individuais
+    const noAccountTxs = deduplicatedTransactions.filter(t => !(t as any).account_id);
+    const noAccountItems = noAccountTxs.map((t: any) => ({
       name: t.description,
       value: t.amount_cents,
       type: t.transaction_type as "INCOME" | "EXPENSE",
-      category: typeof t.category === 'object' ? t.category?.name : (t.category || "Geral"),
+      category: typeof t.category === 'object' ? t.category?.name : (t.category || "Sem Conta"),
       isInstallment: (t as any).installment_total > 1,
       isBudget: (t as any).isBudget,
       isGoal: (t as any).isGoal
     }));
 
-    // No presente, as simulações não vêm do banco, então injetamos separadamente na planilha
+    // No presente, as simulações ativas não vêm do banco, então injetamos separadamente
     const simItems = !isFuture
       ? simulationTransactions.map((t: any) => ({
           name: t.description,
@@ -253,77 +328,7 @@ export default function RealtimeDashboard({
         }))
       : [];
 
-    const items = [...baseItems, ...simItems];
-
-    // Injetar faturas de cartão de crédito projetadas para o mês correspondente
-    // de forma a sincronizar a planilha de gastos com o saldo final projetado
-    const targetMonth = startOfMonth(targetDate);
-    const targetMonthStr = format(targetMonth, "yyyy-MM");
-    
-    const bills = liveAccounts
-      .filter(a => a.type === "CREDIT_CARD")
-      .map(a => {
-        let billAmount = 0;
-        if (monthOffset === 0) {
-          if (a.closed_invoice_month === targetMonthStr) {
-            billAmount += Number(a.closed_invoice_cents) || 0;
-          }
-          if (a.open_invoice_month === targetMonthStr) {
-            billAmount += Number(a.open_invoice_cents) || 0;
-          }
-          
-          // Evitar duplicidade: se já há uma transação na lista com essa descrição
-          const hasTx = items.some(item => 
-            item.type === "EXPENSE" && 
-            item.name.toLowerCase().includes(a.name.toLowerCase()) && 
-            item.name.toLowerCase().includes("fatura")
-          );
-          if (hasTx) billAmount = 0;
-        } else if (isFuture) {
-          // Em meses futuros, usar a fatura real (credit_card_invoices) como fonte de verdade.
-          // A soma de transações individuais pode divergir da fatura real (juros, arredondamentos,
-          // transações INCOME no mesmo cartão que invertem o total indevidamente).
-          const cardInvoices = (liveInvoices || []).filter(inv => 
-            inv.account_id === a.id && 
-            inv.reference_month === targetMonthStr &&
-            (inv.status === 'OPEN' || inv.status === 'CLOSED')
-          );
-          
-          if (cardInvoices.length > 0) {
-            // Fonte de verdade: fatura real registrada no banco
-            billAmount = cardInvoices.reduce((sum, inv) => sum + (Number(inv.amount_cents) || 0), 0);
-          } else {
-            // Fallback: somar transações com impactDate quando não há fatura registrada
-            const consolidatedTx = [
-              ...(futureTransactions || []),
-              ...(liveAllTransactions || [])
-            ];
-            const uniqueTx = Array.from(new Map(consolidatedTx.map(t => [t.id, t])).values());
-            billAmount = uniqueTx
-              .filter(t => {
-                if (t.account_id !== a.id) return false;
-                const impactDate = getTransactionImpactDate(t, liveAccounts);
-                return t.transaction_type === "EXPENSE" && isSameMonth(impactDate, targetMonth);
-              })
-              .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
-          }
-        }
-        
-        if (billAmount <= 0) return null;
-        
-        return {
-          name: `Fatura ${a.name}`,
-          value: billAmount,
-          type: "EXPENSE" as const,
-          category: "Cartão de Crédito",
-          isInstallment: false,
-          isBudget: false,
-          isGoal: false
-        };
-      })
-      .filter(Boolean) as any[];
-
-    const baseItemsList = [...items, ...bills];
+    const baseItemsList = [...items, ...noAccountItems, ...simItems];
 
     // Calcular o saldo bruto intermediário antes das provisões
     const baseIncome = baseItemsList
@@ -513,8 +518,16 @@ export default function RealtimeDashboard({
                     targetDate={targetDate}
                     income={totalIncome}
                     expenses={totalExpenses}
-                    balance={startingBalanceCents + totalIncome - totalExpenses}
-                    startingBalance={startingBalanceCents}
+                    balance={
+                      isPast && monthClosing?.total_balance_cents !== undefined
+                        ? monthClosing.total_balance_cents
+                        : startingBalanceCents + totalIncome - totalExpenses
+                    }
+                    startingBalance={
+                      isPast && monthClosing?.total_balance_cents !== undefined
+                        ? monthClosing.total_balance_cents - totalIncome + totalExpenses
+                        : startingBalanceCents
+                    }
                     items={consolidatedItems}
                     monthName={format(targetDate, "MMMM 'de' yyyy", { locale: ptBR })}
                     hasStartingBalanceOverride={hasOverride}
