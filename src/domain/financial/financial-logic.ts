@@ -421,7 +421,7 @@ export function calculateWeeklySurvival(params: {
   }
 
   // 3. Corte Emergencial de Crise: Se em crise ou sobrevivência, cortar 50%
-  if (isCrisisMode || isSurvivalMode) {
+  if (isSurvivalMode) {
     weeklyLimitCents = Math.round(weeklyLimitCents * 0.5);
   }
 
@@ -790,10 +790,12 @@ export function calculateMonthlyOutlook(params: {
     ? Math.max(currentMonthDebt, installmentDebt)
     : installmentDebt;
 
-  const finalLiquidity = projectedAssets - projectedTotalDebt;
+  const finalLiquidity = monthOffset === 0 
+    ? projectedAssets - (projectedTotalDebt - currentMonthDebt) // subtrai apenas a futura
+    : projectedAssets - projectedTotalDebt;
 
   const isCritical = monthOffset === 0 
-    ? (projectedAssets - immediateCardDebt < 0) 
+    ? (projectedAssets < 0) 
     : (finalLiquidity < 0);
 
   const isSurvivalMode = isCritical || netLiquidityCents < 0;

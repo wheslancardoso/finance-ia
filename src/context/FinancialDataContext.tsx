@@ -409,7 +409,33 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
       setLastFetched(Date.now());
     } catch (error: any) {
-      console.error("❌ ERRO AO BUSCAR ESTADO FINANCEIRO:", error);
+      console.error("❌ ERRO AO BUSCAR ESTADO FINANCEIRO, TENTANDO FALLBACK OFFLINE:", error);
+      
+      // Fallback offline via Dexie e localStorage
+      const cachedTx = await db.transactions.where('user_id').equals(userId || '').toArray();
+      const cachedAccounts = await db.accounts.where('user_id').equals(userId || '').toArray();
+      const cachedRecurring = await db.recurring_transactions.where('user_id').equals(userId || '').toArray();
+      const cachedGoals = await db.goals.where('user_id').equals(userId || '').toArray();
+
+      if (cachedAccounts.length > 0) setAccounts(cachedAccounts);
+      if (cachedTx.length > 0) {
+        setAllTransactions(cachedTx);
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        setMonthTransactions(cachedTx.filter(t => {
+          if (!t.date) return false;
+          const tDate = new Date(t.date.split('T')[0] + 'T00:00:00');
+          return tDate >= startOfMonth && tDate <= now;
+        }));
+        setRecentTransactions(cachedTx.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()).slice(0, 10));
+      }
+      if (cachedRecurring.length > 0) setRecurringTransactions(cachedRecurring);
+      if (cachedGoals.length > 0) setGoals(cachedGoals);
+
+      // Usar localStorage como último recurso para acumular score e saldos se o fallback não funcionar 100%
+      const lsScore = localStorage.getItem('vesper_health_score');
+      if (lsScore) setHealthScore(Number(lsScore));
+
     } finally {
       setLoading(false);
     }

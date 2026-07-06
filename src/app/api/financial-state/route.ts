@@ -317,7 +317,7 @@ async function buildFinancialState(userId: string) {
     },
     categories: categories || [],
     accounts: enrichedAccounts,
-    invoices: [], // Campo mantido para retrocompatibilidade da UI sem quebrar imediatamente
+    invoices: invoices || [],
     goals: goals || [],
     recurring_transactions: enrichedRecurring,
     budgets: budgets || [],
