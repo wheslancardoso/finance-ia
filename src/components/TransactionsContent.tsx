@@ -292,14 +292,15 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
                       (() => {
                         const [yStr, mStr] = selectedInvoiceKey.split("-");
                         const y = parseInt(yStr);
-                        const m = parseInt(mStr) - 1;
-                        const now = new Date();
-                        const currentYear = now.getFullYear();
-                        const currentMonth = now.getMonth();
+                        const mStrP = parseInt(mStr);
+                        const invoiceDateStr = `${yStr}-${mStrP.toString().padStart(2, '0')}`;
                         
-                        if (y < currentYear || (y === currentYear && m < currentMonth)) {
+                        // SSOT: Use API provided months if available
+                        if (activeAccount?.closed_invoice_month === invoiceDateStr || 
+                            (activeAccount?.open_invoice_month && invoiceDateStr < activeAccount.open_invoice_month)) {
                           return "bg-emerald-500/10 border-emerald-500/20 text-emerald-400";
                         }
+                        
                         return "bg-amber-500/10 border-amber-500/20 text-amber-400 animate-pulse";
                       })()
                     )}
@@ -307,12 +308,19 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
                     {(() => {
                       const [yStr, mStr] = selectedInvoiceKey.split("-");
                       const y = parseInt(yStr);
-                      const m = parseInt(mStr) - 1;
-                      const now = new Date();
-                      const currentYear = now.getFullYear();
-                      const currentMonth = now.getMonth();
+                      const mStrP = parseInt(mStr);
+                      const invoiceDateStr = `${yStr}-${mStrP.toString().padStart(2, '0')}`;
+
+                      if (activeAccount?.open_invoice_month) {
+                        if (invoiceDateStr === activeAccount.open_invoice_month) return "ABERTA";
+                        if (invoiceDateStr < activeAccount.open_invoice_month) return "FECHADA";
+                        return "FUTURA";
+                      }
                       
-                      if (y < currentYear || (y === currentYear && m < currentMonth)) {
+                      // Fallback logic
+                      const closingDay = activeAccount?.closing_day || 10;
+                      const closingDate = new Date(y, mStrP - 1, closingDay);
+                      if (new Date() >= closingDate) {
                         return "FECHADA";
                       }
                       return "ABERTA";
@@ -439,24 +447,33 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
               <p className="text-[9px] font-black uppercase tracking-widest truncate w-full opacity-40">
                 {acc.name}
               </p>
-              <p className={cn(
+              <div className={cn(
                 "text-[10px] md:text-xs font-black tabular-nums truncate w-full mt-0.5",
                 isSelected ? "text-white" : "text-white/60"
               )}>
                 {isCredit ? (() => {
-                  const closedAmount = acc.closed_invoice_cents || 0;
                   const openAmount = acc.open_invoice_cents || 0;
-                  const showClosed = closedAmount > 0;
-                  const label = showClosed ? "Fechada" : "Aberta";
-                  const amountStr = formatCurrency(showClosed ? closedAmount : openAmount);
+                  const totalDebt = acc.total_debt_cents || (acc.closed_invoice_cents || 0) + openAmount;
+                  
+                  // Se o valor fechado somado não bater com a expectativa do usuário (ex: tem fatura antiga),
+                  // é melhor mostrar a "Aberta" (Fatura Atual) se existir, ou o "Total" devido.
+                  const showOpen = openAmount > 0;
+                  const label = showOpen ? "Aberta" : "Fechada";
+                  const amountStr = formatCurrency(showOpen ? openAmount : (acc.closed_invoice_cents || 0));
+                  
                   return (
-                    <span className="flex items-center gap-1">
-                      <span className="opacity-40 hidden xs:inline">{label}:</span>
-                      <span>{amountStr}</span>
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="flex items-center gap-1">
+                        <span className="opacity-40 hidden xs:inline">{label}:</span>
+                        <span>{amountStr}</span>
+                      </span>
+                      {totalDebt > openAmount && !showOpen && (
+                        <span className="text-[9px] text-white/30 opacity-70">Total: {formatCurrency(totalDebt)}</span>
+                      )}
+                    </div>
                   );
                 })() : formatCurrency(acc.balance_cents || 0)}
-              </p>
+              </div>
             </button>
           );
         })}

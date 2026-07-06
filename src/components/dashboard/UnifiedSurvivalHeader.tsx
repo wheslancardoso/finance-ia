@@ -10,6 +10,7 @@ import { useTransactionModal } from "@/context/TransactionModalContext";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { Simulation } from "@/domain/financial/financial-logic";
+import type { MonthClosing } from "@/hooks/useMonthClosing";
 
 interface UnifiedSurvivalHeaderProps {
   monthOffset?: number;
@@ -20,6 +21,8 @@ interface UnifiedSurvivalHeaderProps {
   variant?: 'full' | 'compact';
   isCopilotOpen?: boolean;
   onToggleCopilot?: () => void;
+  monthClosing?: MonthClosing | null;
+  isAutoSealed?: boolean;
 }
 
 export function UnifiedSurvivalHeader({
@@ -30,7 +33,9 @@ export function UnifiedSurvivalHeader({
   debtExitDate,
   variant = 'full',
   isCopilotOpen = false,
-  onToggleCopilot
+  onToggleCopilot,
+  monthClosing,
+  isAutoSealed = false
 }: UnifiedSurvivalHeaderProps) {
   const { openAdd } = useTransactionModal();
   const { accounts, recurringExpensesCents: contextRecurringExpenses } = useFinancialData();
@@ -40,18 +45,28 @@ export function UnifiedSurvivalHeader({
     weeklySurvival,
     recurringExpensesCents,
     monthlyOutlook
-  } = useFinancialAnalysis(monthOffset, activeSimulations);
+  } = useFinancialAnalysis(monthOffset, activeSimulations, monthClosing);
 
   const isFuture = monthOffset > 0;
+  const isPast = monthOffset < 0;
   const hasSimulations = activeSimulations.length > 0;
   
-  // Se for mês futuro ou houver simulações de impacto ativas, o usuário espera ver no cabeçalho principal
-  // o Saldo Projetado Final Líquido de fim de período (após deduzir contas a pagar, faturas e compromissos).
-  // Caso contrário, no mês atual em tempo real, exibimos o saldo acumulado bruto atual das contas correntes.
-  const displayBalanceCents = (isFuture || hasSimulations)
-    ? monthlyOutlook.balanceAtMonthEnd
-    : accumulatedBalanceCents;
+  // Meses passados: usar saldo selado do month_closing (SSOT)
+  // Meses futuros/simulações: saldo projetado de fim de mês
+  // Mês atual: saldo acumulado live das contas correntes
+  const displayBalanceCents = isPast
+    ? (monthClosing?.total_balance_cents ?? accumulatedBalanceCents)
+    : (isFuture || hasSimulations)
+      ? monthlyOutlook.balanceAtMonthEnd
+      : accumulatedBalanceCents;
   const isNegativeBalance = displayBalanceCents < 0;
+
+  // Label dinâmico para o saldo
+  const balanceLabel = isPast
+    ? "Saldo Fechado"
+    : (isFuture || hasSimulations)
+      ? "Saldo Projetado"
+      : "Saldo em Conta";
 
   // Limite semanal vindo da inteligência do domínio
   const weeklyLimit = weeklySurvival.weeklyLimitCents;
@@ -132,7 +147,7 @@ export function UnifiedSurvivalHeader({
           <div className="flex items-center justify-between mt-2">
             <div className="flex flex-col">
               <span className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-1">
-                {(isFuture || hasSimulations) ? "Saldo Projetado" : "Saldo em Conta"}
+                {balanceLabel}
               </span>
               <h2 
                 data-testid="net-liquidity-value"
@@ -161,12 +176,17 @@ export function UnifiedSurvivalHeader({
                 <div className="space-y-1">
                   <span className={cn(
                     "text-[10px] font-black uppercase tracking-[0.4em] block",
-                    isNegativeBalance ? "text-red-400/60" : "text-white/30"
+                    isNegativeBalance ? "text-red-400/60" : isPast ? "text-emerald-400/50" : "text-white/30"
                   )}>
-                    {(isFuture || hasSimulations) ? "Saldo Projetado" : "Saldo em Conta"}
+                    {balanceLabel}
                     {hasSimulations && (
                       <span className="ml-2 text-[8px] font-black bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full vertical-middle uppercase tracking-widest">
                         Impacto Simulado Ativo
+                      </span>
+                    )}
+                    {isPast && isAutoSealed && (
+                      <span className="ml-2 text-[8px] font-black bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full vertical-middle uppercase tracking-widest">
+                        Estimado — Corrija na Reconciliação
                       </span>
                     )}
                   </span>
@@ -174,7 +194,7 @@ export function UnifiedSurvivalHeader({
                     data-testid="net-liquidity-value"
                     className={cn(
                       "text-[clamp(2rem,6vw,4.5rem)] py-2 font-black tracking-tighter tabular-nums leading-none drop-shadow-2xl sm:whitespace-normal",
-                      isNegativeBalance ? "text-red-400" : hasSimulations ? "text-violet-400" : isFuture ? "text-white/90" : "text-white"
+                      isNegativeBalance ? "text-red-400" : isPast ? "text-emerald-300" : hasSimulations ? "text-violet-400" : isFuture ? "text-white/90" : "text-white"
                     )}
                   >
                     {formatCurrency(displayBalanceCents)}

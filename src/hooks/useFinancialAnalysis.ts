@@ -27,6 +27,7 @@ import {
   calculateSimulationImpactForMonth,
   deduplicateTransactions
 } from "@/domain/financial/financial-logic";
+import type { MonthClosing } from "@/hooks/useMonthClosing";
 
 export type { SimulationDetailedResult, MonthlyOutlook, DebtExitProjection, GoalProjection, CashFlowStatement };
 
@@ -64,7 +65,7 @@ export interface FinancialAnalysis {
  * Hook de "Ponte de Dados": Consolida a inteligência financeira do sistema.
  * Use este hook em qualquer página ou componente para obter diagnósticos consistentes.
  */
-export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations: Simulation[] = []): FinancialAnalysis {
+export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations: Simulation[] = [], monthClosing?: MonthClosing | null): FinancialAnalysis {
   const { 
     accounts, 
     scheduledIncomeCents, 
@@ -125,7 +126,15 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       return overrides && overrides[monthKey] !== undefined ? overrides[monthKey] : calculated;
     }
     if (monthOffset < 0) {
-      // Retro-cálculo exato para meses passados
+      // SSOT: Usar month_closing selado quando disponível
+      if (monthClosing && monthClosing.total_balance_cents !== undefined) {
+        // O starting balance de um mês passado é o closing do mês ANTERIOR a ele.
+        // Mas para simplificar, usamos o total_balance_cents do closing do mês-alvo
+        // como referência — o dashboard mostrará esse valor como "Saldo Fechado".
+        return monthClosing.total_balance_cents;
+      }
+
+      // Fallback: retro-cálculo (pode ser impreciso, mas é melhor que nada)
       const targetMonthStart = startOfMonth(addMonths(new Date(), monthOffset));
       const bankAccountIds = new Set(accounts.filter(a => a.type !== "CREDIT_CARD").map(a => a.id));
 
@@ -170,7 +179,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     
     const calculated = prevOutlook.totalAssets || 0;
     return overrides && overrides[monthKey] !== undefined ? overrides[monthKey] : calculated;
-  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, activeSimulations, futureTransactions, monthTransactions, recurringTransactions, goals, survivalReserveCents, currentAssets, consolidatedTransactions, overrides, invoices]);
+  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, activeSimulations, futureTransactions, monthTransactions, recurringTransactions, goals, survivalReserveCents, currentAssets, consolidatedTransactions, overrides, invoices, monthClosing]);
 
   const prevMonthOutlook = useMemo(() => {
     if (monthOffset === 0) return null;

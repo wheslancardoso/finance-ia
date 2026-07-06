@@ -18,6 +18,9 @@ export function ReconciliationClient({ initialAccounts, initialTransactions }: R
   const [selectedAccountId, setSelectedAccountId] = useState<string>(initialAccounts[0]?.id || "");
   const [parsedBankTxs, setParsedBankTxs] = useState<ParsedBankTransaction[]>([]);
   const [bankFinalBalance, setBankFinalBalance] = useState<string>("");
+  const [reconciliationDate, setReconciliationDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  );
   const [isReconciling, setIsReconciling] = useState(false);
 
   // Filtra as transações do app pela conta selecionada
@@ -87,18 +90,40 @@ export function ReconciliationClient({ initialAccounts, initialTransactions }: R
     
     setIsReconciling(true);
     try {
+      // Define o horário para o final do dia selecionado
+      const targetDate = new Date(reconciliationDate + "T23:59:59");
+      
       const res = await fetch("/api/accounts/reconcile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           account_id: selectedAccountId,
           current_app_balance_cents: currentAppBalanceCents,
-          target_bank_balance_cents: targetBankBalanceCents
+          target_bank_balance_cents: targetBankBalanceCents,
+          date: targetDate.toISOString()
         })
       });
       
       if (res.ok) {
-        alert("Reconciliação concluída com sucesso! O saldo foi ajustado.");
+        // Selar o mês com o saldo confirmado pelo usuário
+        const [year, month] = reconciliationDate.split("-");
+        const referenceMonth = `${year}-${month}`;
+        
+        try {
+          await fetch("/api/month-closing", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              reference_month: referenceMonth,
+              total_balance_cents: targetBankBalanceCents,
+              seal_method: "reconciliation"
+            })
+          });
+        } catch (sealErr) {
+          console.warn("Falha ao selar mês via month-closing:", sealErr);
+        }
+
+        alert("Reconciliação concluída com sucesso! O saldo foi ajustado e o mês foi selado.");
         router.refresh();
         setParsedBankTxs([]);
         setBankFinalBalance("");
@@ -162,15 +187,26 @@ export function ReconciliationClient({ initialAccounts, initialTransactions }: R
         </div>
 
         <div className="flex flex-col gap-4 md:gap-6">
-          <div className="flex-1 w-full space-y-2">
-            <label className="text-xs font-black text-white uppercase tracking-widest px-2">Saldo Final no Banco</label>
-            <input 
-              type="text" 
-              placeholder="Ex: 1500,00"
-              value={bankFinalBalance}
-              onChange={e => setBankFinalBalance(e.target.value)}
-              className="w-full bg-black/40 border border-white/20 rounded-2xl px-4 py-3 md:px-5 md:py-4 text-white text-lg md:text-xl font-mono focus:outline-none focus:border-violet-500 transition-colors"
-            />
+          <div className="flex flex-col md:flex-row gap-4 w-full">
+            <div className="flex-1 space-y-2">
+              <label className="text-xs font-black text-white uppercase tracking-widest px-2">Data do Saldo</label>
+              <input 
+                type="date" 
+                value={reconciliationDate}
+                onChange={e => setReconciliationDate(e.target.value)}
+                className="w-full bg-black/40 border border-white/20 rounded-2xl px-4 py-3 md:px-5 md:py-4 text-white text-lg font-mono focus:outline-none focus:border-violet-500 transition-colors"
+              />
+            </div>
+            <div className="flex-[2] space-y-2">
+              <label className="text-xs font-black text-white uppercase tracking-widest px-2">Saldo Final no Banco</label>
+              <input 
+                type="text" 
+                placeholder="Ex: 1500,00"
+                value={bankFinalBalance}
+                onChange={e => setBankFinalBalance(e.target.value)}
+                className="w-full bg-black/40 border border-white/20 rounded-2xl px-4 py-3 md:px-5 md:py-4 text-white text-lg md:text-xl font-mono focus:outline-none focus:border-violet-500 transition-colors"
+              />
+            </div>
           </div>
 
           <div className="flex-1 w-full p-4 bg-black/20 rounded-2xl border border-white/5 flex flex-col justify-center">

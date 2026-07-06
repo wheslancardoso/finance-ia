@@ -26,6 +26,7 @@ import CopilotChatPanel from "./dashboard/CopilotChatPanel";
 import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 import { useStartingBalanceOverrides } from "@/hooks/useStartingBalanceOverrides";
 import { useFinancialData } from "@/context/FinancialDataContext";
+import { useMonthClosing } from "@/hooks/useMonthClosing";
 import { getTransactionImpactDate, isRecurringExpired, calculateLoanInstallment } from "@/domain/financial/financial-logic";
 
 interface RealtimeDashboardProps {
@@ -90,13 +91,15 @@ export default function RealtimeDashboard({
     return (target.getFullYear() - today.getFullYear()) * 12 + (target.getMonth() - today.getMonth());
   }, [targetDate]);
 
+  const { closing: monthClosing, isAutoSealed, isLoading: isClosingLoading } = useMonthClosing(monthOffset);
+
   const { 
     monthlyOutlook, 
     debtExit, 
     isCrisisMode,
     startingBalanceCents,
     accumulatedBalanceCents
-  } = useFinancialAnalysis(monthOffset, activeSimulations);
+  } = useFinancialAnalysis(monthOffset, activeSimulations, monthClosing);
 
   const { overrides, saveOverride, removeOverride } = useStartingBalanceOverrides();
   const monthKey = format(startOfMonth(targetDate), "yyyy-MM");
@@ -207,8 +210,11 @@ export default function RealtimeDashboard({
     const transactionsToUse = isFuture ? projectionTransactions : displayTransactions;
     
     // Filtrar transações de cartão de crédito para evitar double-counting com as faturas
+    // Exceção: Para meses passados, não filtramos as transações e não injetamos a fatura agregada.
+    // Isso ocorre pois as faturas antigas (PAID) não trafegam no payload V5 por performance,
+    // então mostrar as transações individuais garante que o "Resumo Consolidado" bata 100% com a "Linha do Tempo".
     let filteredTransactions = transactionsToUse.filter((t: any) => 
-      !t.account_id || !creditCardAccountIds.has(t.account_id)
+      isPast ? true : (!t.account_id || !creditCardAccountIds.has(t.account_id))
     );
 
     // Deduplicar transações físicas/projetadas por recurring_id para evitar double-counting
@@ -273,7 +279,7 @@ export default function RealtimeDashboard({
             item.name.toLowerCase().includes("fatura")
           );
           if (hasTx) billAmount = 0;
-        } else {
+        } else if (isFuture) {
           // Em meses futuros, usar a fatura real (credit_card_invoices) como fonte de verdade.
           // A soma de transações individuais pode divergir da fatura real (juros, arredondamentos,
           // transações INCOME no mesmo cartão que invertem o total indevidamente).
@@ -437,6 +443,8 @@ export default function RealtimeDashboard({
           debtExitDate={lastDebtExitDate || debtExit.exitDate}
           isCopilotOpen={isCopilotOpen}
           onToggleCopilot={() => setIsCopilotOpen(!isCopilotOpen)}
+          monthClosing={monthClosing}
+          isAutoSealed={isAutoSealed}
         />
 
         {/* ROW 2 — Painel Unificado de Controle Temporal (Máquina do Tempo) */}
