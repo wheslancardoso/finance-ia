@@ -409,42 +409,7 @@ export function FinancialDataProvider({ children }: { children: React.ReactNode 
 
       setLastFetched(Date.now());
     } catch (error: any) {
-      console.error("❌ ERRO AO BUSCAR ESTADO FINANCEIRO, TENTANDO DEXIE:", error);
-      
-      // Fallback: Busca o estado completo do Dexie
-      const { data: localState } = await financialService.getFinancialState(userId!);
-      
-      if (localState) {
-        setAccounts(localState.accounts || []);
-        setInvoices(localState.invoices || []);
-        setGoals(localState.goals || []);
-        setRecurringTransactions(localState.recurring_transactions || []);
-        setBudgets(localState.budgets || []);
-        setRecentTransactions(localState.recent_transactions || []);
-        setMonthTransactions(localState.month_transactions || []);
-        setFutureTransactions(localState.future_transactions || []);
-        
-        const allTx = [
-          ...(localState.recent_transactions || []),
-          ...(localState.month_transactions || []),
-          ...(localState.future_transactions || [])
-        ];
-        const uniqueTx = deduplicateTransactions([allTx]);
-        setAllTransactions(uniqueTx);
-        
-        if (localState.month_stats) {
-          setExtraIncomeCents(localState.month_stats.income || 0);
-          setCurrentMonthExpensesCents(localState.month_stats.debit_expense || 0);
-        }
-        
-        // Sincronizar acumulado e score via localStorage como fallback
-        if (typeof window !== "undefined") {
-          const storedBalance = localStorage.getItem("vesper_accumulated_balance");
-          const storedScore = localStorage.getItem("vesper_health_score");
-          if (storedBalance) setAccumulatedBalanceCents(parseInt(storedBalance));
-          if (storedScore) setHealthScore(parseInt(storedScore));
-        }
-      }
+      console.error("❌ ERRO AO BUSCAR ESTADO FINANCEIRO:", error);
     } finally {
       setLoading(false);
     }

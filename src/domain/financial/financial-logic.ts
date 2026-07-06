@@ -132,6 +132,7 @@ export function calculateScheduledIncome(recurring: RecurringTransaction[]): num
     .filter((r) => {
       if (r.transaction_type !== "INCOME" || r.status !== 'active') return false;
       if (isRecurringExpired(r.description, targetMonthKey)) return false;
+      if (r.excluded_months?.includes(targetMonthKey)) return false;
       const datePart = typeof r.next_date === 'string' ? r.next_date.split('T')[0] : '';
       const [y, m, d] = datePart.split('-').map(Number);
       return y === todayYear && (m - 1) === todayMonth && d >= todayDay && d <= endOfMonthDay;
@@ -154,6 +155,7 @@ export function calculateScheduledExpenses(recurring: RecurringTransaction[]): n
     .filter((r) => {
       if (r.transaction_type !== "EXPENSE" || r.status !== 'active') return false;
       if (isRecurringExpired(r.description, targetMonthKey)) return false;
+      if (r.excluded_months?.includes(targetMonthKey)) return false;
       const datePart = typeof r.next_date === 'string' ? r.next_date.split('T')[0] : '';
       const [y, m, d] = datePart.split('-').map(Number);
       return y === todayYear && (m - 1) === todayMonth && d >= todayDay && d <= endOfMonthDay;
@@ -354,24 +356,7 @@ export function calculateRealCycleLiquidity(params: {
   return result;
 }
 
-/**
- * Calcula o Panorama Mensal (Projeção de final de mês baseada em agendados e reservas)
- */
-export interface MonthlyOutlook {
-  balanceAtMonthEnd: number;
-  plannedExpenses: number;
-  immediateCardDebt: number;
-  upcomingCardDebt: number;
-  scheduledOnly: number;
-  budgetReserves: number;
-  isHealthy: boolean;
-  isRecovering: boolean;
-  isCritical: boolean;
-  isCrisisMode: boolean;
-  totalDebt: number;
-  totalAssets: number;
-  projectedNetLiquidity?: number;
-}
+
 
 export interface GoalProjection {
   goalId: string;
@@ -438,10 +423,6 @@ export function calculateWeeklySurvival(params: {
   // 3. Corte Emergencial de Crise: Se em crise ou sobrevivência, cortar 50%
   if (isCrisisMode || isSurvivalMode) {
     weeklyLimitCents = Math.round(weeklyLimitCents * 0.5);
-    // Piso de subsistência rígido na crise
-    if (weeklyLimitCents < 8000) {
-      weeklyLimitCents = MIN_WEEKLY_LIMIT_CENTS;
-    }
   }
 
   // Piso absoluto geral de sobrevivência
@@ -699,21 +680,7 @@ export function calculateMonthlyOutlook(params: {
     (monthOffset === 0 ? (budgets.reduce((sum, b) => sum + Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0)), 0)) : (budgets.reduce((sum, b) => sum + (b.amount_cents || 0), 0))) +
     simulationExpenseImpact;
 
-  // 1. CÁLCULO DE DÍVIDA TOTAL REMANESCENTE COM AMORTIZAÇÃO (Time Machine)
-  const getInstallmentDebtForOffset = (offset: number) => {
-    const target = addMonths(now, offset);
-    const creditCardAccounts = new Set(accounts.filter(a => a.type === "CREDIT_CARD").map(a => a.id));
-    return uniqueTx
-      .filter(t => {
-        const impactDate = getTransactionImpactDate(t, accounts);
-        const isCreditCard = t.account_id && creditCardAccounts.has(t.account_id);
-        return isCreditCard && isSameMonth(impactDate, target);
-      })
-      .reduce((sum, t) => {
-        const val = Number(t.amount_cents) || 0;
-        return t.transaction_type === "INCOME" ? sum - val : sum + val;
-      }, 0);
-  };
+
 
   let projectedTotalDebt = 0;
   let projectedAssets = 0;
@@ -758,7 +725,7 @@ export function calculateMonthlyOutlook(params: {
     const pendingCreditCardBills = currentMonthDebt;
 
     // Fórmula contábil M0 Base
-    projectedAssets = calculateAccumulatedBalance(accounts) + totalPendingIncomes - totalPendingExpenses;
+    projectedAssets = calculateAccumulatedBalance(accounts) + totalPendingIncomes - totalPendingExpenses - pendingCreditCardBills;
     projectedAssets += simulationIncomeImpact - simulationExpenseImpact;
   } else {
     // 2. CÁLCULO DO SALDO BRUTO E DÍVIDA PROJETADA (Total Assets & Debt)
@@ -784,6 +751,7 @@ export function calculateMonthlyOutlook(params: {
     
     projectedAssets = advancedProjection.projectedBalance;
     projectedTotalDebt = advancedProjection.projectedTotalDebt;
+    goalContributions = advancedProjection.finalMonthGoalContributions ?? 0;
   }
 
   // Aportes em Metas (Compromisso de poupança mensal ativo)
@@ -792,18 +760,20 @@ export function calculateMonthlyOutlook(params: {
     ? projectedAssets 
     : liquidity + adjustedMonthlyIncome - realOutflow;
 
-  goalContributions = 0;
-  if (netLiquidityCents >= 0 && finalBalanceBeforeGoals >= 0) {
-    const activeGoals = goals.filter(g => g.status === "active" || g.status === "ACTIVE");
-    const sortedGoals = [...activeGoals].sort((a, b) => (a.priority || 999) - (b.priority || 999));
-    let remainingSurplus = finalBalanceBeforeGoals;
-    for (const g of sortedGoals) {
-      const contribution = Number(g.monthly_contribution_cents) || 0;
-      if (remainingSurplus >= contribution) {
-        goalContributions += contribution;
-        remainingSurplus -= contribution;
-      } else {
-        break;
+  if (monthOffset === 0) {
+    goalContributions = 0;
+    if (netLiquidityCents >= 0 && finalBalanceBeforeGoals >= 0) {
+      const activeGoals = goals.filter(g => g.status === "active" || g.status === "ACTIVE");
+      const sortedGoals = [...activeGoals].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+      let remainingSurplus = finalBalanceBeforeGoals;
+      for (const g of sortedGoals) {
+        const contribution = Number(g.monthly_contribution_cents) || 0;
+        if (remainingSurplus >= contribution) {
+          goalContributions += contribution;
+          remainingSurplus -= contribution;
+        } else {
+          break;
+        }
       }
     }
   }
@@ -814,17 +784,20 @@ export function calculateMonthlyOutlook(params: {
     projectedAssets -= goalContributions;
   }
 
-  // 3. DETERMINAÇÃO DA LIQUIDEZ FINAL PROJETADA (Patrimônio Líquido)
-  const finalLiquidity = projectedAssets - projectedTotalDebt;
-
-  const isCritical = finalLiquidity < 0;
-  const isSurvivalMode = isCritical || netLiquidityCents < 0;
-  const isCrisisMode = isCritical && netLiquidityCents < 0;
-
+  // 3. DETERMINAÇÃO DA LIQUIDEZ FINAL PROJETADA (Patrimônio Líquido vs Fluxo de Caixa)
   // Para o card de compromissos: Mostrar o planejado consolidado
   const immediateCardDebt = monthOffset === 0
     ? Math.max(currentMonthDebt, installmentDebt)
     : installmentDebt;
+
+  const finalLiquidity = projectedAssets - projectedTotalDebt;
+
+  const isCritical = monthOffset === 0 
+    ? (projectedAssets - immediateCardDebt < 0) 
+    : (finalLiquidity < 0);
+
+  const isSurvivalMode = isCritical || netLiquidityCents < 0;
+  const isCrisisMode = isCritical && netLiquidityCents < 0;
 
   const upcomingCardDebt = 0;
 
@@ -862,7 +835,7 @@ export function calculateAdvancedProjection(params: {
   allTransactions?: Transaction[];
   accounts?: Account[];
   survivalReserveCents?: number;      // Reserva pessoal para o mês
-}): { projectedBalance: number; projectedTotalDebt: number } {
+}): { projectedBalance: number; projectedTotalDebt: number; finalMonthGoalContributions?: number } {
   const {
     liquidityHealthGuard,
     currentAssetsCents,
@@ -882,7 +855,8 @@ export function calculateAdvancedProjection(params: {
   if (monthOffset === 0) {
     return {
       projectedBalance: currentAssetsCents,
-      projectedTotalDebt: calculateTotalConsolidatedDebt(accounts)
+      projectedTotalDebt: calculateTotalConsolidatedDebt(accounts),
+      finalMonthGoalContributions: 0
     };
   }
 
@@ -914,6 +888,7 @@ export function calculateAdvancedProjection(params: {
   const startIncomeAdjustment = simulationIncomesMonth0;
   const startExpenseAdjustment = simulationExpensesMonth0;
   let projectedBalance = startBalance + startIncomeAdjustment - startExpenseAdjustment;
+  let finalMonthGoalContributions = 0;
   let projectedTotalDebt = calculateTotalConsolidatedDebt(accounts);
 
   // Lógica de Amortização do Mês 0: A dívida de cartão projetada para o futuro
@@ -1113,6 +1088,9 @@ export function calculateAdvancedProjection(params: {
 
     // Resultado do mês: o que sobra (surplus) ou falta (deficit)
     const monthlyResult = totalIncome - totalOutflow - goalContributions;
+    if (i === monthOffset) {
+      finalMonthGoalContributions = goalContributions;
+    }
 
     // Acumular no saldo projetado (sem floor em zero)
     projectedBalance += monthlyResult;
@@ -1129,7 +1107,7 @@ export function calculateAdvancedProjection(params: {
     }
   }
 
-  return { projectedBalance, projectedTotalDebt };
+  return { projectedBalance, projectedTotalDebt, finalMonthGoalContributions };
 }
 
 /**

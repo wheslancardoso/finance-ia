@@ -160,6 +160,7 @@ async function buildFinancialState(userId: string) {
     budgetsRes,
     transactionsRes,
     profileRes,
+    invoicesRes,
   ] = await Promise.all([
     supabase.from('accounts').select('*').eq('user_id', userId).order('created_at'),
     supabase.from('categories').select('*').or(`user_id.eq.${userId},is_system_default.eq.true`).order('name'),
@@ -172,6 +173,7 @@ async function buildFinancialState(userId: string) {
       .order('date', { ascending: false })
       .limit(500),
     supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+    supabase.from('credit_card_invoices').select('*').eq('user_id', userId).order('reference_month', { ascending: true }),
   ]);
 
   if (accountsRes.error || categoriesRes.error || goalsRes.error) {
@@ -187,6 +189,7 @@ async function buildFinancialState(userId: string) {
   const budgets = budgetsRes.data;
   const transactionsData = transactionsRes.data;
   const profile = profileRes.data;
+  const invoices = invoicesRes.data || [];
 
   const allTransactions = (transactionsData || []).map((t: any) => ({
     ...t,
@@ -248,69 +251,36 @@ async function buildFinancialState(userId: string) {
 
 
 
-  // Enriquecer contas com dados de fatura — confia no status real do banco
-  // O fn_auto_close_invoices() já foi chamado, então os status são corretos
+    // Enriquecer contas de cartão com dados de faturas reais
   const enrichedAccounts = (accounts || []).map((acc: any) => {
     if (acc.type !== "CREDIT_CARD") return acc;
-    const accountTxs = allTransactions.filter(t => t.account_id === acc.id && !t.is_paid);
+
+    const accountInvoices = invoices.filter((i: any) => i.account_id === acc.id);
     
-    // Agrupar transações pendentes por ciclo de faturamento
-    const closingDay = acc.closing_day || 28;
-    const invoicesMap = new Map<string, number>();
+    const sortedInvoices = [...accountInvoices].sort((a, b) => 
+      (a.reference_month || "").localeCompare(b.reference_month || "")
+    );
 
-    accountTxs.forEach(t => {
-      const txDate = new Date(t.date);
-      let refYear = txDate.getFullYear();
-      let refMonthNum = txDate.getMonth();
-      // Se comprou no dia ou após o fechamento, joga pro mês seguinte
-      if (txDate.getDate() >= closingDay) {
-        refMonthNum += 1;
-        if (refMonthNum > 11) {
-          refMonthNum = 0;
-          refYear += 1;
-        }
-      }
-      const refMonthStr = `${refYear}-${String(refMonthNum + 1).padStart(2, '0')}`;
-      const amt = Number(t.amount_cents) || 0;
-      const netAmt = t.transaction_type === 'EXPENSE' ? amt : (t.transaction_type === 'INCOME' ? -amt : 0);
-      invoicesMap.set(refMonthStr, (invoicesMap.get(refMonthStr) || 0) + netAmt);
-    });
+    const openInvoice = sortedInvoices.find((i: any) => i.status === "OPEN");
+    const closedInvoices = sortedInvoices.filter((i: any) => i.status === "CLOSED");
 
-    const now = new Date();
-    let currentRefMonth = new Date(now);
-    if (now.getDate() >= closingDay) {
-      currentRefMonth.setMonth(currentRefMonth.getMonth() + 1);
-    }
-    const currentRefMonthStr = `${currentRefMonth.getFullYear()}-${String(currentRefMonth.getMonth() + 1).padStart(2, '0')}`;
+    const openCents = openInvoice ? (Number(openInvoice.amount_cents) || 0) : 0;
+    const closedCents = closedInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
 
-    let openCents = 0;
-    let closedCents = 0;
-    let closedMonth: string | null = null;
-
-    invoicesMap.forEach((amount, monthStr) => {
-      if (monthStr === currentRefMonthStr) {
-        openCents += amount;
-      } else if (monthStr < currentRefMonthStr) {
-        closedCents += amount;
-        if (!closedMonth || monthStr > closedMonth) {
-          closedMonth = monthStr; // a fechada mais recente
-        }
-      }
-    });
-
-    const unpaidDebtCents = openCents + closedCents;
+    const unpaidInvoices = sortedInvoices.filter((i: any) => i.status === "OPEN" || i.status === "CLOSED");
+    const unpaidDebtCents = unpaidInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
+    const totalDebt = accountInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
 
     return {
       ...acc,
-      open_invoice_id: currentRefMonthStr, // Placeholder para manter tipagem da UI
-      closed_invoice_id: closedMonth || null,
-      open_invoice_cents: Math.max(0, openCents),
-      closed_invoice_cents: Math.max(0, closedCents),
-      total_debt_cents: Math.max(0, unpaidDebtCents),
-      balance_cents: -unpaidDebtCents,
-      next_month_impact_cents: 0, // deprecado, mas mantido para UI
-      open_invoice_month: currentRefMonthStr,
-      closed_invoice_month: closedMonth
+      open_invoice_id: openInvoice ? openInvoice.id : null,
+      closed_invoice_id: closedInvoices.length > 0 ? closedInvoices[0].id : null,
+      open_invoice_cents: openCents,
+      closed_invoice_cents: closedCents,
+      balance_cents: -totalDebt,
+      total_debt_cents: unpaidDebtCents,
+      open_invoice_month: openInvoice ? openInvoice.reference_month : null,
+      closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
     };
   });
 
@@ -319,6 +289,7 @@ async function buildFinancialState(userId: string) {
   month_transactions.forEach((t: any) => {
     const amountCents = Number(t.amount_cents) || 0;
     if (t.transaction_type === "INCOME") income += amountCents;
+    if (t.transaction_type === "INVESTMENT") investments += amountCents;
     if (t.transaction_type === "EXPENSE") {
       const acc = accountMap.get(t.account_id);
       if (acc && (acc as any).type === "CREDIT_CARD") {

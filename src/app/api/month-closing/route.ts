@@ -87,8 +87,8 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { reference_month, total_balance_cents, seal_method } = body;
 
-    if (!reference_month || total_balance_cents == null) {
-      return NextResponse.json({ error: "Campos obrigatórios: reference_month, total_balance_cents" }, { status: 400 });
+    if (!reference_month || !/^\d{4}-\d{2}$/.test(reference_month) || total_balance_cents == null) {
+      return NextResponse.json({ error: "Campos obrigatórios inválidos. reference_month deve ser YYYY-MM" }, { status: 400 });
     }
 
     const supabase = await createAdminClient();
@@ -132,7 +132,7 @@ export async function PUT(request: NextRequest) {
         .select("amount_cents, status")
         .in("account_id", creditCardIds)
         .eq("reference_month", reference_month)
-        .in("status", ["OPEN", "CLOSED", "PAID"]);
+        .in("status", ["OPEN", "CLOSED"]);
 
       totalCreditDebt = (monthInvoices || [])
         .reduce((sum, inv) => sum + (Number(inv.amount_cents) || 0), 0);
@@ -264,7 +264,7 @@ async function calculateAndSealMonth(
       .select("amount_cents, status")
       .in("account_id", creditCardIds)
       .eq("reference_month", month)
-      .in("status", ["OPEN", "CLOSED", "PAID"]);
+      .in("status", ["OPEN", "CLOSED"]);
 
     totalCreditDebt = (monthInvoices || [])
       .reduce((sum, inv) => sum + (Number(inv.amount_cents) || 0), 0);

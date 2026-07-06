@@ -208,7 +208,7 @@ export default function RealtimeDashboard({
     // Deduplicar transações físicas/projetadas por recurring_id para evitar double-counting
     const seenRecurringIds = new Set<string>();
     const deduplicatedTransactions = transactionsToUse.filter((t: any) => {
-      const recId = t.source_metadata?.recurring_id || t.source_metadata?.['recurring_id'];
+      const recId = t.source_metadata?.recurring_id;
       if (recId) {
         if (seenRecurringIds.has(recId)) return false;
         seenRecurringIds.add(recId);
@@ -238,8 +238,8 @@ export default function RealtimeDashboard({
           
           if (cardInvoices.length > 0) {
             billAmount = cardInvoices.reduce((sum, inv) => sum + (Number(inv.amount_cents) || 0), 0);
-          } else {
-            // Fallback: somar transações com impactDate (faturas futuras ou antigas não cacheadas)
+          } else if (!isPast || !monthClosing) {
+            // Fallback: somar transações com impactDate (faturas futuras ou antigas não seladas)
             const consolidatedTx = isFuture 
               ? [...(futureTransactions || []), ...(liveAllTransactions || [])]
               : deduplicatedTransactions;
