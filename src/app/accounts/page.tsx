@@ -16,7 +16,7 @@ export default function AccountsPage() {
 
   const totalAssets = assetsAccounts.reduce((sum, a) => sum + (Number(a.balance_cents) || 0), 0);
   const totalLiabilities = liabilitiesAccounts.reduce(
-    (sum, a) => sum + (a.total_debt_cents || Math.abs(a.balance_cents) || 0),
+    (sum, a) => sum + (a.total_debt_cents ?? Math.abs(a.balance_cents || 0)),
     0
   );
   const netAssets = totalAssets - totalLiabilities;

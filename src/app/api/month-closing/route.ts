@@ -120,6 +120,26 @@ export async function PUT(request: NextRequest) {
       .filter(t => t.transaction_type === "EXPENSE")
       .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
+    // Dívida de cartão de crédito usando faturas do mês (SSOT fix)
+    const creditCardIds = (accounts || [])
+      .filter(a => a.type === "CREDIT_CARD")
+      .map(a => a.id);
+
+    let totalCreditDebt = 0;
+    if (creditCardIds.length > 0) {
+      const { data: monthInvoices } = await supabase
+        .from("credit_card_invoices")
+        .select("amount_cents, status")
+        .in("account_id", creditCardIds)
+        .eq("reference_month", reference_month)
+        .in("status", ["OPEN", "CLOSED", "PAID"]);
+
+      totalCreditDebt = (monthInvoices || [])
+        .reduce((sum, inv) => sum + (Number(inv.amount_cents) || 0), 0);
+    }
+
+    const checkingAccounts = (accounts || []).filter(a => a.type !== "CREDIT_CARD");
+
     // Upsert: se já existe, atualiza; senão, cria
     const { data, error } = await supabase
       .from("month_closings")
@@ -127,14 +147,20 @@ export async function PUT(request: NextRequest) {
         user_id: user.id,
         reference_month,
         total_balance_cents,
-        account_balances: (accounts || [])
-          .filter(a => a.type !== "CREDIT_CARD")
-          .map(a => ({ account_id: a.id, name: a.name, balance_cents: a.balance_cents })),
+        account_balances: checkingAccounts.map(a => {
+          const currentTotal = checkingAccounts.reduce((sum, acc) => sum + (Number(acc.balance_cents) || 0), 0);
+          const proportion = currentTotal > 0
+            ? (Number(a.balance_cents) || 0) / currentTotal
+            : 1 / checkingAccounts.length;
+          return {
+            account_id: a.id,
+            name: a.name,
+            balance_cents: Math.round(total_balance_cents * proportion)
+          };
+        }),
         total_income_cents: totalIncome,
         total_expenses_cents: totalExpenses,
-        total_credit_debt_cents: (accounts || [])
-          .filter(a => a.type === "CREDIT_CARD")
-          .reduce((sum, a) => sum + Math.abs(Number(a.balance_cents) || 0), 0),
+        total_credit_debt_cents: totalCreditDebt,
         sealed_at: new Date().toISOString(),
         seal_method: seal_method || "manual"
       }, { onConflict: "user_id,reference_month" })
@@ -226,10 +252,23 @@ async function calculateAndSealMonth(
     }
   }
 
-  // Dívida de cartão de crédito do mês
-  const totalCreditDebt = (accounts || [])
+  // Dívida de cartão de crédito usando faturas do mês (SSOT fix)
+  const creditCardIds = (accounts || [])
     .filter(a => a.type === "CREDIT_CARD")
-    .reduce((sum, a) => sum + Math.abs(Number(a.balance_cents) || 0), 0);
+    .map(a => a.id);
+
+  let totalCreditDebt = 0;
+  if (creditCardIds.length > 0) {
+    const { data: monthInvoices } = await supabase
+      .from("credit_card_invoices")
+      .select("amount_cents, status")
+      .in("account_id", creditCardIds)
+      .eq("reference_month", month)
+      .in("status", ["OPEN", "CLOSED", "PAID"]);
+
+    totalCreditDebt = (monthInvoices || [])
+      .reduce((sum, inv) => sum + (Number(inv.amount_cents) || 0), 0);
+  }
 
   // Montar account_balances retroativo (proporcional ao saldo revertido)
   const accountBalances = checkingAccounts.map(a => {

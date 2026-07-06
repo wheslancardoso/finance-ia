@@ -453,7 +453,7 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
               )}>
                 {isCredit ? (() => {
                   const openAmount = acc.open_invoice_cents || 0;
-                  const totalDebt = acc.total_debt_cents || (acc.closed_invoice_cents || 0) + openAmount;
+                  const totalDebt = acc.total_debt_cents ?? ((acc.closed_invoice_cents || 0) + openAmount);
                   
                   // Se o valor fechado somado não bater com a expectativa do usuário (ex: tem fatura antiga),
                   // é melhor mostrar a "Aberta" (Fatura Atual) se existir, ou o "Total" devido.

@@ -410,7 +410,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
                 <span>Total: {formatCurrency(limit)}</span>
               </div>
               <div className="flex justify-between text-[9px] font-bold text-violet-400/40 uppercase tracking-tight">
-                <span>Dívida Total: {formatCurrency(liveAccount.total_debt_cents || spent)}</span>
+                <span>Dívida Total: {formatCurrency(liveAccount.total_debt_cents ?? spent)}</span>
                 {liveAccount.next_month_impact_cents > 0 && (
                   <span className="text-emerald-400/50">Liberará {formatCurrency(liveAccount.next_month_impact_cents)} em breve</span>
                 )}

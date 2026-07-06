@@ -159,7 +159,7 @@ export function UnifiedSurvivalHeader({
                 {formatCurrency(displayBalanceCents)}
               </h2>
             </div>
-            {creditCardUsedCents > 0 && (
+            {!isPast && creditCardUsedCents > 0 && (
               <div className="text-right flex flex-col items-end">
                 <span className="text-[10px] font-black text-white/20 uppercase tracking-widest mb-1">Cartões Usados</span>
                 <span className="text-sm font-black text-red-400/80 tabular-nums">{formatCurrency(creditCardUsedCents)}</span>
@@ -202,7 +202,7 @@ export function UnifiedSurvivalHeader({
                   
                   <div className="flex flex-wrap items-center gap-6 mt-6">
                     {/* Contas a pagar (despesas fixas do mês) */}
-                    {(fixedExpensesTotal > 0 || isFuture) && (
+                    {!isPast && (fixedExpensesTotal > 0 || isFuture) && (
                       <div className="flex flex-col">
                         <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Contas a Pagar</span>
                         <span className="text-sm font-black text-amber-400/80 tabular-nums">{formatCurrency(fixedExpensesTotal)}</span>
@@ -210,7 +210,7 @@ export function UnifiedSurvivalHeader({
                     )}
                     
                     {/* Cartões usados */}
-                    {creditCardUsedCents > 0 && (
+                    {!isPast && creditCardUsedCents > 0 && (
                       <>
                         {(fixedExpensesTotal > 0 || isFuture) && <div className="w-px h-8 bg-white/5" />}
                         <div className="flex flex-col">
