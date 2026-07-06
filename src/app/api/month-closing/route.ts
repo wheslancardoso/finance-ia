@@ -141,6 +141,7 @@ export async function PUT(request: NextRequest) {
     const checkingAccounts = (accounts || []).filter(a => a.type !== "CREDIT_CARD");
 
     // Upsert: se já existe, atualiza; senão, cria
+    const currentTotal = checkingAccounts.reduce((sum, acc) => sum + (Number(acc.balance_cents) || 0), 0);
     const { data, error } = await supabase
       .from("month_closings")
       .upsert({
@@ -148,7 +149,6 @@ export async function PUT(request: NextRequest) {
         reference_month,
         total_balance_cents,
         account_balances: checkingAccounts.map(a => {
-          const currentTotal = checkingAccounts.reduce((sum, acc) => sum + (Number(acc.balance_cents) || 0), 0);
           const proportion = currentTotal > 0
             ? (Number(a.balance_cents) || 0) / currentTotal
             : 1 / checkingAccounts.length;

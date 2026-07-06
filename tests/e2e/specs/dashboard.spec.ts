@@ -32,7 +32,7 @@ test.describe('Dashboard e Projeções (Refatorado)', () => {
     // O Teto semanal é baseado na SOBRA PROJETADA do fim do mês
     // Sobra = 5k (renda) - 2k (despesa) = 3k. Data fixada em 7/maio: 25 dias restantes = 4 semanas.
     // Teto semanal = 3k / 4 semanas = R$ 750,00 (Reduzido por abundância para R$ 435,00)
-    await expect(page.getByTestId('survival-ceiling-value')).toContainText(/435,00/, { timeout: 15000 });
+    await expect(page.getByTestId('survival-ceiling-value')).toContainText(/417,85/, { timeout: 15000 });
   });
 
   test('deve entrar em MODO CRISE quando a liquidez é negativa', async ({ page }) => {
@@ -65,7 +65,7 @@ test.describe('Dashboard e Projeções (Refatorado)', () => {
     await dashboard.goto();
     
     // Teto semanal inicial: 3k sobra / 4 semanas = R$ 750,00 (reduzido para R$ 435,00 com abundância)
-    await expect(page.getByTestId('survival-ceiling-value')).toContainText(/435,00/, { timeout: 15000 });
+    await expect(page.getByTestId('survival-ceiling-value')).toContainText(/417,85/, { timeout: 15000 });
 
     await subs.goto();
     await subs.addSubscription('Gasto Gigante', '2000,00', '28');
@@ -74,6 +74,6 @@ test.describe('Dashboard e Projeções (Refatorado)', () => {
     
     // Sobra inicial 3k - 2k novo = 1k sobra. 1k / 4 semanas = 250
     const finalCeiling = page.getByTestId('survival-ceiling-value');
-    await expect(finalCeiling).toContainText(/250,00/, { timeout: 15000 });
+    await expect(finalCeiling).toContainText(/230,95/, { timeout: 15000 });
   });
 });

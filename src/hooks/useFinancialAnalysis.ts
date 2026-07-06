@@ -312,13 +312,13 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
 
   const debtExit = useMemo(() => {
     return calculateDebtExitProjection({
-      netLiquidityCents: netLiquidity,
+      netLiquidityCents: activeNetLiquidity,
       recurringIncomeCents,
       recurringExpensesCents,
       monthlyInstallmentsCents: monthlyOutlook.immediateCardDebt,
       budgets
     });
-  }, [netLiquidity, recurringIncomeCents, recurringExpensesCents, monthlyOutlook.immediateCardDebt, budgets]);
+  }, [activeNetLiquidity, recurringIncomeCents, recurringExpensesCents, monthlyOutlook.immediateCardDebt, budgets]);
 
   const goalProjections = useMemo(() => {
     return calculateGoalProjections({

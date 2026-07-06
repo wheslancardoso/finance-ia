@@ -6,7 +6,10 @@ export const createInitialState = (overrides = {}) => ({
     financial_health_score: 100,
   },
   accounts: [],
-  categories: [],
+  categories: [
+    { id: 'cat-1', name: 'Gasto', type: 'EXPENSE', color_hex: '#ff0000', user_id: 'mock-user' },
+    { id: 'cat-2', name: 'Renda', type: 'INCOME', color_hex: '#00ff00', user_id: 'mock-user' }
+  ],
   goals: [],
   recurring_transactions: [],
   budgets: [],

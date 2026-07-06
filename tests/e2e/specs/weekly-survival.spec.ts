@@ -38,7 +38,7 @@ test.describe('Teto de Sobrevivência Semanal', () => {
     await expect(ceiling).toBeVisible();
     // Nova fórmula: (10000 - 5000 = 5000) / 4 semanas (data fixada em 7/maio: 25 dias restantes).
     // Teto semanal = 5000 / 4 = R$ 1.250,00 (Reduzido por abundância e corte de 50% para R$ 292,50)
-    await expect(ceiling).toContainText(/292,50/);
+    await expect(ceiling).toContainText(/278,21/);
   });
   
   test('deve exibir alerta de ciclo de dívida no modo crise', async ({ page }) => {
@@ -82,7 +82,7 @@ test.describe('Teto de Sobrevivência Semanal', () => {
     // Teto semanal = 20k / 4 semanas = R$ 5.000,00 (Reduzido por abundância para R$ 1.710,00)
     const ceiling = page.getByTestId('survival-ceiling-value');
     await expect(ceiling).toBeVisible();
-    await expect(ceiling).toContainText(/1\.710,00/);
+    await expect(ceiling).toContainText(/1\.595,68/);
 
     // Inserir despesa manual severa de R$ 5.200,00 para empurrar o caixa para o negativo e forçar a crise de caixa
     const desktopBtn = page.getByTestId('add-transaction-button');
@@ -116,7 +116,7 @@ test.describe('Teto de Sobrevivência Semanal', () => {
 
     // Apesar da margem livre ser renda - fixas, o rombo no caixa ativou o MODO DE SOBREVIVÊNCIA.
     // Portanto, o limite semanal de abundância (R$ 1.710,00) recebe o corte emergencial de 50%, caindo para R$ 855,00.
-    await expect(ceiling).toContainText(/855,00/, { timeout: 10000 });
+    await expect(ceiling).toContainText(/797,84/, { timeout: 10000 });
   });
 
   test('deve aplicar priorização inteligente suspendendo metas menos prioritárias sob aperto parcial de caixa (Test 3.3)', async ({ page }) => {

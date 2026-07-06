@@ -59,39 +59,7 @@ export async function GET(request: NextRequest) {
 
       if (!error && data) {
         // Enriquecer contas de cartão com dados de fatura retornados na própria RPC
-        const enrichedAccounts = (data.accounts || []).map((acc: any) => {
-          if (acc.type !== "CREDIT_CARD") return acc;
-
-          const accountInvoices = (data.invoices || []).filter((i: any) => i.account_id === acc.id);
-          
-          // Ordenar faturas por reference_month de forma crescente (mais antigas primeiro)
-          const sortedInvoices = [...accountInvoices].sort((a, b) => 
-            (a.reference_month || "").localeCompare(b.reference_month || "")
-          );
-
-          const openInvoice = sortedInvoices.find((i: any) => i.status === "OPEN");
-          const closedInvoices = sortedInvoices.filter((i: any) => i.status === "CLOSED");
-
-          const openCents = openInvoice ? (Number(openInvoice.amount_cents) || 0) : 0;
-          const closedCents = closedInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
-
-          // Dívida Consolidada Pendente Real: soma de todas as faturas abertas (OPEN) e fechadas (CLOSED) pendentes
-          const unpaidInvoices = sortedInvoices.filter((i: any) => i.status === "OPEN" || i.status === "CLOSED");
-          const unpaidDebtCents = unpaidInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
-          const totalDebt = accountInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
-
-          return {
-            ...acc,
-            open_invoice_id: openInvoice ? openInvoice.id : null,
-            closed_invoice_id: closedInvoices.length > 0 ? closedInvoices[0].id : null,
-            open_invoice_cents: openCents,
-            closed_invoice_cents: closedCents,
-            balance_cents: -totalDebt,
-            total_debt_cents: unpaidDebtCents,
-            open_invoice_month: openInvoice ? openInvoice.reference_month : null,
-            closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
-          };
-        });
+        const enrichedAccounts = enrichCreditCardAccounts(data.accounts, data.invoices);
 
         data.accounts = enrichedAccounts;
 
@@ -252,37 +220,7 @@ async function buildFinancialState(userId: string) {
 
 
     // Enriquecer contas de cartão com dados de faturas reais
-  const enrichedAccounts = (accounts || []).map((acc: any) => {
-    if (acc.type !== "CREDIT_CARD") return acc;
-
-    const accountInvoices = invoices.filter((i: any) => i.account_id === acc.id);
-    
-    const sortedInvoices = [...accountInvoices].sort((a, b) => 
-      (a.reference_month || "").localeCompare(b.reference_month || "")
-    );
-
-    const openInvoice = sortedInvoices.find((i: any) => i.status === "OPEN");
-    const closedInvoices = sortedInvoices.filter((i: any) => i.status === "CLOSED");
-
-    const openCents = openInvoice ? (Number(openInvoice.amount_cents) || 0) : 0;
-    const closedCents = closedInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
-
-    const unpaidInvoices = sortedInvoices.filter((i: any) => i.status === "OPEN" || i.status === "CLOSED");
-    const unpaidDebtCents = unpaidInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
-    const totalDebt = accountInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
-
-    return {
-      ...acc,
-      open_invoice_id: openInvoice ? openInvoice.id : null,
-      closed_invoice_id: closedInvoices.length > 0 ? closedInvoices[0].id : null,
-      open_invoice_cents: openCents,
-      closed_invoice_cents: closedCents,
-      balance_cents: -totalDebt,
-      total_debt_cents: unpaidDebtCents,
-      open_invoice_month: openInvoice ? openInvoice.reference_month : null,
-      closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
-    };
-  });
+  const enrichedAccounts = enrichCreditCardAccounts(accounts, invoices);
 
   const accountMap = new Map(enrichedAccounts.map((a: any) => [a.id, a]));
 
@@ -331,5 +269,47 @@ async function buildFinancialState(userId: string) {
       investments,
     },
   };
+}
+
+/**
+ * Enriquecer contas de cartão com dados de fatura.
+ * Refatorado para remover a duplicação e evitar o acúmulo infinito de dívida por faturas pagas (Bug #1 e #8).
+ */
+function enrichCreditCardAccounts(accounts: any[], invoices: any[]) {
+  return (accounts || []).map((acc: any) => {
+    if (acc.type !== "CREDIT_CARD") return acc;
+
+    const accountInvoices = (invoices || []).filter((i: any) => i.account_id === acc.id);
+    
+    // Ordenar faturas por reference_month de forma crescente (mais antigas primeiro)
+    const sortedInvoices = [...accountInvoices].sort((a, b) => 
+      (a.reference_month || "").localeCompare(b.reference_month || "")
+    );
+
+    const openInvoice = sortedInvoices.find((i: any) => i.status === "OPEN");
+    const closedInvoices = sortedInvoices.filter((i: any) => i.status === "CLOSED");
+
+    const openCents = openInvoice ? (Number(openInvoice.amount_cents) || 0) : 0;
+    const closedCents = closedInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
+
+    // Dívida Consolidada Pendente Real: soma de todas as faturas abertas (OPEN) e fechadas (CLOSED) pendentes
+    const unpaidInvoices = sortedInvoices.filter((i: any) => i.status === "OPEN" || i.status === "CLOSED");
+    const unpaidDebtCents = unpaidInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
+    
+    // BUG #1: `balance_cents` antes somava TUDO (incluindo PAID). Agora só soma as não pagas.
+    const totalDebt = unpaidDebtCents;
+
+    return {
+      ...acc,
+      open_invoice_id: openInvoice ? openInvoice.id : null,
+      closed_invoice_id: closedInvoices.length > 0 ? closedInvoices[0].id : null,
+      open_invoice_cents: openCents,
+      closed_invoice_cents: closedCents,
+      balance_cents: -totalDebt,
+      total_debt_cents: unpaidDebtCents,
+      open_invoice_month: openInvoice ? openInvoice.reference_month : null,
+      closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
+    };
+  });
 }
 
