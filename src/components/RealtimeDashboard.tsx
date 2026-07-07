@@ -27,7 +27,7 @@ import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
 import { useStartingBalanceOverrides } from "@/hooks/useStartingBalanceOverrides";
 import { useFinancialData } from "@/context/FinancialDataContext";
 import { useMonthClosing } from "@/hooks/useMonthClosing";
-import { getTransactionImpactDate, isRecurringExpired, calculateLoanInstallment } from "@/domain/financial/financial-logic";
+import { getTransactionImpactDate, isRecurringExpired, calculateLoanInstallment, DEFAULT_LOAN_MONTHLY_RATE, splitInstallmentCents } from "@/domain/financial/financial-logic";
 
 interface RealtimeDashboardProps {
   initialBalance: number;
@@ -119,7 +119,7 @@ export default function RealtimeDashboard({
         if (sim.customInstallmentCents !== undefined && sim.customInstallmentCents > 0) {
           monthlyAmount = sim.customInstallmentCents;
         } else {
-          const rate = (sim.interestRate && sim.interestRate > 0) ? sim.interestRate : 9.53;
+          const rate = (sim.interestRate && sim.interestRate > 0) ? sim.interestRate : DEFAULT_LOAN_MONTHLY_RATE;
           monthlyAmount = calculateLoanInstallment(sim.amount_cents, rate, installments);
         }
       } else if (sim.customInstallmentCents !== undefined && sim.customInstallmentCents > 0) {
@@ -138,11 +138,16 @@ export default function RealtimeDashboard({
           const cleanDesc = (sim.description || 'Compra').startsWith("Simulado: ")
             ? (sim.description || 'Compra').replace("Simulado: ", "")
             : (sim.description || 'Compra');
+            
+          let currentMonthlyAmount = monthlyAmount;
+          if (!isSimLoan && (!sim.customInstallmentCents || sim.customInstallmentCents <= 0)) {
+            currentMonthlyAmount = splitInstallmentCents(sim.amount_cents, installments, i);
+          }
 
           results.push({
             id: `sim-tx-${simIdx}-${i}`,
             description: `Simulado: ${cleanDesc} (${i + 1}/${installments})`,
-            amount_cents: monthlyAmount,
+            amount_cents: currentMonthlyAmount,
             transaction_type: isSimLoan ? ("EXPENSE" as const) : (sim.type as "INCOME" | "EXPENSE"),
             date: simDate.toISOString(),
             category: "Simulação"

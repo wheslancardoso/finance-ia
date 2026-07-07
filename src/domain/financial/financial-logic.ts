@@ -80,15 +80,15 @@ export function filterIgnoredBalance(txs: Transaction[]): Transaction[] {
   return txs.filter(tx => !tx.category?.ignore_balance);
 }
 
-export function calculateSimulationImpactForMonth(simulations: Simulation[], monthOffset: number, isProjectionInnerLoop = false): { incomeImpact: number; expenseImpact: number } {
+export function calculateSimulationImpactForMonth(simulations: Simulation[], monthOffset: number): { incomeImpact: number; expenseImpact: number } {
   const expenseImpact = simulations.reduce((sum, s) => {
     const startOffset = s.startMonthOffset ?? 0;
     const sType = s.type ? s.type.toUpperCase() : "EXPENSE";
     const isLoan = s.isLoan || sType === "LOAN" || (s.interestRate && s.interestRate > 0 && sType === "INCOME");
     
-    // Na engine interna (projeção mês a mês), a parcela do empréstimo só abate o caixa no mês SEGUINTE à contratação.
-    // No contexto geral (como sobrevivência semanal), pode abater no mesmo mês. 
-    const effectiveStart = (isLoan && isProjectionInnerLoop) ? startOffset + 1 : startOffset;
+    // A parcela do empréstimo sempre abate o caixa no mês SEGUINTE à contratação,
+    // de forma consistente tanto na projeção mensal quanto nos resumos semanais.
+    const effectiveStart = isLoan ? startOffset + 1 : startOffset;
 
     if (isLoan) {
       if (monthOffset >= effectiveStart && monthOffset < effectiveStart + (s.installments || 1)) {
@@ -612,7 +612,7 @@ export function calculateMonthlyOutlook(params: {
     : Math.max(0, txBasedDebt);
 
   // Impacto de Simulações
-  const { incomeImpact: simulationIncomeImpact, expenseImpact: simulationExpenseImpact } = calculateSimulationImpactForMonth(activeSimulations, monthOffset, true);
+  const { incomeImpact: simulationIncomeImpact, expenseImpact: simulationExpenseImpact } = calculateSimulationImpactForMonth(activeSimulations, monthOffset);
 
   // No mês atual, incluímos a dívida total de cartão (aberta + fechada)
   // No futuro, a dívida de cartão é o installmentDebt (parcelas futuras)
@@ -840,7 +840,7 @@ export function calculateAdvancedProjection(params: {
       return sum; // Mês 0 de empréstimo não tem despesa/parcela
     }
     if (s.type === "INCOME") return sum;
-    return sum + (s.amount_cents / (s.installments || 1));
+    return sum + splitInstallmentCents(s.amount_cents, s.installments || 1, 0);
   }, 0);
 
   const simulationIncomesMonth0 = activeSimulations.reduce((sum, s) => {
@@ -851,7 +851,7 @@ export function calculateAdvancedProjection(params: {
       return sum + s.amount_cents; // Injeção total de capital do empréstimo no Mês 0
     }
     if (s.type !== "INCOME") return sum;
-    return sum + (s.amount_cents / (s.installments || 1));
+    return sum + splitInstallmentCents(s.amount_cents, s.installments || 1, 0);
   }, 0);
 
   const startBalance = currentAssetsCents;
@@ -993,7 +993,7 @@ export function calculateAdvancedProjection(params: {
     let goalContributions = 0;
 
     // 5. Impacto das Simulações Ativas
-    const { incomeImpact: simulationIncomes, expenseImpact: simulationExpenses } = calculateSimulationImpactForMonth(activeSimulations, i, true);
+    const { incomeImpact: simulationIncomes, expenseImpact: simulationExpenses } = calculateSimulationImpactForMonth(activeSimulations, i);
 
     const totalOutflow = expenses + organicFutureExpenses + ccInstallmentsCashOut + budgetReserve + simulationExpenses;
     const totalIncome = income + organicFutureIncomes + simulationIncomes;
