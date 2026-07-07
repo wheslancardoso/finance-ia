@@ -7,19 +7,19 @@ import { useFinancialData } from "@/context/FinancialDataContext";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
+import { calculateAccumulatedBalance, calculateTotalConsolidatedDebt, calculateNetLiquidity } from "@/domain/financial/financial-logic";
+
 export default function AccountsPage() {
   const { accounts, loading } = useFinancialData();
   const hasAccounts = accounts.length > 0;
 
   const assetsAccounts = accounts.filter(a => a.type !== "CREDIT_CARD");
   const liabilitiesAccounts = accounts.filter(a => a.type === "CREDIT_CARD");
-
-  const totalAssets = assetsAccounts.reduce((sum, a) => sum + (Number(a.balance_cents) || 0), 0);
-  const totalLiabilities = liabilitiesAccounts.reduce(
-    (sum, a) => sum + (a.total_debt_cents ?? Math.abs(a.balance_cents || 0)),
-    0
-  );
-  const netAssets = totalAssets - totalLiabilities;
+  
+  // Usando o Single Source of Truth (SSOT) para garantir os mesmos valores do Dashboard
+  const totalAssets = calculateAccumulatedBalance(accounts);
+  const totalLiabilities = calculateTotalConsolidatedDebt(accounts);
+  const netAssets = calculateNetLiquidity(accounts);
 
   return (
     <div className="px-4 pb-4 pt-0 md:p-12 max-w-7xl mx-auto w-full space-y-8 md:space-y-12">

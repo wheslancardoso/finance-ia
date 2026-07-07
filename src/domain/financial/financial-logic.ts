@@ -294,10 +294,10 @@ export function calculateTotalConsolidatedDebt(accounts: Account[]): number {
   return accounts
     .filter((a) => a && a.type === "CREDIT_CARD")
     .reduce((sum, a) => {
-      // Priorizar total_debt_cents se disponível, senão cair no somatório de faturas
+      // Priorizar total_debt_cents se disponível, senão cair no balance_cents (Single Source of Truth)
       const debt = a.total_debt_cents !== undefined
         ? Number(a.total_debt_cents)
-        : (Number(a.closed_invoice_cents) || 0) + (Number(a.open_invoice_cents) || 0);
+        : Math.abs(Number(a.balance_cents) || 0);
       return sum + debt;
     }, 0);
 }

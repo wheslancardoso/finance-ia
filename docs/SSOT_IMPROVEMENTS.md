@@ -25,3 +25,7 @@ Durante a nossa recente auditoria e centralização do Motor Financeiro (Single 
 ## 6. Blindagem de Estabilidade de E2E (UI Modals)
 - **O Problema:** O contexto não enviava o mapeamento padrão de categorias nas fixtures iniciais de testes E2E, o que causava crash total (Cannot read properties of null) ao abrir o modal de novas transações (ex: `AddSubscriptionModal`).
 - **A Solução:** Mock padrão (`categories`) garantido em todo ponto de entrada base do `financialState.ts` e testes estabilizados para não conflitarem com as renderizações reativas do React.
+
+## 7. Adoção do Banco de Dados como SSOT Definitivo para Dívidas
+- **O Problema:** O sistema tentava sobrescrever o valor real do limite utilizado (`balance_cents`) que vinha do banco de dados somando faturas estáticas. Quando o usuário adicionava transações retroativas, a dívida ficava travada em valores defasados, gerando um gap matemático real.
+- **A Solução:** Removemos a sobreescrita forçada na API. Agora, a verdadeira Single Source of Truth para a dívida do cartão de crédito é o valor exato reportado pela tabela `accounts` no Supabase, garantindo alinhamento total e integridade imediata.
