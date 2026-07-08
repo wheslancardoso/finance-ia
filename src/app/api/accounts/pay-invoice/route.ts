@@ -104,6 +104,20 @@ export async function POST(request: NextRequest) {
       if (txUpdateError) throw txUpdateError;
     }
 
+    // 5. Marcar a fatura como PAID na tabela credit_card_invoices
+    if (targetMonthStr) {
+      const { error: invoiceUpdateError } = await supabase
+        .from("credit_card_invoices")
+        .update({ status: 'PAID' })
+        .eq('account_id', creditCardAccountId)
+        .eq('reference_month', targetMonthStr);
+
+      if (invoiceUpdateError) {
+        console.error("Erro ao atualizar status da fatura para PAID:", invoiceUpdateError.message);
+        // Não jogamos erro para não falhar o fluxo inteiro se as transações já foram pagas.
+      }
+    }
+
     if (!alreadyPaid && paymentAccountId) {
       const monthLabel = targetMonthStr 
         ? (() => {

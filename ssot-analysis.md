@@ -5,7 +5,7 @@ Abaixo estão os arquivos principais que gerenciam a lógica financeira, agrega�
 ## 1. Lógica Pura e Projeções (SSOT Base)
 Arquivo: `src/domain/financial/financial-logic.ts`
 
-```typescript
+```tsx
 import { Account, Transaction, RecurringTransaction, Budget, Goal } from "@/lib/db";
 
 /**
@@ -17,6 +17,9 @@ export function parseLocalDate(dateStr: string): Date {
 }
 
 import { addMonths, startOfMonth, endOfMonth, isSameMonth, isAfter, isBefore, format } from "date-fns";
+
+export const DEFAULT_LOAN_MONTHLY_RATE = 9.53;
+export const MARKET_ROTARY_RATE = 0.12;
 
 export interface Simulation {
   amount_cents: number;
@@ -91,22 +94,29 @@ export function calculateSimulationImpactForMonth(simulations: Simulation[], mon
     const sType = s.type ? s.type.toUpperCase() : "EXPENSE";
     const isLoan = s.isLoan || sType === "LOAN" || (s.interestRate && s.interestRate > 0 && sType === "INCOME");
     
+    // A parcela do empréstimo sempre abate o caixa no mês SEGUINTE à contratação,
+    // de forma consistente tanto na projeção mensal quanto nos resumos semanais.
+    const effectiveStart = isLoan ? startOffset + 1 : startOffset;
+
     if (isLoan) {
-      if (monthOffset >= startOffset && monthOffset < startOffset + s.installments) {
+      if (monthOffset >= effectiveStart && monthOffset < effectiveStart + (s.installments || 1)) {
         if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
           return sum + s.customInstallmentCents;
         }
-        const rate = (s.interestRate && s.interestRate > 0) ? s.interestRate : 9.53;
-        return sum + calculateLoanInstallment(s.amount_cents, rate, s.installments);
+        const rate = (s.interestRate && s.interestRate > 0) ? s.interestRate : DEFAULT_LOAN_MONTHLY_RATE;
+        return sum + calculateLoanInstallment(s.amount_cents, rate, s.installments || 1);
       }
       return sum;
     }
+    
     if (sType === "INCOME") return sum;
-    if (monthOffset >= startOffset && monthOffset < startOffset + s.installments) {
+    
+    if (monthOffset >= startOffset && monthOffset < startOffset + (s.installments || 1)) {
       if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
         return sum + s.customInstallmentCents;
       }
-      return sum + (s.amount_cents / (s.installments || 1));
+      const installmentIndex = monthOffset - startOffset;
+      return sum + splitInstallmentCents(s.amount_cents, s.installments || 1, installmentIndex);
     }
     return sum;
   }, 0);
@@ -116,6 +126,7 @@ export function calculateSimulationImpactForMonth(simulations: Simulation[], mon
     const sType = s.type ? s.type.toUpperCase() : "EXPENSE";
     const isLoan = s.isLoan || sType === "LOAN" || (s.interestRate && s.interestRate > 0 && sType === "INCOME");
     
+    // A injeção de capital (empréstimo recebido) ou renda extra cai no mês exato startOffset
     if (monthOffset === startOffset && (isLoan || sType === "INCOME")) {
       return sum + s.amount_cents;
     }
@@ -291,10 +302,10 @@ export function calculateTotalConsolidatedDebt(accounts: Account[]): number {
   return accounts
     .filter((a) => a && a.type === "CREDIT_CARD")
     .reduce((sum, a) => {
-      // Priorizar total_debt_cents se disponível, senão cair no somatório de faturas
+      // Priorizar total_debt_cents se disponível, senão cair no balance_cents (Single Source of Truth)
       const debt = a.total_debt_cents !== undefined
         ? Number(a.total_debt_cents)
-        : (Number(a.closed_invoice_cents) || 0) + (Number(a.open_invoice_cents) || 0);
+        : Math.abs(Number(a.balance_cents) || 0);
       return sum + debt;
     }, 0);
 }
@@ -609,49 +620,7 @@ export function calculateMonthlyOutlook(params: {
     : Math.max(0, txBasedDebt);
 
   // Impacto de Simulações
-  const simulationExpenseImpact = activeSimulations.reduce((sum, s) => {
-    const startOffset = s.startMonthOffset ?? 0;
-    // Caso especial: Simulação de Empréstimo (parcelas começam no mês seguinte)
-    if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-      if (monthOffset >= startOffset + 1 && monthOffset < startOffset + 1 + s.installments) {
-        if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
-          return sum + s.customInstallmentCents;
-        }
-        const rate = (s.interestRate && s.interestRate > 0) ? s.interestRate : 9.53;
-        return sum + calculateLoanInstallment(s.amount_cents, rate, s.installments);
-      }
-      return sum;
-    }
-    // Despesa parcelada normal
-    if (s.type === "INCOME") return sum;
-    if (monthOffset >= startOffset && monthOffset < startOffset + s.installments) {
-      if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
-        return sum + s.customInstallmentCents;
-      }
-      return sum + (s.amount_cents / (s.installments || 1));
-    }
-    return sum;
-  }, 0);
-
-  const simulationIncomeImpact = activeSimulations.reduce((sum, s) => {
-    const startOffset = s.startMonthOffset ?? 0;
-    // Caso especial: Simulação de Empréstimo
-    if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-      if (monthOffset === startOffset) {
-        return sum + s.amount_cents; // Injeção total do capital no Mês de início
-      }
-      return sum;
-    }
-    // Receita parcelada normal
-    if (s.type !== "INCOME") return sum;
-    if (monthOffset >= startOffset && monthOffset < startOffset + s.installments) {
-      if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
-        return sum + s.customInstallmentCents;
-      }
-      return sum + (s.amount_cents / (s.installments || 1));
-    }
-    return sum;
-  }, 0);
+  const { incomeImpact: simulationIncomeImpact, expenseImpact: simulationExpenseImpact } = calculateSimulationImpactForMonth(activeSimulations, monthOffset);
 
   // No mês atual, incluímos a dívida total de cartão (aberta + fechada)
   // No futuro, a dívida de cartão é o installmentDebt (parcelas futuras)
@@ -879,7 +848,7 @@ export function calculateAdvancedProjection(params: {
       return sum; // Mês 0 de empréstimo não tem despesa/parcela
     }
     if (s.type === "INCOME") return sum;
-    return sum + (s.amount_cents / (s.installments || 1));
+    return sum + splitInstallmentCents(s.amount_cents, s.installments || 1, 0);
   }, 0);
 
   const simulationIncomesMonth0 = activeSimulations.reduce((sum, s) => {
@@ -890,7 +859,7 @@ export function calculateAdvancedProjection(params: {
       return sum + s.amount_cents; // Injeção total de capital do empréstimo no Mês 0
     }
     if (s.type !== "INCOME") return sum;
-    return sum + (s.amount_cents / (s.installments || 1));
+    return sum + splitInstallmentCents(s.amount_cents, s.installments || 1, 0);
   }, 0);
 
   const startBalance = currentAssetsCents;
@@ -1032,50 +1001,7 @@ export function calculateAdvancedProjection(params: {
     let goalContributions = 0;
 
     // 5. Impacto das Simulações Ativas
-    const simulationExpenses = activeSimulations.reduce((sum, s) => {
-      const startOffset = s.startMonthOffset ?? 0;
-      // Caso especial: Simulação de Empréstimo
-      if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-        // As parcelas são pagas nos meses de startOffset + 1 a startOffset + 1 + n - 1
-        if (i >= startOffset + 1 && i < startOffset + 1 + s.installments) {
-          if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
-            return sum + s.customInstallmentCents;
-          }
-          const rate = (s.interestRate && s.interestRate > 0) ? s.interestRate : 9.53;
-          return sum + calculateLoanInstallment(s.amount_cents, rate, s.installments);
-        }
-        return sum;
-      }
-      if (s.type === "INCOME") return sum;
-      // Condição i < s.installments garante a contabilização correta das parcelas seguintes (meses 1, 2, ...) sem double-count
-      if (i >= startOffset && i < startOffset + s.installments) {
-        if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
-          return sum + s.customInstallmentCents;
-        }
-        return sum + (s.amount_cents / (s.installments || 1));
-      }
-      return sum;
-    }, 0);
-
-    const simulationIncomes = activeSimulations.reduce((sum, s) => {
-      const startOffset = s.startMonthOffset ?? 0;
-      // Caso especial: Simulação de Empréstimo
-      if (s.isLoan || (s.interestRate && s.interestRate > 0 && s.type === "INCOME")) {
-        if (i === startOffset) {
-          return sum + s.amount_cents; // Injeção total de capital do empréstimo no mês de contração
-        }
-        return sum; // Nenhuma renda de empréstimo nos outros meses
-      }
-      if (s.type !== "INCOME") return sum;
-      // Condição i < s.installments garante a contabilização correta das parcelas seguintes (meses 1, 2, ...) sem double-count
-      if (i >= startOffset && i < startOffset + s.installments) {
-        if (s.customInstallmentCents !== undefined && s.customInstallmentCents > 0) {
-          return sum + s.customInstallmentCents;
-        }
-        return sum + (s.amount_cents / (s.installments || 1));
-      }
-      return sum;
-    }, 0);
+    const { incomeImpact: simulationIncomes, expenseImpact: simulationExpenses } = calculateSimulationImpactForMonth(activeSimulations, i);
 
     const totalOutflow = expenses + organicFutureExpenses + ccInstallmentsCashOut + budgetReserve + simulationExpenses;
     const totalIncome = income + organicFutureIncomes + simulationIncomes;
@@ -1360,8 +1286,8 @@ export function simulateDetailedImpact(params: {
     loan_monthly_interest_rate = monthlyRate;
 
     // Veredito da Troca de Dívida (Debt Swap)
-    // Compara com a taxa de mercado padrão do rotativo de 12% ao mês (0.12)
-    const marketRotaryRate = 0.12;
+    // Compara com a taxa de mercado padrão do rotativo de 12% ao mês (MARKET_ROTARY_RATE)
+    const marketRotaryRate = MARKET_ROTARY_RATE;
     const isRateLowerThanRotary = monthlyRate < marketRotaryRate;
     
     // Evita um colapso iminente se a liquidez atual ou projetada for negativa e este empréstimo injetar saldo positivo imediato
@@ -1718,8 +1644,9 @@ export function generateCashFlowStatement(params: {
              isGoal: false
            });
         }
-        if (monthOffset >= startOffset && monthOffset < startOffset + installments) {
-           const monthlyValue = s.customInstallmentCents || Math.round((s.amount_cents * (1 + ((s.interestRate||9.53)/100))) / installments); // Simplificado
+        const effectiveStart = startOffset + 1;
+        if (monthOffset >= effectiveStart && monthOffset < effectiveStart + installments) {
+           const monthlyValue = s.customInstallmentCents || calculateLoanInstallment(s.amount_cents, s.interestRate || DEFAULT_LOAN_MONTHLY_RATE, installments);
            simItems.push({
              id: `sim-loan-parcel-${idx}`,
              name: `Parcela: ${s.description || "Empréstimo"}`,
@@ -1733,7 +1660,8 @@ export function generateCashFlowStatement(params: {
         }
      } else {
         if (monthOffset >= startOffset && monthOffset < startOffset + installments) {
-           const monthlyValue = s.customInstallmentCents || Math.round(s.amount_cents / installments);
+           const installmentIndex = monthOffset - startOffset;
+           const monthlyValue = s.customInstallmentCents || splitInstallmentCents(s.amount_cents, installments, installmentIndex);
            simItems.push({
              id: `sim-${idx}`,
              name: s.description || "Simulação",
@@ -1797,12 +1725,26 @@ export function generateCashFlowStatement(params: {
   };
 }
 
+/**
+ * Divide um valor total em parcelas, garantindo que a soma exata das parcelas bata com o total.
+ * @param totalCents Valor total em centavos
+ * @param installments Número de parcelas
+ * @param index Índice da parcela atual (0-based)
+ */
+export function splitInstallmentCents(totalCents: number, installments: number, index: number): number {
+  if (installments <= 0) return totalCents;
+  const base = Math.floor(totalCents / installments);
+  const remainder = totalCents % installments;
+  // Joga o resto (centavos fracionados) na última parcela
+  return index === installments - 1 ? base + remainder : base;
+}
+
 ```
 
 ## 2. Agregação do Estado Financeiro (Backend)
 Arquivo: `src/app/api/financial-state/route.ts`
 
-```typescript
+```tsx
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -1864,39 +1806,7 @@ export async function GET(request: NextRequest) {
 
       if (!error && data) {
         // Enriquecer contas de cartão com dados de fatura retornados na própria RPC
-        const enrichedAccounts = (data.accounts || []).map((acc: any) => {
-          if (acc.type !== "CREDIT_CARD") return acc;
-
-          const accountInvoices = (data.invoices || []).filter((i: any) => i.account_id === acc.id);
-          
-          // Ordenar faturas por reference_month de forma crescente (mais antigas primeiro)
-          const sortedInvoices = [...accountInvoices].sort((a, b) => 
-            (a.reference_month || "").localeCompare(b.reference_month || "")
-          );
-
-          const openInvoice = sortedInvoices.find((i: any) => i.status === "OPEN");
-          const closedInvoices = sortedInvoices.filter((i: any) => i.status === "CLOSED");
-
-          const openCents = openInvoice ? (Number(openInvoice.amount_cents) || 0) : 0;
-          const closedCents = closedInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
-
-          // Dívida Consolidada Pendente Real: soma de todas as faturas abertas (OPEN) e fechadas (CLOSED) pendentes
-          const unpaidInvoices = sortedInvoices.filter((i: any) => i.status === "OPEN" || i.status === "CLOSED");
-          const unpaidDebtCents = unpaidInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
-          const totalDebt = accountInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
-
-          return {
-            ...acc,
-            open_invoice_id: openInvoice ? openInvoice.id : null,
-            closed_invoice_id: closedInvoices.length > 0 ? closedInvoices[0].id : null,
-            open_invoice_cents: openCents,
-            closed_invoice_cents: closedCents,
-            balance_cents: -totalDebt,
-            total_debt_cents: unpaidDebtCents,
-            open_invoice_month: openInvoice ? openInvoice.reference_month : null,
-            closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
-          };
-        });
+        const enrichedAccounts = enrichCreditCardAccounts(data.accounts, data.invoices);
 
         data.accounts = enrichedAccounts;
 
@@ -2057,37 +1967,7 @@ async function buildFinancialState(userId: string) {
 
 
     // Enriquecer contas de cartão com dados de faturas reais
-  const enrichedAccounts = (accounts || []).map((acc: any) => {
-    if (acc.type !== "CREDIT_CARD") return acc;
-
-    const accountInvoices = invoices.filter((i: any) => i.account_id === acc.id);
-    
-    const sortedInvoices = [...accountInvoices].sort((a, b) => 
-      (a.reference_month || "").localeCompare(b.reference_month || "")
-    );
-
-    const openInvoice = sortedInvoices.find((i: any) => i.status === "OPEN");
-    const closedInvoices = sortedInvoices.filter((i: any) => i.status === "CLOSED");
-
-    const openCents = openInvoice ? (Number(openInvoice.amount_cents) || 0) : 0;
-    const closedCents = closedInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
-
-    const unpaidInvoices = sortedInvoices.filter((i: any) => i.status === "OPEN" || i.status === "CLOSED");
-    const unpaidDebtCents = unpaidInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
-    const totalDebt = accountInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
-
-    return {
-      ...acc,
-      open_invoice_id: openInvoice ? openInvoice.id : null,
-      closed_invoice_id: closedInvoices.length > 0 ? closedInvoices[0].id : null,
-      open_invoice_cents: openCents,
-      closed_invoice_cents: closedCents,
-      balance_cents: -totalDebt,
-      total_debt_cents: unpaidDebtCents,
-      open_invoice_month: openInvoice ? openInvoice.reference_month : null,
-      closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
-    };
-  });
+  const enrichedAccounts = enrichCreditCardAccounts(accounts, invoices);
 
   const accountMap = new Map(enrichedAccounts.map((a: any) => [a.id, a]));
 
@@ -2138,13 +2018,52 @@ async function buildFinancialState(userId: string) {
   };
 }
 
+/**
+ * Enriquecer contas de cartão com dados de fatura.
+ * Refatorado para remover a duplicação e evitar o acúmulo infinito de dívida por faturas pagas (Bug #1 e #8).
+ */
+function enrichCreditCardAccounts(accounts: any[], invoices: any[]) {
+  return (accounts || []).map((acc: any) => {
+    if (acc.type !== "CREDIT_CARD") return acc;
+
+    const accountInvoices = (invoices || []).filter((i: any) => i.account_id === acc.id);
+    
+    // Ordenar faturas por reference_month de forma crescente (mais antigas primeiro)
+    const sortedInvoices = [...accountInvoices].sort((a, b) => 
+      (a.reference_month || "").localeCompare(b.reference_month || "")
+    );
+
+    const openInvoice = sortedInvoices.find((i: any) => i.status === "OPEN");
+    const closedInvoices = sortedInvoices.filter((i: any) => i.status === "CLOSED");
+
+    const openCents = openInvoice ? (Number(openInvoice.amount_cents) || 0) : 0;
+    const closedCents = closedInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
+
+    // Dívida Consolidada Pendente Real: Calculada somando as faturas OPEN e CLOSED.
+    // Como a rota pay-invoice agora marca as faturas pagas como 'PAID',
+    // as faturas pagas não são mais somadas no closedInvoices, evitando o crescimento infinito.
+    const trueDebtCents = openCents + closedCents;
+
+    return {
+      ...acc,
+      open_invoice_id: openInvoice ? openInvoice.id : null,
+      closed_invoice_id: closedInvoices.length > 0 ? closedInvoices[0].id : null,
+      open_invoice_cents: openCents,
+      closed_invoice_cents: closedCents,
+      total_debt_cents: trueDebtCents,
+      open_invoice_month: openInvoice ? openInvoice.reference_month : null,
+      closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
+    };
+  });
+}
+
 
 ```
 
 ## 3. Lógica de Fechamento de Mês (Snapshots)
 Arquivo: `src/app/api/month-closing/route.ts`
 
-```typescript
+```tsx
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -2288,6 +2207,7 @@ export async function PUT(request: NextRequest) {
     const checkingAccounts = (accounts || []).filter(a => a.type !== "CREDIT_CARD");
 
     // Upsert: se já existe, atualiza; senão, cria
+    const currentTotal = checkingAccounts.reduce((sum, acc) => sum + (Number(acc.balance_cents) || 0), 0);
     const { data, error } = await supabase
       .from("month_closings")
       .upsert({
@@ -2295,7 +2215,6 @@ export async function PUT(request: NextRequest) {
         reference_month,
         total_balance_cents,
         account_balances: checkingAccounts.map(a => {
-          const currentTotal = checkingAccounts.reduce((sum, acc) => sum + (Number(acc.balance_cents) || 0), 0);
           const proportion = currentTotal > 0
             ? (Number(a.balance_cents) || 0) / currentTotal
             : 1 / checkingAccounts.length;
@@ -2459,7 +2378,7 @@ async function calculateAndSealMonth(
 ## 4. Contexto Financeiro do Frontend
 Arquivo: `src/context/FinancialDataContext.tsx`
 
-```typescript
+```tsx
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
@@ -3263,7 +3182,7 @@ export function useFinancialData() {
 ## 5. Hook de Análise Financeira e Teto de Sobrevivência
 Arquivo: `src/hooks/useFinancialAnalysis.ts`
 
-```typescript
+```tsx
 
 import { useMemo, useCallback } from "react";
 import { useFinancialData } from "@/context/FinancialDataContext";
@@ -3578,13 +3497,13 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
 
   const debtExit = useMemo(() => {
     return calculateDebtExitProjection({
-      netLiquidityCents: netLiquidity,
-      recurringIncomeCents,
-      recurringExpensesCents,
+      netLiquidityCents: activeNetLiquidity,
+      recurringIncomeCents: recurringIncomeCents + simIncome,
+      recurringExpensesCents: recurringExpensesCents + simExpense,
       monthlyInstallmentsCents: monthlyOutlook.immediateCardDebt,
       budgets
     });
-  }, [netLiquidity, recurringIncomeCents, recurringExpensesCents, monthlyOutlook.immediateCardDebt, budgets]);
+  }, [activeNetLiquidity, recurringIncomeCents, simIncome, recurringExpensesCents, simExpense, monthlyOutlook.immediateCardDebt, budgets]);
 
   const goalProjections = useMemo(() => {
     return calculateGoalProjections({
@@ -3773,19 +3692,229 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     consultJarvisIA
   }), [activeNetLiquidity, activeDebt, activeAssets, currentAssets, creditCardUsed, monthlyOutlook, cashFlowStatement, healthScore, recurringIncomeCents, recurringExpensesCents, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn, analyzeSimulationIA, solveFinancialDilemma, optimizeSweepIA, consultJarvisIA]);
 }
+
 ```
 
 ## 6. Derivações Visuais (Resumo Consolidado) no Dashboard
-Arquivo: `src/components/RealtimeDashboard.tsx` (Trecho de lógica)
+Arquivo: `src/components/RealtimeDashboard.tsx`
 
 ```tsx
+"use client";
+
+import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { format, startOfMonth, addMonths, isSameMonth } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { 
+  Calculator, 
+  History
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
+
+// Componentes
+import { UnifiedSurvivalHeader } from "./dashboard/UnifiedSurvivalHeader";
+import { BillCommitmentCard } from "./dashboard/BillCommitmentCard";
+import { MonthNavigator } from "./MonthNavigator";
+import SpendingSimulator from "./SpendingSimulator";
+import { TransactionTimeline } from "./TransactionTimeline";
+import { ProjectedTimeline } from "./ProjectedTimeline";
+import { MonthlyConsolidatedExcel } from "./dashboard/MonthlyConsolidatedExcel";
+import { SpendingCapacity } from "./SpendingCapacity";
+import { QuickSyncModal } from "./QuickSyncModal";
+import CopilotChatPanel from "./dashboard/CopilotChatPanel";
+
+// Hooks
+import { useFinancialAnalysis } from "@/hooks/useFinancialAnalysis";
+import { useStartingBalanceOverrides } from "@/hooks/useStartingBalanceOverrides";
+import { useFinancialData } from "@/context/FinancialDataContext";
+import { useMonthClosing } from "@/hooks/useMonthClosing";
+import { getTransactionImpactDate, isRecurringExpired, calculateLoanInstallment, DEFAULT_LOAN_MONTHLY_RATE, splitInstallmentCents } from "@/domain/financial/financial-logic";
+
+interface RealtimeDashboardProps {
+  initialBalance: number;
+  initialTransactions: any[];
+  initialBudgets: any[];
+  initialRecurring: any[];
+  lastFutureTransactionDate?: string | null;
+  accounts: any[];
+}
+
+export default function RealtimeDashboard({ 
+  initialBudgets,
+  lastFutureTransactionDate
+}: RealtimeDashboardProps) {
+  const [targetDate, setTargetDate] = useState<Date>(new Date());
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [selectedAccount] = useState<any>(null);
+  const [activeSimulations, setActiveSimulations] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<"timeline" | "summary">("summary");
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+  
+  const { 
+    accounts: liveAccounts, 
+    monthTransactions: liveMonthTransactions,
+    recentTransactions: liveRecentTransactions,
+    budgets: liveBudgets,
+    goals,
+    recurringTransactions,
+    futureTransactions,
+    allTransactions: liveAllTransactions,
+    invoices: liveInvoices
+  } = useFinancialData();
+
+  // Usar dados live se disponíveis, senão inicial
+  const today = startOfMonth(new Date());
+  const isCurrentMonth = isSameMonth(targetDate, today);
+  const isPast = targetDate < today && !isSameMonth(targetDate, today);
+
+  const displayTransactions = useMemo(() => {
+    if (isCurrentMonth) {
+      return liveMonthTransactions.length > 0 ? liveMonthTransactions : liveRecentTransactions;
+    }
+    if (isPast) {
+      const targetMonth = startOfMonth(targetDate);
+      return (liveAllTransactions || []).filter(t => isSameMonth(new Date(t.date), targetMonth));
+    }
+    return [];
+  }, [isCurrentMonth, isPast, targetDate, liveMonthTransactions, liveRecentTransactions, liveAllTransactions]);
+
+  const displayBudgets = liveBudgets.length > 0 ? liveBudgets : initialBudgets;
+
+  // Cálculo de Projeção
+  const monthOffset = useMemo(() => {
+    const today = startOfMonth(new Date());
+    const target = startOfMonth(targetDate);
+    return (target.getFullYear() - today.getFullYear()) * 12 + (target.getMonth() - today.getMonth());
+  }, [targetDate]);
+
+  const { closing: monthClosing, isAutoSealed, isLoading: isClosingLoading } = useMonthClosing(monthOffset);
+
+  const { 
+    monthlyOutlook, 
+    debtExit, 
+    isCrisisMode,
+    startingBalanceCents,
+    accumulatedBalanceCents
+  } = useFinancialAnalysis(monthOffset, activeSimulations, monthClosing);
+
+  const { overrides, saveOverride, removeOverride } = useStartingBalanceOverrides();
+  const monthKey = format(startOfMonth(targetDate), "yyyy-MM");
+  const hasOverride = overrides && overrides[monthKey] !== undefined;
+
+  const isFuture = monthOffset > 0;
+
+  // Transações virtuais de simulação para o mês atual ou projetado
+  const simulationTransactions = useMemo(() => {
+    const targetMonth = startOfMonth(targetDate);
+    
+    return activeSimulations.flatMap((sim, simIdx) => {
+      const installments = sim.installments || 1;
+      
+      let monthlyAmount = Math.round(sim.amount_cents / installments);
+      if (sim.isLoan || (sim.interestRate && sim.interestRate > 0 && sim.type === "INCOME")) {
+        if (sim.customInstallmentCents !== undefined && sim.customInstallmentCents > 0) {
+          monthlyAmount = sim.customInstallmentCents;
+        } else {
+          const rate = (sim.interestRate && sim.interestRate > 0) ? sim.interestRate : DEFAULT_LOAN_MONTHLY_RATE;
+          monthlyAmount = calculateLoanInstallment(sim.amount_cents, rate, installments);
+        }
+      } else if (sim.customInstallmentCents !== undefined && sim.customInstallmentCents > 0) {
+        monthlyAmount = sim.customInstallmentCents;
+      }
+
+      const results = [];
+      const startOffset = sim.startMonthOffset ?? 0;
+      const isSimLoan = sim.isLoan || (sim.interestRate && sim.interestRate > 0 && sim.type === "INCOME");
+
+      for (let i = 0; i < installments; i++) {
+        // Para empréstimos, as parcelas correm com 1 mês de atraso (começam no mês seguinte)
+        const simDate = addMonths(new Date(), startOffset + i + (isSimLoan ? 1 : 0));
+        
+        if (isSameMonth(simDate, targetMonth)) {
+          const cleanDesc = (sim.description || 'Compra').startsWith("Simulado: ")
+            ? (sim.description || 'Compra').replace("Simulado: ", "")
+            : (sim.description || 'Compra');
+            
+          let currentMonthlyAmount = monthlyAmount;
+          if (!isSimLoan && (!sim.customInstallmentCents || sim.customInstallmentCents <= 0)) {
+            currentMonthlyAmount = splitInstallmentCents(sim.amount_cents, installments, i);
+          }
+
+          results.push({
+            id: `sim-tx-${simIdx}-${i}`,
+            description: `Simulado: ${cleanDesc} (${i + 1}/${installments})`,
+            amount_cents: currentMonthlyAmount,
+            transaction_type: isSimLoan ? ("EXPENSE" as const) : (sim.type as "INCOME" | "EXPENSE"),
+            date: simDate.toISOString(),
+            category: "Simulação"
+          });
+        }
+      }
+
+      // Empréstimo no mês de início (mês 0) injeta receita de capital
+      if (isSimLoan) {
+        const injectionDate = addMonths(new Date(), startOffset);
+        if (isSameMonth(injectionDate, targetMonth)) {
+          const cleanDesc = (sim.description || 'Compra').startsWith("Simulado: ")
+            ? (sim.description || 'Compra').replace("Simulado: ", "")
+            : (sim.description || 'Compra');
+
+          results.push({
+            id: `sim-tx-income-${simIdx}`,
+            description: `Simulado: Injeção ${cleanDesc}`,
+            amount_cents: sim.amount_cents,
+            transaction_type: "INCOME" as const,
+            date: injectionDate.toISOString(),
+            category: "Simulação"
+          });
+        }
+      }
+
+      return results;
+    });
+  }, [activeSimulations, targetDate]);
+
+  // Transações projetadas para a Timeline
+  const projectionTransactions = useMemo(() => {
+    if (!isFuture) return [];
+    const targetMonth = startOfMonth(targetDate);
+    
+    // Transações futuras agendadas alocadas corretamente na data do vencimento do cartão
+    const filteredFuture = futureTransactions.filter(t => {
+      const impactDate = getTransactionImpactDate(t, liveAccounts);
+      return isSameMonth(impactDate, targetMonth);
+    });
+    
+    // Transações virtuais baseadas em recorrentes
+    const monthKey = format(targetMonth, "yyyy-MM");
+    const virtualRecurring = recurringTransactions
+      .filter(r => r.status === 'active' && !isRecurringExpired(r.description, monthKey))
+      .map(r => ({
+        id: `virtual-${r.id}`,
+        description: r.description,
+        amount_cents: r.amount_cents,
+        transaction_type: r.transaction_type,
+        date: targetMonth.toISOString(),
+        category: r.category_id,
+        source_metadata: { recurring_id: r.id }
+      }));
+
+    return [...filteredFuture, ...virtualRecurring, ...simulationTransactions];
+  }, [isFuture, targetDate, futureTransactions, recurringTransactions, liveAccounts, simulationTransactions]);
+
+  // Preparar dados para o Resumo Excel (AGRUPADO POR CONTA)
   const consolidatedItems = useMemo(() => {
     const transactionsToUse = isFuture ? projectionTransactions : displayTransactions;
     
     // Deduplicar transações físicas/projetadas por recurring_id para evitar double-counting
     const seenRecurringIds = new Set<string>();
     const deduplicatedTransactions = transactionsToUse.filter((t: any) => {
-      const recId = t.source_metadata?.recurring_id || t.source_metadata?.['recurring_id'];
+      const recId = t.source_metadata?.recurring_id;
       if (recId) {
         if (seenRecurringIds.has(recId)) return false;
         seenRecurringIds.add(recId);
@@ -3802,16 +3931,12 @@ Arquivo: `src/components/RealtimeDashboard.tsx` (Trecho de lógica)
       if (a.type === "CREDIT_CARD") {
         let billAmount = 0;
         
-        if (monthOffset === 0) {
-          if (a.closed_invoice_month === targetMonthStr) billAmount += Number(a.closed_invoice_cents) || 0;
-          if (a.open_invoice_month === targetMonthStr) billAmount += Number(a.open_invoice_cents) || 0;
-        } else {
-          // Para meses passados ou futuros, tenta buscar a fatura real
-          const cardInvoices = (liveInvoices || []).filter(inv => 
-            inv.account_id === a.id && 
-            inv.reference_month === targetMonthStr &&
-            (inv.status === 'OPEN' || inv.status === 'CLOSED' || inv.status === 'PAID')
-          );
+        // Para todos os meses, tenta buscar a fatura real
+        const cardInvoices = (liveInvoices || []).filter(inv => 
+          inv.account_id === a.id && 
+          inv.reference_month === targetMonthStr &&
+          (inv.status === 'OPEN' || inv.status === 'CLOSED' || inv.status === 'PAID')
+        );
           
           if (cardInvoices.length > 0) {
             billAmount = cardInvoices.reduce((sum, inv) => sum + (Number(inv.amount_cents) || 0), 0);
@@ -3830,7 +3955,6 @@ Arquivo: `src/components/RealtimeDashboard.tsx` (Trecho de lógica)
               })
               .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
           }
-        }
         
         if (billAmount > 0) {
           items.push({
@@ -3879,5 +4003,304 @@ Arquivo: `src/components/RealtimeDashboard.tsx` (Trecho de lógica)
         }
       }
     });
+
+    // Transações sem conta (Simulações futuras, virtuais, etc) mantidas como itens individuais
+    const noAccountTxs = deduplicatedTransactions.filter(t => !(t as any).account_id);
+    const noAccountItems = noAccountTxs.map((t: any) => ({
+      name: t.description,
+      value: t.amount_cents,
+      type: t.transaction_type as "INCOME" | "EXPENSE",
+      category: typeof t.category === 'object' ? t.category?.name : (t.category || "Sem Conta"),
+      isInstallment: (t as any).installment_total > 1,
+      isBudget: (t as any).isBudget,
+      isGoal: (t as any).isGoal
+    }));
+
+    // No presente, as simulações ativas não vêm do banco, então injetamos separadamente
+    const simItems = !isFuture
+      ? simulationTransactions.map((t: any) => ({
+          name: t.description,
+          value: t.amount_cents,
+          type: t.transaction_type,
+          category: t.category,
+          isInstallment: false,
+          isBudget: false,
+          isGoal: false
+        }))
+      : [];
+
+    const baseItemsList = [...items, ...noAccountItems, ...simItems];
+
+    // Calcular o saldo bruto intermediário antes das provisões
+    const baseIncome = baseItemsList
+      .filter(i => i.type === "INCOME")
+      .reduce((sum, i) => sum + i.value, 0);
+    const baseExpenses = baseItemsList
+      .filter(i => i.type === "EXPENSE")
+      .reduce((sum, i) => sum + i.value, 0);
+
+    let tempBalance = startingBalanceCents + baseIncome - baseExpenses;
+
+    // Injetar provisões de orçamento
+    const budgetItems = (liveBudgets || []).map(b => {
+      const reserve = monthOffset === 0
+        ? Math.max(0, (b.amount_cents || 0) - (b.spent_cents || 0))
+        : (b.amount_cents || 0);
+      
+      if (reserve <= 0) return null;
+
+      return {
+        name: `Reserva: ${b.category_id || 'Geral'}`,
+        value: reserve,
+        type: "EXPENSE" as const,
+        category: "Orçamento",
+        isBudget: true,
+        isInstallment: false,
+        isGoal: false
+      };
+    }).filter(Boolean) as any[];
+
+    // Deduzir os orçamentos do saldo temporário
+    const totalBudgetsReserve = budgetItems.reduce((sum, item) => sum + item.value, 0);
+    tempBalance -= totalBudgetsReserve;
+
+    // Injetar provisões de metas
+    const goalItems: any[] = [];
+    const netLiquidityCents = monthlyOutlook.projectedNetLiquidity ?? 0;
+    if (netLiquidityCents >= 0 && tempBalance >= 0) {
+      const activeGoals = (goals || []).filter(g => g.status === "active" || g.status === "ACTIVE");
+      const sortedGoals = [...activeGoals].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+      
+      for (const g of sortedGoals) {
+        const contribution = Number(g.monthly_contribution_cents) || 0;
+        if (contribution <= 0) continue;
+        
+        if (tempBalance >= contribution) {
+          goalItems.push({
+            name: `Aporte Meta: ${g.name}`,
+            value: contribution,
+            type: "EXPENSE" as const,
+            category: "Metas",
+            isBudget: false,
+            isInstallment: false,
+            isGoal: true
+          });
+          tempBalance -= contribution;
+        } else {
+          break;
+        }
+      }
+    }
+
+    return [...baseItemsList, ...budgetItems, ...goalItems];
+  }, [isFuture, projectionTransactions, displayTransactions, simulationTransactions, targetDate, monthOffset, liveAccounts, futureTransactions, liveAllTransactions, liveBudgets, goals, startingBalanceCents, monthlyOutlook.projectedNetLiquidity, liveInvoices]);
+
+  const totalIncome = useMemo(() => 
+    consolidatedItems.filter((i: any) => i.type === "INCOME").reduce((sum: number, i: any) => sum + i.value, 0)
+  , [consolidatedItems]);
+
+  const totalExpenses = useMemo(() => 
+    consolidatedItems.filter((i: any) => i.type === "EXPENSE").reduce((sum: number, i: any) => sum + i.value, 0)
+  , [consolidatedItems]);
+
+  const handleSimulate = useCallback((sims: any[] | null) => {
+    setActiveSimulations(sims || []);
+  }, []);
+
+  // Calcula a data da última dívida (transação futura mais distante)
+  const lastDebtExitDate = useMemo(() => {
+    if (!futureTransactions || futureTransactions.length === 0) return null;
+    const dates = futureTransactions.map(t => new Date(t.date).getTime());
+    return new Date(Math.max(...dates));
+  }, [futureTransactions]);
+
+  const jumpToDebtExit = useCallback(() => {
+    const target = lastDebtExitDate || debtExit.exitDate;
+    if (target) {
+      console.log("🚀 Jumping to debt exit date:", target);
+      setTargetDate(new Date(target));
+    }
+  }, [lastDebtExitDate, debtExit.exitDate]);
+
+  if (!isClient) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px] bg-transparent">
+        <div className="w-8 h-8 border-4 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative flex flex-col xl:flex-row items-stretch min-h-screen bg-transparent overflow-hidden">
+      {/* Lado Esquerdo: Área do Dashboard com Encolhimento Suave */}
+      <div className={cn(
+        "flex-1 space-y-3 md:space-y-6 pb-20 mx-auto transition-all duration-500 w-full px-2 md:px-4",
+        isCopilotOpen 
+          ? "xl:max-w-none border-r border-white/5" 
+          : "max-w-[1600px] xl:px-8"
+      )}>
+        
+        {/* ROW 1 — Header Principal, full width */}
+        <UnifiedSurvivalHeader 
+          monthOffset={monthOffset} 
+          targetDate={targetDate}
+          activeSimulations={activeSimulations}
+          onJumpToDebtExit={jumpToDebtExit}
+          debtExitDate={lastDebtExitDate || debtExit.exitDate}
+          isCopilotOpen={isCopilotOpen}
+          onToggleCopilot={() => setIsCopilotOpen(!isCopilotOpen)}
+          monthClosing={monthClosing}
+          isAutoSealed={isAutoSealed}
+        />
+
+        {/* ROW 2 — Painel Unificado de Controle Temporal (Máquina do Tempo) */}
+        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-2xl md:rounded-[32px] p-3 md:p-6 shadow-2xl flex flex-col lg:flex-row gap-4 md:gap-6 lg:items-start items-stretch">
+          <div className="flex-1 min-w-0">
+            <MonthNavigator 
+              selectedDate={targetDate}
+              onDateChange={setTargetDate}
+              lastFutureTransactionDate={lastFutureTransactionDate}
+              debtExitDate={lastDebtExitDate || (debtExit.exitDate && debtExit.monthsToExit > 0 ? debtExit.exitDate : null)}
+            />
+          </div>
+          <div className="hidden lg:block w-px bg-white/5 self-stretch" />
+          <div className="flex-1 min-w-0">
+            <SpendingSimulator 
+              onSimulate={handleSimulate} 
+              targetDate={targetDate}
+            />
+          </div>
+        </div>
+
+        {/* ROW 3 — Timeline/Resumo full width */}
+        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-2xl md:rounded-[32px] overflow-hidden shadow-2xl flex flex-col">
+          <div className="flex items-center justify-between p-3 md:p-4 border-b border-white/5 shrink-0">
+            <div className="flex bg-white/5 p-0.5 md:p-1 rounded-xl border border-white/5">
+              <button 
+                onClick={() => setActiveTab("summary")}
+                className={cn(
+                  "flex items-center gap-1.5 md:gap-2 px-2.5 md:px-4 py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-wider md:tracking-widest transition-all",
+                  activeTab === "summary" ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20" : "text-white/40 hover:text-white/60"
+                )}
+              >
+                <Calculator className="w-3 h-3" />
+                Resumo Consolidado
+              </button>
+              <button 
+                onClick={() => setActiveTab("timeline")}
+                aria-label="Timeline"
+                className={cn(
+                  "flex items-center gap-1.5 md:gap-2 px-2.5 md:px-4 py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-wider md:tracking-widest transition-all",
+                  activeTab === "timeline" ? "bg-violet-600 text-white shadow-lg shadow-violet-600/20" : "text-white/40 hover:text-white/60"
+                )}
+              >
+                <History className="w-3 h-3" />
+                Linha do Tempo
+              </button>
+            </div>
+            <div className="hidden sm:block">
+              <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">
+                {isFuture ? "Projeção de Fluxo" : "Movimentações Reais"}
+              </p>
+            </div>
+          </div>
+
+          <div className="max-h-[400px] overflow-y-auto p-2 md:p-4 custom-scrollbar">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                {activeTab === "summary" ? (
+                  <MonthlyConsolidatedExcel 
+                    targetDate={targetDate}
+                    income={totalIncome}
+                    expenses={totalExpenses}
+                    balance={
+                      isPast && monthClosing?.total_balance_cents !== undefined
+                        ? monthClosing.total_balance_cents
+                        : startingBalanceCents + totalIncome - totalExpenses
+                    }
+                    startingBalance={
+                      isPast && monthClosing?.total_balance_cents !== undefined
+                        ? monthClosing.total_balance_cents - totalIncome + totalExpenses
+                        : startingBalanceCents
+                    }
+                    items={consolidatedItems}
+                    monthName={format(targetDate, "MMMM 'de' yyyy", { locale: ptBR })}
+                    hasStartingBalanceOverride={hasOverride}
+                    onUpdateStartingBalance={(cents) => {
+                      if (cents === null) {
+                        removeOverride(monthKey);
+                      } else {
+                        saveOverride(monthKey, cents);
+                      }
+                    }}
+                  />
+                ) : (
+                  isFuture ? (
+                    <ProjectedTimeline transactions={projectionTransactions as any} />
+                  ) : (
+                    <TransactionTimeline transactions={displayTransactions} />
+                  )
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* ROW 4 — Budget grid, full width (Responsividade sob Modo Copiloto) */}
+        <div className={cn(
+          "grid gap-4 md:gap-6",
+          isCopilotOpen 
+            ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-3" 
+            : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+        )}>
+          {(displayBudgets || []).map((budget, i) => (
+            <SpendingCapacity 
+              key={budget.id ? budget.id : `budget-grid-${i}`}
+              category={budget.category_id || 'Geral'}
+              spent={budget.spent_cents || 0}
+              limit={budget.amount_cents}
+            />
+          ))}
+        </div>
+
+        {selectedAccount && (
+          <QuickSyncModal 
+            isOpen={syncModalOpen}
+            onClose={() => setSyncModalOpen(false)}
+            account={selectedAccount}
+          />
+        )}
+      </div>
+
+      {/* Lado Direito: Painel do Copilot Fixo e Independente com Gaveta Deslizante Premium */}
+      <AnimatePresence>
+        {isCopilotOpen && (
+          <motion.div
+            initial={{ x: "100%", opacity: 0.5 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: "100%", opacity: 0.5 }}
+            transition={{ type: "spring", damping: 26, stiffness: 220 }}
+            className="fixed xl:sticky top-0 right-0 bottom-0 z-40 w-full md:w-[420px] xl:w-[420px] 2xl:w-[480px] h-screen border-l border-white/5 bg-transparent flex-shrink-0"
+          >
+            <CopilotChatPanel 
+              isCopilotOpen={isCopilotOpen}
+              onToggleCopilot={() => setIsCopilotOpen(false)}
+              monthOffset={monthOffset}
+              targetDate={targetDate}
+              onSimulate={handleSimulate}
+              activeSimulations={activeSimulations}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 ```

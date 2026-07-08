@@ -515,7 +515,7 @@ export function TransactionsContent({ initialTransactions, accounts: serverAccou
       </header>
 
       {/* Transactions List */}
-      <div className="space-y-8 md:space-y-12 min-h-[400px]">
+      <div data-testid="transactions-list" className="space-y-8 md:space-y-12 min-h-[400px]">
         <AnimatePresence>
           {Object.entries(groupedTransactions).map(([date, txs]) => (
             <motion.div 

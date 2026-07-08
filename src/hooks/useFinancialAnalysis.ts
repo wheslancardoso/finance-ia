@@ -36,6 +36,7 @@ export interface FinancialAnalysis {
   totalConsolidatedDebtCents: number;
   accumulatedBalanceCents: number;
   startingBalanceCents: number;
+  reconciliationAdjustmentCents: number;
   checkingBalanceCents: number;
   creditCardUsedCents: number;
   monthlyOutlook: MonthlyOutlook;
@@ -123,7 +124,21 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
         .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
       const calculated = currentAssets - paidIncomeThisMonth + paidExpenseThisMonth + paidTransferThisMonth;
-      return overrides && overrides[monthKey] !== undefined ? overrides[monthKey] : calculated;
+      
+      let finalStartingBalance = calculated;
+      if (overrides && overrides[monthKey] !== undefined) {
+        finalStartingBalance = overrides[monthKey];
+      } else {
+        const prevMonthKey = format(addMonths(targetDate, -1), "yyyy-MM");
+        if (overrides && overrides[prevMonthKey] !== undefined) {
+          finalStartingBalance = overrides[prevMonthKey];
+        } else if (monthClosing && monthClosing.total_balance_cents !== undefined) {
+           // We do not have previous monthClosing easily here because monthClosing is passed as prop
+           // The overrides is the most reliable way since we fetch all of them
+        }
+      }
+
+      return finalStartingBalance;
     }
     if (monthOffset < 0) {
       // SSOT: Usar month_closing selado quando disponível
@@ -180,6 +195,44 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     const calculated = prevOutlook.totalAssets || 0;
     return overrides && overrides[monthKey] !== undefined ? overrides[monthKey] : calculated;
   }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, activeSimulations, futureTransactions, monthTransactions, recurringTransactions, goals, survivalReserveCents, currentAssets, consolidatedTransactions, overrides, invoices, monthClosing]);
+
+  const reconciliationAdjustmentCents = useMemo(() => {
+    if (monthOffset !== 0) return 0;
+    
+    const targetDate = addMonths(new Date(), monthOffset);
+    const monthKey = format(targetDate, "yyyy-MM");
+
+    const creditCardAccountIds = new Set(
+      accounts.filter(a => a.type === "CREDIT_CARD").map(a => a.id)
+    );
+
+    const paidIncomeThisMonth = (monthTransactions || [])
+      .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
+      .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+    const paidExpenseThisMonth = (monthTransactions || [])
+      .filter(t => t.transaction_type === "EXPENSE" && t.is_paid === true && !creditCardAccountIds.has(t.account_id))
+      .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+    const paidTransferThisMonth = (monthTransactions || [])
+      .filter(t => t.transaction_type === "TRANSFER" && t.is_paid === true)
+      .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
+
+    const calculated = currentAssets - paidIncomeThisMonth + paidExpenseThisMonth + paidTransferThisMonth;
+    
+    let finalStartingBalance = calculated;
+    if (overrides && overrides[monthKey] !== undefined) {
+      finalStartingBalance = overrides[monthKey];
+    } else {
+      const prevMonthKey = format(addMonths(targetDate, -1), "yyyy-MM");
+      if (overrides && overrides[prevMonthKey] !== undefined) {
+        finalStartingBalance = overrides[prevMonthKey];
+      }
+    }
+
+    return calculated - finalStartingBalance;
+  }, [accounts, monthTransactions, monthOffset, currentAssets, overrides]);
+
 
   const prevMonthOutlook = useMemo(() => {
     if (monthOffset === 0) return null;
@@ -484,6 +537,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     totalConsolidatedDebtCents: activeDebt,
     accumulatedBalanceCents: activeAssets,
     startingBalanceCents: startingBalanceCents,
+    reconciliationAdjustmentCents: reconciliationAdjustmentCents,
     checkingBalanceCents: currentAssets,
     creditCardUsedCents: creditCardUsed,
     monthlyOutlook: {
@@ -505,5 +559,5 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     solveFinancialDilemma,
     optimizeSweepIA,
     consultJarvisIA
-  }), [activeNetLiquidity, activeDebt, activeAssets, currentAssets, creditCardUsed, monthlyOutlook, cashFlowStatement, healthScore, recurringIncomeCents, recurringExpensesCents, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn, analyzeSimulationIA, solveFinancialDilemma, optimizeSweepIA, consultJarvisIA]);
+  }), [activeNetLiquidity, activeDebt, activeAssets, currentAssets, creditCardUsed, monthlyOutlook, cashFlowStatement, healthScore, recurringIncomeCents, recurringExpensesCents, debtExit, weeklySurvival, goalProjections, simulateDetailedImpactFn, analyzeSimulationIA, solveFinancialDilemma, optimizeSweepIA, consultJarvisIA, reconciliationAdjustmentCents, startingBalanceCents]);
 }

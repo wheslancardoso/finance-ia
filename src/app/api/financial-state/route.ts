@@ -292,10 +292,10 @@ function enrichCreditCardAccounts(accounts: any[], invoices: any[]) {
     const openCents = openInvoice ? (Number(openInvoice.amount_cents) || 0) : 0;
     const closedCents = closedInvoices.reduce((sum: number, i: any) => sum + (Number(i.amount_cents) || 0), 0);
 
-    // Dívida Consolidada Pendente Real: O usuário solicitou que a Single Source of Truth
-    // para a dívida do cartão seja O PRÓPRIO SALDO DA CONTA (`balance_cents`) que vem do Supabase.
-    // Portanto, NÃO devemos sobrescrever o `balance_cents` com o somatório de faturas.
-    const trueDebtCents = Math.abs(Number(acc.balance_cents) || 0);
+    // Dívida Consolidada Pendente Real: Calculada somando as faturas OPEN e CLOSED.
+    // Como a rota pay-invoice agora marca as faturas pagas como 'PAID',
+    // as faturas pagas não são mais somadas no closedInvoices, evitando o crescimento infinito.
+    const trueDebtCents = openCents + closedCents;
 
     return {
       ...acc,
@@ -303,7 +303,6 @@ function enrichCreditCardAccounts(accounts: any[], invoices: any[]) {
       closed_invoice_id: closedInvoices.length > 0 ? closedInvoices[0].id : null,
       open_invoice_cents: openCents,
       closed_invoice_cents: closedCents,
-      // REMOVIDO: balance_cents: -totalDebt, (mantém o original do db)
       total_debt_cents: trueDebtCents,
       open_invoice_month: openInvoice ? openInvoice.reference_month : null,
       closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null

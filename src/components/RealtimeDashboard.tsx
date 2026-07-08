@@ -98,6 +98,7 @@ export default function RealtimeDashboard({
     debtExit, 
     isCrisisMode,
     startingBalanceCents,
+    reconciliationAdjustmentCents,
     accumulatedBalanceCents
   } = useFinancialAnalysis(monthOffset, activeSimulations, monthClosing);
 
@@ -230,16 +231,12 @@ export default function RealtimeDashboard({
       if (a.type === "CREDIT_CARD") {
         let billAmount = 0;
         
-        if (monthOffset === 0) {
-          if (a.closed_invoice_month === targetMonthStr) billAmount += Number(a.closed_invoice_cents) || 0;
-          if (a.open_invoice_month === targetMonthStr) billAmount += Number(a.open_invoice_cents) || 0;
-        } else {
-          // Para meses passados ou futuros, tenta buscar a fatura real
-          const cardInvoices = (liveInvoices || []).filter(inv => 
-            inv.account_id === a.id && 
-            inv.reference_month === targetMonthStr &&
-            (inv.status === 'OPEN' || inv.status === 'CLOSED' || inv.status === 'PAID')
-          );
+        // Para todos os meses, tenta buscar a fatura real
+        const cardInvoices = (liveInvoices || []).filter(inv => 
+          inv.account_id === a.id && 
+          inv.reference_month === targetMonthStr &&
+          (inv.status === 'OPEN' || inv.status === 'CLOSED' || inv.status === 'PAID')
+        );
           
           if (cardInvoices.length > 0) {
             billAmount = cardInvoices.reduce((sum, inv) => sum + (Number(inv.amount_cents) || 0), 0);
@@ -258,7 +255,6 @@ export default function RealtimeDashboard({
               })
               .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
           }
-        }
         
         if (billAmount > 0) {
           items.push({
@@ -396,8 +392,21 @@ export default function RealtimeDashboard({
       }
     }
 
-    return [...baseItemsList, ...budgetItems, ...goalItems];
-  }, [isFuture, projectionTransactions, displayTransactions, simulationTransactions, targetDate, monthOffset, liveAccounts, futureTransactions, liveAllTransactions, liveBudgets, goals, startingBalanceCents, monthlyOutlook.projectedNetLiquidity, liveInvoices]);
+    const adjustmentItems = [];
+    if (reconciliationAdjustmentCents !== 0) {
+      adjustmentItems.push({
+        name: "Ajuste de Conciliação",
+        value: Math.abs(reconciliationAdjustmentCents),
+        type: reconciliationAdjustmentCents > 0 ? "INCOME" as const : "EXPENSE" as const,
+        category: "Ajuste do Sistema",
+        isBudget: false,
+        isInstallment: false,
+        isGoal: false
+      });
+    }
+
+    return [...baseItemsList, ...budgetItems, ...goalItems, ...adjustmentItems];
+  }, [isFuture, projectionTransactions, displayTransactions, simulationTransactions, targetDate, monthOffset, liveAccounts, futureTransactions, liveAllTransactions, liveBudgets, goals, startingBalanceCents, monthlyOutlook.projectedNetLiquidity, liveInvoices, reconciliationAdjustmentCents]);
 
   const totalIncome = useMemo(() => 
     consolidatedItems.filter((i: any) => i.type === "INCOME").reduce((sum: number, i: any) => sum + i.value, 0)

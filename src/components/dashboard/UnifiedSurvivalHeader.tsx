@@ -65,7 +65,7 @@ export function UnifiedSurvivalHeader({
   const balanceLabel = isPast
     ? "Saldo Fechado"
     : (isFuture || hasSimulations)
-      ? "Saldo Projetado"
+      ? "Projeção (Fim do Mês)"
       : "Saldo em Conta";
 
   // Limite semanal vindo da inteligência do domínio
