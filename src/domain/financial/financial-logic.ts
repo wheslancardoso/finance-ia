@@ -1636,8 +1636,9 @@ export function generateCashFlowStatement(params: {
              isGoal: false
            });
         }
-        if (monthOffset >= startOffset && monthOffset < startOffset + installments) {
-           const monthlyValue = s.customInstallmentCents || Math.round((s.amount_cents * (1 + ((s.interestRate||DEFAULT_LOAN_MONTHLY_RATE)/100))) / installments); // Simplificado
+        const effectiveStart = startOffset + 1;
+        if (monthOffset >= effectiveStart && monthOffset < effectiveStart + installments) {
+           const monthlyValue = s.customInstallmentCents || calculateLoanInstallment(s.amount_cents, s.interestRate || DEFAULT_LOAN_MONTHLY_RATE, installments);
            simItems.push({
              id: `sim-loan-parcel-${idx}`,
              name: `Parcela: ${s.description || "Empréstimo"}`,
@@ -1651,7 +1652,8 @@ export function generateCashFlowStatement(params: {
         }
      } else {
         if (monthOffset >= startOffset && monthOffset < startOffset + installments) {
-           const monthlyValue = s.customInstallmentCents || Math.round(s.amount_cents / installments);
+           const installmentIndex = monthOffset - startOffset;
+           const monthlyValue = s.customInstallmentCents || splitInstallmentCents(s.amount_cents, installments, installmentIndex);
            simItems.push({
              id: `sim-${idx}`,
              name: s.description || "Simulação",
