@@ -66,7 +66,7 @@ export interface FinancialAnalysis {
  * Hook de "Ponte de Dados": Consolida a inteligência financeira do sistema.
  * Use este hook em qualquer página ou componente para obter diagnósticos consistentes.
  */
-export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations: Simulation[] = [], monthClosing?: MonthClosing | null): FinancialAnalysis {
+export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations: Simulation[] = [], monthClosing?: MonthClosing | null, prevMonthClosing?: MonthClosing | null): FinancialAnalysis {
   const { 
     accounts, 
     scheduledIncomeCents, 
@@ -111,8 +111,9 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
         accounts.filter(a => a.type === "CREDIT_CARD").map(a => a.id)
       );
 
+      // SSOT: Apenas transações de contas bancárias (excluindo cartão de crédito)
       const paidIncomeThisMonth = (monthTransactions || [])
-        .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
+        .filter(t => t.transaction_type === "INCOME" && t.is_paid === true && !creditCardAccountIds.has(t.account_id))
         .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
       const paidExpenseThisMonth = (monthTransactions || [])
@@ -120,7 +121,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
         .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
       const paidTransferThisMonth = (monthTransactions || [])
-        .filter(t => t.transaction_type === "TRANSFER" && t.is_paid === true)
+        .filter(t => t.transaction_type === "TRANSFER" && t.is_paid === true && !creditCardAccountIds.has(t.account_id))
         .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
       const calculated = currentAssets - paidIncomeThisMonth + paidExpenseThisMonth + paidTransferThisMonth;
@@ -129,12 +130,12 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       if (overrides && overrides[monthKey] !== undefined) {
         finalStartingBalance = overrides[monthKey];
       } else {
+        // SSOT: Priorizar month_closing selado do mês anterior
         const prevMonthKey = format(addMonths(targetDate, -1), "yyyy-MM");
-        if (overrides && overrides[prevMonthKey] !== undefined) {
+        if (prevMonthClosing && prevMonthClosing.total_balance_cents !== undefined) {
+          finalStartingBalance = prevMonthClosing.total_balance_cents;
+        } else if (overrides && overrides[prevMonthKey] !== undefined) {
           finalStartingBalance = overrides[prevMonthKey];
-        } else if (monthClosing && monthClosing.total_balance_cents !== undefined) {
-           // We do not have previous monthClosing easily here because monthClosing is passed as prop
-           // The overrides is the most reliable way since we fetch all of them
         }
       }
 
@@ -154,7 +155,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       const bankAccountIds = new Set(accounts.filter(a => a.type !== "CREDIT_CARD").map(a => a.id));
 
       const paidIncomeSinceThen = (consolidatedTransactions || [])
-        .filter(t => t.transaction_type === "INCOME" && t.is_paid === true && new Date(t.date) >= targetMonthStart)
+        .filter(t => t.transaction_type === "INCOME" && t.is_paid === true && bankAccountIds.has(t.account_id) && new Date(t.date) >= targetMonthStart)
         .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
       const paidExpenseSinceThen = (consolidatedTransactions || [])
@@ -162,7 +163,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
         .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
       const paidTransferSinceThen = (consolidatedTransactions || [])
-        .filter(t => t.transaction_type === "TRANSFER" && t.is_paid === true && new Date(t.date) >= targetMonthStart)
+        .filter(t => t.transaction_type === "TRANSFER" && t.is_paid === true && bankAccountIds.has(t.account_id) && new Date(t.date) >= targetMonthStart)
         .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
       const calculated = currentAssets - paidIncomeSinceThen + paidExpenseSinceThen + paidTransferSinceThen;
@@ -194,7 +195,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     
     const calculated = prevOutlook.totalAssets || 0;
     return overrides && overrides[monthKey] !== undefined ? overrides[monthKey] : calculated;
-  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, activeSimulations, futureTransactions, monthTransactions, recurringTransactions, goals, survivalReserveCents, currentAssets, consolidatedTransactions, overrides, invoices, monthClosing]);
+  }, [accounts, scheduledIncomeCents, scheduledExpensesCents, recurringIncomeCents, recurringExpensesCents, budgets, netLiquidity, monthOffset, activeSimulations, futureTransactions, monthTransactions, recurringTransactions, goals, survivalReserveCents, currentAssets, consolidatedTransactions, overrides, invoices, monthClosing, prevMonthClosing]);
 
   const reconciliationAdjustmentCents = useMemo(() => {
     if (monthOffset !== 0) return 0;
@@ -206,8 +207,9 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       accounts.filter(a => a.type === "CREDIT_CARD").map(a => a.id)
     );
 
+    // SSOT: Apenas transações de contas bancárias (excluindo cartão de crédito)
     const paidIncomeThisMonth = (monthTransactions || [])
-      .filter(t => t.transaction_type === "INCOME" && t.is_paid === true)
+      .filter(t => t.transaction_type === "INCOME" && t.is_paid === true && !creditCardAccountIds.has(t.account_id))
       .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
     const paidExpenseThisMonth = (monthTransactions || [])
@@ -215,7 +217,7 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
       .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
     const paidTransferThisMonth = (monthTransactions || [])
-      .filter(t => t.transaction_type === "TRANSFER" && t.is_paid === true)
+      .filter(t => t.transaction_type === "TRANSFER" && t.is_paid === true && !creditCardAccountIds.has(t.account_id))
       .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
 
     const calculated = currentAssets - paidIncomeThisMonth + paidExpenseThisMonth + paidTransferThisMonth;
@@ -224,14 +226,17 @@ export function useFinancialAnalysis(monthOffset: number = 0, activeSimulations:
     if (overrides && overrides[monthKey] !== undefined) {
       finalStartingBalance = overrides[monthKey];
     } else {
+      // SSOT: Priorizar month_closing selado do mês anterior
       const prevMonthKey = format(addMonths(targetDate, -1), "yyyy-MM");
-      if (overrides && overrides[prevMonthKey] !== undefined) {
+      if (prevMonthClosing && prevMonthClosing.total_balance_cents !== undefined) {
+        finalStartingBalance = prevMonthClosing.total_balance_cents;
+      } else if (overrides && overrides[prevMonthKey] !== undefined) {
         finalStartingBalance = overrides[prevMonthKey];
       }
     }
 
     return calculated - finalStartingBalance;
-  }, [accounts, monthTransactions, monthOffset, currentAssets, overrides]);
+  }, [accounts, monthTransactions, monthOffset, currentAssets, overrides, prevMonthClosing]);
 
 
   const prevMonthOutlook = useMemo(() => {

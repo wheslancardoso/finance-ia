@@ -107,65 +107,54 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
           user_id: USER_ID
         }
       ],
-      transactions: [
+      transactions: [],
+      invoices: [
         {
-          id: 't-card-nubank',
-          description: 'Fatura Nubank',
-          transaction_type: 'EXPENSE',
+          id: 'inv-nubank',
+          status: 'CLOSED',
           amount_cents: 111087, // R$ 1.110,87
-          date: '2026-05-15T12:00:00Z',
+          reference_month: '2026-06',
           account_id: 'a08c1855-400f-4b69-a2ee-c2bedfcd84f3',
-          is_paid: false,
           user_id: USER_ID
         },
         {
-          id: 't-card-inter',
-          description: 'Fatura Inter',
-          transaction_type: 'EXPENSE',
+          id: 'inv-inter',
+          status: 'CLOSED',
           amount_cents: 43374, // R$ 433,74
-          date: '2026-05-15T12:00:00Z',
+          reference_month: '2026-06',
           account_id: '0ef2dcbf-c649-4396-b54a-b28b3ac2c6a4',
-          is_paid: false,
           user_id: USER_ID
         },
         {
-          id: 't-card-mp',
-          description: 'Fatura Mercado Pago',
-          transaction_type: 'EXPENSE',
+          id: 'inv-mp',
+          status: 'CLOSED',
           amount_cents: 76020, // R$ 760,20
-          date: '2026-05-15T12:00:00Z',
+          reference_month: '2026-06',
           account_id: 'ef114ea7-3ef0-487d-8a7a-bf3b70cb6477',
-          is_paid: false,
           user_id: USER_ID
         },
         {
-          id: 't-card-picpay',
-          description: 'Fatura PicPay',
-          transaction_type: 'EXPENSE',
+          id: 'inv-picpay',
+          status: 'CLOSED',
           amount_cents: 44955, // R$ 449,55
-          date: '2026-05-15T12:00:00Z',
+          reference_month: '2026-06',
           account_id: 'ee0fcbfa-ab6e-45f6-8951-f5d016ce7f9f',
-          is_paid: false,
           user_id: USER_ID
         },
         {
-          id: 't-card-sparcelado',
-          description: 'Fatura SParcelado',
-          transaction_type: 'EXPENSE',
+          id: 'inv-sparcelado',
+          status: 'CLOSED',
           amount_cents: 9586, // R$ 95,86
-          date: '2026-05-15T12:00:00Z',
+          reference_month: '2026-06',
           account_id: 'e9b55a15-5b4a-4df0-821b-bcf322b41b6c',
-          is_paid: false,
           user_id: USER_ID
         },
         {
-          id: 't-card-neon',
-          description: 'Fatura Neon',
-          transaction_type: 'EXPENSE',
+          id: 'inv-neon',
+          status: 'CLOSED',
           amount_cents: 7108, // R$ 71,08
-          date: '2026-05-15T12:00:00Z',
+          reference_month: '2026-06',
           account_id: '65779ec4-febc-4bb7-836e-b1e7263cbacb',
-          is_paid: false,
           user_id: USER_ID
         }
       ],
@@ -442,15 +431,14 @@ test.describe('Cenários de Sobrevivência do Vesper Copilot e Projeções E2E',
           user_id: USER_ID
         }
       ],
-      transactions: [
+      transactions: [],
+      invoices: [
         {
-          id: 't-card-nubank',
-          description: 'Fatura Nubank',
-          transaction_type: 'EXPENSE',
+          id: 'inv-nubank',
+          status: 'CLOSED',
           amount_cents: 150000,
-          date: '2026-05-15T12:00:00Z',
+          reference_month: '2026-06',
           account_id: 'acc-credit-nubank',
-          is_paid: false,
           user_id: USER_ID
         }
       ]

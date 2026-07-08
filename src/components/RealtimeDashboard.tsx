@@ -92,6 +92,7 @@ export default function RealtimeDashboard({
   }, [targetDate]);
 
   const { closing: monthClosing, isAutoSealed, isLoading: isClosingLoading } = useMonthClosing(monthOffset);
+  const { closing: prevMonthClosing } = useMonthClosing(monthOffset - 1);
 
   const { 
     monthlyOutlook, 
@@ -100,11 +101,15 @@ export default function RealtimeDashboard({
     startingBalanceCents,
     reconciliationAdjustmentCents,
     accumulatedBalanceCents
-  } = useFinancialAnalysis(monthOffset, activeSimulations, monthClosing);
+  } = useFinancialAnalysis(monthOffset, activeSimulations, monthClosing, prevMonthClosing);
 
   const { overrides, saveOverride, removeOverride } = useStartingBalanceOverrides();
   const monthKey = format(startOfMonth(targetDate), "yyyy-MM");
-  const hasOverride = overrides && overrides[monthKey] !== undefined;
+  const hasOverride = !!(
+    (overrides && overrides[monthKey] !== undefined) ||
+    (monthOffset < 0 && monthClosing && monthClosing.total_balance_cents !== undefined) ||
+    (monthOffset === 0 && prevMonthClosing && prevMonthClosing.total_balance_cents !== undefined)
+  );
 
   const isFuture = monthOffset > 0;
 
@@ -229,32 +234,34 @@ export default function RealtimeDashboard({
     // Agrupar por contas (Corrente/Poupança e Cartão de Crédito)
     liveAccounts.forEach(a => {
       if (a.type === "CREDIT_CARD") {
-        let billAmount = 0;
-        
-        // Para todos os meses, tenta buscar a fatura real
+        // Single Source of Truth: Faturas reais consolidadas no banco (apenas OPEN e CLOSED, excluindo PAID)
         const cardInvoices = (liveInvoices || []).filter(inv => 
           inv.account_id === a.id && 
           inv.reference_month === targetMonthStr &&
-          (inv.status === 'OPEN' || inv.status === 'CLOSED' || inv.status === 'PAID')
+          (inv.status === 'OPEN' || inv.status === 'CLOSED')
         );
-          
-          if (cardInvoices.length > 0) {
-            billAmount = cardInvoices.reduce((sum, inv) => sum + (Number(inv.amount_cents) || 0), 0);
-          } else if (!isPast || !monthClosing) {
-            // Fallback: somar transações com impactDate (faturas futuras ou antigas não seladas)
-            const consolidatedTx = isFuture 
-              ? [...(futureTransactions || []), ...(liveAllTransactions || [])]
-              : deduplicatedTransactions;
-              
-            const uniqueTx = Array.from(new Map(consolidatedTx.map(t => [t.id, t])).values());
-            billAmount = uniqueTx
-              .filter(t => {
-                if ((t as any).account_id !== a.id) return false;
-                const impactDate = getTransactionImpactDate(t as any, liveAccounts);
-                return t.transaction_type === "EXPENSE" && isSameMonth(impactDate, targetMonth);
-              })
-              .reduce((sum, t) => sum + (Number(t.amount_cents) || 0), 0);
-          }
+        
+        const materializedBill = cardInvoices.reduce((sum, inv) => sum + (Number(inv.amount_cents) || 0), 0);
+
+        // Somar apenas transações virtuais (recorrentes projetadas) ou simulações que AINDA NÃO estão no banco
+        const virtualTxs = isFuture 
+          ? [...(futureTransactions || []), ...(simulationTransactions || [])]
+          : (simulationTransactions || []);
+
+        const virtualBill = virtualTxs.filter((t: any) => {
+          if (t.account_id !== a.id) return false;
+          // Transações reais (UUID) já estão no liveInvoices. Filtramos apenas as virtuais.
+          if (t.id && !t.id.startsWith('virtual-') && !t.id.startsWith('sim-') && !t.id.startsWith('proj-')) return false;
+          if (t.is_paid) return false;
+
+          const impactDate = getTransactionImpactDate(t as any, liveAccounts);
+          return isSameMonth(impactDate, targetMonth);
+        }).reduce((sum, t: any) => {
+          const val = Number(t.amount_cents) || 0;
+          return t.transaction_type === "EXPENSE" ? sum + val : sum - val;
+        }, 0);
+
+        const billAmount = materializedBill + virtualBill;
         
         if (billAmount > 0) {
           items.push({

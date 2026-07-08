@@ -71,6 +71,7 @@ export async function setupFinancialMocks(page: Page, state: any) {
       recent_transactions: (state.transactions || []).slice(0, 50),
       month_transactions: state.transactions || [],
       future_transactions: [],
+      invoices: state.invoices || [],
       recurringIncomeCents: recurringIncome,
       recurringExpensesCents: recurringExpenses
     };
