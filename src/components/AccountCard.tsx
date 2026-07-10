@@ -53,6 +53,7 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
   const [showMigrationInput, setShowMigrationInput] = useState(false);
   const [showAdjustmentInput, setShowAdjustmentInput] = useState(false);
   const [adjustmentValue, setAdjustmentValue] = useState("");
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const clickPendingRef = React.useRef(false);
 
   const [hasFearWarning, setHasFearWarning] = useState(false);
@@ -98,6 +99,8 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
   const showClosed = isCreditCard && closedAmount > 0;
   const invoiceAmount = showClosed ? closedAmount : openAmount;
   const invoiceId = showClosed ? liveAccount.closed_invoice_id : liveAccount.open_invoice_id;
+  const closedInvoices = liveAccount.closed_invoices || [];
+  
   const invoiceMonthRaw = showClosed
     ? (liveAccount.closed_invoice_month || "")
     : (liveAccount.open_invoice_month || "");
@@ -305,7 +308,16 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
                     {isCreditCard && (
                       <button 
                         onClick={() => {
-                          setAdjustmentValue((invoiceAmount / 100).toString());
+                          let defaultId = invoiceId;
+                          let defaultAmount = invoiceAmount;
+                          // Se houver múltiplas faturas fechadas, o reajuste atua em uma delas (por padrão a mais recente)
+                          if (closedInvoices.length > 1) {
+                            const latest = closedInvoices[closedInvoices.length - 1];
+                            defaultId = latest.id;
+                            defaultAmount = latest.amount_cents;
+                          }
+                          setSelectedInvoiceId(defaultId);
+                          setAdjustmentValue((defaultAmount / 100).toString());
                           setShowAdjustmentInput(true);
                         }}
                         data-testid="adjust-invoice-button"
@@ -320,7 +332,34 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
 
               {showAdjustmentInput && (
                 <div className="flex flex-col gap-2 mt-2 p-3 bg-white/5 rounded-2xl border border-white/10 animate-in fade-in slide-in-from-top-2">
-                  <p className="text-[8px] font-black text-white/40 uppercase tracking-widest">Valor Real da Fatura</p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-[8px] font-black text-white/40 uppercase tracking-widest">Valor Real da Fatura</p>
+                    {closedInvoices.length > 1 && (
+                      <select 
+                        className="bg-black/40 text-[10px] text-white/80 rounded px-2 py-1 border border-white/10 outline-none"
+                        value={selectedInvoiceId || ""}
+                        onChange={(e) => {
+                          const id = e.target.value;
+                          setSelectedInvoiceId(id);
+                          const inv = closedInvoices.find((i: any) => i.id === id);
+                          if (inv) {
+                            setAdjustmentValue((inv.amount_cents / 100).toString());
+                          }
+                        }}
+                      >
+                        {closedInvoices.map((inv: any) => {
+                          let labelMonth = "---";
+                          try {
+                            const [y, m] = inv.reference_month.split("-");
+                            labelMonth = format(new Date(parseInt(y), parseInt(m) - 1, 1), "MMMM/yy", { locale: ptBR });
+                          } catch (e) {}
+                          return (
+                            <option key={inv.id} value={inv.id}>Fatura {labelMonth}</option>
+                          );
+                        })}
+                      </select>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
@@ -335,24 +374,34 @@ export function AccountCard({ account: initialAccount }: AccountCardProps) {
                       disabled={isMigrationLoading}
                       onClick={async () => {
                         if (clickPendingRef.current) return;
+                        
+                        if (!selectedInvoiceId) {
+                          alert("Erro: ID da fatura não encontrado. Atualize a página e tente novamente.");
+                          return;
+                        }
+
                         const cleanValue = adjustmentValue.replace(/\./g, "").replace(",", ".");
                         const targetCents = Math.round(parseFloat(cleanValue) * 100);
                         if (isNaN(targetCents)) return;
                         
                         clickPendingRef.current = true;
                         setIsMigrationLoading(true);
-                        const diffCents = targetCents - invoiceAmount;
+                        
+                        // O amount de referência é o da fatura selecionada
+                        let referenceAmount = invoiceAmount;
+                        if (closedInvoices.length > 1) {
+                          const selectedInv = closedInvoices.find((i: any) => i.id === selectedInvoiceId);
+                          if (selectedInv) referenceAmount = selectedInv.amount_cents;
+                        }
+
+                        const diffCents = targetCents - referenceAmount;
                         
                         try {
                           if (diffCents !== 0) {
-                            const invoiceId = closedAmount > 0 
-                              ? liveAccount.closed_invoice_id 
-                              : liveAccount.open_invoice_id;
-
                             await financialService.adjustInvoiceBalance({
                               user_id: liveAccount.user_id,
                               account_id: id,
-                              invoice_id: invoiceId,
+                              invoice_id: selectedInvoiceId,
                               amount_cents: diffCents,
                               description: "Ajuste de Saldo (Manual)",
                               date: new Date().toISOString()

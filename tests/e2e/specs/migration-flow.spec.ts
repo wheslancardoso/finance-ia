@@ -15,7 +15,15 @@ test.describe('Migration Flow (ADR-004)', () => {
       ],
       categories: [{ id: 'cat-1', name: 'Aluguel', icon_name: 'Home', color_hex: '#FF0000', user_id: USER_ID }],
       transactions: [],
-      invoices: []
+      invoices: [
+        {
+          id: 'inv-closed-1',
+          account_id: 'acc-1',
+          reference_month: '2026-06',
+          status: 'CLOSED',
+          amount_cents: 0
+        }
+      ]
     });
     
     await page.goto('/');

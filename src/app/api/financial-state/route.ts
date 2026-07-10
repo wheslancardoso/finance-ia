@@ -297,15 +297,23 @@ function enrichCreditCardAccounts(accounts: any[], invoices: any[]) {
     // as faturas pagas não são mais somadas no closedInvoices, evitando o crescimento infinito.
     const trueDebtCents = openCents + closedCents;
 
+    // Se houver múltiplas faturas fechadas, a 'principal' será a mais recente (última do array ordenado)
+    const primaryClosedInvoice = closedInvoices.length > 0 ? closedInvoices[closedInvoices.length - 1] : null;
+
     return {
       ...acc,
       open_invoice_id: openInvoice ? openInvoice.id : null,
-      closed_invoice_id: closedInvoices.length > 0 ? closedInvoices[0].id : null,
+      closed_invoice_id: primaryClosedInvoice ? primaryClosedInvoice.id : null,
       open_invoice_cents: openCents,
       closed_invoice_cents: closedCents,
       total_debt_cents: trueDebtCents,
       open_invoice_month: openInvoice ? openInvoice.reference_month : null,
-      closed_invoice_month: closedInvoices.length > 0 ? closedInvoices[0].reference_month : null
+      closed_invoice_month: primaryClosedInvoice ? primaryClosedInvoice.reference_month : null,
+      closed_invoices: closedInvoices.map((i: any) => ({
+        id: i.id,
+        reference_month: i.reference_month,
+        amount_cents: i.amount_cents
+      }))
     };
   });
 }

@@ -931,7 +931,13 @@ export const financialService = {
     description: string;
     date: string;
   }) {
-    console.log("🛠️ Criando transação de ajuste de fatura:", data.description);
+    console.log("🛠️ Criando transação de ajuste de fatura:", data.description, "Invoice ID:", data.invoice_id);
+    
+    if (!data.invoice_id) {
+      console.error("❌ Falha no ajuste: invoice_id é obrigatório para reajustar faturas.");
+      return { data: null, error: new Error("invoice_id é obrigatório para reajustar faturas") };
+    }
+    
     return this.upsertTransaction({
       ...data,
       transaction_type: data.amount_cents >= 0 ? "EXPENSE" : "INCOME",

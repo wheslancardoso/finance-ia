@@ -29,3 +29,7 @@ Durante a nossa recente auditoria e centralização do Motor Financeiro (Single 
 ## 7. Adoção do Banco de Dados como SSOT Definitivo para Dívidas
 - **O Problema:** O sistema tentava sobrescrever o valor real do limite utilizado (`balance_cents`) que vinha do banco de dados somando faturas estáticas. Quando o usuário adicionava transações retroativas, a dívida ficava travada em valores defasados, gerando um gap matemático real.
 - **A Solução:** Removemos a sobreescrita forçada na API. Agora, a verdadeira Single Source of Truth para a dívida do cartão de crédito é o valor exato reportado pela tabela `accounts` no Supabase, garantindo alinhamento total e integridade imediata.
+
+## 8. Dashboard "Resumo Consolidado" alinhado 100% à SSOT
+- **O Problema:** A interface do painel consolidado ("MonthlyConsolidatedExcel") para projeções mensais continha uma lógica de *fallback* redundante. Isso causava uma série de bugs: (1) Reajustes manuais nas faturas reais (`INCOME`) eram ignorados; (2) Faturas já pagas (`PAID`) retornavam para a projeção de "Saídas", gerando dupla contabilização caso o pagamento já estivesse refletido na conta bancária.
+- **A Solução:** Removemos o *fallback* de recálculo transacional para as faturas de cartão. O sistema de projeções do Dashboard agora confia inteiramente na tabela `credit_card_invoices` (via `liveInvoices`) filtrada rigorosamente para `OPEN` ou `CLOSED`, extraindo da SSOT o valor absoluto da fatura e apenas apensando transações puramente virtuais (ainda não geradas no banco) para cálculos de projeção futura.
